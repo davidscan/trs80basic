@@ -146,6 +146,7 @@ area and runs as a fixture:
 | `logbook.bas` | sequential files: `OPEN "O"/"E"/"I"`, `PRINT#`, `LINE INPUT#`, `EOF`, `KILL`; `ON ERROR` for a missing file |
 | `starfile.bas` | random-access files: `FIELD`, `LSET`, `PUT`/`GET`, `MKI$`/`CVI`, `LOF` |
 | `life.bas` | `SET`/`RESET`/`POINT` on the 128x48 grid (run it interactively to watch) |
+| `palette.bas` | colour semigraphics, `SET(x,y,c)` — an extension; colour shows only in the interactive grid |
 | `oracle.bas` | the `OLLAMA` channel with `@TOKENS` steering the reply |
 | `trapper.bas` | `ON ERROR GOTO`, `ERR`, `ERL`, `RESUME`, `ERROR n` |
 
@@ -172,10 +173,12 @@ before `--update`.
   to look next to the `.bas` file; actually it resolves against *your*
   current directory, because the interpreter never changes directory. Run
   from where the program's data is, or call `basic` by absolute path.
-- **Batch output has no graphics.** You might expect `SET` to show up in
-  `./basic prog.bas` output; actually only printed text is streamed, because
-  the screen grid is not rendered without a terminal. `--screen` keeps the
-  control codes; interactive mode shows the picture.
+- **Batch output has no graphics, and no colour anywhere but the grid.** You
+  might expect `SET` to show up in `./basic prog.bas` output; actually only
+  printed text is streamed, because the screen grid is not rendered without
+  a terminal. `--screen` keeps the control codes; interactive mode shows the
+  picture. `SET(x,y,c)` colour renders only in the interactive grid, and
+  `POINT` reports lit/unlit regardless of colour.
 - **Printing scrolls the picture.** You might expect `POINT` to read back
   what `SET` drew; actually any `PRINT` that reaches the bottom line scrolls
   the whole screen, pixels included — read before you print, or use
