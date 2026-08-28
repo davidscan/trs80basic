@@ -1,0 +1,652 @@
+# ===================== PRINT, INPUT, READ/DATA, DIM, POKE, graphics =========
+
+function st_print(   sep, ty, tx, v, tgt, col, t, fmt) {
+    if (TY[CK, CP] == "o" && TK[CK, CP] == "#") { CP++; st_print_file(); return }
+    if (TY[CK, CP] == "o" && TK[CK, CP] == "@") {
+        CP++
+        v = e_or(); if (E) return
+        if (!isN(v)) { raise(13); return }
+        tgt = bfloor(num(v))
+        if (tgt < 0 || tgt > 1023) { raise(5); return }
+        CUR = tgt
+        if (TY[CK, CP] == "o" && (TK[CK, CP] == "," || TK[CK, CP] == ";")) CP++
+    }
+    if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") {
+        CP++
+        v = e_or(); if (E) return
+        if (isN(v)) { raise(13); return }
+        fmt = vstr(v)
+        if (TY[CK, CP] == "o" && (TK[CK, CP] == ";" || TK[CK, CP] == ",")) CP++
+        else { raise(2); return }
+        sep = 0; PUN = 0
+        for (;;) {                          # , and ; are pure separators here
+            ty = TY[CK, CP]
+            if (ty == "" || ty == "e") break
+            tx = TK[CK, CP]
+            if (ty == "o" && tx == ":") break
+            if (ty == "i" && (tx == "ELSE" || tx == "REM")) break
+            if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
+            v = e_or(); if (E) return
+            PUV[++PUN] = v
+            sep = 0
+        }
+        v = pu_output(fmt, PUN); if (E) return
+        s_puts(v)
+        if (!sep) s_nl()
+        sync_cursor()
+        return
+    }
+    sep = 0
+    for (;;) {
+        ty = TY[CK, CP]
+        if (ty == "" || ty == "e") break
+        tx = TK[CK, CP]
+        if (ty == "o" && tx == ":") break
+        if (ty == "i" && (tx == "ELSE" || tx == "REM")) break
+        if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
+        if (ty == "o" && tx == ",") {
+            sep = 1
+            col = CUR % 64
+            if (int(col / 16) >= 3) s_nl()
+            else CUR += 16 - (col % 16)
+            CP++
+            continue
+        }
+        if (ty == "i" && tx == "TAB") {
+            CP++
+            if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return }
+            CP++
+            v = e_or(); if (E) return
+            if (!isN(v)) { raise(13); return }
+            if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
+            CP++
+            t = bfloor(num(v))
+            if (t < 0 || t > 255) { raise(5); return }
+            t = t % 64
+            col = CUR % 64
+            while (col < t) { s_putc(32); col++ }
+            sep = 0
+            continue
+        }
+        v = e_or(); if (E) return
+        if (isN(v)) s_puts(fmtnum(num(v)))
+        else s_puts(vstr(v))
+        sep = 0
+    }
+    if (!sep) s_nl()
+    sync_cursor()
+}
+
+# ---- LPRINT / LLIST --------------------------------------------------------
+# The line printer is a host stream: append to $TRS80_PRINTER, or discard
+# when unset.  Same value formatting and USING support as PRINT; own column
+# counter (LPCOL) for , zones and TAB; no @, no #, no screen wrap.
+function lp_puts(s) {
+    LPCOL += length(s)
+    if (LPFILE != "") printf "%s", s >> LPFILE
+}
+
+function lp_nl() {
+    LPCOL = 0
+    if (LPFILE != "") { print "" >> LPFILE; fflush(LPFILE) }
+}
+
+function st_lprint(   sep, ty, tx, v, t, fmt) {
+    if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") {
+        CP++
+        v = e_or(); if (E) return
+        if (isN(v)) { raise(13); return }
+        fmt = vstr(v)
+        if (TY[CK, CP] == "o" && (TK[CK, CP] == ";" || TK[CK, CP] == ",")) CP++
+        else { raise(2); return }
+        sep = 0; PUN = 0
+        for (;;) {
+            ty = TY[CK, CP]
+            if (ty == "" || ty == "e") break
+            tx = TK[CK, CP]
+            if (ty == "o" && tx == ":") break
+            if (ty == "i" && (tx == "ELSE" || tx == "REM")) break
+            if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
+            v = e_or(); if (E) return
+            PUV[++PUN] = v
+            sep = 0
+        }
+        v = pu_output(fmt, PUN); if (E) return
+        lp_puts(v)
+        if (!sep) lp_nl()
+        return
+    }
+    sep = 0
+    for (;;) {
+        ty = TY[CK, CP]
+        if (ty == "" || ty == "e") break
+        tx = TK[CK, CP]
+        if (ty == "o" && tx == ":") break
+        if (ty == "i" && (tx == "ELSE" || tx == "REM")) break
+        if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
+        if (ty == "o" && tx == ",") {
+            sep = 1
+            lp_puts(substr("                ", 1, 16 - (LPCOL % 16)))
+            CP++
+            continue
+        }
+        if (ty == "i" && tx == "TAB") {
+            CP++
+            if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return }
+            CP++
+            v = e_or(); if (E) return
+            if (!isN(v)) { raise(13); return }
+            if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
+            CP++
+            t = bfloor(num(v))
+            if (t < 0 || t > 255) { raise(5); return }
+            while (LPCOL < t) lp_puts(" ")
+            sep = 0
+            continue
+        }
+        v = e_or(); if (E) return
+        if (isN(v)) lp_puts(fmtnum(num(v)))
+        else lp_puts(vstr(v))
+        sep = 0
+    }
+    if (!sep) lp_nl()
+}
+
+# OUT port,value -- accepted no-op (like DEFINT precision): both expressions
+# are evaluated (errors still raise), the port write itself does nothing.
+# OUT is a reserved word on hardware, so no period program uses it as a
+# variable name.
+function st_out(   v) {
+    v = e_or(); if (E) return
+    if (!isN(v)) { raise(13); return }
+    if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
+    CP++
+    v = e_or(); if (E) return
+    if (!isN(v)) { raise(13); return }
+}
+
+# ---- MID$ statement --------------------------------------------------------
+# MID$(v$,n[,m]) = expr : in-place replacement.  The target's length never
+# changes -- the replacement is truncated to m (if given) and to what fits.
+function st_midset(   name, key, n, m, v, s, r, cnt) {
+    if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return }
+    CP++
+    if (TY[CK, CP] != "i") { raise(2); return }
+    name = TK[CK, CP]; CP++
+    if (!strname(name)) { raise(13); return }
+    key = ""
+    if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
+    if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
+    CP++
+    v = e_or(); if (E) return
+    if (!isN(v)) { raise(13); return }
+    n = bfloor(num(v))
+    m = -1
+    if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
+        CP++
+        v = e_or(); if (E) return
+        if (!isN(v)) { raise(13); return }
+        m = bfloor(num(v))
+        if (m < 0 || m > 255) { raise(5); return }
+    }
+    if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
+    CP++
+    if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
+    CP++
+    v = e_or(); if (E) return
+    if (isN(v)) { raise(13); return }
+    r = vstr(v)
+    s = (key != "") ? ((key in VA) ? vstr(VA[key]) : "") : SV[name]
+    if (n < 1 || n > 255 || n > length(s)) { raise(5); return }
+    cnt = length(r)
+    if (m >= 0 && m < cnt) cnt = m
+    if (cnt > length(s) - n + 1) cnt = length(s) - n + 1
+    assignv(name, key, "S" substr(s, 1, n - 1) substr(r, 1, cnt) substr(s, n + cnt))
+}
+
+# ---- PRINT USING formatter -------------------------------------------------
+# Formats the tagged values PUV[1..nv] through the picture string.  Fields:
+#   numeric: # digit positions, . decimal point, , grouping (counts as a
+#     position), ** asterisk fill (+2 positions), $$ floating dollar (+2,
+#     one being the $), **$ both (+3), leading + (extra sign position),
+#     trailing - or + (sign after the number), ^^^^ exponent form.
+#     A number too wide for its field prints as % followed by the plain
+#     PRINT form.  Negative sign takes a digit position unless a sign
+#     specifier is present.
+#   string:  ! (first char), % spaces % (n+2 chars, left-justified).
+# Anything else prints literally.  The picture is reused while values
+# remain; a picture with no fields while values remain raises ?FC.
+# A value of the wrong type for a field raises ?TM.
+function pu_output(fmt, nv,   out, vi, i, n, c, j, r, consumed) {
+    out = ""; vi = 1
+    while (vi <= nv) {
+        consumed = 0
+        i = 1; n = length(fmt)
+        while (i <= n) {
+            c = substr(fmt, i, 1)
+            if (c == "!") {
+                if (vi > nv) return out
+                out = out pu_str(PUV[vi++], 1); consumed = 1
+                if (E) return ""
+                i++; continue
+            }
+            if (c == "%") {
+                j = index(substr(fmt, i + 1), "%")
+                if (j > 0 && substr(fmt, i + 1, j - 1) ~ /^ *$/) {
+                    if (vi > nv) return out
+                    out = out pu_str(PUV[vi++], j + 1); consumed = 1
+                    if (E) return ""
+                    i += j + 1; continue
+                }
+            }
+            r = pu_scan(fmt, i)
+            if (r > 0) {
+                if (vi > nv) return out
+                out = out pu_num(PUV[vi++]); consumed = 1
+                if (E) return ""
+                i += r; continue
+            }
+            out = out c
+            i++
+        }
+        if (!consumed && vi <= nv) { raise(5); return "" }
+    }
+    return out
+}
+
+# parse a numeric field at fmt[i]; returns its length, 0 if not a field.
+# Sets PU_IP (integer positions incl fill/$/commas), PU_DP/PU_DOT, PU_AST,
+# PU_DOL, PU_PLUS, PU_COMMA, PU_TS (trailing sign char), PU_EXP.
+function pu_scan(fmt, i,   j, c, got) {
+    PU_IP = 0; PU_DP = 0; PU_DOT = 0; PU_AST = 0; PU_DOL = 0
+    PU_PLUS = 0; PU_COMMA = 0; PU_TS = ""; PU_EXP = 0
+    j = i; got = 0
+    if (substr(fmt, j, 1) == "+") { PU_PLUS = 1; j++ }
+    if (substr(fmt, j, 2) == "**") {
+        PU_AST = 1; PU_IP += 2; j += 2; got = 1
+        if (substr(fmt, j, 1) == "$") { PU_DOL = 1; PU_IP++; j++ }
+    } else if (substr(fmt, j, 2) == "$$") { PU_DOL = 1; PU_IP += 2; j += 2; got = 1 }
+    for (;;) {
+        c = substr(fmt, j, 1)
+        if (c == "#") { PU_IP++; got = 1; j++; continue }
+        if (c == "," && got) { PU_IP++; PU_COMMA = 1; j++; continue }
+        break
+    }
+    if (substr(fmt, j, 1) == "." && (got || substr(fmt, j + 1, 1) == "#")) {
+        PU_DOT = 1; j++
+        while (substr(fmt, j, 1) == "#") { PU_DP++; j++ }
+        if (PU_DP > 0) got = 1
+    }
+    if (!got) return 0
+    if (substr(fmt, j, 4) == "^^^^") { PU_EXP = 1; j += 4 }
+    c = substr(fmt, j, 1)
+    if (c == "-" || c == "+") { PU_TS = c; j++ }
+    return j - i
+}
+
+# format one numeric value into the field pu_scan just described.
+# Digits come from an integer-scaled half-up round (the ROM rounds .5 up;
+# C's printf rounds it to even), built back into int/decimal parts.
+function pu_num(v,   x, ax, neg, digs, e2, es, ds, ist, dec, lead, core, w, fill, g, p, lim) {
+    if (!isN(v)) { raise(13); return "" }
+    x = num(v)
+    neg = (x < 0)
+    ax = neg ? -x : x
+    lead = PU_PLUS ? (neg ? "-" : "+") : ((neg && PU_TS == "") ? "-" : "")
+    if (PU_EXP) {
+        # significant digits fill every integer position (exponent adjusted);
+        # the sign, when shown on the left, takes one of them
+        digs = PU_IP - (lead != "" && !PU_PLUS ? 1 : 0)
+        if (digs < 1) return pu_ovf(x)
+        if (ax == 0) { e2 = 0; ds = "0" }
+        else {
+            e2 = bfloor(log(ax) / log(10)) + 1 - digs
+            lim = 10 ^ (digs + PU_DP)
+            p = int(ax / (10 ^ e2) * (10 ^ PU_DP) + 0.5)
+            if (p >= lim) { e2++; p = int(ax / (10 ^ e2) * (10 ^ PU_DP) + 0.5) }
+            else if (p < lim / 10) { e2--; p = int(ax / (10 ^ e2) * (10 ^ PU_DP) + 0.5) }
+            ds = sprintf("%.0f", p)
+        }
+        while (length(ds) < PU_DP + 1) ds = "0" ds
+        ist = substr(ds, 1, length(ds) - PU_DP)
+        dec = substr(ds, length(ds) - PU_DP + 1)
+        es = sprintf("E%s%02d", (e2 < 0 ? "-" : "+"), (e2 < 0 ? -e2 : e2))
+        core = lead ist (PU_DOT ? "." dec : "") es
+        w = PU_IP + (PU_PLUS ? 1 : 0) + (PU_DOT ? 1 + PU_DP : 0) + 4
+        while (length(core) < w) core = " " core
+    } else {
+        ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
+        while (length(ds) < PU_DP + 1) ds = "0" ds
+        ist = substr(ds, 1, length(ds) - PU_DP)
+        dec = substr(ds, length(ds) - PU_DP + 1)
+        if (ist == "0" && PU_IP == 0) ist = ""      # ".##" style field
+        if (PU_COMMA) {
+            g = ""; p = length(ist)
+            while (p > 3) { g = "," substr(ist, p - 2, 3) g; p -= 3 }
+            ist = substr(ist, 1, p) g
+        }
+        core = lead (PU_DOL ? "$" : "") ist (PU_DOT ? "." dec : "")
+        w = PU_IP + (PU_PLUS ? 1 : 0) + (PU_DOT ? 1 + PU_DP : 0)
+        if (length(core) > w) return pu_ovf(x)
+        fill = PU_AST ? "*" : " "
+        while (length(core) < w) core = fill core
+    }
+    if (PU_TS == "-") core = core (neg ? "-" : " ")
+    else if (PU_TS == "+") core = core (neg ? "-" : "+")
+    return core
+}
+
+# format one string value into a w-char field (truncate / pad right)
+function pu_str(v, w,   s) {
+    if (isN(v)) { raise(13); return "" }
+    s = vstr(v)
+    if (length(s) > w) s = substr(s, 1, w)
+    while (length(s) < w) s = s " "
+    return s
+}
+
+# field overflow: % then the number as plain PRINT would show it
+function pu_ovf(x,   t) {
+    t = fmtnum(x)
+    gsub(/^ +| +$/, "", t)
+    return "%" t
+}
+
+# ---- INPUT -----------------------------------------------------------------
+function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x) {
+    # INPUT #n is legal in immediate mode, so check before the ID guard
+    if (TY[CK, CP] == "o" && TK[CK, CP] == "#") { CP++; st_input_file(); return }
+    if (CK == "I") { raise(12); return }
+    prompt = ""; pq = 0
+    if (TY[CK, CP] == "s") {
+        if (TY[CK, CP + 1] == "o" && (TK[CK, CP + 1] == ";" || TK[CK, CP + 1] == ",")) {
+            prompt = TK[CK, CP]; CP++
+        } else {
+            # Disk BASIC prompt expression: INPUT ""+CHR$(10)+"X";A.
+            # e_prim reads the leading literal, so just evaluate from here.
+            x = e_or(); if (E) return
+            if (substr(x, 1, 1) != "S") { raise(13); return }
+            prompt = substr(x, 2)
+        }
+        if (TY[CK, CP] == "o" && TK[CK, CP] == ";") { pq = 1; CP++ }
+        else if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { pq = 2; CP++ }
+        else if (!(EXTON && at_stmt_end())) { raise(2); return }
+    }
+    if (EXTON && at_stmt_end()) {
+        # EXT (gated): INPUT with no variable -- the pause idiom
+        # (INPUT"PRESS ENTER";).  Prompt, read a line, discard it.
+        if (prompt != "") s_puts(prompt)
+        if (pq != 2) s_puts("? ")
+        line = rl_read()
+        if (RLCANCEL) { dobreak(); return }
+        if (EOFQUIT) { if (BATCH) batch_ineof(); STOPPED = 1; return }
+        return
+    }
+    nlv = 0
+    for (;;) {
+        if (TY[CK, CP] != "i") { raise(2); return }
+        name = TK[CK, CP]; CP++
+        key = ""
+        if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
+        nlv++; LV_N[nlv] = name; LV_K[nlv] = key
+        if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
+        break
+    }
+    for (;;) {                              # REDO loop
+        if (prompt != "") s_puts(prompt)
+        if (pq != 2) s_puts("? ")
+        idx = 1; nib = 0
+        ok = 1
+        for (;;) {                          # fill loop
+            line = rl_read()
+            if (RLCANCEL) { dobreak(); return }
+            if (EOFQUIT) { if (BATCH) batch_ineof(); STOPPED = 1; return }
+            nib = parse_items(line, nib)
+            while (idx <= nlv && idx <= nib) {
+                if (strname(LV_N[idx])) assignv(LV_N[idx], LV_K[idx], "S" IB[idx])
+                else {
+                    x = IB[idx]
+                    gsub(/^[ \t]+|[ \t]+$/, "", x)
+                    if (x == "") x = "0"
+                    if (!strictnum(x)) { ok = 0; break }
+                    assignv(LV_N[idx], LV_K[idx], "N" numconv(x))
+                }
+                idx++
+            }
+            if (!ok || idx > nlv) break
+            s_puts("?? ")
+        }
+        if (ok) {
+            if (nib > nlv) { s_puts("?EXTRA IGNORED"); s_nl() }
+            return
+        }
+        s_puts("?REDO FROM START"); s_nl()
+    }
+}
+
+# parse comma-separated items (quotes respected) from line into IB[base+1..]
+function parse_items(line, base,   cnt, i, n, c, j, item) {
+    cnt = base; i = 1; n = length(line)
+    for (;;) {
+        while (i <= n && substr(line, i, 1) == " ") i++
+        if (i <= n && substr(line, i, 1) == "\"") {
+            j = index(substr(line, i + 1), "\"")
+            if (j == 0) { item = substr(line, i + 1); i = n + 1 }
+            else { item = substr(line, i + 1, j - 1); i = i + j + 1 }
+            while (i <= n && substr(line, i, 1) == " ") i++
+        } else {
+            j = i
+            while (j <= n && substr(line, j, 1) != ",") j++
+            item = substr(line, i, j - i)
+            sub(/ +$/, "", item)
+            i = j
+        }
+        cnt++; IB[cnt] = item
+        if (i <= n && substr(line, i, 1) == ",") { i++; continue }
+        break
+    }
+    return cnt
+}
+
+# ---- DATA / READ / RESTORE -------------------------------------------------
+function datascan(   i, k, j) {
+    NDATA = 0
+    for (i = 1; i <= NL; i++) {
+        k = LNS[i] ""
+        if (!(k in TOKD)) tokline(k, prog[LNS[i]])
+        for (j = 1; j <= TCN[k]; j++)
+            if (TY[k, j] == "d") data_items(TK[k, j], LNS[i])
+    }
+    DATADIRTY = 0
+}
+
+function data_items(txt, ln,   ci, cn, c, j, item, wasq) {
+    ci = 1; cn = length(txt)
+    for (;;) {
+        while (ci <= cn && substr(txt, ci, 1) == " ") ci++
+        if (ci <= cn && substr(txt, ci, 1) == "\"") {
+            j = index(substr(txt, ci + 1), "\"")
+            if (j == 0) { item = substr(txt, ci + 1); ci = cn + 1 }
+            else { item = substr(txt, ci + 1, j - 1); ci = ci + j + 1 }
+            wasq = 1
+            while (ci <= cn && substr(txt, ci, 1) == " ") ci++
+        } else {
+            j = ci
+            while (j <= cn && substr(txt, j, 1) != ",") j++
+            item = substr(txt, ci, j - ci)
+            sub(/ +$/, "", item)
+            ci = j
+            wasq = 0
+        }
+        NDATA++; DITEM[NDATA] = item; DQ[NDATA] = wasq; DLINE[NDATA] = ln
+        if (ci <= cn && substr(txt, ci, 1) == ",") { ci++; continue }
+        break
+    }
+}
+
+function st_read(   name, key, x) {
+    if (DATADIRTY) datascan()
+    for (;;) {
+        if (TY[CK, CP] != "i") { raise(2); return }
+        name = TK[CK, CP]; CP++
+        key = ""
+        if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
+        if (DP > NDATA) { raise(4); return }
+        if (strname(name)) assignv(name, key, "S" DITEM[DP])
+        else {
+            x = DITEM[DP]
+            gsub(/^[ \t]+|[ \t]+$/, "", x)
+            if (x == "") x = "0"
+            if (!strictnum(x)) {
+                raise(2)
+                ERR_AT = DLINE[DP]; ERLV = DLINE[DP]
+                return
+            }
+            assignv(name, key, "N" numconv(x))
+        }
+        DP++
+        if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
+        return
+    }
+}
+
+# ---- DIM -------------------------------------------------------------------
+function st_dim(   name, nd, i, v, sz) {
+    for (;;) {
+        if (TY[CK, CP] != "i") { raise(2); return }
+        name = TK[CK, CP]; CP++
+        if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) {
+            # EXT (gated): DIM of a scalar (DIM Z!,V!,L$ declaration lists,
+            # period habit for variable-lookup speed) -- accepted no-op
+            if (EXTON && (at_stmt_end() || (TY[CK, CP] == "o" && TK[CK, CP] == ","))) {
+                if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
+                return
+            }
+            raise(2); return
+        }
+        CP++
+        nd = 0
+        for (;;) {
+            v = e_or(); if (E) return
+            if (!isN(v)) { raise(13); return }
+            sz = bfloor(num(v))
+            if (sz < 0) { raise(9); return }
+            nd++; DIMB[nd] = sz
+            if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
+            break
+        }
+        if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
+        CP++
+        if (name in ADIM) { raise(10); return }
+        ADIM[name] = nd
+        for (i = 1; i <= nd; i++) ASZ[name, i] = DIMB[i]
+        if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
+        return
+    }
+}
+
+# ---- PEEK / POKE -----------------------------------------------------------
+function addrconv(x) {
+    x = bfloor(x)
+    if (x < 0) x += 65536
+    if (x < 0 || x > 65535) { raise(5); return -1 }
+    return x
+}
+
+function dopeek(x,   a) {
+    a = addrconv(x)
+    if (E) return 0
+    if (a >= 15360 && a <= 16383) return SCR[a - 15360]
+    if (a >= 14336 && a <= 14591) return kb_matrix(a - 14336)
+    # 37E8H-37E9H printer status: 63 = attached and ready, matching the
+    # always-ready LPRINT host stream (corpus idiom: IF PEEK(14312)<>63
+    # waits; =255 means no printer; >127 means busy).  POKEs land in MEM
+    # but are never read back -- on hardware these regions are not RAM.
+    if (a == 14312 || a == 14313) return 63
+    # 40AA-40ACH: the ROM RND seed, live and POKEable (rnd_* in p90)
+    if (a >= 16554 && a <= 16556) return rnd_peek(a - 16554)
+    # live system pointers + the read-only tokenized program image (p75)
+    if (a == 16548 || a == 16549 || a == 16561 || a == 16562 || a == 16633 || a == 16634)
+        return pm_sysptr(a)
+    if (a in SPK) return sp_peek(a)               # VARPTR string space (p75)
+    if (a >= 17129) {
+        if (a > HIMEM) return 255                 # absent RAM above MEMORY SIZE
+        pm_sync()
+        if (a < PMEND) return PMEM[a]
+    }
+    return (a in MEM) ? MEM[a] : 255
+}
+
+function st_poke(   v, a, b) {
+    v = e_or(); if (E) return
+    if (!isN(v)) { raise(13); return }
+    a = addrconv(num(v)); if (E) return
+    if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
+    CP++
+    v = e_or(); if (E) return
+    if (!isN(v)) { raise(13); return }
+    b = bfloor(num(v)) % 256
+    if (b < 0) b += 256
+    if (a >= 15360 && a <= 16383) { s_poke(a - 15360, b); sync_cursor() }
+    else if (a >= 16554 && a <= 16556) rnd_poke(a - 16554, b)
+    else if (a in SPK) sp_poke(a, b)              # VARPTR write-through (p75)
+    else if (a > HIMEM) { }                       # absent RAM: discarded
+    else MEM[a] = b
+}
+
+# ---- SET / RESET / POINT ---------------------------------------------------
+function st_setreset(on,   v, x, y, col) {
+    if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return }
+    CP++
+    v = e_or(); if (E) return
+    if (!isN(v)) { raise(13); return }
+    x = bfloor(num(v))
+    if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
+    CP++
+    v = e_or(); if (E) return
+    if (!isN(v)) { raise(13); return }
+    y = bfloor(num(v))
+    col = -1                                # -1 = no color given (textbook)
+    if (on && TY[CK, CP] == "o" && TK[CK, CP] == ",") {
+        # EXT: SET(x,y,c) -- optional CoCo-style color 0-8.  Valid Level II
+        # never writes a third argument, so period programs are unaffected;
+        # RESET stays strictly two-argument.
+        CP++
+        v = e_or(); if (E) return
+        if (!isN(v)) { raise(13); return }
+        col = bfloor(num(v))
+        if (col < 0 || col > 8) { raise(5); return }
+    }
+    if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
+    CP++
+    if (x < 0 || x > 127 || y < 0 || y > 47) { raise(5); return }
+    if (on) gset(x, y, col); else greset(x, y)
+    sync_cursor()
+}
+
+function gcell(x, y) { return int(y / 3) * 64 + int(x / 2) }
+function gbit(x, y) { return 2 ^ ((x % 2) + 2 * (y % 3)) }
+
+function gset(x, y, col,   p, b) {
+    p = gcell(x, y); b = SCR[p]
+    if (b < 128 || b > 191) b = 128
+    b = 128 + or(b - 128, gbit(x, y))
+    # EXT: color is per character cell, last SET wins; a plain SET returns
+    # the cell to default (B&W).  POINT is unaffected either way.
+    if (col >= 0) CCOL[p] = col; else delete CCOL[p]
+    s_poke(p, b)
+}
+
+function greset(x, y,   p, b) {
+    p = gcell(x, y); b = SCR[p]
+    if (b < 128 || b > 191) { s_poke(p, 128); return }
+    b = 128 + and(b - 128, 63 - gbit(x, y))
+    s_poke(p, b)
+}
+
+function gpoint(x, y,   p, b) {
+    if (x < 0 || x > 127 || y < 0 || y > 47) { raise(5); return 0 }
+    p = gcell(x, y); b = SCR[p]
+    if (b < 128 || b > 191) return 0
+    return and(b - 128, gbit(x, y)) ? -1 : 0
+}

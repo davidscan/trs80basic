@@ -1,0 +1,8 @@
+.DS_Store
+.claude/settings.local.json
+__pycache__/
+*.pyc
+dist/
+windows/cache/
+# local corpus link, never tracked
+corpus

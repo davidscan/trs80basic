@@ -1,0 +1,23 @@
+
+10 REM RUN WITH: TRS80_OLLAMA_CURL="sh programs/tests/ollama_stub.sh"
+20 OPEN "I",1,"OLLAMA:stub:t13chat"
+30 PRINT "LOC OPEN=";LOC(1);"EOF=";EOF(1)
+40 PRINT #1, "First line of prompt"
+50 PRINT #1, "second, with comma"
+60 LINE INPUT #1, L$
+70 PRINT "R: [";L$;"]"
+80 IF NOT EOF(1) THEN 60
+90 PRINT "LOC=";LOC(1)
+100 CLOSE 1
+110 OPEN "O",2,"OLLAMA:stub:t13chat"
+120 PRINT "RELOAD LOC=";LOC(2)
+130 PRINT #2, "again"
+140 LINE INPUT #2, L$: LINE INPUT #2, L$
+150 INPUT #2, X, Y, W$
+160 PRINT "CSV:";X;Y;"[";W$;"]"
+170 PRINT "EOF=";EOF(2);"LOC=";LOC(2)
+180 CLOSE
+190 KILL "t13chat.ollama"
+200 END
+RUN
+BYE

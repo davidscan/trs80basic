@@ -1,0 +1,137 @@
+# TRS-80 Level II BASIC keyword tokens.
+#
+# Single-byte tokens 0x80-0xFB as stored in the tokenized ("crunched") cassette
+# format.  Format: <hex byte><TAB><expansion>.  Lines starting with # are
+# comments.  Expansion is emitted verbatim -- Level II LIST inserts no spaces
+# around tokens, so `81` + `X` + `D5` + `31` lists as FORX=1, which is how
+# period listings actually read.
+#
+# Entries marked VERIFIED below were confirmed by hand-decoding bytes out of
+# programs/LargeCollection; the rest are the published Level II table and are
+# exercised by tools/detok.py --check over the corpus.
+#
+# byte	expansion
+80	END
+81	FOR
+82	RESET
+83	SET
+84	CLS
+85	CMD
+86	RANDOM
+87	NEXT
+88	DATA
+89	INPUT
+8A	DIM
+8B	READ
+8C	LET
+8D	GOTO
+8E	RUN
+8F	IF
+90	RESTORE
+91	GOSUB
+92	RETURN
+93	REM
+94	STOP
+95	ELSE
+96	TRON
+97	TROFF
+98	DEFSTR
+99	DEFINT
+9A	DEFSNG
+9B	DEFDBL
+9C	LINE
+9D	EDIT
+9E	ERROR
+9F	RESUME
+A0	OUT
+A1	ON
+A2	OPEN
+A3	FIELD
+A4	GET
+A5	PUT
+A6	CLOSE
+A7	LOAD
+A8	MERGE
+A9	NAME
+AA	KILL
+AB	LSET
+AC	RSET
+AD	SAVE
+AE	SYSTEM
+AF	LPRINT
+B0	DEF
+B1	POKE
+B2	PRINT
+B3	CONT
+B4	LIST
+B5	LLIST
+B6	DELETE
+B7	AUTO
+B8	CLEAR
+B9	CLOAD
+BA	CSAVE
+BB	NEW
+BC	TAB(
+BD	TO
+BE	FN
+BF	USING
+C0	VARPTR
+C1	USR
+C2	ERL
+C3	ERR
+C4	STRING$
+C5	INSTR
+C6	POINT
+C7	TIME$
+C8	MEM
+C9	INKEY$
+CA	THEN
+CB	NOT
+CC	STEP
+CD	+
+CE	-
+CF	*
+D0	/
+D1	[
+D2	AND
+D3	OR
+D4	>
+D5	=
+D6	<
+D7	SGN
+D8	INT
+D9	ABS
+DA	FRE
+DB	INP
+DC	POS
+DD	SQR
+DE	RND
+DF	LOG
+E0	EXP
+E1	COS
+E2	SIN
+E3	TAN
+E4	ATN
+E5	PEEK
+E6	CVI
+E7	CVS
+E8	CVD
+E9	EOF
+EA	LOC
+EB	LOF
+EC	MKI$
+ED	MKS$
+EE	MKD$
+EF	CINT
+F0	CSNG
+F1	CDBL
+F2	FIX
+F3	LEN
+F4	STR$
+F5	VAL
+F6	ASC
+F7	CHR$
+F8	LEFT$
+F9	RIGHT$
+FA	MID$
+FB	'

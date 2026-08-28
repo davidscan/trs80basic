@@ -1,0 +1,225 @@
+#!/usr/bin/env gawk -f
+# ===========================================================================
+# trs80basic.awk -- TRS-80 Model I LEVEL II BASIC interpreter in GNU awk
+#
+# Run:   gawk -f trs80basic.awk        (or ./trs80basic.awk if executable)
+# Exit:  BYE   (restores terminal; if killed abnormally, run: stty sane)
+# BREAK: Ctrl-C  (stops a running program: "BREAK IN nnnn"; CONT resumes)
+#
+# Requires: GNU awk >= 5.0, a VT100/ANSI terminal >= 64x20, UTF-8 locale.
+# Uses stty/dd/od for raw keyboard input (permitted external utilities).
+# The simulated TRS-80 display is 64x16 at terminal rows 1-16; display
+# memory is 15360..16383; PEEK/POKE/SET/RESET/POINT/PRINT@/CHR$ all share
+# the internal screen buffer.  Semigraphics 128-191 render as Unicode
+# "sextant" 2x3 block mosaics (exact bit-for-bit); set env TRS80_GFX=braille
+# or TRS80_GFX=ascii for fallback renderings if your font lacks sextants.
+#
+# Batch mode (not part of Level II): given a filename argument the interpreter
+# LOADs and RUNs it non-interactively, then exits -- 0 clean, 1 uncaught BASIC
+# error, 2 bad invocation.  stdin is reserved for the program's own INPUT/GET;
+# BASIC error messages go to stderr.  See `basic --help` and p45_batch.awk.
+#
+# Debug/testing aids (not part of Level II): with no tty (piped stdin) the
+# interpreter reads commands line-by-line from stdin and ANSI positioning
+# auto-disables (plain teletype output; --screen keeps the grid, TRS80_DUMB=1
+# forces plain even on a tty); immediate command @DUMP prints the 16
+# screen-buffer rows.
+#
+# See RELEASE_NOTES.md for the full command list, omissions and quirks.
+#
+# Copyright (c) 2026 David Forbis.  Licensed under the GNU General Public
+# License v3.0; see the LICENSE file.  No warranty.
+# ===========================================================================
+
+BEGIN {
+    CONVFMT = "%.17g"; OFMT = "%.17g"
+    # native-Windows gate: there system()/pipes go to cmd.exe, no Unix
+    # userland (see WINDOWS.md).  COMSPEC is never set on Unix, and Git
+    # Bash/MSYS/WSL all set SHELL, so both conditions must hold.
+    # TRS80_WINNATIVE=0/1 overrides the probe (branch-selection testing).
+    if ("TRS80_WINNATIVE" in ENVIRON) WINNATIVE = ENVIRON["TRS80_WINNATIVE"] + 0
+    else WINNATIVE = ("COMSPEC" in ENVIRON && !("SHELL" in ENVIRON))
+    if (!parse_args()) { usage("/dev/stderr"); exit 2 }
+    if (OPT_HELP) { usage(""); exit 0 }
+    if (SEEDED) srand(OPT_SEED); else srand()
+    init_tables()
+    if (BATCH && !OPT_SCREEN) DUMB = 1      # batch output is plain by default
+    if (OPT_SCREEN) DUMB = 0
+    kb_init()
+    if (!TTYIN && !OPT_SCREEN) DUMB = 1     # no tty: stream plainly (--screen keeps the grid)
+    t_init()
+    if (BATCH) {
+        RC = batch_main()
+        fio_closeall()
+        t_done()
+        exit RC
+    }
+    s_cls()
+    s_puts("MEMORY SIZE? "); sync_cursor()
+    BOOTMS = rl_read()
+    # honored since 2026-08-14 (p75): a numeric answer becomes the top of
+    # RAM -- PEEK above it reads 255, POKE above it is discarded, and
+    # PEEK(16561)+256*PEEK(16562) reports it (the classic idiom).  ENTER
+    # keeps the full 65535.
+    if (BOOTMS ~ /^[ \t]*[0-9]+[ \t]*$/ && BOOTMS + 0 >= 17280 && BOOTMS + 0 <= 65535) {
+        HIMEM = BOOTMS + 0; SSP = HIMEM
+    }
+    s_nl()
+    s_puts("RADIO SHACK LEVEL II BASIC"); s_nl()
+    show_banner()
+    repl()
+    fio_closeall()                          # flush any open files on exit
+    t_done()
+    exit 0
+}
+
+function init_tables(   i, c, m, n) {
+    # character code <-> single-char string tables (byte-value semantics)
+    for (i = 0; i < 256; i++) { c = sprintf("%c", i); CHR[i] = c; ORD[c] = i }
+    # EXT: SET(x,y,c) color codes 0-8 (the CoCo Color BASIC palette) ->
+    # xterm-256 foreground numbers.  0 black, 1 green, 2 yellow, 3 blue,
+    # 4 red, 5 buff, 6 cyan, 7 magenta, 8 orange.
+    split("16 40 226 21 196 230 51 201 208", m, " ")
+    for (i = 0; i <= 8; i++) GCANSI[i] = m[i + 1]
+    # LPRINT/LLIST printer stream: append to $TRS80_PRINTER, or discard when
+    # unset (the hardware analog: printing into no attached printer)
+    LPFILE = ("TRS80_PRINTER" in ENVIRON) ? ENVIRON["TRS80_PRINTER"] : ""
+    LPCOL = 0
+    # EXT gate: syntax that valid Level II rejects but damaged OCR listings
+    # can plausibly spell (bare/prompt-only INPUT, DIM of a scalar) is only
+    # accepted when this is on -- `ext on` metacommand or TRS80_EXT=1 --
+    # so the interpreter stays a strict ?SN oracle by default.
+    EXTON = ("TRS80_EXT" in ENVIRON && ENVIRON["TRS80_EXT"] != "" && ENVIRON["TRS80_EXT"] != "0")
+    # error codes 1..23 (LEVEL II order), 24..31 (Disk BASIC file I/O):
+    # BN bad file number, NO file not open, AO file already open, IE input
+    # past end, BM bad file mode, FF file not found, BR bad record number,
+    # FO field overflow
+    NERRC = split("NF SN RG OD FC OV OM UL BS DD /0 ID TM OS LS ST CN NR RW UE MO FD L3 BN NO AO IE BM FF BR FO", ERRC, " ")
+    # display glyphs
+    GFXMODE = ENVIRON["TRS80_GFX"]
+    if (GFXMODE != "braille" && GFXMODE != "ascii") GFXMODE = "sextant"
+    for (i = 0; i < 32; i++) GL[i] = " "
+    for (i = 32; i < 127; i++) GL[i] = CHR[i]
+    GL[127] = " "
+    for (i = 128; i < 192; i++) GL[i] = sext_glyph(i - 128)
+    for (i = 192; i < 256; i++) GL[i] = GL[i - 64]   # Model I bit-6 aliasing
+    # Model III character sets for codes 192-255 (CHR$(21)/CHR$(22), p20):
+    # the special set (card suits, Greek, math) and the halfwidth-Katakana
+    # alternate set.  Unicode transcription from George Phillips's
+    # m3unicode.c (48k.ca/fonts.html); the seven 0xE0xx entries exist only
+    # in the Kreative Korp TRS-80 fonts' private-use area and need those
+    # fonts to render.  Default display stays Model I bit-6 aliasing.
+    n = split("2660 2665 2666 2663 263a 2639 2264 2265 " \
+              "3b1 3b2 3b3 3b4 3b5 3b6 3b7 3b8 " \
+              "3b9 3ba 3bb 3bc 3bd 3be 3bf 3c0 " \
+              "3c1 3c3 3c4 3c5 3c6 3c7 3c8 3c9 " \
+              "2126 221a f7 2211 2248 2206 2307 2260 " \
+              "2301 e0e9 237e 221e 2713 a7 2318 a9 " \
+              "a4 b6 a2 ae e0f4 e0f5 e0f6 211e " \
+              "2105 2642 2640 e0fb e0fc e0fd e0fe 2302", m, " ")
+    for (i = 0; i < 64; i++) GLSPEC[i] = sprintf("%c", strtonum("0x" m[i + 1]))
+    GLKANA[0] = sprintf("%c", 0xa5)                  # C0 = Yen sign
+    for (i = 1; i < 64; i++) GLKANA[i] = sprintf("%c", 0xff60 + i)
+    M3MODE = 0; M3KANA = 0; WIDE = 0
+    DUMB = (ENVIRON["TRS80_DUMB"] != "")
+    # misc state
+    CUR = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
+    FSN = 0; GSN = 0; CONTOK = 0; TRACE = 0
+    EHANDLER = 0; INHANDLER = 0; ERRV = 0; ERLV = 0
+    E = 0; RLCANCEL = 0; EOFQUIT = 0; PENDBRK = 0
+    BRKCTR = 0; BRKEVERY = 400
+    FNLIST = " ABS INT FIX SGN SQR SIN COS TAN ATN LOG EXP RND CINT CSNG CDBL PEEK POS FRE LEN ASC VAL CHR$ STR$ STRING$ LEFT$ RIGHT$ MID$ INSTR POINT TAB EOF LOF LOC MKI$ MKS$ MKD$ CVI CVS CVD "
+    # execution throttle: emulate a target Z80 clock (MHz).  A statement is
+    # charged CYCPERSTMT "cycles"; delay = CYCPERSTMT/(MHz*1e6) seconds, batched
+    # (see execloop).  MHz<=0 => full speed.  Tune the feel via TRS80_MHZ / speed.
+    CYCPERSTMT = 1000; DACC = 0; THROTTLE_D = 0
+    set_speed(ENVIRON["TRS80_MHZ"] + 0)
+    # ROM RND seed (40AA-40ACH): boot writes only the middle byte, like the
+    # real ROM's R-register init -- gawk rand() is the entropy source, so
+    # --seed makes the whole RND sequence repeatable (rnd_* in p90).
+    RNDSEED = 0; rnd_setmid(int(rand() * 256))
+    # memory model (p75): top of RAM (MEMORY SIZE? may lower it), stale flag
+    # for the PEEKable tokenized program image, VARPTR string-space pointer
+    HIMEM = 65535; PROGDIRTY = 1; PMEND = 0; SSP = HIMEM
+    # 400CH (16396): the DOS entry vector.  On a cassette Level II machine
+    # it holds a RET (201); under Disk BASIC it holds a jump into DOS, so
+    # listings probe it -- `IF PEEK(16396)=201` -- to pick their cassette
+    # branch.  This IS a cassette Level II, so 201 is the honest answer.
+    # Answering 255 (absent RAM) sent every such listing down its DISK
+    # branch and straight into CMD, which is not implemented here: 88
+    # rescued listings use the probe, and 29 sit in blocked/cmd/ for no
+    # other reason (measured -- Z80 sub-project FINDING 16).  Seeded into
+    # MEM rather than special-cased in dopeek so POKE 16396 still works.
+    MEM[16396] = 201
+    init_man()
+}
+
+# recompute the per-statement throttle delay from a target clock in MHz
+function set_speed(mhz) {
+    if (WINNATIVE) mhz = 0      # cmd.exe has no sub-second sleep: throttle off
+    THROTTLE_MHZ = (mhz > 0 ? mhz : 0)
+    THROTTLE_D = (THROTTLE_MHZ > 0 ? CYCPERSTMT / (THROTTLE_MHZ * 1000000) : 0)
+    DACC = 0
+}
+
+# load help text for the `man` metacommand from an editable text file
+# (support/manpages.txt, or the file named by TRS80_MANFILE).  Format: a line
+# starting with ':' lists one or more keywords (space/comma-separated) that all
+# share the body running to the next ':' line; '#' lines and text before the
+# first ':' are ignored.  A missing file just leaves the table empty (man then
+# reports "no manual entries loaded") -- everything else works.  MANN counts
+# loaded keywords.
+function init_man(   fn, line, r, keys, nk, hdr, body, started) {
+    MANN = 0; started = 0
+    fn = ENVIRON["TRS80_MANFILE"]
+    if (fn == "") fn = "support/manpages.txt"
+    while ((r = (getline line < fn)) > 0) {
+        sub(/\r$/, "", line)
+        if (substr(line, 1, 1) == "#") continue
+        if (substr(line, 1, 1) == ":") {
+            if (started) man_commit(keys, nk, body)
+            hdr = substr(line, 2)
+            sub(/^[ \t]+/, "", hdr); sub(/[ \t]+$/, "", hdr)
+            nk = split(hdr, keys, /[ \t,]+/)
+            body = ""; started = 1
+            continue
+        }
+        if (!started) continue
+        body = (body == "" ? line : body "\n" line)
+    }
+    close(fn)
+    if (started) man_commit(keys, nk, body)
+}
+
+# store one man entry (trailing blank lines trimmed) under each of its keywords
+function man_commit(keys, nk, body,   i, k) {
+    sub(/\n+$/, "", body)
+    for (i = 1; i <= nk; i++) {
+        k = toupper(keys[i])
+        if (k != "") { MANTXT[k] = body; MANN++ }
+    }
+}
+
+# TRS-80 semigraphics bitmask m (0..63): TL=1 TR=2 ML=4 MR=8 BL=16 BR=32
+function sext_glyph(m,   b, n) {
+    if (GFXMODE == "ascii") {
+        n = (m%2) + int(m/2)%2 + int(m/4)%2 + int(m/8)%2 + int(m/16)%2 + int(m/32)
+        return substr(" ..:+##@", n + 1, 1)
+    }
+    if (GFXMODE == "braille") {
+        b = 0x2800
+        if (m %  2 >= 1) b += 1     # TL -> dot1
+        if (int(m/2) % 2)  b += 8   # TR -> dot4
+        if (int(m/4) % 2)  b += 2   # ML -> dot2
+        if (int(m/8) % 2)  b += 16  # MR -> dot5
+        if (int(m/16) % 2) b += 4   # BL -> dot3
+        if (int(m/32))     b += 32  # BR -> dot6
+        return sprintf("%c", b)
+    }
+    # sextant mode: Unicode "Symbols for Legacy Computing" (bit order matches)
+    if (m == 0)  return " "
+    if (m == 63) return sprintf("%c", 0x2588)   # full block
+    if (m == 21) return sprintf("%c", 0x258C)   # left half
+    if (m == 42) return sprintf("%c", 0x2590)   # right half
+    return sprintf("%c", 0x1FB00 + m - 1 - (m > 21 ? 1 : 0) - (m > 42 ? 1 : 0))
+}

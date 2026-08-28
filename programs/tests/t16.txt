@@ -1,0 +1,41 @@
+
+PRINT USING "##.##"; 2.359
+PRINT USING "##.##"; -2.35
+PRINT USING "#"; 0.5
+PRINT USING "##"; 123
+PRINT USING "#,###,###"; 1234567
+PRINT USING "**####"; 12
+PRINT USING "$$###.##"; 45.5
+PRINT USING "**$###.##"; 8.5
+PRINT USING "$$#,###.##"; 1234.5
+PRINT USING "+###"; 42
+PRINT USING "+###"; -42
+PRINT USING "###-"; -42
+PRINT USING "###-"; 42
+PRINT USING "###+"; -42
+PRINT USING "##.##^^^^"; 234.56
+PRINT USING "##.##^^^^"; -0.00123
+PRINT USING ".##"; 0.567
+PRINT USING "##."; 12.7
+PRINT USING "!"; "ABCDEF"
+PRINT USING "%   %"; "ABCDEFG"
+PRINT USING "%   %"; "AB"
+PRINT USING "TOTAL: ###.# UNITS"; 45.67
+PRINT USING "## AND "; 1; 2; 3
+PRINT USING "##.##"; 0
+PRINT USING "A"+"##"; 7
+PRINT USING "###"; "OOPS"
+PRINT USING "!"; 5
+PRINT USING "NO FIELDS"; 1
+10 OPEN "O",1,"/tmp/t16_pu.txt"
+20 PRINT #1, USING "$$#,###.##"; 1234.5
+30 PRINT #1, USING "## "; 1; 2; 3
+40 CLOSE 1
+50 OPEN "I",1,"/tmp/t16_pu.txt"
+60 LINE INPUT #1, A$: PRINT A$
+70 LINE INPUT #1, B$: PRINT B$
+80 CLOSE 1
+90 KILL "/tmp/t16_pu.txt"
+RUN
+NEW
+BYE

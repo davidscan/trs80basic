@@ -1,0 +1,26 @@
+10 REM RUN WITH: TRS80_OLLAMA_CURL="sh programs/tests/ollama_stub.sh"
+20 OPEN "I",1,"OLLAMA:stub"
+30 PRINT #1, "plain send, no directives"
+40 LINE INPUT #1, L$: PRINT "A: [";L$;"]"
+50 IF NOT EOF(1) THEN LINE INPUT #1, L$: GOTO 50
+60 PRINT #1, "@TOKENS REFUSE, ADMIT_ALLEY"
+70 PRINT #1, "@THINK 0"
+80 PRINT #1, "@KEEPALIVE 30m"
+90 PRINT #1, "@@literal at-line"
+100 PRINT #1, "the prompt proper"
+110 LINE INPUT #1, T$: PRINT "TOKEN: [";T$;"]"
+120 LINE INPUT #1, L$: PRINT "B1: [";L$;"]"
+130 LINE INPUT #1, L$: PRINT "B2: [";L$;"]"
+140 PRINT "EOF=";EOF(1)
+150 PRINT #1, "sticky check: think and keepalive persist, tokens do not"
+160 LINE INPUT #1, L$: PRINT "C: [";L$;"]"
+170 IF NOT EOF(1) THEN LINE INPUT #1, L$: GOTO 170
+180 PRINT "LOC=";LOC(1)
+190 ON ERROR GOTO 300
+200 PRINT #1, "@BOGUS 1"
+210 LINE INPUT #1, L$
+220 PRINT "NOT REACHED"
+230 END
+300 PRINT "ERR=";ERR/2+1;" IN ";ERL: CLOSE: END
+RUN
+BYE

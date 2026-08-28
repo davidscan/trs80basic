@@ -1,0 +1,14 @@
+
+10 PRINT "MiXeD CaSe"
+20 END
+CSAVE programs/tests/TmpT14.bas
+NEW
+CLOAD programs/tests/TmpT14.bas
+LIST
+RUN
+CLOAD? programs/tests/TmpT14.bas
+KILL "programs/tests/TmpT14.bas"
+history
+speed
+dir programs/tests/t14.txt
+BYE
