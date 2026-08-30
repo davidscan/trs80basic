@@ -248,7 +248,6 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 | `dist/` | built Windows zips | `make_windows_zip.sh` | yes (gitignored) |
 | `*.ollama` in your cwd | OLLAMA conversation threads | a program using a named thread | yes — `KILL` or `rm` forgets the conversation |
 | `RELEASE_NOTES.md` | keyword inventory and documented deviations from Level II | you | yes |
-| `STATUS.md` | development notes | you | yes |
 | `BUNDLED_PROJECTS.md`, `WINDOWS.md` | the Windows package and `--project` manifest format | you | yes |
 
 ## License
