@@ -95,18 +95,6 @@ scratch directory, against the OLLAMA stub, and diffs against the checked-in
 |---|---|---|---|
 | `--update` | off | regenerate the transcripts instead of checking them | after a deliberate change to an example or to output formatting — read the diff first |
 
-### `windows/make_windows_zip.sh [--project NAME]...`
-
-Builds the no-install Windows package (bundled gawk + `basic.bat`).
-**Writes:** `dist/trs80basic-windows-<date>.zip`; downloads gawk once into
-`windows/cache/`.
-
-| argument | default | what it does | when you'd use it |
-|---|---|---|---|
-| `--project NAME` | none | also bundle `~/development/NAME` (needs a `MANIFEST.txt`, see `BUNDLED_PROJECTS.md`); repeatable | shipping a BASIC program to someone as one zip |
-
-`WINDOWS.md` covers what the Windows package can and cannot do.
-
 ## User manual
 
 ### Workflow
@@ -222,8 +210,8 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 
 - Machine code: `USR` and `DEFUSR` are stubs; `POKE`/`PEEK` address a
   simulated memory, not a Z80.
-- Native Windows keyboard: the Windows package is line-mode (`INKEY$`-driven
-  games need WSL). See `WINDOWS.md`.
+- Native Windows (cmd/PowerShell). On Windows, run it under WSL + Windows
+  Terminal, which is fully compatible, semigraphics included.
 - Loading tokenized images directly — convert with `detok.py` first.
 - Reading OCR-damaged listings — that is a different problem (repair, not
   conversion) and lives in a separate tool.
@@ -243,12 +231,8 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 | `tools/detok.py`, `tools/tok.py`, `tools/level2_tokens.tsv` | image ↔ listing converters and the Level II token table | you | no |
 | `tools/test_*.py` | their tests (`python3 -m unittest`) | you | no |
 | `tools/DETOK.md` | the token format and conversion notes | you | yes |
-| `windows/` | `basic.bat`, packaging script, Windows notes | you | no |
-| `windows/cache/` | downloaded gawk zip and its licence | `make_windows_zip.sh` | yes — re-downloaded (gitignored) |
-| `dist/` | built Windows zips | `make_windows_zip.sh` | yes (gitignored) |
 | `*.ollama` in your cwd | OLLAMA conversation threads | a program using a named thread | yes — `KILL` or `rm` forgets the conversation |
 | `RELEASE_NOTES.md` | keyword inventory and documented deviations from Level II | you | yes |
-| `BUNDLED_PROJECTS.md`, `WINDOWS.md` | the Windows package and `--project` manifest format | you | yes |
 
 ## License
 

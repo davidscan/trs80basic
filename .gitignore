@@ -1,7 +1,5 @@
 .DS_Store
 __pycache__/
 *.pyc
-dist/
-windows/cache/
 # local corpus link, never tracked
 corpus
