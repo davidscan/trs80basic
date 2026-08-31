@@ -19,7 +19,9 @@ programs/examples/run_examples.sh               # ~5s — every example against 
 ```
 
 Inside the interpreter, `man PRINT` documents any keyword, `help meta` lists
-the metacommands, `help keys` the key bindings.
+the metacommands, `help keys` the key bindings. `docs/USER_GUIDE.md` is the
+full manual — the extensions (colour, OLLAMA, the simulated machine) live
+there.
 
 ## Commands and arguments
 
@@ -231,6 +233,7 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 | `tools/detok.py`, `tools/tok.py`, `tools/level2_tokens.tsv` | image ↔ listing converters and the Level II token table | you | no |
 | `tools/test_*.py` | their tests (`python3 -m unittest`) | you | no |
 | `tools/DETOK.md` | the token format and conversion notes | you | yes |
+| `docs/USER_GUIDE.md` | the full user manual; Part V regenerates | `tools/make_userguide.py` (Part V only) | no |
 | `*.ollama` in your cwd | OLLAMA conversation threads | a program using a named thread | yes — `KILL` or `rm` forgets the conversation |
 | `RELEASE_NOTES.md` | keyword inventory and documented deviations from Level II | you | yes |
 
