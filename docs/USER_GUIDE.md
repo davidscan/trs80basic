@@ -38,6 +38,10 @@ The top 16 rows of your terminal are the simulated 64x16 display. Everything
 buffer and scrolls exactly as displayed memory. Display memory is
 PEEK/POKEable at 15360–16383 (`addr = 15360 + row*64 + col`).
 
+A statement typed without a line number executes at once — that is
+**immediate mode**, the `>` prompt; a line that starts with a number is
+stored into the program instead. The guide uses the term throughout.
+
 Requirements: GNU awk 5.x, a VT100/ANSI terminal at least 64x20, UTF-8
 locale.
 
@@ -53,8 +57,8 @@ or unshifted.
 | Ctrl-L | CLEAR: wipe the screen at the `>` prompt |
 | Ctrl-U | erase the input line (SHIFT-left-arrow) |
 | Ctrl-A / Ctrl-E | start / end of the input line |
-| left / right | move the cursor; insertion happens at the cursor |
-| up / down | command history at the `>` prompt (`history` lists it; per-session) |
+| left / right arrow keys | move the cursor; insertion happens at the cursor |
+| up / down arrow keys | command history at the `>` prompt (`history` lists it; per-session) |
 | PgUp / PgDn | page long output below the grid (Ctrl-B / Ctrl-F also work) |
 | TAB | filename completion at the `>` prompt — longest common prefix, candidates listed below the grid when ambiguous |
 
@@ -89,9 +93,10 @@ one-line format described in its own header — edit or extend it freely.
 
 `CSAVE "prog.bas"` writes a plain-text listing; `CLOAD "prog.bas"` NEWs and
 loads it; `CLOAD? "f"` verifies against memory and prints `BAD` on mismatch.
-The "cassette" is just a text file — this is the appropriation that makes
-everything else pleasant: programs are editable in any editor and diffable
-in git. `LOAD`/`SAVE` do the same, and `RUN "file"` loads and runs.
+The "cassette" is just a text file holding the program *listing* — the
+detokenized form, exactly what `tools/detok.py` produces — and that is the
+appropriation that makes everything else pleasant: programs are editable in
+any editor and diffable in git. `LOAD`/`SAVE` do the same, and `RUN "file"` loads and runs.
 Filenames may be unquoted (`CLOAD programs/demo.bas`), with case, `/` and
 `.` preserved; a `:`-statement cannot follow an unquoted name.
 
@@ -203,8 +208,10 @@ cell using the CoCo Color BASIC palette: 0 black, 1 green, 2 yellow,
 programs untouched:
 
 - valid Level II never writes a third argument, so nothing old changes;
-- colour is per character cell; the last SET wins; a plain `SET` or any
-  text printed over the cell returns it to black-and-white;
+- **only `SET` colours anything**: printed text cannot be colorized — it is
+  always black-and-white, and printing over a coloured cell reverts that
+  cell to black-and-white;
+- colour is per character cell and the last SET wins;
 - `POINT` still returns exactly -1/0 — period idioms compare `=-1`,
   accumulate -1s, and apply NOT, so the return value is frozen;
 - colour renders in the interactive grid only (not fullscreen, not batch).
@@ -259,6 +266,10 @@ Simulation notes, honestly labelled:
 The device-file idiom of TRS-DOS, applied to a local LLM: OPEN a "file"
 whose name starts with `OLLAMA` and the channel becomes a conversation
 with an [Ollama](https://ollama.com) server.
+
+The server and its models are your side of the bargain: this project ships
+no LLM and does not install one. It talks to an Ollama you have already
+installed and pulled a model into (by default at `localhost:11434`).
 
 ```basic
 10 OPEN "O",1,"OLLAMA:llama3.2:story"
@@ -339,7 +350,12 @@ because period programs poke at it:
   PEEK/POKEable at 16554–16556; `RANDOM` (and boot) rewrite only the middle
   byte, like the ROM's R-register read. `--seed N` (EXT) makes the whole
   sequence repeatable.
-- **`MEMORY SIZE?`** really sets the top of RAM.
+- **`MEMORY SIZE?`** really sets the top of RAM — but only as a *fence for
+  PEEK and POKE* (above it reads 255, POKEs are discarded, like absent
+  chips). Nothing else is limited: program size and string space are
+  unbounded, and `MEM` and `FRE(0)` return a constant 15572 rather than a
+  real count. What is limited: the PEEKable address space. What is not:
+  everything your program can actually run out of.
 - **LPRINT/LLIST** print to a host stream: set `TRS80_PRINTER=path` to
   append there; unset, output is discarded — the hardware analogue of no
   printer attached.
@@ -357,6 +373,9 @@ because period programs poke at it:
 
 Honest list, stated as current behaviour:
 
+- **`MEM` and `FRE(0)` are constants** (15572). A program that loops
+  "until memory is low", or sizes an array from `MEM`, will not see the
+  number move — it would misbehave or never terminate.
 - **All numerics are doubles.** There is no single/double/integer
   distinction; `%` `!` `#` suffixes are accepted and stripped (so `G%` and
   `G` are the same variable), `DEFINT`/`DEFSNG`/`DEFDBL` set no precision
@@ -366,7 +385,8 @@ Honest list, stated as current behaviour:
 - **Variable names are fully significant.** The ROM's 2-character rule is
   not enforced: `SUM` and `SU` are different variables. A period program
   that *relied* on the truncation would misbehave.
-- **Strings may be arbitrarily long** (ROM caps at 255).
+- **Strings may be arbitrarily long** (ROM caps at 255; a program relying
+  on `?LS`/`?OS` at the cap will not see the error).
 - **Compressed source does not lex.** `IFA=1THEN100` is the identifier
   `IFA`, not `IF A`. This is the dominant failure mode when pasting
   archived listings — `detok.py -s` exists precisely for it.

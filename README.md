@@ -18,7 +18,8 @@ gawk --version | head -1                        # needs GNU awk >= 5.0
 programs/examples/run_examples.sh               # ~5s — every example against its checked-in transcript, all "ok"
 ```
 
-Inside the interpreter, `man PRINT` documents any keyword, `help meta` lists
+Inside the interpreter, `man <keyword>` documents any BASIC word (e.g.
+`man PRINT`), `help meta` lists
 the metacommands, `help keys` the key bindings. `docs/USER_GUIDE.md` is the
 full manual — the extensions (colour, OLLAMA, the simulated machine) live
 there.
@@ -44,6 +45,10 @@ Exit status: **0** clean run, **1** uncaught BASIC error (also printed to
 stderr as `?SN ERROR IN 40`), **2** bad invocation or unreadable file.
 Running out of stdin while a program is at `INPUT` is a BASIC error
 (`?BATCH: END OF INPUT`).
+
+Note: `--screen` and the `fullscreen` metacommand are near-opposites despite
+the similar names — `--screen` *keeps* the 64x16 grid's control codes in
+batch output, while `fullscreen on` abandons the grid for streamed output.
 
 Environment variables the interpreter reads:
 
@@ -107,8 +112,8 @@ stdout; BASIC errors on stderr; the exit status says how it ended. Feed
 exit 0 and the transcript you expected. Wrap in `timeout 30` if the program
 might loop forever — there is no built-in guard.
 
-**Play interactively.** `./basic` with no file gives the `READY` prompt. Type
-BASIC directly, `LOAD "game.bas"` or `CLOAD "game.bas"` to load one, `RUN`,
+**Work interactively.** `./basic` with no file gives the `READY` prompt. Type
+BASIC directly, `CLOAD "game.bas"` to load one (`LOAD` is an alias), `RUN`,
 Ctrl-C to break, `CONT` to resume, `BYE` to leave. The screen is the real
 64x16 grid; long output pages with PgUp/PgDn.
 
@@ -121,7 +126,9 @@ python3 tools/detok.py -s -o listings/ IMAGE.BAS
 ./basic listings/IMAGE.bas
 ```
 
-**Talk to a model.** `OPEN "O",1,"OLLAMA:llama3.2"` opens a chat channel;
+**Talk to a model.** This needs a running [Ollama](https://ollama.com)
+server with a pulled model on your machine — installing and managing those
+is outside this project. `OPEN "O",1,"OLLAMA:llama3.2"` opens a chat channel;
 `PRINT #1` lines build the prompt, `LINE INPUT #1` sends it and reads the
 reply line by line until `EOF(1)`. `programs/examples/oracle.bas` is a
 complete program; `man OLLAMA` has the directives (`@TOKENS`, `@THINK`,
@@ -210,13 +217,16 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 
 ### Not supported
 
-- Machine code: `USR` and `DEFUSR` are stubs; `POKE`/`PEEK` address a
-  simulated memory, not a Z80.
-- Native Windows (cmd/PowerShell). On Windows, run it under WSL + Windows
-  Terminal, which is fully compatible, semigraphics included.
+- Machine code — not yet: `USR` and `DEFUSR` are stubs, and `POKE`/`PEEK`
+  address a simulated memory, not a Z80. Real machine code arrives when the
+  companion Z80 coprocessor project lands.
+- Native Windows (cmd/PowerShell) — not yet: the no-install Windows package
+  returns once it can be tested on a local Windows machine. Meanwhile run it
+  under WSL + Windows Terminal, which is fully compatible, semigraphics
+  included.
 - Loading tokenized images directly — convert with `detok.py` first.
 - Reading OCR-damaged listings — that is a different problem (repair, not
-  conversion) and lives in a separate tool.
+  conversion) and lives in a separate project.
 
 ## Files and logs
 
