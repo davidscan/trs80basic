@@ -63,7 +63,10 @@ or unshifted.
 | TAB | filename completion at the `>` prompt — longest common prefix, candidates listed below the grid when ambiguous |
 
 The arrow-key line editor, history, and TAB completion are of course
-**EXT** — 1978 gave you SHIFT-left-arrow and resignation.
+**EXT** — 1978 gave you SHIFT-left-arrow and resignation. One tuning knob:
+a terminal sends no key-up events, so a keypress "holds" for `TRS80_KMHOLD`
+`INKEY$` polls (default 4) — raise or lower it if a period game reads your
+taps as too long or too short.
 
 ### Metacommands (EXT)
 
@@ -76,7 +79,7 @@ ever colliding with a period program.
 |---|---|
 | `dir [args]` | `ls -al` passthrough, run where the interpreter started; arguments, globs, `~`, even pipes behave as at a shell prompt |
 | `cat <file...>` | show file contents (non-text bytes as `.`) |
-| `man <KEYWORD>` | syntax + example for any BASIC word (`man PRINT`, `man MID$`) |
+| `man <keyword>` | syntax + example for any BASIC word, case-insensitive (`man print`, `man MID$`) |
 | `help <text>` | search: exact name shows the page; otherwise every command whose name *or* man text matches, case-insensitive. `help meta`, `help keys` are special pages |
 | `ext on\|off` | the gated-extensions switch (see Part IV); bare `ext` shows state |
 | `fullscreen on\|off` | stream output with the terminal's own scrollback instead of the captive 64x16 grid; graphics addressing is unchanged either way |
@@ -96,7 +99,10 @@ loads it; `CLOAD? "f"` verifies against memory and prints `BAD` on mismatch.
 The "cassette" is just a text file holding the program *listing* — the
 detokenized form, exactly what `tools/detok.py` produces — and that is the
 appropriation that makes everything else pleasant: programs are editable in
-any editor and diffable in git. `LOAD`/`SAVE` do the same, and `RUN "file"` loads and runs.
+any editor and diffable in git. `SAVE` writes the same form; `LOAD` is the Disk BASIC spelling of
+the same reader — plain `LOAD` closes all file channels, `LOAD "f",R` runs
+the program after loading and *keeps* open channels. `RUN "file"` loads and
+runs.
 Filenames may be unquoted (`CLOAD programs/demo.bas`), with case, `/` and
 `.` preserved; a `:`-statement cannot follow an unquoted name.
 
@@ -160,8 +166,9 @@ demonstrates one area of this guide and doubles as a regression fixture
 This interpreter implements Level II as the manual describes it: the
 statement set, `PRINT` zones/`TAB`/`USING`, string functions, arrays,
 `DEF FN` (all three spellings), `DEFINT`/`DEFSNG`/`DEFDBL`/`DEFSTR`,
-`ON ERROR GOTO` with `ERR`/`ERL`/`RESUME`, `READ`/`DATA`/`RESTORE n`,
-`&H`/`&O` literals, `INSTR`, `TIME$`, the `MID$` statement, and so on. If
+`ON ERROR GOTO` with `ERR`/`ERL`/`RESUME`, `READ`/`DATA`/`RESTORE n` —
+plus the Disk BASIC additions (`INSTR`, `TIME$`, `&H`/`&O` literals, the
+`MID$` statement, `LOAD`/`SAVE`, and the file I/O of Part III). If
 you knew it in 1980, it is here; if you didn't, the
 [reference manual](https://archive.org/details/Level_II_BASIC_Reference_Manual_1st_Ed._1978_Radio_Shack)
 teaches it better than this guide should try to. Part V lists every

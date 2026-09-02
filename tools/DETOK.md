@@ -9,8 +9,8 @@
 > | of those, listings the interpreter loads | **4,721 / 4,721 (100%)** |
 > | files containing an unknown token byte | 49 (all embedded machine code) |
 
-`CLOAD` accepts only plain-ASCII listings --- see `RELEASE_NOTES.md:120` and
-`STATUS.md:391`. Most archived TRS-80 programs are *tokenized* cassette images
+`CLOAD` accepts only plain-ASCII listings (see the CLOAD/CSAVE section of
+`RELEASE_NOTES.md`). Most archived TRS-80 programs are *tokenized* cassette images
 instead, so they cannot be loaded at all. `detok.py` converts them.
 
 It is a standalone utility. It imports nothing from the interpreter, and the
@@ -36,7 +36,7 @@ number (both little-endian), the tokenized body, and a `00` terminator. A
 keywords, listed in `level2_tokens.tsv`.
 
 The table lives in its own TSV rather than inside the script because it is not
-detokenizer-specific: `STATUS.md:1032` (program-memory mapping) wants the same
+detokenizer-specific: the interpreter's program-memory mapping (`src/p75_mem.awk`) wants the same
 table in the write direction, and one hand-typed copy of ~124 keywords is
 enough.
 
@@ -92,7 +92,7 @@ than no listing.
 
 **Glued keywords --- use `-s`.** Level II stores what you typed and `LIST`
 expands tokens tight, so listings come back as `FORX=1TOR`. The interpreter
-re-lexes text and reads `FORX` as one identifier (`STATUS.md:288`). Without
+re-lexes text and reads `FORX` as one identifier. Without
 `-s`, **62% of the corpus hits `?SN ERROR` on the first line or two.**
 
 `-s` separates them. It needs no heuristic: a keyword *is* a token byte, so

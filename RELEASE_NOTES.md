@@ -2,9 +2,9 @@
 
 ## Running it
 
-    gawk -f trs80basic.awk
+    ./basic                     # or: gawk -f trs80basic.awk
 
-Requirements: GNU awk 5.x, bash, a VT100/ANSI terminal at least 64x20
+Requirements: GNU awk 5.x, a POSIX shell, a VT100/ANSI terminal at least 64x20
 (iTerm2 is fine), UTF-8 locale. The script uses `stty`, `dd` and `od` for
 raw keyboard input. Exit with `BYE` (restores your terminal). If the
 interpreter is ever killed abnormally, type `stty sane` to recover the tty.
@@ -435,4 +435,5 @@ terminal, clear of the below-grid text.
 - `gfxtest.bas` — the graphics bit-layout self-test: prints CHR$(128) to
   CHR$(191), then SET/POINT/PEEK cross-check (expects six -1s and 191).
 
-Load any of them with e.g. `CLOAD "demo_graphics.bas"` then `RUN`.
+Load any of them with e.g. `CLOAD "programs/demo_graphics.bas"` then `RUN`
+(paths resolve against the directory you started in).

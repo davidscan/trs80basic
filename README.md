@@ -19,8 +19,8 @@ programs/examples/run_examples.sh               # ~5s — every example against 
 ```
 
 Inside the interpreter, `man <keyword>` documents any BASIC word (e.g.
-`man PRINT`), `help meta` lists
-the metacommands, `help keys` the key bindings. `docs/USER_GUIDE.md` is the
+`man PRINT`), `help meta` lists the metacommands, and `help keys` the key
+bindings. `docs/USER_GUIDE.md` is the
 full manual — the extensions (colour, OLLAMA, the simulated machine) live
 there.
 
@@ -65,6 +65,9 @@ Environment variables the interpreter reads:
 | `TRS80_OLLAMA_TIMEOUT` | `300` | seconds to wait for a reply | slow models |
 | `TRS80_OLLAMA_THINK`, `TRS80_OLLAMA_KEEPALIVE` | unset | defaults for the `@THINK` / `@KEEPALIVE` directives | thinking models; keeping a model loaded between calls |
 | `TRS80_OLLAMA_CURL` | unset | replaces the `curl` command (test hook) | deterministic tests with `programs/tests/ollama_stub.sh` |
+| `TRS80_KMHOLD` | `4` | how many `INKEY$` polls one keypress "holds" for (terminals send no key-up events) | a period game reads your taps as too long or too short |
+
+(A couple of development-only variables are deliberately undocumented here.)
 
 ### `python3 tools/detok.py [-o DIR] [-s] [--check] IMAGE...`
 
@@ -102,6 +105,17 @@ scratch directory, against the OLLAMA stub, and diffs against the checked-in
 |---|---|---|---|
 | `--update` | off | regenerate the transcripts instead of checking them | after a deliberate change to an example or to output formatting — read the diff first |
 
+### `python3 tools/make_userguide.py [--check]`
+
+Regenerates Part V of `docs/USER_GUIDE.md` from `support/manpages.txt`, so
+the guide's keyword reference always matches what `man` shows. Run it after
+any manpages edit. **Writes:** the region between the generated-reference
+markers in `docs/USER_GUIDE.md`; nothing else.
+
+| argument | default | what it does | when you'd use it |
+|---|---|---|---|
+| `--check` | off | exit 1 if the guide is stale, write nothing | CI, or before committing a manpages change |
+
 ## User manual
 
 ### Workflow
@@ -113,7 +127,8 @@ exit 0 and the transcript you expected. Wrap in `timeout 30` if the program
 might loop forever — there is no built-in guard.
 
 **Work interactively.** `./basic` with no file gives the `READY` prompt. Type
-BASIC directly, `CLOAD "game.bas"` to load one (`LOAD` is an alias), `RUN`,
+BASIC directly, `CLOAD "game.bas"` to load one (`LOAD` is the Disk BASIC
+spelling; `LOAD "f",R` also runs it and keeps file channels open), `RUN`,
 Ctrl-C to break, `CONT` to resume, `BYE` to leave. The screen is the real
 64x16 grid; long output pages with PgUp/PgDn.
 
