@@ -743,8 +743,16 @@ OUT p,v   Z80 port write -- accepted no-op: both expressions evaluate,
 #### TAB
 
 ```text
-TAB(n)   inside PRINT, advance to column n
+TAB(n)   inside PRINT, pad with spaces out to column n
+  Columns count from 0, so TAB(10) leaves the next item starting at
+  column 10.  It only ever moves the cursor FORWARD: if printing has
+  already passed column n, TAB does nothing rather than starting a new
+  line.
+  Valid only within a PRINT (or LPRINT) list, not as a statement.
+  Compare PRINT@, which sets an absolute screen position including the
+  row, while TAB works within the current line.
   Example: PRINT TAB(10);"X"
+  Example: PRINT A$;TAB(20);B$;TAB(40);C$      (three columns)
 ```
 
 ### Command level
@@ -836,10 +844,17 @@ MERGE "file"   read a listing into the CURRENT program (Disk BASIC)
 
 ```text
 NAME [n[,[m][,i]]]   renumber the program (Disk BASIC)
-  Lines >= m (default all) become n, n+i, ... (defaults 10,10); every
-  GOTO/GOSUB/THEN/ELSE/ON../RESTORE/RESUME/RUN target is rewritten.
-  ERL comparisons cannot be fixed.  ?FC on overlap or past 65529.
-  Example: NAME 100,,20
+  Lines from m onward (default: all) are renumbered starting at n in
+  steps of i; n and i both default to 10.
+  Every reference is rewritten with them -- GOTO, GOSUB, THEN, ELSE,
+  ON..GOTO/GOSUB, RESTORE, RESUME and RUN targets all follow the lines
+  they point at.
+  What CANNOT be fixed is a line number held in a variable or compared
+  against ERL, since those are data rather than references; check any
+  ERL test by hand after renumbering.
+  ?FC if the new numbering would overlap existing lines or pass 65529.
+  Example: NAME                 (renumber everything 10,20,30...)
+  Example: NAME 100,,20         (from 100, in steps of 20)
 ```
 
 #### SAVE
@@ -874,9 +889,14 @@ TROFF   turn line tracing off
 #### RANDOM
 
 ```text
-RANDOM   reseed the random-number generator
-  Rewrites only the middle byte of the ROM seed (16555), like the real
-  ROM's R-register read.  Example: RANDOM
+RANDOM   reseed the random number generator
+  Without it a program produces the SAME sequence from RND on every run,
+  which is ideal while testing and wrong for a game.  Put RANDOM once
+  near the start to vary the sequence.
+  Conversely, leave it out (or re-seed deliberately) when you want a
+  repeatable run.
+  See: man RND for the generator and its seed location.
+  Example: RANDOM: PRINT RND(6)
 ```
 
 ### Graphics
@@ -983,8 +1003,19 @@ ERL   the line number on which the last error happened
 #### DEFINT DEFSNG DEFDBL DEFSTR
 
 ```text
-DEFINT/DEFSNG/DEFDBL/DEFSTR letters   accepted and IGNORED
-  All numbers are doubles here.  Example: DEFINT A-Z
+DEFINT a[-z]   declare that variables starting with those letters are
+DEFSNG / DEFDBL / DEFSTR      integer / single / double / string
+  Applies to bare names in the given letter range, so DEFINT I-N makes
+  I, J2 and COUNT integer without needing a suffix.
+  IMPORTANT in this interpreter: DEFSTR is honored -- a name in its
+  range really is a string everywhere (assignment, arrays, INPUT, READ,
+  FOR, file I/O), and storing a number into one raises ?TM.
+  DEFINT, DEFSNG and DEFDBL are accepted and clear the DEFSTR flag for
+  their range, but the numeric precision distinction is NOT enforced:
+  every number is held in one type, so DEFINT A does not truncate A.
+  The %, ! and # suffixes are likewise accepted and stripped.
+  Example: DEFINT I-N
+  Example: DEFSTR S: S="TEXT"          (S=1 would be ?TM)
 ```
 
 #### VARPTR
@@ -1263,10 +1294,14 @@ OPEN m$,n,"OLLAMA[:model[:thread]]"   chat with a local LLM
 #### &H &O
 
 ```text
-&Hxxxx / &Oxxxxxx   hex / octal integer literals (Disk BASIC)
-  16-bit two's complement: &HFFFF = -1, &H8000 = -32768. More than
-  16 bits raises ?OV. Lowercase &h/&o accepted.
-  Example: PRINT &H1F;&O17
+&Hnnnn   hexadecimal constant    /    &Onnn   octal constant
+  Write a number in base 16 or base 8 instead of decimal, which is much
+  easier to read for addresses and bit masks.  &H1F is 31, &O17 is 15.
+  Usable anywhere a number is: POKE &H3C00,42 addresses the screen.
+  These are input notations only -- PRINT always shows decimal, so
+  PRINT &HFF gives 255.  There is no built-in hex output; build it
+  yourself if you need it.
+  Example: PRINT &H1F;&HFF;&O17        ->  31  255  15
 ```
 
 #### ABS
@@ -1297,8 +1332,12 @@ INT(x)   the greatest integer less than or equal to x
 #### FIX
 
 ```text
-FIX(x)   truncate toward zero
-  Example: PRINT FIX(-3.7)  -> -3
+FIX(x)   x with its fractional part removed -- truncates toward zero
+  Differs from INT on negatives, and that is the whole point of having
+  both: FIX(-3.7) is -3, while INT(-3.7) is -4.
+  Use FIX to drop a fraction and INT when you want a true floor.
+  Example: PRINT FIX(3.7);FIX(-3.7)     ->  3 -3
+  Example: PRINT INT(-3.7)              -> -4   (compare)
 ```
 
 #### SGN
@@ -1316,50 +1355,77 @@ SGN(x)   the sign of x: -1 if negative, 0 if zero, 1 if positive
 #### SQR
 
 ```text
-SQR(x)   square root  (x>=0)
-  Example: PRINT SQR(9)     -> 3
+SQR(x)   the square root of x
+  x must not be negative, or ?FC ERROR -- test first when the value is
+  computed (IF D<0 THEN ... before SQR(D)).
+  For other roots use the ^ operator: a cube root is X^(1/3).
+  Example: PRINT SQR(16)        ->  4
+  Example: H=SQR(A*A+B*B)       (hypotenuse)
 ```
 
 #### SIN
 
 ```text
-SIN(x)   sine of x radians
-  Example: PRINT SIN(0)     -> 0
+SIN(x)   the sine of x, with x in RADIANS
+  Angles are radians, not degrees -- convert with X*.0174533 (that is
+  PI/180) when working from degrees.
+  PI is not built in; the usual source is ATN(1)*4.
+  Example: PRINT SIN(0)                  ->  0
+  Example: P=ATN(1)*4: PRINT SIN(P/2)    ->  1
 ```
 
 #### COS
 
 ```text
-COS(x)   cosine of x radians
-  Example: PRINT COS(0)     -> 1
+COS(x)   the cosine of x, with x in RADIANS
+  As with SIN, the angle is in radians; multiply degrees by .0174533.
+  SIN and COS together step around a circle, which is the usual way to
+  plot one on the graphics grid.
+  Example: PRINT COS(0)         ->  1
+  Example: FOR A=0 TO 6.28 STEP .1: SET(64+30*COS(A),24+20*SIN(A)): NEXT A
 ```
 
 #### TAN
 
 ```text
-TAN(x)   tangent of x radians
-  Example: PRINT TAN(0)     -> 0
+TAN(x)   the tangent of x, with x in RADIANS
+  Grows without limit near PI/2 and its odd multiples, where the true
+  value is undefined -- expect a very large number or ?OV there rather
+  than a clean error, so avoid feeding it an unchecked angle.
+  Example: PRINT TAN(0)         ->  0
 ```
 
 #### ATN
 
 ```text
-ATN(x)   arctangent, in radians
-  Example: PRINT ATN(1)*4   -> ~3.14159
+ATN(x)   the arctangent of x, in RADIANS, between -PI/2 and PI/2
+  The inverse of TAN.  Its best-known use is supplying PI, which the
+  language does not provide: ATN(1) is PI/4, so ATN(1)*4 is PI.
+  Because the result is limited to half a turn, ATN alone cannot tell
+  which quadrant a point is in; check the signs of x and y yourself.
+  Example: PRINT ATN(1)*4       ->  3.14159
+  Example: P=ATN(1)*4           (the usual way to get PI)
 ```
 
 #### LOG
 
 ```text
-LOG(x)   natural logarithm  (x>0)
-  Example: PRINT LOG(EXP(1)) -> 1
+LOG(x)   the NATURAL logarithm of x -- base e, not base 10
+  x must be greater than 0, or ?FC ERROR.
+  For base 10, divide by LOG(10); for any base b, LOG(x)/LOG(b).
+  EXP is the inverse.
+  Example: PRINT LOG(1)                  ->  0
+  Example: PRINT LOG(1000)/LOG(10)       ->  3   (base-10 log)
 ```
 
 #### EXP
 
 ```text
-EXP(x)   e raised to the x
-  Example: PRINT EXP(0)     -> 1
+EXP(x)   e raised to the power x -- the inverse of LOG
+  EXP(1) is e itself, about 2.71828.
+  Large x overflows (?OV); very negative x underflows quietly to 0.
+  Example: PRINT EXP(0)         ->  1
+  Example: PRINT EXP(1)         ->  2.71828
 ```
 
 #### RND
@@ -1374,21 +1440,34 @@ RND(n)   n>0: integer 1..n;  RND(0): float 0<=r<1
 #### CINT
 
 ```text
-CINT(x)   round to the nearest integer
-  Example: PRINT CINT(3.5)  -> 4
+CINT(x)   x rounded to the NEAREST whole number
+  Unlike INT (which floors) and FIX (which truncates), CINT rounds:
+  CINT(3.7) is 4, CINT(3.2) is 3, and CINT(-3.7) is -4.
+  On hardware the result must fit the integer range (-32768..32767) or
+  ?FC; here the range is not enforced.
+  Example: PRINT CINT(3.7);CINT(3.2);CINT(-3.7)   ->  4  3 -4
 ```
 
 #### CSNG
 
 ```text
-CSNG(x)   single-precision convert (no-op here)
+CSNG(x)   convert x to single precision
+  Accepted and returns its argument's value.  Note this interpreter
+  holds every number in one numeric type, so CSNG does not actually
+  reduce precision the way it would on hardware -- it is here so that
+  period listings using it run unchanged.
+  See: man DEFINT for the same caveat on the DEF type statements.
   Example: PRINT CSNG(1/3)
 ```
 
 #### CDBL
 
 ```text
-CDBL(x)   double-precision convert (no-op here)
+CDBL(x)   convert x to double precision
+  Accepted and returns its argument's value.  As with CSNG, this
+  interpreter keeps all numbers in a single numeric type, so CDBL does
+  not widen anything -- a value is no more precise after it than before.
+  Provided so that period listings using it run unchanged.
   Example: PRINT CDBL(1/3)
 ```
 
@@ -1480,15 +1559,23 @@ STRING$(n,c)   a string of n copies of one character
 #### LEFT$
 
 ```text
-LEFT$(a$,n)   the leftmost n characters
-  Example: PRINT LEFT$("HELLO",2) -> HE
+LEFT$(a$,n)   the leftmost n characters of a$
+  Asking for more than the string holds returns the whole string rather
+  than raising an error, so LEFT$("AB",99) is "AB".  n=0 gives "".
+  Pairs with RIGHT$ and MID$; LEFT$(A$,N) is the same as MID$(A$,1,N).
+  Example: PRINT LEFT$("ABCDE",2)       -> AB
+  Example: IF LEFT$(A$,1)="Y" THEN ...  (test the first character)
 ```
 
 #### RIGHT$
 
 ```text
-RIGHT$(a$,n)   the rightmost n characters
-  Example: PRINT RIGHT$("HELLO",2) -> LO
+RIGHT$(a$,n)   the rightmost n characters of a$
+  Counts from the END of the string, so RIGHT$("ABCDE",2) is "DE".
+  Asking for more than the string holds returns all of it; n=0 gives "".
+  Handy for file extensions and for the last digits of a padded number.
+  Example: PRINT RIGHT$("ABCDE",2)      -> DE
+  Example: IF RIGHT$(F$,4)=".BAS" THEN ...
 ```
 
 #### MID$
@@ -1515,21 +1602,37 @@ TIME$   current date and time as "MM/DD/YY HH:MM:SS" (Disk BASIC)
 #### POS
 
 ```text
-POS(0)   current print column (0-based)
-  Example: PRINT POS(0)
+POS(n)   the column the cursor is currently on, counting from 0
+  The argument is required but ignored; POS(0) is the conventional form.
+  Useful for deciding whether the next item still fits on the line, and
+  for lining columns up after items of unknown width.
+  Example: PRINT "AB";POS(0)            -> AB 2
+  Example: IF POS(0)>50 THEN PRINT      (wrap before the edge)
 ```
 
 #### FRE
 
 ```text
-FRE(0)   free string space in bytes
+FRE(x)   free space; FRE("") reports free STRING space
+  The argument decides which pool is reported: a numeric argument asks
+  about general free memory, and a string argument (conventionally "")
+  asks about the string pool.
+  On hardware, calling FRE("") also forces a garbage collection of
+  discarded strings, which is why period programs call it when string
+  handling has slowed down.
+  Example: PRINT FRE("")
   Example: PRINT FRE(0)
 ```
 
 #### MEM
 
 ```text
-MEM   free program memory in bytes
+MEM   the number of bytes of program and variable space still free
+  Reported as a single number; it falls as variables, arrays and strings
+  are created and rises after CLEAR or NEW.
+  Chiefly a period diagnostic -- listings print it to prove a program
+  fits.  Because this interpreter does not use the ROM's memory layout,
+  treat the figure as indicative rather than an exact hardware count.
   Example: PRINT MEM
 ```
 
