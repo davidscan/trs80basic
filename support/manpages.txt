@@ -46,11 +46,22 @@ PRINT [#n,] USING f$; items   format items through picture f$
 
 :?
 ?   shorthand for PRINT
+  Typing ? saves keystrokes and is accepted anywhere PRINT is, with all
+  the same separators (see: man PRINT).
+  In this interpreter it is kept as typed, so a line entered with ? also
+  lists back with ?.
   Example: ?X*2
+  Example: ?"TOTAL=";T
 
 :LET
-[LET] var=expr   assign a value (LET is optional)
-  Example: LET X=5      (same as  X=5)
+[LET] var=expr   assign a value to a variable
+  LET is optional and almost always left out; X=5 and LET X=5 are the
+  same statement.  It survives from early BASIC and appears mostly in
+  older listings.
+  The variable's type must match the value: assigning a number to a
+  string name (or the reverse) raises ?TM.
+  Example: LET X=5
+  Example: X=5              (identical, and the usual form)
 
 :IF
 IF cond THEN stmt|n [ELSE stmt|n]   run stmt (or jump to line n) when true
@@ -77,8 +88,13 @@ ELSE   introduces the false branch of IF
   See: man IF
 
 :GOTO
-GOTO n   jump to line n
+GOTO n   jump to line n and continue from there
+  The target must be a line that exists, or ?UL ERROR (undefined line).
+  Unlike GOSUB it leaves no return address, so there is no way back --
+  use GOSUB when the code should come back.
+  IF cond GOTO n is a shorthand for IF cond THEN n.
   Example: GOTO 100
+  Example: 90 IF K$="" THEN 90        (wait loop, same idea)
 
 :GOSUB
 GOSUB n   call the subroutine beginning at line n
@@ -169,16 +185,34 @@ RESTORE [n]   reset the DATA pointer -- to the first item at or after
   Example: RESTORE 540
 
 :REM
-REM text   a comment ('  is shorthand)
-  Example: 10 REM INITIALISE
+REM text   a remark; the rest of the line is ignored
+  Everything after REM is commentary, including colons -- so a statement
+  cannot follow a REM on the same line, and putting one there is a
+  common way to disable code by accident.
+  Because it is a statement, REM can be branched to: GOSUB or GOTO may
+  target a REM line, which is the usual way to label a subroutine.
+  Example: 100 REM ---- SCORING ROUTINE ----
+  Example: 10 A=5:REM SET THE COUNTER
 
 :END
-END   stop the program with no message
-  Example: 999 END
+END   stop the program silently
+  Ends the run with no BREAK message, closes open files, and returns to
+  READY.  Variables keep their values, but CONT cannot resume past it.
+  Its other job is structural: END placed before the first subroutine
+  stops the main program running on into code meant only to be called
+  (see: man GOSUB).
+  END is not required at the end of a program -- running out of lines
+  stops just as well -- but it is required in the middle.
+  Example: 400 END
 
 :STOP
-STOP   halt with BREAK IN n; CONT resumes
-  Example: STOP
+STOP   halt the program and report where
+  Prints BREAK IN n and returns to the READY prompt with every variable
+  still set, so values can be examined from the keyboard and the run
+  continued with CONT.
+  That distinguishes it from END, which stops silently and is meant as
+  a program's real finish rather than a debugging pause.
+  Example: 250 IF X<0 THEN STOP
 
 :DIM
 DIM name(d[,d...])   declare an array and its bounds
@@ -203,8 +237,15 @@ CLS   clear the screen and home the cursor
   Example: CLS:PRINT@ 540,"CENTRED"
 
 :CLEAR
-CLEAR [n]   clear all variables [set string space to n]
-  n may be any numeric expression (CLEAR M, CLEAR MEM/2).
+CLEAR [n]   reset all variables; optionally set string space to n bytes
+  Sets every numeric variable to 0 and every string to "", and discards
+  arrays -- so a DIM may be issued again afterwards.
+  The optional n reserves string space.  Period programs that build many
+  or long strings raise it (CLEAR 1000) to avoid running out; this
+  interpreter does not impose the ROM's string-space limit, so the
+  number is accepted and harmless.
+  CLEAR does not touch the program itself -- that is NEW.
+  Example: CLEAR
   Example: CLEAR 1000
 
 :ON
@@ -248,57 +289,96 @@ RESET(x,y)   clear the graphics cell at (x,y)
   Example: FOR X=0 TO 127:RESET(X,0):NEXT X    (wipe the top row)
 
 :RUN
-RUN [n]   run the program [starting at line n]
-RUN "file"[,R]   load a listing from a host file, then run (Disk BASIC)
-  Resets variables/stacks/DATA; does not clear the screen.
-  ,R keeps open file channels across the load.
+RUN [n]   clear the variables and start the program
+RUN "name"   load that file and run it (Disk BASIC)
+  Always clears variables, arrays and the DATA pointer first, so a value
+  set from the keyboard before RUN does not survive into the program.
+  Use CONT, not RUN, to carry on after a STOP.
+  With a line number, execution begins there instead of at the lowest
+  line -- but the clearing still happens, so RUN 500 is not a way to
+  resume part-way through with the variables intact.
   Example: RUN
+  Example: RUN 500
 
 :LIST
-LIST [n | n- | -n | n-m | .]   list program lines
-  . = last-edited line.
+LIST [n][-[m]]   display program lines on the screen
+  With no argument, lists the whole program.  A single number lists that
+  one line; a range lists the span, and either end may be left off:
+    LIST 100        just line 100
+    LIST 100-200    that range
+    LIST 100-       from 100 to the end
+    LIST -200       from the start to 200
+  Listing shows the program as stored, so it is the way to check what a
+  line really contains after an edit.
   Example: LIST 100-200
 
 :NEW
 NEW   erase the program and all variables
+  Wipes the stored program completely and clears variables, arrays and
+  open files with it.  There is no undo and no confirmation.
+  Use it before typing in a new program, so leftover lines from the old
+  one cannot survive between the new ones.
   Example: NEW
 
 :CONT
-CONT   continue after STOP / BREAK / END
-  Not valid after an error or a program edit (?CN).
+CONT   resume a program stopped by STOP or BREAK
+  Picks up at the statement after the one that stopped, with all
+  variables intact -- which is what makes STOP useful for inspecting a
+  program mid-run and then carrying on.
+  Editing any program line invalidates the resume point, so CONT after
+  an edit raises ?CN ERROR; RUN is then the only way forward.
   Example: CONT
 
 :AUTO
-AUTO [n[,inc]]   automatic line numbering (* = exists)
-  ENTER keeps a line; BREAK exits.
-  Example: AUTO 100,10
+AUTO [n[,i]]   number lines automatically as you type them
+  Prompts with the next line number so a program can be entered without
+  typing numbers.  n is where to start and i the step; both default
+  to 10.
+  Stop it with BREAK.  If the offered number already exists, the
+  existing line is shown so it is not overwritten unnoticed.
+  Example: AUTO
+  Example: AUTO 100,5
 
 :DELETE
-DELETE range   remove program lines
+DELETE n[-[m]]   remove program lines
+  Takes the same range forms as LIST: DELETE 100 removes one line,
+  DELETE 100-200 removes a span, DELETE 100- removes to the end.
+  Unlike LIST, the range is required -- bare DELETE does not erase the
+  program (that is NEW).
+  Deleting a line that does not exist raises ?FC.
+  A single line can also be removed by typing its number alone.
   Example: DELETE 100-200
 
 :CLOAD
-CLOAD file   NEW then load a plain listing
-  CLOAD? file   verify file against memory (prints BAD)
-  Quotes optional: an unquoted name runs to end of line, case
-  and / . kept.  Example: CLOAD prog.bas   CLOAD "sub/prog.bas"
+CLOAD "n"   load a program from cassette
+CLOAD? "n"   compare tape against memory instead of loading
+  The cassette counterpart of LOAD, replacing what is in memory.  The ?
+  form verifies a save by comparing rather than loading, which is how a
+  tape was checked before trusting it.
+  Example: CLOAD "A"
 
 :CSAVE
-CSAVE file   save the program as a plain listing
-  Quotes optional (unquoted name runs to end of line).
-  Example: CSAVE prog.bas
+CSAVE "n"   save the program to cassette under a one-letter name
+  The cassette counterpart of SAVE.  On hardware the name is a single
+  character, which is all the tape format records.
+  Example: CSAVE "A"
 
 :LOAD
-LOAD "file"[,R]   read a program listing from a host file (Disk BASIC)
-  Same reader as CLOAD. ,R runs the program after loading and keeps
-  open file channels (flag needs a quoted name); without ,R all
-  channels close. Example: LOAD "prog.bas",R
+LOAD "name"   replace the program in memory with one from a file
+  Clears the current program and variables first, so anything unsaved is
+  lost -- LOAD is not a merge (see: man MERGE).
+  Reads the plain-text form written by SAVE.
+  Example: LOAD "GAME.BAS"
 
 :MERGE
-MERGE "file"   read a listing into the CURRENT program (Disk BASIC)
-  No implicit NEW: file lines overwrite same-numbered lines and
-  interleave with the rest.  Variables clear; a running program stops.
-  Example: MERGE "overlay.bas"
+MERGE "name"   read a file's lines INTO the current program
+  Unlike LOAD, what is already in memory stays.  Incoming lines are
+  added to it, and a line whose number already exists REPLACES the one
+  in memory rather than being rejected.
+  That makes it the way to keep a library of routines in a separate
+  file and pull it into whatever program needs it -- provided the two
+  do not share line numbers.
+  Example: MERGE "SORTLIB.BAS"
 
 :NAME
 NAME [n[,[m][,i]]]   renumber the program (Disk BASIC)
@@ -315,9 +395,11 @@ NAME [n[,[m][,i]]]   renumber the program (Disk BASIC)
   Example: NAME 100,,20         (from 100, in steps of 20)
 
 :SAVE
-SAVE "file"[,V]   write the program as a plain listing (Disk BASIC)
-  Same writer as CSAVE. ,V (cassette verify) is accepted and ignored.
-  Example: SAVE "prog.bas"
+SAVE "name"   write the program to a file as readable text
+  Stores the listing in plain ASCII, so the file can be read and edited
+  outside the interpreter and reloaded with LOAD or combined with MERGE.
+  An existing file of that name is overwritten without warning.
+  Example: SAVE "GAME.BAS"
 
 :INSTR
 INSTR([n,]a$,b$)   position of b$ inside a$, 0 if absent (Disk BASIC)
@@ -341,15 +423,27 @@ TIME$   current date and time as "MM/DD/YY HH:MM:SS" (Disk BASIC)
   Example: PRINT &H1F;&HFF;&O17        ->  31  255  15
 
 :BYE
-BYE   exit the interpreter (restores your terminal)
+BYE   leave the interpreter and return to the shell
+  Restores the terminal on the way out, which matters because the
+  interpreter puts the keyboard into raw mode while running.
+  If a session is killed abnormally instead and the terminal is left
+  strange, run:  stty sane
   Example: BYE
 
 :TRON
-TRON   trace: show <line> as each line runs
+TRON   turn on line-number tracing
+  From then on, each line number is shown in angle brackets as that line
+  is reached, interleaved with the program's own output:
+    <10>A  <20>B  <30>C
+  The quickest way to see where a program actually goes when the control
+  flow is not what you expected.  TROFF turns it off.
   Example: TRON
 
 :TROFF
-TROFF   turn line tracing off
+TROFF   turn line-number tracing off again
+  Cancels TRON and returns to normal output.  Tracing also stops at NEW.
+  Leave it off in a finished program -- the trace goes to the same
+  screen as the output and makes formatted displays unreadable.
   Example: TROFF
 
 :RANDOM
@@ -789,7 +883,12 @@ LPRINT list   PRINT to the line printer stream (; , TAB, USING all work)
   Example: LPRINT "TOTAL:";TAB(10);T
 
 :LLIST
-LLIST [range]   LIST to the line printer stream (see LPRINT)
+LLIST [n][-[m]]   list program lines to the PRINTER
+  Takes the same ranges as LIST but sends the text to the printer
+  instead of the screen (see: man LIST).
+  With no printer attached this is where a program appears to hang, so
+  check the destination before assuming the program is at fault.
+  Example: LLIST
   Example: LLIST 100-200
 
 :OUT
