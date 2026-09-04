@@ -80,12 +80,21 @@ IF cond THEN stmt|n [ELSE stmt|n]   run stmt (or jump to line n) when true
   Example: IF SC>HI THEN HI=SC           (no ELSE needed)
 
 :THEN
-THEN   introduces the true branch of IF (stmt or line n)
-  See: man IF
+THEN   introduces the true branch of an IF
+  What follows may be a line number (IF A THEN 100, meaning jump there)
+  or a statement (IF A THEN PRINT "Y").
+  The branch runs to the END OF THE LINE, so every statement after THEN
+  is conditional -- see: man IF, which covers the trap this creates.
+  Example: IF A>0 THEN PRINT "POS"
 
 :ELSE
-ELSE   introduces the false branch of IF
-  See: man IF
+ELSE   introduces the false branch of an IF
+  Optional; without it a false test simply moves to the next line.
+  Like THEN, ELSE takes either a line number or a statement, and its
+  branch also runs to the end of the line.
+  ELSE binds to the nearest unmatched IF, so nested conditions on one
+  line get hard to read quickly -- split them across lines instead.
+  Example: IF A>0 THEN PRINT "POS" ELSE PRINT "NEG"
 
 :GOTO
 GOTO n   jump to line n and continue from there
@@ -132,12 +141,23 @@ FOR v=start TO limit [STEP s]   begin a counting loop
   Example: FOR K=10 TO 1 STEP -3:PRINT K;:NEXT  ->  10  7  4  1
 
 :TO
-TO   separates FOR's start and limit
+TO   separates FOR's starting value from its limit
+  Part of the FOR statement's syntax, not a statement itself:
+  FOR I=1 TO 10 counts from 1 up to 10.
+  Both sides are evaluated once, when the loop is entered.
   See: man FOR
+  Example: FOR I=1 TO 10
 
 :STEP
-STEP   sets the FOR increment (default 1; 0 loops forever)
+STEP s   sets how much a FOR loop adds each time round
+  Optional; without it the step is 1.  A negative step counts down, and
+  the limit is then a floor rather than a ceiling: FOR I=10 TO 1 STEP -1.
+  Fractional steps are allowed (STEP .5), though repeated addition of a
+  fraction can drift, so do not rely on an exact final value.
+  A step of 0 never advances the variable and loops forever.
   See: man FOR
+  Example: FOR I=1 TO 10 STEP 2
+  Example: FOR I=10 TO 1 STEP -1
 
 :NEXT
 NEXT [v[,v...]]   close the innermost FOR loop(s)
@@ -150,12 +170,21 @@ NEXT [v[,v...]]   close the innermost FOR loop(s)
              ->  11  12  13  21  22  23
 
 :INPUT
-INPUT ["prompt";] var[,var...]   read from the keyboard
-  ; keeps the '? '   , drops it.  Bad number => ?REDO FROM START
-  The prompt may be a string expression (""+CHR$(10)+"X").
+INPUT ["prompt";] var[,var...]   read values typed at the keyboard
+  Waits for a line and ENTER.  A ; after the prompt keeps the "? "
+  that BASIC adds; a , drops it, which is what you want when the prompt
+  already ends in its own punctuation.
+  Several variables may be read at once, and the user separates the
+  values with commas.  Too few values re-prompts with ?? ; a value of
+  the wrong type gives ?REDO FROM START and asks again -- neither is a
+  fatal error, so INPUT cannot crash on bad typing.
+  It CAN be interrupted by BREAK, and it strips leading spaces from
+  numbers.  Use LINE INPUT to take a whole line, commas included.
+  The prompt may be any string expression, not just a literal.
   EXT (needs `ext on` / TRS80_EXT=1): INPUT with no variable at all --
-  INPUT"PRESS ENTER"; -- prompts, waits for ENTER, discards the line.
+  INPUT"PRESS ENTER"; -- prompts, waits for ENTER and discards the line.
   Example: INPUT "NAME";N$
+  Example: INPUT "X,Y";X,Y
 
 :READ
 READ var[,var...]   assign the next DATA item(s) to variables
@@ -180,9 +209,15 @@ DATA const[,const...]   inline constants for READ to consume
   Example: DATA "BOLT, HEX",3      (one string item, then a number)
 
 :RESTORE
-RESTORE [n]   reset the DATA pointer -- to the first item at or after
-  line n when given (Disk BASIC; ?UL if line n does not exist)
-  Example: RESTORE 540
+RESTORE [n]   move the DATA pointer back so items can be re-read
+  With no argument, resets to the very first DATA item in the program.
+  With a line number, moves to the first item at or after line n, which
+  lets one program hold several independent tables and choose between
+  them (Disk BASIC; ?UL if line n does not exist).
+  Needed because READ never rewinds by itself -- without RESTORE a
+  second pass over the data raises ?OD.
+  Example: RESTORE
+  Example: RESTORE 540         (re-read from the table at line 540)
 
 :REM
 REM text   a remark; the rest of the line is ignored
@@ -263,9 +298,17 @@ ON e GOSUB n1[,n2...]   call the e-th line in the list
            PRINT "BAD CHOICE"     (reached when MENU is 0 or > 3)
 
 :POKE
-POKE addr,byte   store a byte in memory (0-255)
-  Display RAM is 15360..16383.
-  Example: POKE 15360,191
+POKE addr,byte   store a single byte (0-255) into memory
+  The companion to PEEK.  Its main legitimate use on this machine is
+  writing straight into display RAM, 15360 to 16383 -- one byte per
+  screen cell, left to right and top to bottom, so 15360 is the top-left
+  corner.  Codes 128-191 are the block graphics, which is why POKE
+  15360,191 lights a whole cell.
+  Writing the screen this way is much faster than PRINT and is the usual
+  period technique for animation.
+  A byte outside 0-255, or a missing value, is ?FC.
+  Example: POKE 15360,191               (fill the top-left cell)
+  Example: POKE 15360+R*64+C,191        (row R, column C)
 
 :SET
 SET(x,y)   light a graphics cell  (x 0-127, y 0-47)
@@ -402,15 +445,25 @@ SAVE "name"   write the program to a file as readable text
   Example: SAVE "GAME.BAS"
 
 :INSTR
-INSTR([n,]a$,b$)   position of b$ inside a$, 0 if absent (Disk BASIC)
-  Search starts at n (default 1; range 1..255 else FC error).
-  INSTR(n,a$,"") returns n; n past LEN(a$) returns 0.
-  Example: PRINT INSTR("HELLO","LL")   prints 3
+INSTR([n,]a$,b$)   where b$ first appears inside a$, or 0 if absent
+  Positions count from 1, so INSTR("HELLO","LL") is 3.  The optional n
+  says where to start looking (default 1), which is how you find the
+  SECOND occurrence: search again from just past the first.
+  Returns 0 rather than an error when there is no match, so it doubles
+  as a "does this contain that" test.
+  Edge cases: an empty b$ returns n itself; an n past the end of a$
+  returns 0; n outside 1..255 is ?FC.
+  Example: PRINT INSTR("HELLO","LL")        ->  3
+  Example: P=INSTR(A$,","):IF P THEN L$=LEFT$(A$,P-1)   (split on comma)
 
 :TIME$
-TIME$   current date and time as "MM/DD/YY HH:MM:SS" (Disk BASIC)
-  Read-only, 17 characters, from the host clock.
+TIME$   the current date and time as one 17-character string
+  Formatted "MM/DD/YY HH:MM:SS" and taken from the host clock.  It is
+  read-only here -- assigning to it does not set the clock (Disk BASIC).
+  Because the layout is fixed, the parts can be pulled out by position
+  with MID$ rather than parsed.
   Example: PRINT TIME$
+  Example: PRINT "TIME ";MID$(TIME$,10,8)      (just HH:MM:SS)
 
 :&H &O
 &Hnnnn   hexadecimal constant    /    &Onnn   octal constant
@@ -570,9 +623,17 @@ INPUT #n, vars   read comma-separated items from a file opened "I"
   Example: INPUT #1, A$, N
 
 :LINE
-LINE INPUT ["prompt";] v$    read a whole keyboard line (no "? ")
-LINE INPUT #n, v$            read a whole line from an "I" file
-  No comma splitting.  Example: LINE INPUT #1, L$
+LINE INPUT ["prompt";] v$     read one whole line from the keyboard
+LINE INPUT #n, v$             read one whole line from a file
+  Takes everything up to ENTER (or the end of the file line) as a single
+  string: commas, colons and leading spaces are all kept, and no "? "
+  prompt is added unless you supply one.
+  That is the difference from INPUT, which splits on commas and would
+  turn one typed line into several values.  Use LINE INPUT for names,
+  addresses, free text, and any file whose lines are not comma-delimited.
+  The result is always a string; convert with VAL if a number is wanted.
+  Example: LINE INPUT "ADDRESS: ";A$
+  Example: LINE INPUT #1, L$
 
 :FIELD
 FIELD [#]n, w AS v$ [, w AS v$...]   name slices of a random record
@@ -711,10 +772,18 @@ EXP(x)   e raised to the power x -- the inverse of LOG
   Example: PRINT EXP(1)         ->  2.71828
 
 :RND
-RND(n)   n>0: integer 1..n;  RND(0): float 0<=r<1
-  The authentic ROM 24-bit LCG; the seed lives at 16554-16556 and is
-  PEEK/POKEable.  RND(1) is always 1.  RND(neg) is ?FC.  RANDOM reseeds.
+RND(n)   a random number: n>0 gives an integer 1..n, RND(0) gives a
+  fraction 0 <= r < 1
+  Use RND(6) for a die and RND(0) when you need a proportion.  RND(1) is
+  always exactly 1, since 1..1 has only one value -- a common surprise
+  when RND(1) was meant to be the fractional form.  A negative argument
+  is ?FC.
+  The sequence repeats identically on every run unless RANDOM is called
+  first, which is ideal for testing and wrong for a game.
+  This is the authentic ROM 24-bit generator; its seed sits at
+  16554-16556 and can be PEEKed and POKEd.
   Example: PRINT RND(6)
+  Example: RANDOM: X=INT(RND(0)*100)       (0 to 99)
 
 :CINT
 CINT(x)   x rounded to the NEAREST whole number
@@ -816,11 +885,19 @@ VAL(a$)   the number at the front of a$, or 0 if there is none
   Example: PRINT VAL("ABC")     ->  0
 
 :CHR$
-CHR$(n)   one-character string for code n
-  Control codes on PRINT: 8 bs, 13 newline, 21 toggle Model III special
-  characters for 192-255, 22 pick special/Katakana set, 23 shift to 32
-  chars per line (CLS returns to 64), 24-31 cursor/erase.
-  Example: PRINT CHR$(65)   -> A
+CHR$(n)   the one-character string whose character code is n
+  The inverse of ASC.  Its everyday uses are producing a quote mark
+  inside a string, CHR$(34), and sending control codes to the display.
+  Codes that act rather than print, when sent through PRINT:
+     8   backspace          13  newline
+    21   toggle Model III special characters for codes 192-255
+    22   select the special / Katakana character set
+    23   switch to 32 characters per line (CLS returns to 64)
+    24-31  cursor movement and erase functions
+  Codes 128-191 are the block graphics characters, which is how period
+  programs draw without SET.
+  Example: PRINT CHR$(65)                  -> A
+  Example: PRINT CHR$(34);"QUOTED";CHR$(34)
 
 :STR$
 STR$(x)   the string form of number x, as PRINT would show it
@@ -858,12 +935,17 @@ RIGHT$(a$,n)   the rightmost n characters of a$
   Example: IF RIGHT$(F$,4)=".BAS" THEN ...
 
 :MID$
-MID$(a$,p[,n])   substring from position p (n chars)
-MID$(v$,p[,n])=e$   statement: replace in place (Disk BASIC).  The
-  target's length never changes; the replacement is truncated to n and
-  to what fits.  p past the end raises ?FC.
-  Example: PRINT MID$("HELLO",2,3) -> ELL
-  Example: A$="HELLO": MID$(A$,2,3)="XYZZY" -> A$="HXYZO"
+MID$(a$,p[,n])   the substring of a$ starting at position p
+MID$(v$,p[,n])=e$   statement form: overwrite part of v$ in place
+  As a function, positions count from 1 and n is how many characters to
+  take; leave n off to take everything to the end of the string.
+  Asking past the end returns "" rather than raising an error.
+  As a statement it REPLACES characters inside v$ without changing the
+  string's length: the replacement is cut to n and to whatever fits, and
+  the rest of v$ is left alone.  A p past the end is ?FC.
+  Example: PRINT MID$("HELLO",2,3)          -> ELL
+  Example: PRINT MID$("HELLO",3)            -> LLO
+  Example: A$="HELLO": MID$(A$,2,3)="XYZZY" -> A$ is HXYZO
 
 :INKEY$
 INKEY$   the key being pressed right now, or "" if none
@@ -877,10 +959,16 @@ INKEY$   the key being pressed right now, or "" if none
   Example: K$=INKEY$:IF K$="Q" THEN END
 
 :LPRINT
-LPRINT list   PRINT to the line printer stream (; , TAB, USING all work)
-  The printer is a host stream: set TRS80_PRINTER=path to append printed
-  output to that file; unset, output is discarded (no printer attached).
+LPRINT list   the same as PRINT, but to the printer
+  Accepts everything PRINT does -- ; and , separators, TAB, and USING.
+  It keeps its own column counter, so zones and TAB measure across the
+  printed line rather than the screen.
+  The printer here is a host stream: set TRS80_PRINTER to a path and
+  printed output is appended to that file.  With it unset there is no
+  printer attached and the output is discarded, silently -- so nothing
+  appearing is the expected result rather than a fault.
   Example: LPRINT "TOTAL:";TAB(10);T
+  Example: LPRINT USING "###.##";X
 
 :LLIST
 LLIST [n][-[m]]   list program lines to the PRINTER
@@ -892,8 +980,12 @@ LLIST [n][-[m]]   list program lines to the PRINTER
   Example: LLIST 100-200
 
 :OUT
-OUT p,v   Z80 port write -- accepted no-op: both expressions evaluate,
-  the write itself does nothing (no port hardware is simulated).
+OUT p,v   write value v to Z80 port p
+  Accepted but does nothing here: both expressions are evaluated (so a
+  type error still reports) and the write itself is discarded, because
+  no port hardware is simulated.
+  Period programs use it to drive peripherals; those parts run without
+  error but have no effect.  INP is its counterpart.
   Example: OUT 255,4
 
 :USR DEFUSR
