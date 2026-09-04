@@ -926,30 +926,56 @@ POINT(x,y)   -1 if graphics cell (x,y) is lit, 0 if it is clear
 #### ERROR
 
 ```text
-ERROR n   force error code n (for testing ON ERROR)
-  Example: ERROR 1
+ERROR n   raise error number n as though it had really happened
+  Triggers the ON ERROR handler exactly as a genuine fault would, which
+  makes it the way to test a handler without arranging a real failure,
+  and the way to signal an application error of your own.
+  With no handler installed, it stops the program with that error's
+  message, so ERROR 1 reports ?NF ERROR.
+  Inside a handler, ERR and ERL report the forced code and the line the
+  ERROR statement was on.
+  Example: ERROR 6                (raises ?OV, overflow)
 ```
 
 #### RESUME
 
 ```text
-RESUME [0 | NEXT | n]   return from an ON ERROR handler
-  0/none=retry, NEXT=next stmt, n=goto line n
+RESUME [0 | NEXT | n]   carry on after an ON ERROR handler
+  Ends the handler and says where to continue:
+    RESUME  or  RESUME 0   retry the statement that failed
+    RESUME NEXT            skip it and take the following statement
+    RESUME n               jump to line n
+  Plain RESUME retries, so use it only after the handler has fixed the
+  cause -- otherwise the same error repeats forever.  RESUME NEXT is
+  the safe default.
+  RESUME outside a handler raises ?RW ERROR.
   Example: RESUME NEXT
+  Example: 900 IF ERR/2+1=53 THEN PRINT "NO FILE": RESUME 100
 ```
 
 #### ERR
 
 ```text
-ERR   (code-1)*2 for the last error; ERR/2+1 = the code
+ERR   the last error's code, held as (code-1)*2
+  The stored value is doubled and offset, so recover the real code with
+  ERR/2+1: a division by zero (code 11) leaves ERR as 20.
+  Test it inside an ON ERROR handler to tell one failure from another,
+  and always convert before comparing.
   Example: PRINT ERR/2+1
+  Example: IF ERR/2+1=11 THEN PRINT "DIVIDE BY ZERO": RESUME NEXT
 ```
 
 #### ERL
 
 ```text
-ERL   line number where the last error happened
-  Example: PRINT ERL
+ERL   the line number on which the last error happened
+  Meaningful inside an ON ERROR handler; 0 when no error has occurred.
+  Lets one handler treat failures differently by where they came from:
+  IF ERL=250 THEN ...
+  Note that RENUMBER/NAME cannot rewrite a number compared against ERL,
+  so an ERL test silently goes stale if the program is renumbered --
+  prefer testing ERR where you can.
+  Example: PRINT "FAILED AT";ERL
 ```
 
 ### Types and definitions
@@ -1010,41 +1036,75 @@ FNname(args) / FN name(args)   call it.  An FN-prefixed identifier with
 #### OPEN
 
 ```text
-OPEN mode$, [#]n, name$ [,reclen]   open file on channel n (1-15)
-  mode: "I"=input "O"=output(truncate) "E"=append "R"=random access
-  name$ is a host file path.  reclen (R only) 1-256, default 256.
-  A name starting with OLLAMA opens an AI link (see man OLLAMA).
-  Example: OPEN "O",1,"DATA.TXT"     OPEN "R",2,"REC.DAT",32
+OPEN mode$, [#]n, name$ [,reclen]   open a file on channel n (1-15)
+  mode$ picks how the file is used, and it cannot be changed later:
+    "I"  input    -- read an existing file from the start
+    "O"  output   -- create, or TRUNCATE an existing file to nothing
+    "E"  extend   -- append; writes go after what is already there
+    "R"  random   -- fixed-length records, read and written by number
+  "O" destroys the old contents the moment the file opens, so use "E"
+  when adding to a log and "I" when only reading.
+  name$ is a host file path.  reclen applies to "R" only (1-256,
+  default 256) and must match what the file was written with.
+  A channel stays busy until CLOSE; re-opening a busy channel is ?FO.
+  A name starting with OLLAMA opens an AI link (see: man OLLAMA).
+  Example: OPEN "O",1,"DATA.TXT"
+  Example: OPEN "R",2,"REC.DAT",32
 ```
 
 #### CLOSE
 
 ```text
-CLOSE [[#]n, ...]   close channel(s); no args = close ALL
-  Flushes pending output; closing an unopened channel is a no-op.
-  Example: CLOSE 1     CLOSE
+CLOSE [[#]n, ...]   close channels; with no arguments, closes them all
+  Closing flushes buffered output -- data written but not yet closed can
+  be lost if the program stops first, so close every file you write.
+  Closing a channel that was never opened is harmless, not an error.
+  END and NEW close everything; a program that stops on an error does
+  not, which is why a handler should CLOSE before it gives up.
+  Example: CLOSE 1
+  Example: CLOSE          (all channels)
 ```
 
 #### KILL
 
 ```text
-KILL name$   delete a host file (must not be open)
+KILL name$   delete a file from the host disk
+  The file must not be open -- CLOSE it first, or ?FO.  There is no
+  confirmation and no recovery.
+  Deleting a file that does not exist raises ?FE (file not found), so
+  guard it when the file may legitimately be absent.
   Example: KILL "DATA.TXT"
+  Example: CLOSE 1: KILL "SCRATCH.TMP"
 ```
 
 #### PRINT#
 
 ```text
-PRINT #n, items   write text to a sequential "O"/"E" file
-  ; and , are plain separators (no zone padding); trailing ;
-  holds the partial line.  Example: PRINT #1, A$; ","; B$
+PRINT #n, items   write text to a sequential file opened "O" or "E"
+  Writes the same characters PRINT would put on the screen, so numbers
+  carry PRINT's leading sign-space AND its trailing space: PRINT #1,10
+  stores " 10 ", not "10".
+  Here ; and , are plain separators with no zone padding, because zone
+  spaces would corrupt comma-delimited data on the way back in.
+  Write the separators you want to read back -- usually a literal comma
+  between items -- and end each record with a newline by leaving the
+  last separator off.  A trailing ; holds the line open.
+  Example: PRINT #1, A$; ","; B$
+  Example: PRINT #1, N$;",";MID$(STR$(V),2)     (no stray spaces)
 ```
 
 #### INPUT#
 
 ```text
-INPUT #n, vars   read comma-separated items from an "I" file
-  Quotes respected; a part-read line carries to the next INPUT#.
+INPUT #n, vars   read comma-separated items from a file opened "I"
+  Splits on commas the way INPUT does at the keyboard, so it undoes a
+  PRINT# that wrote commas between items.  Quotes are respected, and a
+  quoted item may contain commas.
+  Leading spaces are skipped for numbers, so the space PRINT# leaves in
+  front of a number is harmless on the way back.
+  A line with fewer items than variables carries on into the next line.
+  Reading past the end raises ?IE -- test EOF first.
+  Use LINE INPUT #n instead to take a whole line, commas included.
   Example: INPUT #1, A$, N
 ```
 
@@ -1059,70 +1119,124 @@ LINE INPUT #n, v$            read a whole line from an "I" file
 #### FIELD
 
 ```text
-FIELD [#]n, w AS v$ [, w AS v$...]   map buffer slices of an "R" file
-  Widths must fit the record length (else ?FO).  Use LSET/RSET to
-  store, GET/PUT to move records.  Example: FIELD 1, 10 AS N$, 2 AS I$
+FIELD [#]n, w AS v$ [, w AS v$...]   name slices of a random record
+  Divides the record buffer of an "R" file into fixed-width string
+  variables.  The widths must not exceed the record length, or ?FO.
+  These variables are windows onto the buffer, not ordinary strings:
+  GET refills them, and only LSET/RSET store into them.  Assigning with
+  = detaches the name from the buffer and the link is lost.
+  Numbers must be packed to a fixed width first (see: man MKI$).
+  FIELD may be issued again to re-map the same buffer differently.
+  Example: FIELD 1, 10 AS N$, 2 AS I$
+  Example: FIELD 1, 10 AS N$, 2 AS I$: GET 1,1: PRINT N$;CVI(I$)
 ```
 
 #### GET
 
 ```text
-GET [#]n [,rec]   read record rec (default: next) into the buffer
-  Fielded variables update.  Example: GET 1, 5
+GET [#]n [,rec]   read a record from a random file into the buffer
+  Loads record number rec (the first is 1); with rec omitted, reads the
+  record after the last one touched.  Every FIELD variable on that
+  channel updates at once -- there is no separate assignment step.
+  Reading past the end gives a record of spaces rather than an error, so
+  check LOF before trusting what comes back.
+  Example: GET 1, 5
+  Example: FOR R=1 TO LOF(1): GET 1,R: PRINT N$: NEXT R
 ```
 
 #### PUT
 
 ```text
-PUT [#]n [,rec]   write the buffer to record rec (default: next)
-  Extends the file if rec is past the end.  Example: PUT 1
+PUT [#]n [,rec]   write the buffer out as a record of a random file
+  Writes whatever the FIELD variables currently hold to record rec (the
+  first is 1); with rec omitted, writes the record after the last one
+  touched.
+  Writing past the end extends the file, so PUT 1,50 on a 2-record file
+  makes it 50 records, with the gap filled by empty records.
+  Set every field before PUT -- a field left over from an earlier record
+  is written again as-is.
+  Example: LSET N$="BOB": LSET I$=MKI$(42): PUT 1,1
 ```
 
 #### LSET RSET
 
 ```text
-LSET v$=x$  left-justify  /  RSET v$=x$  right-justify
-  Into a fielded buffer slice (pad with spaces / truncate); on a
-  plain string var, justifies within its current length.
-  Example: LSET N$="BOB"     RSET I$=MKI$(42)
-
-# ================================= functions ===============================
+LSET v$=x$   store left-justified  /  RSET v$=x$   store right-justified
+  The normal way to put data into a FIELD variable.  The slice keeps its
+  width: a shorter value is padded with spaces, a longer one is cut.
+  LSET pads on the right, RSET pads on the left -- RSET is what lines
+  numbers up in a column.
+  On an ordinary (non-fielded) string, both justify within the string's
+  existing length rather than changing it.
+  Example: LSET N$="BOB"        -> "BOB       "  (10-wide field)
+  Example: RSET N$="X"          -> "         X"
+  Example: LSET I$=MKI$(42)
 ```
 
 #### EOF
 
 ```text
-EOF(n)   -1 if file channel n is at end of data, else 0
+EOF(n)   -1 when channel n has reached the end of the data, else 0
+  The normal way to read a sequential file of unknown length: test
+  before each read, not after, or the last read raises ?IE.
+  Applies to files opened "I".  The value is a proper truth value, so
+  IF EOF(1) THEN ... works directly.
   Example: IF EOF(1) THEN 100
+  Example: 10 IF EOF(1) THEN 40
+           20 LINE INPUT #1,L$: PRINT L$
+           30 GOTO 10
 ```
 
 #### LOF
 
 ```text
-LOF(n)   number of records in the random ("R") file on channel n
-  Example: FOR R=1 TO LOF(1): GET 1,R: NEXT
+LOF(n)   the number of records in the random file on channel n
+  Gives the size in records, so it is the right bound for a loop over
+  the whole file, and the way to find the end before appending: the
+  next free record is LOF(n)+1.
+  A file just created with "R" reports 0 until the first PUT.
+  Example: FOR R=1 TO LOF(1): GET 1,R: NEXT R
+  Example: PUT 1, LOF(1)+1        (append one record)
 ```
 
 #### LOC
 
 ```text
-LOC(n)   lines read/written (sequential) or last record (random)
+LOC(n)   how far into channel n the file position has got
+  For a sequential file, the number of lines read or written so far.
+  For a random file, the number of the record last read or written by
+  GET or PUT -- which is what a following bare GET or PUT continues
+  from.
   Example: PRINT LOC(1)
+  Example: GET 1,7: PRINT LOC(1)      ->  7
 ```
 
 #### MKI$ MKS$ MKD$
 
 ```text
-MKI$(i) MKS$(x) MKD$(x)   pack a number into 2/4/8 bytes for LSET
-  into a fielded buffer (Microsoft Binary Format).
+MKI$(i) MKS$(x) MKD$(x)   pack a number into 2, 4 or 8 bytes
+  A FIELD slice holds only characters, so numbers must be packed to a
+  fixed width before LSET can store them.  MKI$ takes an integer
+  (-32768..32767), MKS$ a single-precision value, MKD$ a double.
+  The result is binary, not readable digits: do not PRINT it or use LEN
+  on it expecting a digit count.  Unpack with CVI/CVS/CVD.
+  Choose the width you can afford: 2 bytes for a count, 8 only when the
+  extra precision is really needed.
   Example: LSET I$=MKI$(42)
+  Example: FIELD 1,4 AS P$: LSET P$=MKS$(19.95): PUT 1,1
 ```
 
 #### CVI CVS CVD
 
 ```text
-CVI(s$) CVS(s$) CVD(s$)   unpack 2/4/8 packed bytes back to a number
-  Inverse of MKI$/MKS$/MKD$.  Example: PRINT CVI(I$)
+CVI(s$) CVS(s$) CVD(s$)   unpack 2, 4 or 8 packed bytes into a number
+  The inverse of MKI$/MKS$/MKD$, used on a FIELD variable after GET.
+  The function must match the one that packed the value: reading an
+  MKS$ field with CVI gives nonsense rather than an error, since the
+  bytes are equally valid either way.
+  A string shorter than the width raises ?FC.
+  Example: GET 1,1: PRINT CVI(I$)
+  Example: PRINT CVS(P$)      (a field packed with MKS$)
 ```
 
 ### The OLLAMA channel
