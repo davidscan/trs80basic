@@ -62,6 +62,12 @@ CATEGORIES = [
     ("System and screen", [
         "INKEY$", "POS", "FRE", "MEM", "TIME$",
     ]),
+    # Not Level II BASIC -- host-side conveniences this interpreter adds.
+    # Listed last so the reference reads as the language first.
+    ("Metacommands", [
+        "MAN", "HELP", "DIR", "CAT", "EXT", "FULLSCREEN", "SPEED",
+        "HISTORY", "H", "@DUMP",
+    ]),
 ]
 
 

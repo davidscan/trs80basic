@@ -938,21 +938,30 @@ DELETE n[-[m]]   remove program lines
 #### CLOAD
 
 ```text
-CLOAD "n"   load a program from cassette
-CLOAD? "n"   compare tape against memory instead of loading
-  The cassette counterpart of LOAD, replacing what is in memory.  The ?
-  form verifies a save by comparing rather than loading, which is how a
-  tape was checked before trusting it.
-  Example: CLOAD "A"
+CLOAD "name"   NEW the program, then load one from a file
+CLOAD? "name"   compare the file against memory instead of loading
+  Clears what is in memory first and reads the plain-text listing that
+  CSAVE wrote, so anything unsaved is lost.
+  The ? form loads nothing: it checks the file against the program in
+  memory and prints BAD if they differ, which is how a save was verified
+  before the tape was trusted.
+  The name is a full filename (see: man CSAVE).
+  Example: CLOAD "PROG.BAS"
+  Example: CLOAD? "PROG.BAS"        -> BAD if memory has changed
 ```
 
 #### CSAVE
 
 ```text
-CSAVE "n"   save the program to cassette under a one-letter name
-  The cassette counterpart of SAVE.  On hardware the name is a single
-  character, which is all the tape format records.
-  Example: CSAVE "A"
+CSAVE "name"   write the program out as a plain-text listing
+  The "cassette" here is an ordinary host file, and what it holds is the
+  detokenized listing -- the same text tools/detok.py produces -- so it
+  can be read and edited outside the interpreter.
+  The name is a full filename, not the single character a real tape
+  header recorded.
+  In practice this is interchangeable with SAVE; both write readable
+  text (see: man SAVE).
+  Example: CSAVE "PROG.BAS"
 ```
 
 #### LOAD
@@ -1428,6 +1437,11 @@ CVI(s$) CVS(s$) CVD(s$)   unpack 2, 4 or 8 packed bytes into a number
   A string shorter than the width raises ?FC.
   Example: GET 1,1: PRINT CVI(I$)
   Example: PRINT CVS(P$)      (a field packed with MKS$)
+
+# ============================== metacommands ===============================
+# Not Level II BASIC: host-side conveniences added by this interpreter.
+# All are recognised in LOWERCASE ONLY, so they can never collide with a
+# BASIC keyword or a variable name.
 ```
 
 ### The OLLAMA channel
@@ -1839,6 +1853,148 @@ INKEY$   the key being pressed right now, or "" if none
   To poll without stopping (so animation or a clock keeps running), test
   once per pass through the main loop and carry on when it is "".
   Example: K$=INKEY$:IF K$="Q" THEN END
+```
+
+### Metacommands
+
+#### MAN
+
+```text
+man <KEYWORD>   show the manual entry for a BASIC keyword
+  Prints syntax, behaviour and worked examples for one keyword, in the
+  region below the grid.  The keyword may be typed in any case, so
+  `man print` and `man PRINT` are the same.
+  Entries come from support/manpages.txt, a plain editable file -- point
+  TRS80_MANFILE at another path to load a different set.
+  Use `help <text>` instead when you do not know the keyword's name.
+  Metacommand: lowercase only.
+  Example: man MID$
+  Example: man for
+```
+
+#### HELP
+
+```text
+help meta    list the metacommands
+help keys    list the terminal key bindings
+help <text>  search the manual for text
+  With no argument, reports what help is available.  `help meta` and
+  `help keys` print fixed lists; anything else is treated as a search.
+  The search looks through the whole of each manual entry, not just its
+  name, and shows the first line of every entry that matches -- so
+  `help INKEY` finds INKEY$ and also ASC, whose entry mentions it.
+  That makes it the way in when you know what you want to do but not
+  what the keyword is called.
+  Metacommand: lowercase only.
+  Example: help meta
+  Example: help random
+```
+
+#### DIR
+
+```text
+dir [args]   list files in the current directory
+  Passes through to the host shell's `ls -al` (or `dir` on native
+  Windows) and shows the result below the grid.  Any arguments are
+  handed straight to that command.
+  Provided because a program's data files live on the host filesystem,
+  not on a simulated disk, so this is how you see what is actually
+  there.
+  Metacommand: lowercase only.
+  Example: dir
+  Example: dir *.bas
+```
+
+#### CAT
+
+```text
+cat <file...>   show the contents of one or more files
+  Displays the files below the grid.  Bytes that are not printable text
+  are shown as a full stop, so a tokenised or binary file can be
+  inspected without disturbing the terminal.
+  Handy for checking a data file a program has just written without
+  leaving the interpreter.
+  Metacommand: lowercase only.
+  Example: cat SCORES.TXT
+```
+
+#### EXT
+
+```text
+ext on | off   enable or disable the gated extensions
+ext            report the current state
+  The extensions are small conveniences that real Level II does not
+  have, kept behind this switch so that default behaviour stays
+  faithful.  Currently gated: INPUT with a prompt but no variable, and
+  DIM of a scalar name.
+  Off by default.  The environment variable TRS80_EXT=1 turns them on
+  at startup instead.
+  Metacommand: lowercase only.
+  Example: ext on
+  Example: ext            -> EXT OFF (gated: ...)
+```
+
+#### FULLSCREEN
+
+```text
+fullscreen on | off   choose the captive grid or streamed output
+fullscreen            report the current state
+  On, the display is a captive 64x16 character grid like the hardware's.
+  Off, output streams down the terminal instead, so the terminal's own
+  scrollback works and the session can be piped or paged normally.
+  Screen ADDRESSING IS UNCHANGED either way -- PRINT@, CLS, SET and
+  POINT all place things at the same coordinates in both modes.  The
+  switch decides how the result is presented, not where it goes.
+  Turn it off to read back long output; leave it on for anything whose
+  layout matters while it runs.
+  Metacommand: lowercase only.
+  Example: fullscreen off
+```
+
+#### SPEED
+
+```text
+speed <mhz>   throttle execution to roughly that clock rate
+speed         report the current setting
+  A real Model I ran at 1.77 MHz, and programs written for it -- games
+  especially -- are unplayably fast at modern speeds.  `speed 1.77`
+  approximates the original pacing.
+  `speed 0` removes the throttle and runs at full speed, which is the
+  default.
+  The figure is approximate: it paces execution, it does not emulate
+  Z80 instruction timing.
+  Metacommand: lowercase only.
+  Example: speed 1.77
+  Example: speed 0
+```
+
+#### HISTORY H
+
+```text
+history   list the commands typed this session
+h         the same thing, abbreviated
+  Numbers each line entered at the prompt since the interpreter started,
+  which is useful for retracing what was typed during a debugging
+  session.
+  This is the printed list; the up and down arrow keys recall previous
+  commands directly at the prompt (see: help keys).
+  Metacommand: lowercase only.
+  Example: history
+```
+
+#### @DUMP
+
+```text
+@dump   print the screen buffer as text (debugging aid)
+  Writes the 16 rows of the 64-column display, bordered with | so the
+  exact column of every character can be counted.
+  Its purpose is checking positioned output: because it prints the
+  buffer rather than repainting the screen, it shows precisely where
+  PRINT@, TAB and the graphics statements actually put things -- and it
+  works when output is piped, where the live grid is not drawn.
+  Not part of Level II; lowercase only, and the only metacommand that
+  takes no arguments at all.
+  Example: @dump
 ```
 
 <!-- END GENERATED REFERENCE -->
