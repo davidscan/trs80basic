@@ -431,10 +431,23 @@ Honest list, stated as current behaviour:
 #### PRINT
 
 ```text
-PRINT [items]   display values
-  ;=no gap  ,=next 16-col zone  @n=position  TAB(n)
-  Example: PRINT "SUM=";A+B , "OK"
-  PRINT USING f$; items   formatted output (see: man USING)
+PRINT [items]   display values on the screen
+  Separators control spacing:
+    ;        no gap -- the next item starts immediately
+    ,        skip to the next 16-column zone (4 zones per 64-col line;
+             a 5th comma wraps to the next line)
+    @n       print at screen position n (0-1023; row = INT(n/64),
+             col = n-64*INT(n/64))
+    TAB(n)   pad with spaces out to column n
+  Numbers carry their own spacing: a leading space for positive values
+  (a '-' for negative) and always one trailing space.  So PRINT 1;2
+  gives " 1  2 ", not "12".  A leading 0 is dropped: -0.5 prints as -.5.
+  A trailing ; or , at the end of the line suppresses the newline, so the
+  next PRINT continues on the same line.
+  ? is shorthand for PRINT.  See also: man USING, man PRINT#
+  Example: PRINT "SUM=";A+B          -> SUM= 12
+  Example: PRINT "X","Y"             -> X at col 1, Y at col 17
+  Example: PRINT "WAIT";  : PRINT "ING"   -> WAITING
 ```
 
 #### USING
@@ -466,9 +479,20 @@ PRINT [#n,] USING f$; items   format items through picture f$
 #### IF
 
 ```text
-IF cond THEN stmt|n [ELSE stmt|n]   conditional
-  Also: IF cond GOTO n
+IF cond THEN stmt|n [ELSE stmt|n]   run stmt (or jump to line n) when true
+  Forms: IF e THEN n / IF e GOTO n / IF e THEN stmt / IF e THEN stmt ELSE stmt
+  Truth is numeric, not boolean: any non-zero value is true, 0 is false.
+  IF A is a valid test meaning "A is not zero".  Comparisons return -1 for
+  true and 0 for false, so they feed straight back into arithmetic.
+  Strings compare too, character by character on ASCII code ("ABC"<"ABD").
+  The branch is the WHOLE REST OF THE LINE, not just the next statement:
+    IF A THEN PRINT "X":PRINT "Y"      both are skipped when A is 0
+  So a statement that must always run cannot sit after an IF on the same
+  line -- give it its own line.  The same applies after ELSE.
+  When the test is false and there is no ELSE, control moves to the next
+  LINE, not to the next statement.
   Example: IF A>0 THEN PRINT"POS" ELSE PRINT"NEG"
+  Example: IF SC>HI THEN HI=SC           (no ELSE needed)
 ```
 
 #### THEN
@@ -495,23 +519,45 @@ GOTO n   jump to line n
 #### GOSUB
 
 ```text
-GOSUB n   call the subroutine at line n (RETURN comes back)
-  Example: GOSUB 500
+GOSUB n   call the subroutine beginning at line n
+  Execution jumps to line n and continues until a RETURN sends it back
+  to the statement just after the GOSUB.  Calls may nest; each GOSUB
+  pushes a return address that its RETURN pops.
+  A subroutine is an ordinary range of lines -- nothing marks its start,
+  so reaching line n by falling through or by GOTO enters the same code
+  without a return address, and its RETURN then raises ?RG ERROR.
+  End the main program with END before the first subroutine to stop it
+  running on into one.
+  Example: 10 GOSUB 100:GOSUB 100:END
+           100 C=C+1:PRINT "CALL";C:RETURN     -> CALL 1 / CALL 2
 ```
 
 #### RETURN
 
 ```text
-RETURN   return from the most recent GOSUB
+RETURN   go back to the statement after the most recent GOSUB
+  Returns to the point of the call, not to the start of a line: if the
+  GOSUB sat mid-line, execution resumes with the next statement on that
+  same line.
+  A RETURN with no matching GOSUB raises ?RG ERROR -- usually a sign the
+  program ran into a subroutine instead of calling it.
   Example: 590 RETURN
 ```
 
 #### FOR
 
 ```text
-FOR v=a TO b [STEP s]   begin a counting loop
-  Body runs at least once; test is at NEXT.
-  Example: FOR I=1 TO 10 STEP 2
+FOR v=start TO limit [STEP s]   begin a counting loop
+  The body always runs at least once: the limit is tested at NEXT, not
+  at FOR.  So FOR I=1 TO 0 still executes the body one time -- guard with
+  IF when an empty range is possible.
+  start, limit and s are each evaluated once, on entry; changing the
+  variables they came from mid-loop does not move the limit.  STEP
+  defaults to 1 and may be negative or fractional.
+  Assigning v inside the body does affect the count.  Re-entering an
+  already-active FOR on the same variable discards the older frame.
+  Example: FOR I=1 TO 5:T=T+I:NEXT I        -> T = 15
+  Example: FOR K=10 TO 1 STEP -3:PRINT K;:NEXT  ->  10  7  4  1
 ```
 
 #### TO
@@ -532,7 +578,13 @@ STEP   sets the FOR increment (default 1; 0 loops forever)
 
 ```text
 NEXT [v[,v...]]   close the innermost FOR loop(s)
-  Example: NEXT I    or    NEXT J,I
+  Bare NEXT closes the innermost open loop.  Naming the variable is
+  clearer and is checked: NEXT J when J is not the innermost open loop
+  unwinds the inner frames to reach it.
+  One NEXT may close several loops at once, innermost first:
+  NEXT J,I is the same as NEXT J followed by NEXT I.
+  Example: FOR I=1 TO 2:FOR J=1 TO 3:PRINT I*10+J;:NEXT J,I
+             ->  11  12  13  21  22  23
 ```
 
 #### INPUT
@@ -549,16 +601,29 @@ INPUT ["prompt";] var[,var...]   read from the keyboard
 #### READ
 
 ```text
-READ var[,var...]   take the next DATA item(s)
-  Example: READ A,B,N$
+READ var[,var...]   assign the next DATA item(s) to variables
+  A single pointer walks every DATA statement in the program in line
+  order, and it does not reset between READs -- each READ continues from
+  where the last one stopped.  RESTORE moves it back.
+  Reading a string item into a numeric variable raises ?SN ERROR, and
+  the error is reported at the DATA line, not the READ line.
+  Running out of items raises ?OD ERROR (out of data).
+  Example: FOR I=1 TO 3:READ N$,P:PRINT N$;"=";P:NEXT I
+           DATA WIDGET,5,GADGET,12,"BOLT, HEX",3
 ```
 
 #### DATA
 
 ```text
-DATA const[,const...]   inline constants for READ
-  Quoted strings may contain , and :
+DATA const[,const...]   inline constants for READ to consume
+  DATA is never executed -- it is a store of values that READ draws
+  from, so it may sit anywhere in the program.  Items are collected in
+  line order across every DATA statement.
+  Unquoted items are taken literally, with surrounding spaces trimmed.
+  Quote an item to keep leading/trailing spaces or to include a comma or
+  a colon, which would otherwise end it.
   Example: DATA 1,2,"HELLO"
+  Example: DATA "BOLT, HEX",3      (one string item, then a number)
 ```
 
 #### RESTORE
@@ -593,17 +658,29 @@ STOP   halt with BREAK IN n; CONT resumes
 #### DIM
 
 ```text
-DIM name(d[,d...])   declare an array (auto-dim is 10)
+DIM name(d[,d...])   declare an array and its bounds
+  Subscripts start at 0, so DIM A(20) creates 21 elements A(0)..A(20).
+  Arrays may have more than one dimension: DIM B$(5,5) is 6x6 = 36
+  string elements.
+  Using an array without DIM auto-dimensions it to 10 (0..10) on first
+  reference.  DIM after that raises ?DD ERROR (duplicate definition), so
+  DIM early -- before the first use, not after.
+  Numeric elements start at 0 and string elements at "".
   EXT (needs `ext on` / TRS80_EXT=1): scalar names in the list
   (DIM Z,V,L$) are accepted as declarations and ignored.
   Example: DIM A(20),B$(5,5)
+  Example: DIM G(2,2):G(1,2)=5:PRINT G(1,2)    ->  5
 ```
 
 #### CLS
 
 ```text
-CLS   clear the screen
-  Example: CLS
+CLS   clear the screen and home the cursor
+  Blanks all 16 rows and leaves the cursor at the top-left, position 0,
+  so a following PRINT starts at the upper-left corner.
+  Clears only the display -- variables, arrays and the DATA pointer are
+  untouched.
+  Example: CLS:PRINT@ 540,"CENTRED"
 ```
 
 #### CLEAR
@@ -617,9 +694,18 @@ CLEAR [n]   clear all variables [set string space to n]
 #### ON
 
 ```text
-ON e GOTO n1,n2,...   branch to the e-th line (also GOSUB)
-  ON ERROR GOTO n   install an error handler
+ON e GOTO n1[,n2...]   branch to the e-th line in the list
+ON e GOSUB n1[,n2...]   call the e-th line in the list
+  e is rounded down to an integer and counts from 1: ON 2 GOTO a,b picks
+  b, and ON 1.9 GOTO a,b picks a.
+  If e is 0, or larger than the number of lines listed, nothing happens
+  and execution falls through to the next statement -- this is not an
+  error, and it is the normal way to handle "none of the above".
+  A negative e is ?FC ERROR.
+  ON ERROR GOTO n installs an error handler (see: man ERROR, man RESUME).
   Example: ON X GOTO 100,200,300
+  Example: ON MENU GOSUB 1000,2000,3000
+           PRINT "BAD CHOICE"     (reached when MENU is 0 or > 3)
 ```
 
 #### POKE
@@ -813,15 +899,26 @@ SET(x,y,c)   EXT: also color it (c 0-8, the CoCo Color BASIC palette:
 #### RESET
 
 ```text
-RESET(x,y)   clear a graphics cell
+RESET(x,y)   clear the graphics cell at (x,y)
+  The exact inverse of SET, over the same 128x48 grid (x 0-127, y 0-47).
+  Clearing a cell that is already clear is harmless, not an error.
+  Coordinates outside the grid raise ?FC ERROR.
+  Note this is the RESET function, unrelated to any system reset.
   Example: RESET(64,24)
+  Example: FOR X=0 TO 127:RESET(X,0):NEXT X    (wipe the top row)
 ```
 
 #### POINT
 
 ```text
-POINT(x,y)   -1 if graphics cell (x,y) is set, else 0
-  Example: IF POINT(10,10) THEN ...
+POINT(x,y)   -1 if graphics cell (x,y) is lit, 0 if it is clear
+  x runs 0-127 across and y runs 0-47 down, the same grid SET and RESET
+  use.  The result is a normal truth value, so it can be tested directly
+  with IF, and because true is -1 it can also be accumulated: summing
+  POINT over a region gives minus the number of lit cells.
+  Reading outside the grid raises ?FC ERROR.
+  Example: IF POINT(10,10) THEN PRINT "LIT"
+  Example: SET(10,10):PRINT POINT(10,10)     -> -1
 ```
 
 ### Error handling
@@ -1061,15 +1158,26 @@ OPEN m$,n,"OLLAMA[:model[:thread]]"   chat with a local LLM
 #### ABS
 
 ```text
-ABS(x)   absolute value
-  Example: PRINT ABS(-5)   -> 5
+ABS(x)   the absolute value of x -- its size without the sign
+  ABS(-5) and ABS(5) are both 5; ABS(0) is 0.
+  Common uses: distance between two values, ABS(A-B); and comparing
+  floating-point numbers for near-equality, IF ABS(A-B)<.001 THEN ...,
+  which is safer than testing A=B on computed values.
+  Example: PRINT ABS(-5)        ->  5
+  Example: IF ABS(X-T)<.5 THEN PRINT "CLOSE ENOUGH"
 ```
 
 #### INT
 
 ```text
-INT(x)   greatest integer <= x
-  Example: PRINT INT(3.7)   -> 3
+INT(x)   the greatest integer less than or equal to x
+  Rounds DOWN, toward minus infinity -- it does not truncate toward zero.
+  For positive x the two look the same, but they differ for negatives:
+  INT(3.7) is 3, and INT(-3.2) is -4, not -3.
+  To truncate toward zero instead, use SGN(x)*INT(ABS(x)).
+  To round to nearest, add 0.5 first: INT(x+.5).
+  Example: PRINT INT(3.7);INT(-3.2)    ->  3 -4
+  Example: PRINT INT(2.5+.5)           ->  3   (rounded to nearest)
 ```
 
 #### FIX
@@ -1082,8 +1190,13 @@ FIX(x)   truncate toward zero
 #### SGN
 
 ```text
-SGN(x)   sign: -1, 0, or 1
-  Example: PRINT SGN(-9)    -> -1
+SGN(x)   the sign of x: -1 if negative, 0 if zero, 1 if positive
+  Reports only direction, never magnitude, so SGN(-9) and SGN(-.001)
+  are both -1.
+  Pairs with ABS to split a value into sign and size: x = SGN(x)*ABS(x).
+  Handy for stepping toward a target by one unit: X=X+SGN(T-X).
+  Example: PRINT SGN(-9)         -> -1
+  Example: DX=SGN(TX-X):DY=SGN(TY-Y)     (chase one step)
 ```
 
 #### SQR
@@ -1179,22 +1292,40 @@ INSTR([n,]a$,b$)   position of b$ inside a$, 0 if absent (Disk BASIC)
 #### LEN
 
 ```text
-LEN(a$)   number of characters in a$
-  Example: PRINT LEN("HI")   -> 2
+LEN(a$)   how many characters a$ contains
+  Counts characters, including spaces; the empty string gives 0.
+  Commonly used to test for empty input (IF LEN(N$)=0) and to drive a
+  loop over each character with MID$.
+  Example: PRINT LEN("HI")     ->  2
+  Example: FOR I=1 TO LEN(A$):PRINT MID$(A$,I,1);:NEXT I
 ```
 
 #### ASC
 
 ```text
-ASC(a$)   code of the first character
-  Example: PRINT ASC("A")    -> 65
+ASC(a$)   the character code of the first character of a$
+  Only the first character is examined; the rest is ignored, so
+  ASC("ABC") is 65.  An empty string raises ?FC ERROR -- guard with
+  IF LEN(A$) when the source could be empty (INKEY$ often is).
+  CHR$ is the inverse.
+  Example: PRINT ASC("A")              -> 65
+  Example: K$=INKEY$:IF K$<>"" THEN P=ASC(K$)
 ```
 
 #### VAL
 
 ```text
-VAL(a$)   leading numeric value of a$
-  Example: PRINT VAL("12.5X") -> 12.5
+VAL(a$)   the number at the front of a$, or 0 if there is none
+  Reads as much of the string as looks like a number and stops at the
+  first character that does not fit, so VAL("12.5X") is 12.5.  Leading
+  spaces are skipped, a leading sign is honoured, and exponent notation
+  is understood: VAL("-3E2") is -300.
+  A string that does not begin with a number gives 0 rather than an
+  error, so VAL cannot by itself tell "0" from "OFF" -- test the string
+  first if that difference matters.
+  STR$ is the inverse.
+  Example: PRINT VAL("12.5X")   -> 12.5
+  Example: PRINT VAL("ABC")     ->  0
 ```
 
 #### CHR$
@@ -1210,16 +1341,26 @@ CHR$(n)   one-character string for code n
 #### STR$
 
 ```text
-STR$(x)   string form of a number (leading sign space)
-  Example: PRINT STR$(12)
+STR$(x)   the string form of number x, as PRINT would show it
+  Includes the leading space PRINT puts in front of a positive number,
+  so STR$(12) is " 12" (three characters) while STR$(-12) is "-12".
+  Strip it with MID$(STR$(X),2) when concatenating.
+  VAL is the inverse.
+  Example: PRINT "[";STR$(12);"]"        -> [ 12]
+  Example: PRINT "N="+MID$(STR$(12),2)   -> N=12
 ```
 
 #### STRING$
 
 ```text
-STRING$(n,c)   n copies of a character
-  c is a code or a 1-char string.
-  Example: PRINT STRING$(5,"*")  -> *****
+STRING$(n,c)   a string of n copies of one character
+  c may be a one-character string or a character code, so STRING$(5,"*")
+  and STRING$(5,42) give the same result.  If a longer string is passed,
+  only its first character is used.
+  Useful for rules, bar charts and clearing a field to spaces.
+  Example: PRINT STRING$(5,"*")     -> *****
+  Example: PRINT STRING$(3,65)      -> AAA
+  Example: PRINT STRING$(64,"-")    (a full-width rule)
 ```
 
 #### LEFT$
@@ -1281,8 +1422,15 @@ MEM   free program memory in bytes
 #### INKEY$
 
 ```text
-INKEY$   one waiting keypress, or "" if none (no wait)
-  Example: K$=INKEY$
+INKEY$   the key being pressed right now, or "" if none
+  Returns at once without waiting, and does not echo the character or
+  need ENTER -- unlike INPUT, which blocks until a line is entered.  A
+  keypress is consumed by the read, so store it before testing it.
+  To wait for a key, loop until it is non-empty:
+    10 K$=INKEY$:IF K$="" THEN 10
+  To poll without stopping (so animation or a clock keeps running), test
+  once per pass through the main loop and carry on when it is "".
+  Example: K$=INKEY$:IF K$="Q" THEN END
 ```
 
 <!-- END GENERATED REFERENCE -->
