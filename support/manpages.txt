@@ -1113,7 +1113,7 @@ CVI(s$) CVS(s$) CVD(s$)   unpack 2, 4 or 8 packed bytes into a number
 # All are recognised in LOWERCASE ONLY, so they can never collide with a
 # BASIC keyword or a variable name.
 
-:MAN
+:man
 man <KEYWORD>   show the manual entry for a BASIC keyword
   Prints syntax, behaviour and worked examples for one keyword, in the
   region below the grid.  The keyword may be typed in any case, so
@@ -1125,7 +1125,7 @@ man <KEYWORD>   show the manual entry for a BASIC keyword
   Example: man MID$
   Example: man for
 
-:HELP
+:help
 help meta    list the metacommands
 help keys    list the terminal key bindings
 help <text>  search the manual for text
@@ -1140,7 +1140,7 @@ help <text>  search the manual for text
   Example: help meta
   Example: help random
 
-:DIR
+:dir
 dir [args]   list files in the current directory
   Passes through to the host shell's `ls -al` (or `dir` on native
   Windows) and shows the result below the grid.  Any arguments are
@@ -1152,7 +1152,7 @@ dir [args]   list files in the current directory
   Example: dir
   Example: dir *.bas
 
-:CAT
+:cat
 cat <file...>   show the contents of one or more files
   Displays the files below the grid.  Bytes that are not printable text
   are shown as a full stop, so a tokenised or binary file can be
@@ -1162,7 +1162,7 @@ cat <file...>   show the contents of one or more files
   Metacommand: lowercase only.
   Example: cat SCORES.TXT
 
-:EXT
+:ext
 ext on | off   enable or disable the gated extensions
 ext            report the current state
   The extensions are small conveniences that real Level II does not
@@ -1175,7 +1175,7 @@ ext            report the current state
   Example: ext on
   Example: ext            -> EXT OFF (gated: ...)
 
-:FULLSCREEN
+:fullscreen
 fullscreen on | off   choose the captive grid or streamed output
 fullscreen            report the current state
   On, the display is a captive 64x16 character grid like the hardware's.
@@ -1189,7 +1189,7 @@ fullscreen            report the current state
   Metacommand: lowercase only.
   Example: fullscreen off
 
-:SPEED
+:speed
 speed <mhz>   throttle execution to roughly that clock rate
 speed         report the current setting
   A real Model I ran at 1.77 MHz, and programs written for it -- games
@@ -1203,7 +1203,7 @@ speed         report the current setting
   Example: speed 1.77
   Example: speed 0
 
-:HISTORY H
+:history h
 history   list the commands typed this session
 h         the same thing, abbreviated
   Numbers each line entered at the prompt since the interpreter started,
@@ -1214,7 +1214,7 @@ h         the same thing, abbreviated
   Metacommand: lowercase only.
   Example: history
 
-:@DUMP
+:@dump
 @dump   print the screen buffer as text (debugging aid)
   Writes the 16 rows of the 64-column display, bordered with | so the
   exact column of every character can be counted.

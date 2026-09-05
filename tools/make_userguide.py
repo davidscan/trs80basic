@@ -64,9 +64,11 @@ CATEGORIES = [
     ]),
     # Not Level II BASIC -- host-side conveniences this interpreter adds.
     # Listed last so the reference reads as the language first.
+    # Lowercase deliberately: these are recognised in lowercase only, so the
+    # reference must show the form that actually works.
     ("Metacommands", [
-        "MAN", "HELP", "DIR", "CAT", "EXT", "FULLSCREEN", "SPEED",
-        "HISTORY", "H", "@DUMP",
+        "man", "help", "dir", "cat", "ext", "fullscreen", "speed",
+        "history", "h", "@dump",
     ]),
 ]
 

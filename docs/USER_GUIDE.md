@@ -1857,7 +1857,7 @@ INKEY$   the key being pressed right now, or "" if none
 
 ### Metacommands
 
-#### MAN
+#### man
 
 ```text
 man <KEYWORD>   show the manual entry for a BASIC keyword
@@ -1872,7 +1872,7 @@ man <KEYWORD>   show the manual entry for a BASIC keyword
   Example: man for
 ```
 
-#### HELP
+#### help
 
 ```text
 help meta    list the metacommands
@@ -1890,7 +1890,7 @@ help <text>  search the manual for text
   Example: help random
 ```
 
-#### DIR
+#### dir
 
 ```text
 dir [args]   list files in the current directory
@@ -1905,7 +1905,7 @@ dir [args]   list files in the current directory
   Example: dir *.bas
 ```
 
-#### CAT
+#### cat
 
 ```text
 cat <file...>   show the contents of one or more files
@@ -1918,7 +1918,7 @@ cat <file...>   show the contents of one or more files
   Example: cat SCORES.TXT
 ```
 
-#### EXT
+#### ext
 
 ```text
 ext on | off   enable or disable the gated extensions
@@ -1934,7 +1934,7 @@ ext            report the current state
   Example: ext            -> EXT OFF (gated: ...)
 ```
 
-#### FULLSCREEN
+#### fullscreen
 
 ```text
 fullscreen on | off   choose the captive grid or streamed output
@@ -1951,7 +1951,7 @@ fullscreen            report the current state
   Example: fullscreen off
 ```
 
-#### SPEED
+#### speed
 
 ```text
 speed <mhz>   throttle execution to roughly that clock rate
@@ -1968,7 +1968,7 @@ speed         report the current setting
   Example: speed 0
 ```
 
-#### HISTORY H
+#### history h
 
 ```text
 history   list the commands typed this session
@@ -1982,7 +1982,7 @@ h         the same thing, abbreviated
   Example: history
 ```
 
-#### @DUMP
+#### @dump
 
 ```text
 @dump   print the screen buffer as text (debugging aid)
