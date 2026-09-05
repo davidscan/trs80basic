@@ -128,6 +128,9 @@ function execstmt(   ty, tx) {
         if (tx == "LLIST")   { CP++; st_llist(); return }
         if (tx == "OUT")     { CP++; st_out(); return }
         if (tx == "MID$")    { CP++; st_midset(); return }
+        # CMD only when a string LITERAL follows, so `CMD A$` and a variable
+        # named CMD keep their old meaning (see st_cmd, p80)
+        if (tx == "CMD" && TY[CK, CP + 1] == "s") { CP++; st_cmd(); return }
         st_let()                       # implicit assignment
         return
     }

@@ -1,0 +1,15 @@
+REM t30: CMD -- the Model III TRSDOS 1.3 CMD"&"& easter egg, and the forms
+REM around it that must keep behaving exactly as they did before it existed
+10 ON ERROR GOTO 500
+20 CMD"&"&
+30 PRINT "A":CMD"&"&:PRINT "B"
+40 CMD=5: PRINT "CMD AS VARIABLE";CMD
+50 T=1: CMD"&"
+60 T=2: CMD"S"
+70 T=3: A$="&": CMD A$
+80 T=4: CMD"&"&X
+90 PRINT "TRAPPED";N: END
+500 N=N+1: PRINT "SN AT";T;(ERR=2): RESUME NEXT
+RUN
+cmd"&"&
+BYE

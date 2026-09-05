@@ -650,3 +650,37 @@ function gpoint(x, y,   p, b) {
     if (b < 128 || b > 191) return 0
     return and(b - 128, gbit(x, y)) ? -1 : 0
 }
+
+# ---- CMD -------------------------------------------------------------------
+# CMD calls a TRSDOS service.  A cassette Level II machine has no DOS to call,
+# so every form raises ?SN exactly as it always has -- except the one Model III
+# TRSDOS 1.3 easter egg, CMD"&"&, which printed a hidden message from the
+# people who wrote that DOS.  Ours says who wrote this one.
+# EXT.  Safe as an always-on extension: the trigger is the literal three-token
+# sequence CMD "&" & , which no Level II program can execute (CMD always
+# errored on a cassette machine) and no OCR damage can plausibly spell.
+# Dispatch (execstmt, p70) only routes here when a string LITERAL follows CMD,
+# so `CMD A$` and CMD-as-a-variable-name keep the behavior they had.
+function st_cmd(   s) {
+    s = TK[CK, CP]; CP++                    # the string literal after CMD
+    if (s != "&" || TY[CK, CP] != "o" || TK[CK, CP] != "&") { raise(2); return }
+    CP++
+    if (!at_stmt_end()) { raise(2); return }
+    s_puts(egg_text()); s_nl()
+}
+
+# The message is not stored in the clear: it is xor-folded, byte by byte,
+# against the incantation that summons it, so a passing eye -- or a grep over
+# the source -- does not spoil the surprise.  Gentle, not secret; anyone who
+# reads this function can unfold it, and that is the intended level of effort.
+function egg_text(   h, k, i, n, s) {
+    h = "17050D75630F05750A0E646F106D0A69176D07691314166F" \
+        "04051063076D067F630905700A0964600C1F066F10616414" \
+        "737F72"
+    k = "CMD&"
+    n = length(h) / 2
+    for (i = 1; i <= n; i++)
+        s = s CHR[xor(strtonum("0x" substr(h, i + i - 1, 2)), \
+                      ORD[substr(k, (i - 1) % length(k) + 1, 1)])]
+    return s
+}
