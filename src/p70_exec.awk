@@ -85,7 +85,7 @@ function execstmt(   ty, tx) {
         if (tx == "READ")    { CP++; st_read(); return }
         if (tx == "DATA")    { CP++; if (TY[CK, CP] == "d") CP++; return }
         if (tx == "RESTORE") { CP++; st_restore(); return }
-        if (tx == "REM")     { CP = eolpos(); return }
+        if (tx == "REM")     { if (EXTON) rem_meta(); CP = eolpos(); return }
         if (tx == "END")     { CP++; st_end(); return }
         if (tx == "STOP")    { CP++; st_stop(); return }
         if (tx == "DIM")     { CP++; st_dim(); return }

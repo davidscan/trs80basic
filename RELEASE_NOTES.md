@@ -315,6 +315,14 @@ the interpreter reports the first `?SN`. Repairing them is a separate tool
   additionally accepts the INPUT"PRESS ENTER"; pause idiom and DIM of
   scalars (declaration lists). Off by default so damaged OCR listings
   still fail loudly; `ext` alone shows the state.
+- REM META: directives (2026-09-07, same gate): a remark beginning
+  `META:` carries a metacommand that fires when execution reaches the
+  line — `10 REM META:fullscreen on`, `500 REM META:speed 1.77` — so a
+  program can state its own display and pacing. `speed` and `fullscreen`
+  are the entire whitelist; anything else after META: is ignored in
+  silence, and `dir`/`cat` are deliberately unreachable from a file.
+  With the gate off the line is an ordinary remark, so such a listing
+  stays valid Level II everywhere else.
 - DEFSTR is honored (2026-08-12): bare names under a DEFSTR letter range
   resolve as strings everywhere — assignment, arrays, INPUT, READ, FOR
   (?TM), file I/O. DEFINT/DEFSNG/DEFDBL clear the DEFSTR flag for their

@@ -727,8 +727,19 @@ REM text   a remark; the rest of the line is ignored
   common way to disable code by accident.
   Because it is a statement, REM can be branched to: GOSUB or GOTO may
   target a REM line, which is the usual way to label a subroutine.
+  EXT (needs `ext on` / TRS80_EXT=1): a REM beginning META: carries a
+  metacommand, which runs when execution REACHES that line -- so a
+  program can ask for the display it wants, or change the throttle
+  part-way through.  Only two are allowed, `speed` and `fullscreen`,
+  spelled exactly as at the prompt; anything else after META: is ignored
+  in silence, and a file can never reach `dir`, `cat` or the filesystem.
+  Inside a loop it re-fires every pass, which is harmless for both.
+  With the gate off -- the default -- the line is an ordinary remark, so
+  a listing carrying one stays valid Level II everywhere else.
   Example: 100 REM ---- SCORING ROUTINE ----
   Example: 10 A=5:REM SET THE COUNTER
+  Example: 10 REM META:fullscreen on
+  Example: 500 REM META:speed 1.77
 ```
 
 #### END
@@ -1958,8 +1969,8 @@ ext on | off   enable or disable the gated extensions
 ext            report the current state
   The extensions are small conveniences that real Level II does not
   have, kept behind this switch so that default behaviour stays
-  faithful.  Currently gated: INPUT with a prompt but no variable, and
-  DIM of a scalar name.
+  faithful.  Currently gated: INPUT with a prompt but no variable, DIM
+  of a scalar name, and REM META: directives (see: man REM).
   Off by default.  The environment variable TRS80_EXT=1 turns them on
   at startup instead.
   Metacommand: lowercase only.
@@ -1970,17 +1981,20 @@ ext            report the current state
 #### fullscreen
 
 ```text
-fullscreen on | off   choose the captive grid or streamed output
+fullscreen on | off   use the whole terminal, or the captive grid
 fullscreen            report the current state
-  On, the display is a captive 64x16 character grid like the hardware's.
-  Off, output streams down the terminal instead, so the terminal's own
+  ON, output streams down the whole terminal, so the terminal's own
   scrollback works and the session can be piped or paged normally.
+  OFF, the display is a captive 64x16 character grid like the
+  hardware's, and the terminal below it is left alone.
   Screen ADDRESSING IS UNCHANGED either way -- PRINT@, CLS, SET and
   POINT all place things at the same coordinates in both modes.  The
   switch decides how the result is presented, not where it goes.
-  Turn it off to read back long output; leave it on for anything whose
+  Turn it on to read back long output; turn it off for anything whose
   layout matters while it runs.
   Metacommand: lowercase only.
+  A program can ask for a mode itself with 10 REM META:fullscreen on
+  (see: man REM); that needs `ext on`.
   Example: fullscreen off
 ```
 
@@ -1997,6 +2011,8 @@ speed         report the current setting
   The figure is approximate: it paces execution, it does not emulate
   Z80 instruction timing.
   Metacommand: lowercase only.
+  A program can change the throttle mid-run with 500 REM META:speed 1.77
+  (see: man REM); that needs `ext on`.
   Example: speed 1.77
   Example: speed 0
 ```

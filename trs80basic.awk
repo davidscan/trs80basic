@@ -1145,9 +1145,46 @@ function st_fullscreen(arg) {
     t_man("USAGE: fullscreen on|off|1|0")
 }
 
+# --- REM META: directives (EXT, gated by `ext on` / TRS80_EXT) --------------
+# A REM whose payload starts with META: carries a metacommand that fires when
+# execution REACHES the line, so a listing can state its own display needs
+# (10 REM META:fullscreen on) or change the throttle part-way through
+# (500 REM META:speed 1.77).  In a loop it re-fires every pass; both knobs are
+# idempotent, which is why only they are allowed.
+#
+# The whitelist is display/feel knobs ONLY -- never dir/cat (shell
+# passthroughs), never anything touching the filesystem.  Metacommands
+# otherwise reach us only from the keyboard; the moment a FILE can fire one, a
+# downloaded .bas would be a shell-execution vector on LOAD.  That constraint
+# is not negotiable, whatever the gate.
+#
+# Anything else after META: is ignored in silence -- unknown directive, bad
+# argument, a plain English comment that happens to start that way.  The line
+# stays a bit-for-bit valid Level II REM on real hardware and through
+# CSAVE/tok round-trips, which is the whole point of hiding in a comment.
+# The META: marker takes either case; the directive itself is lowercase-only,
+# like every metacommand.
+function rem_meta(   s, cmd, arg) {
+    if (TY[CK, CP + 1] != "r") return
+    s = TK[CK, CP + 1]
+    if (s !~ /^[ \t]*[Mm][Ee][Tt][Aa]:/) return
+    sub(/^[ \t]*[Mm][Ee][Tt][Aa]:[ \t]*/, "", s)
+    sub(/[ \t]+$/, "", s)
+    if (match(s, /[ \t]/)) {
+        cmd = substr(s, 1, RSTART - 1)
+        arg = substr(s, RSTART + 1); sub(/^[ \t]+/, "", arg)
+    } else { cmd = s; arg = "" }
+    if (cmd == "speed") {                   # set_speed, not st_speed: silent
+        if (arg ~ /^[0-9]*\.?[0-9]+$/) set_speed(arg + 0)
+    } else if (cmd == "fullscreen") {
+        if (arg == "on" || arg == "off" || arg == "1" || arg == "0")
+            st_fullscreen(arg)              # silent for these four; bare is not
+    }
+}
+
 # --- ext metacommand: gate for extensions that damaged OCR could spell ------
 function st_ext(arg) {
-    if (arg == "") { t_man("EXT " (EXTON ? "ON" : "OFF") " (gated: bare/prompt-only INPUT, DIM of a scalar)"); return }
+    if (arg == "") { t_man("EXT " (EXTON ? "ON" : "OFF") " (gated: bare/prompt-only INPUT, DIM of a scalar, REM META:)"); return }
     if (arg == "on" || arg == "1") { EXTON = 1; return }
     if (arg == "off" || arg == "0") { EXTON = 0; return }
     t_man("USAGE: ext on|off|1|0")
@@ -1185,7 +1222,9 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  help keys             terminal key bindings\n" \
               "  help <text>           search BASIC commands\n" \
               "  speed <mhz>           throttle execution (0 = full speed)\n" \
-              "  @dump                 dump the screen buffer (debug)")
+              "  @dump                 dump the screen buffer (debug)\n" \
+              "IN A PROGRAM (needs ext on): a REM fires speed/fullscreen when\n" \
+              "execution reaches it --  10 REM META:fullscreen on")
         return
     }
     if (arg == "keys") {
@@ -2237,7 +2276,7 @@ function execstmt(   ty, tx) {
         if (tx == "READ")    { CP++; st_read(); return }
         if (tx == "DATA")    { CP++; if (TY[CK, CP] == "d") CP++; return }
         if (tx == "RESTORE") { CP++; st_restore(); return }
-        if (tx == "REM")     { CP = eolpos(); return }
+        if (tx == "REM")     { if (EXTON) rem_meta(); CP = eolpos(); return }
         if (tx == "END")     { CP++; st_end(); return }
         if (tx == "STOP")    { CP++; st_stop(); return }
         if (tx == "DIM")     { CP++; st_dim(); return }

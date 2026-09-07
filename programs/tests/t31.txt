@@ -1,0 +1,41 @@
+REM t31: REM META: directives -- ext gate, whitelist, silent ignore, both knobs
+10 REM META:speed 3
+20 PRINT "RAN"
+RUN
+speed
+ext on
+RUN
+speed
+30 REM META:speed 0
+RUN
+speed
+NEW
+10 REM META:dir /
+20 REM META:cat /etc/passwd
+30 REM META:ext off
+40 REM META:nosuch on
+50 REM META:speed bogus
+60 REM META:speed
+70 REM ordinary comment, not a directive
+80 REM METAL DETECTOR
+90 PRINT "IGNORED ALL"
+RUN
+speed
+ext
+100 ' meta:speed 2
+RUN
+speed
+110 REM META:speed 0
+RUN
+speed
+NEW
+10 REM META:fullscreen off
+20 REM META:fullscreen on
+30 PRINT "SCREEN TOGGLED"
+RUN
+fullscreen
+ext off
+120 REM META:speed 3
+RUN
+speed
+BYE
