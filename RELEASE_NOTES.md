@@ -328,7 +328,11 @@ the interpreter reports the first `?SN`. Repairing them is a separate tool
   ?TM; a fieldless picture with values remaining raises ?FC. Rounding is
   half-up (as the ROM), and in ^^^^ form the significant digits fill
   every integer position with the exponent adjusted (a sign, when shown
-  on the left, takes one position).
+  on the left, takes one position). USING may appear at ANY item
+  position, not only at the head of the list (2026-09-07 conformance
+  fix): PRINT TAB(57) USING X$;EC is the period idiom, and USING takes
+  over formatting for the rest of the statement. PRINT#, LPRINT and
+  LLIST accept it in the same places.
 - Numeric literals in E/D exponent form (1E3, 1.5D-2) are parsed in
   source, VAL, DATA and INPUT; `.5`, `5.` etc. too. Doubles mean exact
   integers print in full (e.g. 12345678, where real single-precision

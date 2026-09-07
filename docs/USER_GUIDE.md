@@ -89,6 +89,10 @@ ever colliding with a period program.
 
 Metacommand output renders *below* the grid, never on the simulated screen.
 
+Two of them — `speed` and `fullscreen` — can also be fired by a program from
+one of its own remarks (`10 REM META:fullscreen on`) once `ext on` is set;
+see Part IV. Nothing else on this list is reachable from a file.
+
 The `man`/`help` text lives in `support/manpages.txt`, a plain file with a
 one-line format described in its own header — edit or extend it freely.
 
@@ -397,11 +401,33 @@ Honest list, stated as current behaviour:
 - **Compressed source does not lex.** `IFA=1THEN100` is the identifier
   `IFA`, not `IF A`. This is the dominant failure mode when pasting
   archived listings — `detok.py -s` exists precisely for it.
-- **`ext on` (EXT gate).** Two forms that valid Level II rejects are
-  accepted only when switched on (`ext on` or `TRS80_EXT=1`): the bare
-  `INPUT"PRESS ENTER";` pause idiom, and `DIM` of scalars (declaration
-  lists). Off by default so that damaged OCR listings still fail loudly —
-  the interpreter doubles as a strict `?SN` oracle.
+- **`ext on` (EXT gate).** Three things that valid Level II rejects, or
+  never does, are accepted only when switched on (`ext on` or
+  `TRS80_EXT=1`): the bare `INPUT"PRESS ENTER";` pause idiom, `DIM` of
+  scalars (declaration lists), and `REM META:` directives (below). Off by
+  default so that damaged OCR listings still fail loudly — the interpreter
+  doubles as a strict `?SN` oracle.
+- **`REM META:` directives** (EXT, gated as above). A remark that begins
+  `META:` carries a metacommand, and it runs when execution *reaches* that
+  line:
+
+  ```basic
+  10 REM META:fullscreen on
+  500 REM META:speed 1.77
+  600 REM META:speed 0
+  ```
+
+  So a program can state the display it wants instead of asking the user to
+  type it first, and a game can slow the loop that needs period pacing
+  without slowing its setup. In a loop the line re-fires every pass, which
+  is harmless: both knobs are idempotent, which is *why* only they are
+  allowed. Anything else after `META:` — an unknown directive, a bad
+  argument, an English sentence that happens to start that way — is ignored
+  in silence. **`dir` and `cat` are deliberately unreachable**: they are
+  shell passthroughs, and a file that could fire one would make any
+  downloaded `.bas` a shell-execution vector on `LOAD`. With the gate off,
+  the line is an ordinary remark, so a listing carrying one is still valid
+  Level II on real hardware and survives `CSAVE`/detokenizer round-trips.
 - **Absent**: `EDIT` (by design), `CMD`, `INP`, `SYSTEM` (machine-language
   territory; `USR` stubs as above).
 - `CLEAR` takes any numeric expression (`CLEAR FR!-8000` appears throughout
@@ -459,7 +485,14 @@ PRINT [#n,] USING f$; items   format items through picture f$
     too-wide numbers print as %number
   string fields: ! first char   %spaces% n+2 chars
   other chars print literally; picture repeats while items remain
+  USING need not lead the item list: it may follow anything PRINT
+  already printed -- PRINT TAB(57) USING X$;EC is the common period
+  spelling -- and from there it formats the rest of the statement.
+  Under USING, ; and , are plain separators (no 16-column zones); a
+  trailing one still holds the line open.
+  Works the same in PRINT#, LPRINT and LLIST.
   Example: PRINT USING "$$#,###.##"; 1234.5    ( $1,234.50)
+  Example: PRINT "COST"; TAB(20) USING "###.##"; C
 ```
 
 #### ?

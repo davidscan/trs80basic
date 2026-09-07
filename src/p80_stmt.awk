@@ -1,6 +1,6 @@
 # ===================== PRINT, INPUT, READ/DATA, DIM, POKE, graphics =========
 
-function st_print(   sep, ty, tx, v, tgt, col, t, fmt) {
+function st_print(   sep, ty, tx, v, tgt, col, t) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "#") { CP++; st_print_file(); return }
     if (TY[CK, CP] == "o" && TK[CK, CP] == "@") {
         CP++
@@ -11,31 +11,7 @@ function st_print(   sep, ty, tx, v, tgt, col, t, fmt) {
         CUR = tgt
         if (TY[CK, CP] == "o" && (TK[CK, CP] == "," || TK[CK, CP] == ";")) CP++
     }
-    if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") {
-        CP++
-        v = e_or(); if (E) return
-        if (isN(v)) { raise(13); return }
-        fmt = vstr(v)
-        if (TY[CK, CP] == "o" && (TK[CK, CP] == ";" || TK[CK, CP] == ",")) CP++
-        else { raise(2); return }
-        sep = 0; PUN = 0
-        for (;;) {                          # , and ; are pure separators here
-            ty = TY[CK, CP]
-            if (ty == "" || ty == "e") break
-            tx = TK[CK, CP]
-            if (ty == "o" && tx == ":") break
-            if (ty == "i" && (tx == "ELSE" || tx == "REM")) break
-            if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
-            v = e_or(); if (E) return
-            PUV[++PUN] = v
-            sep = 0
-        }
-        v = pu_output(fmt, PUN); if (E) return
-        s_puts(v)
-        if (!sep) s_nl()
-        sync_cursor()
-        return
-    }
+    if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") { CP++; pr_using(); return }
     sep = 0
     for (;;) {
         ty = TY[CK, CP]
@@ -43,6 +19,7 @@ function st_print(   sep, ty, tx, v, tgt, col, t, fmt) {
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
         if (ty == "i" && (tx == "ELSE" || tx == "REM")) break
+        if (ty == "i" && tx == "USING") { CP++; pr_using(); return }
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
             sep = 1
@@ -77,6 +54,35 @@ function st_print(   sep, ty, tx, v, tgt, col, t, fmt) {
     sync_cursor()
 }
 
+# ---- PRINT USING tail (entered with CP just past USING) --------------------
+# USING is legal at ANY item position, not only at the head of the list: the
+# period idiom is PRINT TAB(57) USING X$;EC (Encyclopedia for the TRS-80
+# vol. 3; DEMON.bas line 30 too).  It formats the rest of the statement, so
+# whatever was already printed keeps its column and USING takes over here.
+function pr_using(   sep, ty, tx, v, fmt) {
+    v = e_or(); if (E) return
+    if (isN(v)) { raise(13); return }
+    fmt = vstr(v)
+    if (TY[CK, CP] == "o" && (TK[CK, CP] == ";" || TK[CK, CP] == ",")) CP++
+    else { raise(2); return }
+    sep = 0; PUN = 0
+    for (;;) {                              # , and ; are pure separators here
+        ty = TY[CK, CP]
+        if (ty == "" || ty == "e") break
+        tx = TK[CK, CP]
+        if (ty == "o" && tx == ":") break
+        if (ty == "i" && (tx == "ELSE" || tx == "REM")) break
+        if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
+        v = e_or(); if (E) return
+        PUV[++PUN] = v
+        sep = 0
+    }
+    v = pu_output(fmt, PUN); if (E) return
+    s_puts(v)
+    if (!sep) s_nl()
+    sync_cursor()
+}
+
 # ---- LPRINT / LLIST --------------------------------------------------------
 # The line printer is a host stream: append to $TRS80_PRINTER, or discard
 # when unset.  Same value formatting and USING support as PRINT; own column
@@ -91,31 +97,8 @@ function lp_nl() {
     if (LPFILE != "") { print "" >> LPFILE; fflush(LPFILE) }
 }
 
-function st_lprint(   sep, ty, tx, v, t, fmt) {
-    if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") {
-        CP++
-        v = e_or(); if (E) return
-        if (isN(v)) { raise(13); return }
-        fmt = vstr(v)
-        if (TY[CK, CP] == "o" && (TK[CK, CP] == ";" || TK[CK, CP] == ",")) CP++
-        else { raise(2); return }
-        sep = 0; PUN = 0
-        for (;;) {
-            ty = TY[CK, CP]
-            if (ty == "" || ty == "e") break
-            tx = TK[CK, CP]
-            if (ty == "o" && tx == ":") break
-            if (ty == "i" && (tx == "ELSE" || tx == "REM")) break
-            if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
-            v = e_or(); if (E) return
-            PUV[++PUN] = v
-            sep = 0
-        }
-        v = pu_output(fmt, PUN); if (E) return
-        lp_puts(v)
-        if (!sep) lp_nl()
-        return
-    }
+function st_lprint(   sep, ty, tx, v, t) {
+    if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") { CP++; lp_using(); return }
     sep = 0
     for (;;) {
         ty = TY[CK, CP]
@@ -123,6 +106,7 @@ function st_lprint(   sep, ty, tx, v, t, fmt) {
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
         if (ty == "i" && (tx == "ELSE" || tx == "REM")) break
+        if (ty == "i" && tx == "USING") { CP++; lp_using(); return }
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
             sep = 1
@@ -149,6 +133,30 @@ function st_lprint(   sep, ty, tx, v, t, fmt) {
         else lp_puts(vstr(v))
         sep = 0
     }
+    if (!sep) lp_nl()
+}
+
+# LPRINT USING tail -- the printer twin of pr_using(), same any-position rule.
+function lp_using(   sep, ty, tx, v, fmt) {
+    v = e_or(); if (E) return
+    if (isN(v)) { raise(13); return }
+    fmt = vstr(v)
+    if (TY[CK, CP] == "o" && (TK[CK, CP] == ";" || TK[CK, CP] == ",")) CP++
+    else { raise(2); return }
+    sep = 0; PUN = 0
+    for (;;) {
+        ty = TY[CK, CP]
+        if (ty == "" || ty == "e") break
+        tx = TK[CK, CP]
+        if (ty == "o" && tx == ":") break
+        if (ty == "i" && (tx == "ELSE" || tx == "REM")) break
+        if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
+        v = e_or(); if (E) return
+        PUV[++PUN] = v
+        sep = 0
+    }
+    v = pu_output(fmt, PUN); if (E) return
+    lp_puts(v)
     if (!sep) lp_nl()
 }
 

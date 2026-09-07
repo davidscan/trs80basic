@@ -272,37 +272,14 @@ function st_lineinput(   n, name, key, prompt, line, x) {
 # PRINT #n, ... : ; and , are pure separators (no display zone padding --
 # zone spaces would corrupt comma-delimited re-reading); a trailing separator
 # holds the partial line in FH_OPEND until the next PRINT# or CLOSE
-function st_print_file(   n, s, sep, ty, tx, v, x, fmt) {
+function st_print_file(   n, s, sep, ty, tx, v, x) {
     n = fio_chan(0); if (E) return
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
     if (!fio_isopen(n)) { raise(25); return }
     if (FH_MODE[n] != "O" && FH_MODE[n] != "E" && FH_MODE[n] != "A") { raise(28); return }
-    if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") {
-        CP++
-        v = e_or(); if (E) return
-        if (isN(v)) { raise(13); return }
-        fmt = vstr(v)
-        if (TY[CK, CP] == "o" && (TK[CK, CP] == ";" || TK[CK, CP] == ",")) CP++
-        else { raise(2); return }
-        s = FH_OPENDHAS[n] ? FH_OPEND[n] : ""
-        sep = 0; PUN = 0
-        for (;;) {                          # , and ; are pure separators here
-            ty = TY[CK, CP]
-            if (ty == "" || ty == "e") break
-            tx = TK[CK, CP]
-            if (ty == "o" && tx == ":") break
-            if (ty == "i" && tx == "ELSE") break
-            if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
-            v = e_or(); if (E) return
-            PUV[++PUN] = v
-            sep = 0
-        }
-        v = pu_output(fmt, PUN); if (E) return
-        fio_pr_out(n, s v, sep)
-        return
-    }
     s = FH_OPENDHAS[n] ? FH_OPEND[n] : ""
+    if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") { CP++; fio_pr_using(n, s); return }
     sep = 0
     for (;;) {
         ty = TY[CK, CP]
@@ -310,6 +287,7 @@ function st_print_file(   n, s, sep, ty, tx, v, x, fmt) {
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
         if (ty == "i" && tx == "ELSE") break
+        if (ty == "i" && tx == "USING") { CP++; fio_pr_using(n, s); return }
         if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
         if (ty == "i" && tx == "TAB") {
             CP++
@@ -329,6 +307,30 @@ function st_print_file(   n, s, sep, ty, tx, v, x, fmt) {
         sep = 0
     }
     fio_pr_out(n, s, sep)
+}
+
+# PRINT# USING tail -- the file twin of pr_using(), same any-position rule;
+# `s` carries whatever the item list built before USING took over.
+function fio_pr_using(n, s,   sep, ty, tx, v, fmt) {
+    v = e_or(); if (E) return
+    if (isN(v)) { raise(13); return }
+    fmt = vstr(v)
+    if (TY[CK, CP] == "o" && (TK[CK, CP] == ";" || TK[CK, CP] == ",")) CP++
+    else { raise(2); return }
+    sep = 0; PUN = 0
+    for (;;) {                              # , and ; are pure separators here
+        ty = TY[CK, CP]
+        if (ty == "" || ty == "e") break
+        tx = TK[CK, CP]
+        if (ty == "o" && tx == ":") break
+        if (ty == "i" && tx == "ELSE") break
+        if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
+        v = e_or(); if (E) return
+        PUV[++PUN] = v
+        sep = 0
+    }
+    v = pu_output(fmt, PUN); if (E) return
+    fio_pr_out(n, s v, sep)
 }
 
 # finish a PRINT# statement: hold the partial line on a trailing separator,

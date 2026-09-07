@@ -42,7 +42,14 @@ PRINT [#n,] USING f$; items   format items through picture f$
     too-wide numbers print as %number
   string fields: ! first char   %spaces% n+2 chars
   other chars print literally; picture repeats while items remain
+  USING need not lead the item list: it may follow anything PRINT
+  already printed -- PRINT TAB(57) USING X$;EC is the common period
+  spelling -- and from there it formats the rest of the statement.
+  Under USING, ; and , are plain separators (no 16-column zones); a
+  trailing one still holds the line open.
+  Works the same in PRINT#, LPRINT and LLIST.
   Example: PRINT USING "$$#,###.##"; 1234.5    ( $1,234.50)
+  Example: PRINT "COST"; TAB(20) USING "###.##"; C
 
 :?
 ?   shorthand for PRINT

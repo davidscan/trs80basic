@@ -27,13 +27,21 @@ PRINT USING "A"+"##"; 7
 PRINT USING "###"; "OOPS"
 PRINT USING "!"; 5
 PRINT USING "NO FIELDS"; 1
+PRINT TAB(18)USING"##";13
+PRINT "COST"; TAB(20) USING "###.##"; 12.5
+PRINT "A: ";TAB(10) USING "##.##"; 3.14159;: PRINT " DONE"
+PRINT TAB(5);USING"##";9
+PRINT "X","Y"; USING "###"; 7
+LPRINT TAB(5) USING "##"; 7
 10 OPEN "O",1,"/tmp/t16_pu.txt"
 20 PRINT #1, USING "$$#,###.##"; 1234.5
 30 PRINT #1, USING "## "; 1; 2; 3
+35 PRINT #1, "X"; TAB(8) USING "###"; 42
 40 CLOSE 1
 50 OPEN "I",1,"/tmp/t16_pu.txt"
 60 LINE INPUT #1, A$: PRINT A$
 70 LINE INPUT #1, B$: PRINT B$
+75 LINE INPUT #1, C$: PRINT C$
 80 CLOSE 1
 90 KILL "/tmp/t16_pu.txt"
 RUN
