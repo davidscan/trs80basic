@@ -6,3 +6,7 @@ corpus
 
 # private working status, split out of awk_BASIC_interpreter 2026-09-04; never ships
 STATUS.local.md
+
+# cross-project handoff notes -- the mirror of trs80_z80_core/handoff/, written
+# session-to-session about the USR seam and memory model; working files, never ships
+handoff/
