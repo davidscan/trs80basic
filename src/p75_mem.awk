@@ -17,9 +17,22 @@
 #     bytes (real hardware uppercased on entry), and ELSE serializes without
 #     the hidden ":" byte the real cruncher inserted.
 #
-#  2. MEMORY SIZE? enforcement: a numeric answer at boot becomes HIMEM.
-#     PEEK above it reads 255 and POKE above it is discarded (absent RAM);
-#     ENTER keeps the full 65535 so batch mode and loaders see all of RAM.
+#  2. MEMORY SIZE? enforcement: a numeric answer at boot becomes HIMEM,
+#     which is a FENCE, not the top of RAM.  Two quantities, and the
+#     distinction is the whole point of the prompt:
+#       RAMTOP  the machine's physical top (FFFFH for the 48K Model I this
+#               emulates).  Above it memory is ABSENT: PEEK reads 255,
+#               POKE is discarded.
+#       HIMEM   the MEMORY SIZE? answer, at or below RAMTOP.  The region
+#               between them is PROTECTED RAM -- present, readable and
+#               writable, simply never allocated by string space
+#               (sp_materialize descends from HIMEM).  Reserving memory is
+#               how a listing makes room for a machine-language routine, so
+#               that region MUST accept POKEs; treating it as absent broke
+#               the classic reserve-then-load idiom (fixed 2026-09-08,
+#               reported by ../trs80_z80_core as its FINDING 22).
+#     PEEK(16561/16562) reports HIMEM.  ENTER keeps HIMEM at 65535 so batch
+#     mode and loaders see all of RAM.
 #
 #  3. VARPTR(var) + mem[]-backed string space (the string-packing idiom):
 #     for a string, VARPTR returns the address of a live 3-byte descriptor
@@ -35,6 +48,40 @@
 #     value changed allocates a fresh region, and POKEing the descriptor's
 #     address cells is ignored.  POKE of the length byte truncates or
 #     space-pads the live value.
+
+# ---- THE ADDRESS-RESOLUTION CONTRACT --------------------------------------
+# dopeek() (p80) resolves ONE byte per address from several stores.  The order
+# below is the CONTRACT, not an implementation detail: ../trs80_z80_core must
+# reproduce it byte-for-byte or the core will execute the wrong bytes with no
+# error.  Requested by that project 2026-09-08; keep this list and dopeek in
+# step.  Highest precedence first:
+#
+#   1. 3C00-3FFFH (15360-16383) -> SCR[], the simulated screen
+#      3800-38FFH (14336-14591) -> kb_matrix(), the live keyboard matrix
+#   2. 37E8/37E9H (14312/14313) -> constant 63, printer ready.  READ-ONLY
+#      PROJECTION: POKEs land in MEM[] and are never read back.
+#   3. 40AA-40ACH (16554-16556) -> the ROM RND seed (rnd_peek, p90)
+#      40A4/40B1/40F9H pairs    -> pm_sysptr() below (program base, HIMEM,
+#      start of variables).  40B1H is the one WRITABLE member: see
+#      pm_sethimem().
+#   4. a in SPK -> VARPTR string space (sp_peek).  THIS DELIBERATELY OUTRANKS
+#      RULE 5: a packed string inside the program-image range must win over
+#      the image, which is what makes the string-packing idiom work at any
+#      program size.  It is an invariant, not a consequence of statement
+#      order -- do not reorder it under rule 5.
+#   5. a >= 17129 and a < PMEND -> PMEM[], the READ-ONLY tokenized program
+#      image (rule 2's shape again: POKEs land in MEM[] and vanish).  The
+#      bound is RAMTOP, not HIMEM -- lowering HIMEM does NOT shrink the
+#      shadowed range.  a > RAMTOP -> 255, currently unreachable (see below).
+#   6. otherwise -> MEM[a] if it was ever written, else 255.
+#
+# TWO READ-ONLY PROJECTIONS, NOT ONE (rules 2 and 5): "POKE lands in MEM[] and
+# is never read back" is a CLASS in this interpreter, not a program-image
+# quirk.  A byte in either region is a byte the core will not see.
+#
+# 255 IS LIVE BEHAVIOUR, and it is reached by rule 6's fallthrough rather than
+# by the RAMTOP test.  Unwritten RAM reads 255 -- what a machine with no chip
+# at that address returns -- and the core models unwritten RAM the same way.
 
 # ---- keyword table (byte 128-251 <-> expansion), longest-match index -------
 function pm_init_index(   tbl, pairs, np, i, j, v, w, ins) {
@@ -127,7 +174,23 @@ function pm_sysptr(a) {
     if (a == 16561) return HIMEM % 256            # 40B1H: top of memory
     if (a == 16562) return int(HIMEM / 256)
     pm_sync()                                     # 40F9H: start of variables
-    return (a == 16633) ? PMEND % 256 : int(PMEND / 256)
+    # a PEEK returns a byte: mask the high half too, so a program image
+    # larger than the address space cannot leak a >255 value (reported by
+    # ../trs80_z80_core 2026-09-07; 1200 REM lines used to answer 381)
+    return (a == 16633) ? PMEND % 256 : int(PMEND / 256) % 256
+}
+
+# 40B1H/40B2H is a WRITABLE pointer: lowering HIMEM with POKE 16561/16562
+# (then CLEAR) is the PROGRAMMATIC half of the reserve-then-load idiom, the
+# half that does not go through the MEMORY SIZE? prompt -- 91 corpus
+# listings do it, e.g. wordsmth.bas reserving BF78H-BFFFH for a lowercase
+# driver.  Writes move the live fence; string space allocated afterwards
+# descends from the new value.  Existing VARPTR regions are left where they
+# are, as on hardware, where the idiom requires the CLEAR to follow.
+function pm_sethimem(a, b) {
+    if (a == 16561) HIMEM = int(HIMEM / 256) * 256 + b
+    else            HIMEM = HIMEM % 256 + b * 256
+    if (SSP > HIMEM) SSP = HIMEM
 }
 
 # ---- VARPTR ---------------------------------------------------------------

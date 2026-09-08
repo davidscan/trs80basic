@@ -361,12 +361,19 @@ because period programs poke at it:
   PEEK/POKEable at 16554–16556; `RANDOM` (and boot) rewrite only the middle
   byte, like the ROM's R-register read. `--seed N` (EXT) makes the whole
   sequence repeatable.
-- **`MEMORY SIZE?`** really sets the top of RAM — but only as a *fence for
-  PEEK and POKE* (above it reads 255, POKEs are discarded, like absent
-  chips). Nothing else is limited: program size and string space are
-  unbounded, and `MEM` and `FRE(0)` return a constant 15572 rather than a
-  real count. What is limited: the PEEKable address space. What is not:
-  everything your program can actually run out of.
+- **`MEMORY SIZE?`** really works, and it *reserves* memory rather than
+  removing it — exactly as on hardware. The answer becomes HIMEM, the
+  ceiling string space allocates below (and what
+  `PEEK(16561)+256*PEEK(16562)` reports). Memory **above** HIMEM stays
+  present, readable and writable: that is the whole point of answering the
+  prompt, since it is where a listing loads a machine-language routine
+  before calling it. Only above the machine's physical top (65535 here, a
+  48K Model I) is memory absent. HIMEM is also movable from BASIC the way
+  hardware allows — `POKE 16561,lo : POKE 16562,hi : CLEAR n` — which is
+  how a listing reserves its own space without asking the user to answer
+  the prompt. Nothing else is limited: program size and
+  string space are unbounded, and `MEM` and `FRE(0)` return a constant
+  15572 rather than a real count.
 - **LPRINT/LLIST** print to a host stream: set `TRS80_PRINTER=path` to
   append there; unset, output is discarded — the hardware analogue of no
   printer attached.

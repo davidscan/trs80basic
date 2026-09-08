@@ -42,6 +42,9 @@ BEGIN {
     if (!parse_args()) { usage("/dev/stderr"); exit 2 }
     if (OPT_HELP) { usage(""); exit 0 }
     if (SEEDED) srand(OPT_SEED); else srand()
+    # MUST precede the MEMORY SIZE? prompt below: that bound reads RAMTOP,
+    # and an uninitialised RAMTOP would compare as "" in gawk, silently
+    # rejecting every legal answer.  Keep both in this BEGIN block.
     init_tables()
     if (BATCH && !OPT_SCREEN) DUMB = 1      # batch output is plain by default
     if (OPT_SCREEN) DUMB = 0
@@ -57,11 +60,13 @@ BEGIN {
     s_cls()
     s_puts("MEMORY SIZE? "); sync_cursor()
     BOOTMS = rl_read()
-    # honored since 2026-08-14 (p75): a numeric answer becomes the top of
-    # RAM -- PEEK above it reads 255, POKE above it is discarded, and
-    # PEEK(16561)+256*PEEK(16562) reports it (the classic idiom).  ENTER
-    # keeps the full 65535.
-    if (BOOTMS ~ /^[ \t]*[0-9]+[ \t]*$/ && BOOTMS + 0 >= 17280 && BOOTMS + 0 <= 65535) {
+    # honored since 2026-08-14 (p75): a numeric answer becomes HIMEM -- the
+    # fence string space allocates below, NOT the top of RAM.  Memory above
+    # it stays present, readable and writable, which is the entire point of
+    # reserving it: the classic idiom loads a machine-language routine into
+    # exactly that region.  PEEK(16561)+256*PEEK(16562) reports it (the
+    # classic idiom).  ENTER keeps the full 65535.
+    if (BOOTMS ~ /^[ \t]*[0-9]+[ \t]*$/ && BOOTMS + 0 >= 17280 && BOOTMS + 0 <= RAMTOP) {
         HIMEM = BOOTMS + 0; SSP = HIMEM
     }
     s_nl()
@@ -138,9 +143,14 @@ function init_tables(   i, c, m, n) {
     # real ROM's R-register init -- gawk rand() is the entropy source, so
     # --seed makes the whole RND sequence repeatable (rnd_* in p90).
     RNDSEED = 0; rnd_setmid(int(rand() * 256))
-    # memory model (p75): top of RAM (MEMORY SIZE? may lower it), stale flag
-    # for the PEEKable tokenized program image, VARPTR string-space pointer
-    HIMEM = 65535; PROGDIRTY = 1; PMEND = 0; SSP = HIMEM
+    # memory model (p75): RAMTOP is the machine's PHYSICAL top -- a 48K
+    # Model I, so FFFFH; above it memory is genuinely absent (255 on read,
+    # writes discarded).  HIMEM is the MEMORY SIZE? answer, at or below it.
+    # Between HIMEM and RAMTOP is PROTECTED RAM: present, readable and
+    # writable, simply never allocated by string space.  Also a stale flag
+    # for the PEEKable tokenized program image, and the VARPTR string-space
+    # pointer, which descends from HIMEM.
+    RAMTOP = 65535; HIMEM = RAMTOP; PROGDIRTY = 1; PMEND = 0; SSP = HIMEM
     # 400CH (16396): the DOS entry vector.  On a cassette Level II machine
     # it holds a RET (201); under Disk BASIC it holds a jump into DOS, so
     # listings probe it -- `IF PEEK(16396)=201` -- to pick their cassette

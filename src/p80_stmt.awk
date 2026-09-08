@@ -554,6 +554,11 @@ function st_dim(   name, nd, i, v, sz) {
 }
 
 # ---- PEEK / POKE -----------------------------------------------------------
+# Negative addresses wrap (the Microsoft convention: POKE -1 is 65535).
+# NOTE the 65535 bound here is the SECOND place the machine size lives -- the
+# first is RAMTOP (p10 init_tables).  They agree today, which is why dopeek's
+# `a > RAMTOP` test is unreachable; if a 16K/32K machine is ever modelled,
+# both have to change together.
 function addrconv(x) {
     x = bfloor(x)
     if (x < 0) x += 65536
@@ -561,6 +566,10 @@ function addrconv(x) {
     return x
 }
 
+# Resolution order is a CONTRACT the Z80 core must reproduce byte-for-byte --
+# it is written out in full in p75's "THE ADDRESS-RESOLUTION CONTRACT".  Keep
+# the two in step; in particular SPK (rule 4) must stay ABOVE the program
+# image (rule 5).
 function dopeek(x,   a) {
     a = addrconv(x)
     if (E) return 0
@@ -578,7 +587,7 @@ function dopeek(x,   a) {
         return pm_sysptr(a)
     if (a in SPK) return sp_peek(a)               # VARPTR string space (p75)
     if (a >= 17129) {
-        if (a > HIMEM) return 255                 # absent RAM above MEMORY SIZE
+        if (a > RAMTOP) return 255                # absent RAM above the physical top
         pm_sync()
         if (a < PMEND) return PMEM[a]
     }
@@ -597,8 +606,9 @@ function st_poke(   v, a, b) {
     if (b < 0) b += 256
     if (a >= 15360 && a <= 16383) { s_poke(a - 15360, b); sync_cursor() }
     else if (a >= 16554 && a <= 16556) rnd_poke(a - 16554, b)
+    else if (a == 16561 || a == 16562) pm_sethimem(a, b)   # move HIMEM (p75)
     else if (a in SPK) sp_poke(a, b)              # VARPTR write-through (p75)
-    else if (a > HIMEM) { }                       # absent RAM: discarded
+    else if (a > RAMTOP) { }                      # absent RAM: discarded
     else MEM[a] = b
 }
 

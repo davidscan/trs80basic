@@ -361,9 +361,14 @@ the interpreter reports the first `?SN`. Repairing them is a separate tool
 - The stored program is PEEKable in the authentic tokenized format from
   17129 (42E9H) with live system pointers at 16548/9 (program base),
   16633/4 (start of variables) and 16561/2 (top of memory); a numeric
-  answer to MEMORY SIZE? becomes the top of RAM (PEEK above it reads
-  255, POKE above it is discarded). POKEs into the program region are
-  not read back (no self-modifying code).
+  answer to MEMORY SIZE? becomes HIMEM, the ceiling string space
+  allocates below. Memory above HIMEM is reserved, not absent — still
+  readable and writable, which is what makes the classic reserve-then-
+  load idiom work (corrected 2026-09-08; it used to read 255 and discard
+  POKEs). 16561/2 is also WRITABLE, so `POKE 16561,lo:POKE 16562,hi:CLEAR n`
+  moves HIMEM from inside a program, the way listings reserve their own
+  space (2026-09-08; the POKE used to be silently dropped). POKEs into the
+  program region are not read back (no self-modifying code).
 - Model III character modes (2026-08-14): printing CHR$(21) toggles
   codes 192-255 between space compression and character display,
   CHR$(22) picks the set (card suits/Greek/math vs halfwidth Katakana);

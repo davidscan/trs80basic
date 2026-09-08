@@ -42,6 +42,9 @@ BEGIN {
     if (!parse_args()) { usage("/dev/stderr"); exit 2 }
     if (OPT_HELP) { usage(""); exit 0 }
     if (SEEDED) srand(OPT_SEED); else srand()
+    # MUST precede the MEMORY SIZE? prompt below: that bound reads RAMTOP,
+    # and an uninitialised RAMTOP would compare as "" in gawk, silently
+    # rejecting every legal answer.  Keep both in this BEGIN block.
     init_tables()
     if (BATCH && !OPT_SCREEN) DUMB = 1      # batch output is plain by default
     if (OPT_SCREEN) DUMB = 0
@@ -57,11 +60,13 @@ BEGIN {
     s_cls()
     s_puts("MEMORY SIZE? "); sync_cursor()
     BOOTMS = rl_read()
-    # honored since 2026-08-14 (p75): a numeric answer becomes the top of
-    # RAM -- PEEK above it reads 255, POKE above it is discarded, and
-    # PEEK(16561)+256*PEEK(16562) reports it (the classic idiom).  ENTER
-    # keeps the full 65535.
-    if (BOOTMS ~ /^[ \t]*[0-9]+[ \t]*$/ && BOOTMS + 0 >= 17280 && BOOTMS + 0 <= 65535) {
+    # honored since 2026-08-14 (p75): a numeric answer becomes HIMEM -- the
+    # fence string space allocates below, NOT the top of RAM.  Memory above
+    # it stays present, readable and writable, which is the entire point of
+    # reserving it: the classic idiom loads a machine-language routine into
+    # exactly that region.  PEEK(16561)+256*PEEK(16562) reports it (the
+    # classic idiom).  ENTER keeps the full 65535.
+    if (BOOTMS ~ /^[ \t]*[0-9]+[ \t]*$/ && BOOTMS + 0 >= 17280 && BOOTMS + 0 <= RAMTOP) {
         HIMEM = BOOTMS + 0; SSP = HIMEM
     }
     s_nl()
@@ -138,9 +143,14 @@ function init_tables(   i, c, m, n) {
     # real ROM's R-register init -- gawk rand() is the entropy source, so
     # --seed makes the whole RND sequence repeatable (rnd_* in p90).
     RNDSEED = 0; rnd_setmid(int(rand() * 256))
-    # memory model (p75): top of RAM (MEMORY SIZE? may lower it), stale flag
-    # for the PEEKable tokenized program image, VARPTR string-space pointer
-    HIMEM = 65535; PROGDIRTY = 1; PMEND = 0; SSP = HIMEM
+    # memory model (p75): RAMTOP is the machine's PHYSICAL top -- a 48K
+    # Model I, so FFFFH; above it memory is genuinely absent (255 on read,
+    # writes discarded).  HIMEM is the MEMORY SIZE? answer, at or below it.
+    # Between HIMEM and RAMTOP is PROTECTED RAM: present, readable and
+    # writable, simply never allocated by string space.  Also a stale flag
+    # for the PEEKable tokenized program image, and the VARPTR string-space
+    # pointer, which descends from HIMEM.
+    RAMTOP = 65535; HIMEM = RAMTOP; PROGDIRTY = 1; PMEND = 0; SSP = HIMEM
     # 400CH (16396): the DOS entry vector.  On a cassette Level II machine
     # it holds a RET (201); under Disk BASIC it holds a jump into DOS, so
     # listings probe it -- `IF PEEK(16396)=201` -- to pick their cassette
@@ -2759,9 +2769,22 @@ function st_resume(   p, ty, tx) {
 #     bytes (real hardware uppercased on entry), and ELSE serializes without
 #     the hidden ":" byte the real cruncher inserted.
 #
-#  2. MEMORY SIZE? enforcement: a numeric answer at boot becomes HIMEM.
-#     PEEK above it reads 255 and POKE above it is discarded (absent RAM);
-#     ENTER keeps the full 65535 so batch mode and loaders see all of RAM.
+#  2. MEMORY SIZE? enforcement: a numeric answer at boot becomes HIMEM,
+#     which is a FENCE, not the top of RAM.  Two quantities, and the
+#     distinction is the whole point of the prompt:
+#       RAMTOP  the machine's physical top (FFFFH for the 48K Model I this
+#               emulates).  Above it memory is ABSENT: PEEK reads 255,
+#               POKE is discarded.
+#       HIMEM   the MEMORY SIZE? answer, at or below RAMTOP.  The region
+#               between them is PROTECTED RAM -- present, readable and
+#               writable, simply never allocated by string space
+#               (sp_materialize descends from HIMEM).  Reserving memory is
+#               how a listing makes room for a machine-language routine, so
+#               that region MUST accept POKEs; treating it as absent broke
+#               the classic reserve-then-load idiom (fixed 2026-09-08,
+#               reported by ../trs80_z80_core as its FINDING 22).
+#     PEEK(16561/16562) reports HIMEM.  ENTER keeps HIMEM at 65535 so batch
+#     mode and loaders see all of RAM.
 #
 #  3. VARPTR(var) + mem[]-backed string space (the string-packing idiom):
 #     for a string, VARPTR returns the address of a live 3-byte descriptor
@@ -2777,6 +2800,40 @@ function st_resume(   p, ty, tx) {
 #     value changed allocates a fresh region, and POKEing the descriptor's
 #     address cells is ignored.  POKE of the length byte truncates or
 #     space-pads the live value.
+
+# ---- THE ADDRESS-RESOLUTION CONTRACT --------------------------------------
+# dopeek() (p80) resolves ONE byte per address from several stores.  The order
+# below is the CONTRACT, not an implementation detail: ../trs80_z80_core must
+# reproduce it byte-for-byte or the core will execute the wrong bytes with no
+# error.  Requested by that project 2026-09-08; keep this list and dopeek in
+# step.  Highest precedence first:
+#
+#   1. 3C00-3FFFH (15360-16383) -> SCR[], the simulated screen
+#      3800-38FFH (14336-14591) -> kb_matrix(), the live keyboard matrix
+#   2. 37E8/37E9H (14312/14313) -> constant 63, printer ready.  READ-ONLY
+#      PROJECTION: POKEs land in MEM[] and are never read back.
+#   3. 40AA-40ACH (16554-16556) -> the ROM RND seed (rnd_peek, p90)
+#      40A4/40B1/40F9H pairs    -> pm_sysptr() below (program base, HIMEM,
+#      start of variables).  40B1H is the one WRITABLE member: see
+#      pm_sethimem().
+#   4. a in SPK -> VARPTR string space (sp_peek).  THIS DELIBERATELY OUTRANKS
+#      RULE 5: a packed string inside the program-image range must win over
+#      the image, which is what makes the string-packing idiom work at any
+#      program size.  It is an invariant, not a consequence of statement
+#      order -- do not reorder it under rule 5.
+#   5. a >= 17129 and a < PMEND -> PMEM[], the READ-ONLY tokenized program
+#      image (rule 2's shape again: POKEs land in MEM[] and vanish).  The
+#      bound is RAMTOP, not HIMEM -- lowering HIMEM does NOT shrink the
+#      shadowed range.  a > RAMTOP -> 255, currently unreachable (see below).
+#   6. otherwise -> MEM[a] if it was ever written, else 255.
+#
+# TWO READ-ONLY PROJECTIONS, NOT ONE (rules 2 and 5): "POKE lands in MEM[] and
+# is never read back" is a CLASS in this interpreter, not a program-image
+# quirk.  A byte in either region is a byte the core will not see.
+#
+# 255 IS LIVE BEHAVIOUR, and it is reached by rule 6's fallthrough rather than
+# by the RAMTOP test.  Unwritten RAM reads 255 -- what a machine with no chip
+# at that address returns -- and the core models unwritten RAM the same way.
 
 # ---- keyword table (byte 128-251 <-> expansion), longest-match index -------
 function pm_init_index(   tbl, pairs, np, i, j, v, w, ins) {
@@ -2869,7 +2926,23 @@ function pm_sysptr(a) {
     if (a == 16561) return HIMEM % 256            # 40B1H: top of memory
     if (a == 16562) return int(HIMEM / 256)
     pm_sync()                                     # 40F9H: start of variables
-    return (a == 16633) ? PMEND % 256 : int(PMEND / 256)
+    # a PEEK returns a byte: mask the high half too, so a program image
+    # larger than the address space cannot leak a >255 value (reported by
+    # ../trs80_z80_core 2026-09-07; 1200 REM lines used to answer 381)
+    return (a == 16633) ? PMEND % 256 : int(PMEND / 256) % 256
+}
+
+# 40B1H/40B2H is a WRITABLE pointer: lowering HIMEM with POKE 16561/16562
+# (then CLEAR) is the PROGRAMMATIC half of the reserve-then-load idiom, the
+# half that does not go through the MEMORY SIZE? prompt -- 91 corpus
+# listings do it, e.g. wordsmth.bas reserving BF78H-BFFFH for a lowercase
+# driver.  Writes move the live fence; string space allocated afterwards
+# descends from the new value.  Existing VARPTR regions are left where they
+# are, as on hardware, where the idiom requires the CLEAR to follow.
+function pm_sethimem(a, b) {
+    if (a == 16561) HIMEM = int(HIMEM / 256) * 256 + b
+    else            HIMEM = HIMEM % 256 + b * 256
+    if (SSP > HIMEM) SSP = HIMEM
 }
 
 # ---- VARPTR ---------------------------------------------------------------
@@ -3539,6 +3612,11 @@ function st_dim(   name, nd, i, v, sz) {
 }
 
 # ---- PEEK / POKE -----------------------------------------------------------
+# Negative addresses wrap (the Microsoft convention: POKE -1 is 65535).
+# NOTE the 65535 bound here is the SECOND place the machine size lives -- the
+# first is RAMTOP (p10 init_tables).  They agree today, which is why dopeek's
+# `a > RAMTOP` test is unreachable; if a 16K/32K machine is ever modelled,
+# both have to change together.
 function addrconv(x) {
     x = bfloor(x)
     if (x < 0) x += 65536
@@ -3546,6 +3624,10 @@ function addrconv(x) {
     return x
 }
 
+# Resolution order is a CONTRACT the Z80 core must reproduce byte-for-byte --
+# it is written out in full in p75's "THE ADDRESS-RESOLUTION CONTRACT".  Keep
+# the two in step; in particular SPK (rule 4) must stay ABOVE the program
+# image (rule 5).
 function dopeek(x,   a) {
     a = addrconv(x)
     if (E) return 0
@@ -3563,7 +3645,7 @@ function dopeek(x,   a) {
         return pm_sysptr(a)
     if (a in SPK) return sp_peek(a)               # VARPTR string space (p75)
     if (a >= 17129) {
-        if (a > HIMEM) return 255                 # absent RAM above MEMORY SIZE
+        if (a > RAMTOP) return 255                # absent RAM above the physical top
         pm_sync()
         if (a < PMEND) return PMEM[a]
     }
@@ -3582,8 +3664,9 @@ function st_poke(   v, a, b) {
     if (b < 0) b += 256
     if (a >= 15360 && a <= 16383) { s_poke(a - 15360, b); sync_cursor() }
     else if (a >= 16554 && a <= 16556) rnd_poke(a - 16554, b)
+    else if (a == 16561 || a == 16562) pm_sethimem(a, b)   # move HIMEM (p75)
     else if (a in SPK) sp_poke(a, b)              # VARPTR write-through (p75)
-    else if (a > HIMEM) { }                       # absent RAM: discarded
+    else if (a > RAMTOP) { }                      # absent RAM: discarded
     else MEM[a] = b
 }
 
