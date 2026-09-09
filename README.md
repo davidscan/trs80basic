@@ -44,7 +44,11 @@ own. Whatever the BASIC program `OPEN`s, `CSAVE`s or `SAVE`s lands relative to
 Exit status: **0** clean run, **1** uncaught BASIC error (also printed to
 stderr as `?SN ERROR IN 40`), **2** bad invocation or unreadable file.
 Running out of stdin while a program is at `INPUT` is a BASIC error
-(`?BATCH: END OF INPUT`).
+(`?BATCH: END OF INPUT`). Batch mode also has **no raw keyboard**: `INKEY$`
+reads whole lines from stdin instead of single keypresses, so a program
+whose menu is an `INKEY$` loop cannot be played with `./basic game.bas` —
+your keys echo and it never leaves the loop. Play it interactively instead:
+`./basic`, then `CLOAD "game.bas"` and `RUN`.
 
 Note: `--screen` and the `fullscreen` metacommand are near-opposites despite
 the similar names — `--screen` *keeps* the 64x16 grid's control codes in

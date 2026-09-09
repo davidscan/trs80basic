@@ -983,6 +983,11 @@ INKEY$   the key being pressed right now, or "" if none
     10 K$=INKEY$:IF K$="" THEN 10
   To poll without stopping (so animation or a clock keeps running), test
   once per pass through the main loop and carry on when it is "".
+  NEEDS THE INTERACTIVE MODE.  Batch mode (./basic prog.bas) turns the raw
+  keyboard off, so INKEY$ there reads whole lines from stdin instead of
+  single keypresses -- at a terminal your keys echo and the program never
+  sees them.  To play a program whose menu is an INKEY$ loop, start ./basic
+  with no file, then CLOAD "prog.bas" and RUN.
   Example: K$=INKEY$:IF K$="Q" THEN END
 
 :LPRINT

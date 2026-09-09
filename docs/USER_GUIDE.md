@@ -149,6 +149,15 @@ rendered in batch). Running out of stdin at an `INPUT` is an error, so a
 test can never hang on a prompt — but there is no loop guard, so wrap a
 possibly-non-halting program in `timeout`.
 
+**Batch mode has no keyboard.** It turns the raw keyboard off, so `INKEY$`
+reads whole lines from stdin rather than single keypresses. A program whose
+menu is an `INKEY$` loop therefore cannot be played with `./basic game.bas`
+— at a terminal your keys echo but the program never sees them, and it sits
+in the loop. `INPUT` is unaffected, since it is line-oriented to begin with,
+which is why a game can greet you by name and then stall on its first
+keypress menu. To play one, start `./basic` with no file, then
+`CLOAD "game.bas"` and `RUN`.
+
 The seven programs in `programs/examples/` are a guided tour — each
 demonstrates one area of this guide and doubles as a regression fixture
 (`run_examples.sh` checks them against committed transcripts):
@@ -1903,6 +1912,11 @@ INKEY$   the key being pressed right now, or "" if none
     10 K$=INKEY$:IF K$="" THEN 10
   To poll without stopping (so animation or a clock keeps running), test
   once per pass through the main loop and carry on when it is "".
+  NEEDS THE INTERACTIVE MODE.  Batch mode (./basic prog.bas) turns the raw
+  keyboard off, so INKEY$ there reads whole lines from stdin instead of
+  single keypresses -- at a terminal your keys echo and the program never
+  sees them.  To play a program whose menu is an INKEY$ loop, start ./basic
+  with no file, then CLOAD "prog.bas" and RUN.
   Example: K$=INKEY$:IF K$="Q" THEN END
 ```
 
