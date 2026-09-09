@@ -6,6 +6,9 @@ corpus
 
 # private working status, split out of awk_BASIC_interpreter 2026-09-04; never ships
 STATUS.local.md
+# same rule, generalised 2026-09-09: any *.local.md is a working file, never ships
+# (HAND_TEST.local.md -- the real-terminal checklist batch mode cannot cover)
+*.local.md
 
 # cross-project handoff notes -- the mirror of trs80_z80_core/handoff/, written
 # session-to-session about the USR seam and memory model; working files, never ships
