@@ -83,6 +83,51 @@
 # by the RAMTOP test.  Unwritten RAM reads 255 -- what a machine with no chip
 # at that address returns -- and the core models unwritten RAM the same way.
 
+# ---- THE ADDRESS-RESOLUTION CONTRACT, WRITE SIDE --------------------------
+# st_poke() (p80) is dopeek's twin and its order is CONTRACT for the same
+# reason: a Z80 store from ../trs80_z80_core must land exactly where a POKE of
+# the same address lands, or the two disagree about memory with no error.
+# Requested by that project 2026-09-08 (handoff REPLY 2).  They read the order
+# off the code themselves and read it correctly; all six rules are theirs,
+# re-verified against st_poke 2026-09-09.  Highest precedence first:
+#
+#   1. 3C00-3FFFH (15360-16383) -> s_poke() + sync_cursor()
+#   2. 40AA-40ACH (16554-16556) -> rnd_poke(), the ROM RND seed
+#   3. 40B1/40B2H (16561/16562) -> pm_sethimem(), the one writable pointer
+#   4. a in SPK                 -> sp_poke(), VARPTR string-space write-through
+#   5. a > RAMTOP               -> DISCARDED (absent RAM)
+#   6. otherwise                -> MEM[a] = b
+#
+# FOUR ASYMMETRIES AGAINST THE READ SIDE.  Each is a range the read side
+# projects from somewhere other than MEM[], so a write there lands in MEM[]
+# and NOTHING CAN EVER OBSERVE IT:
+#   * 3800-38FFH keyboard (read rule 1) -- no write branch.
+#   * 37E8/37E9H printer  (read rule 2) -- no write branch.
+#   * 40A4/40A5H and 40F9/40FAH (read rule 3) -- no write branch.  40B1/40B2H
+#     is the ONLY writable member; rule 3 above is where that finally gets
+#     said on the write side, having been stated only on the read side.
+#   * the tokenized program image, a >= 17129 && a < PMEND (read rule 5) --
+#     no write branch.  THIS ASYMMETRY IS THE SHADOW of FINDING 23: a byte
+#     POKEd into the image is stored and invisible.  Measured at zero across
+#     4,339 corpus files, so it stays exactly as it is.
+#
+# THOSE BYTES ARE UNDEFINED -- not zero, not absent.  If this side and the
+# core ever diff their memory images, the four ranges above are OUT OF SCOPE
+# for the comparison: identical observable behaviour, deliberately different
+# stores.  Do not "fix" either side to agree there, and do not turn rule 6
+# into a discard for them -- the store is unobservable either way, and a
+# discard would cost four address tests in the hot POKE path to buy nothing.
+#
+# NO ORDERING HAZARD MIRRORING READ RULES 4/5.  SPK outranks the program image
+# on READ because a packed string inside the image range must win.  On write
+# there is no image branch at all, so SPK merely precedes rule 6.  Nothing to
+# keep in step here.
+#
+# RULE 5 IS UNREACHABLE TODAY, as dopeek's is (RAMTOP == 65535 == addrconv's
+# bound), and the two stay equivalent for any RAMTOP: dopeek tests a > RAMTOP
+# only inside its a >= 17129 branch and st_poke tests it unconditionally, but
+# RAMTOP >= 17129 always holds, so no address is judged differently.
+
 # ---- keyword table (byte 128-251 <-> expansion), longest-match index -------
 function pm_init_index(   tbl, pairs, np, i, j, v, w, ins) {
     tbl = "80 END 81 FOR 82 RESET 83 SET 84 CLS 85 CMD 86 RANDOM 87 NEXT " \

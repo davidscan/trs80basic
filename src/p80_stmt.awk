@@ -567,9 +567,9 @@ function addrconv(x) {
 }
 
 # Resolution order is a CONTRACT the Z80 core must reproduce byte-for-byte --
-# it is written out in full in p75's "THE ADDRESS-RESOLUTION CONTRACT".  Keep
-# the two in step; in particular SPK (rule 4) must stay ABOVE the program
-# image (rule 5).
+# it is written out in full in p75's "THE ADDRESS-RESOLUTION CONTRACT" (read
+# side; st_poke below has its own).  Keep the two in step; in particular SPK
+# (rule 4) must stay ABOVE the program image (rule 5).
 function dopeek(x,   a) {
     a = addrconv(x)
     if (E) return 0
@@ -594,6 +594,10 @@ function dopeek(x,   a) {
     return (a in MEM) ? MEM[a] : 255
 }
 
+# The store order is CONTRACT too -- a Z80 write must land where a POKE of the
+# same address lands.  Written out in full in p75's "THE ADDRESS-RESOLUTION
+# CONTRACT, WRITE SIDE", including the four ranges where a write is stored but
+# can never be read back.  Keep the two in step.
 function st_poke(   v, a, b) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
