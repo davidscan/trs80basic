@@ -505,7 +505,9 @@ function usr_entry(slot,   lo, hi) {
 }
 
 # TRS80_USR_TRACE=1 prints one line per call to stderr: the frame the shim
-# will send.  Diagnostic only; programs/tests/usr.sh asserts on it.
+# will send.  =2 also dumps the frame's memory image (p75 fr_build: full
+# the first time, deltas after).  Diagnostic only; programs/tests/usr.sh
+# asserts on both.
 function usr_resolve(name, arg) {
     USR_SLOT = usr_slot(name); USR_ARG = arg
     USR_ENTRY = usr_entry(USR_SLOT)
@@ -514,6 +516,7 @@ function usr_resolve(name, arg) {
         USR_STRICT = (ENVIRON["TRS80_USR"] == "strict")
     }
     if (USR_TRACE) printf "USR slot=%d entry=%s arg=%s\n", USR_SLOT, (USR_ENTRY < 0 ? "undefined" : USR_ENTRY), arg > "/dev/stderr"
+    if (USR_TRACE >= 2) { fr_build(0); fr_dump() }   # the frame's memory image (p75 fr_*)
 }
 
 # the stub's per-run tally: distinct entry addresses in first-call order.

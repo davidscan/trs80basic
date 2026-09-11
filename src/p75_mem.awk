@@ -293,6 +293,7 @@ function pm_sethimem(a, b) {
 # everything (clear_vars).
 
 function sp_reset(   a) {
+    if (FRTRACK) for (a in SPK) FRDIRTY[a] = 1   # the frame resends what these read as now
     delete SPK; delete SPT; delete SPV; delete VPDESC; delete VPDATA; delete VPCAP
     SSP = HIMEM
 }
@@ -301,7 +302,7 @@ function sp_reset(   a) {
 function sp_free_data(tgt,   a, e) {
     if (!(tgt in VPDATA)) return
     e = VPDATA[tgt] + VPCAP[tgt] - 1
-    for (a = VPDATA[tgt]; a <= e; a++) { delete SPK[a]; delete SPT[a] }
+    for (a = VPDATA[tgt]; a <= e; a++) { delete SPK[a]; delete SPT[a]; if (FRTRACK) FRDIRTY[a] = 1 }
 }
 
 # map len string cells for tgt at base
@@ -416,4 +417,90 @@ function fn_varptr(   name, key, tgt) {
     CP++
     tgt = (key != "") ? "A" key : "V" name
     return "N" sp_materialize(tgt, strname(name))
+}
+
+# ===================== the USR frame's memory image ==========================
+# What the p77 shim will hand ../trs80_z80_core as "the memory the routine
+# can see".  RULED 2026-09-11 (seam audit finding 4 closed): MATERIALISE a
+# SPARSE image in, STREAM video writes out, and the keyboard is the only live
+# callback.  The arithmetic that decided it, measured on this machine: one
+# gawk |& round trip is 12 us, so a callback per memory read caps a core at
+# ~80,000 reads/s -- a quarter of Dancing Demon's 313,030 insn/s real-time
+# bar before any Z80 work -- while a 45,000-pair sparse image round-trips in
+# 14 ms.  Every defined address is enumerable (MEM[] keys, SPK keys, the
+# image range, the screen, the constant and pointer bytes), every value is
+# read through dopeek so the address-resolution contract holds by
+# construction, and everything not listed is 255.  Video reads need no
+# callback: the core is the only writer during the call and streams its own
+# video writes back, so its copy stays coherent.  The keyboard changes
+# underneath the core, and Dancing Demon polls it at ONE site, so a 12 us
+# callback there is nothing.
+#
+# DELTA FRAMES from day one: the first frame is full and every later frame
+# resends only what may have changed since the last one, so a listing that
+# calls a scroll routine thousands of times does not pay 14 ms per call.
+# What is resent and why:
+#   * the screen (1K) and the 14 constant/pointer bytes -- always; cheap,
+#     and written from many places (PRINT, scroll, CLS) with no chokepoint.
+#   * every SPK cell -- always; string VALUES change through ordinary
+#     assignment (SV[]/VA[]), not through a chokepoint, and the region is
+#     small (only what VARPTR materialised).
+#   * the program image -- when pm_build has run since the last frame
+#     (FRPMDIRTY), plus the range a SHRUNKEN image no longer covers, which
+#     now reads as MEM[] or 255.
+#   * MEM[] -- only the addresses poke_byte wrote since the last frame
+#     (FRDIRTY), plus SPK cells that were UNMAPPED since (sp_free_data,
+#     sp_reset), which now read as MEM[] or 255.  Tracking starts with the
+#     first frame (FRTRACK), so a run that never calls USR pays nothing.
+# A full frame is rebuilt whenever the coprocess (re)starts; the header
+# carries the generation so the two sides cannot disagree about which they
+# are on.  Wire framing is p77's; this builds the CONTENT.
+#
+# fr_build(full) fills FRHDR (one line: gen, full, slot, entry, arg, the
+# initial SP = SSP, HIMEM, RAMTOP, run count) and FRRUN[1..FRN], one entry
+# per run of consecutive addresses as "addr:b,b,b".  TRS80_USR_TRACE=2 dumps
+# both to stderr on every USR call (programs/tests/usr.sh asserts on it).
+function fr_build(full,   a, e, n, run, last, lo, hi) {
+    delete FRSET
+    if (!FRTRACK) { full = 1 }
+    for (a = 15360; a <= 16383; a++) FRSET[a] = 1     # screen, always
+    FRSET[14312] = 1; FRSET[14313] = 1                 # printer status (63)
+    for (a = 16554; a <= 16556; a++) FRSET[a] = 1     # RND seed
+    FRSET[16548] = 1; FRSET[16549] = 1; FRSET[16561] = 1; FRSET[16562] = 1
+    FRSET[16633] = 1; FRSET[16634] = 1                 # the live pointers
+    for (a in SPK) FRSET[a] = 1                        # packed strings, always
+    pm_sync(); pm_truncnote()
+    if (full || FRPMDIRTY) {
+        for (a = 17129; a < PMEND; a++) FRSET[a] = 1
+        hi = (FRPMHI > PMEND) ? FRPMHI : PMEND
+        for (a = PMEND; a < hi; a++) FRSET[a] = 1      # a shrunken image's tail
+    }
+    if (full) { for (a in MEM) FRSET[a] = 1 }
+    else       { for (a in FRDIRTY) FRSET[a] = 1 }
+    delete FRRUN; FRN = 0; n = 0
+    PROCINFO["sorted_in"] = "@ind_num_asc"
+    last = -2; run = ""
+    for (a in FRSET) {
+        a = a + 0
+        if (a > RAMTOP) continue
+        if (a != last + 1) { if (run != "") FRRUN[++FRN] = run; run = a ":" dopeek(a) }
+        else run = run "," dopeek(a)
+        last = a; n++
+    }
+    if (run != "") FRRUN[++FRN] = run
+    delete PROCINFO["sorted_in"]
+    FRGEN++
+    FRHDR = "USR FRAME gen=" FRGEN " full=" (full ? 1 : 0) " slot=" USR_SLOT " entry=" USR_ENTRY \
+            " arg=" USR_ARG " sp=" SSP " himem=" HIMEM " ramtop=" RAMTOP " bytes=" n " runs=" FRN
+    delete FRDIRTY; FRPMDIRTY = 0; FRPMHI = PMEND; FRTRACK = 1
+    delete FRSET
+}
+
+# the coprocess (re)started, or the shim wants a clean slate: next frame full
+function fr_reset() { FRTRACK = 0; FRGEN = 0; delete FRDIRTY }
+
+function fr_dump(   i) {
+    printf "%s\n", FRHDR > "/dev/stderr"
+    for (i = 1; i <= FRN; i++) printf "  %s\n", FRRUN[i] > "/dev/stderr"
+    fflush("/dev/stderr")
 }

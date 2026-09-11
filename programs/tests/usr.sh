@@ -52,4 +52,23 @@ rm -f "$tmp"
 if [ "$rc" != "1" ] || [ "$out" != "?FC ERROR IN 10" ]; then
     echo "USR FRAME FIXTURE FAILED (strict): rc=$rc out=$out"; exit 1
 fi
+# TRS80_USR_TRACE=2: the frame's memory image (p75 fr_build).  Frame 1 is
+# full; later frames are deltas -- a POKE shows up once, a packed string
+# always, and cells CLEAR unmapped come back as 255 (ruled 2026-09-11).
+dump=$(printf '\n10 POKE 30000,7:A$="HELLO":V=VARPTR(A$)\n20 X=USR(1)\n30 POKE 30001,8:X=USR(2)\n40 A$="WORLDS":X=USR(3)\n50 CLEAR:X=USR(4)\nRUN\nBYE\n' \
+      | TRS80_USR_TRACE=2 TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 >/dev/null \
+      | awk '/^USR FRAME/ { g = $3; print; next } /^  / && g != "" { print g " " $1 }')
+chk() { if ! printf '%s\n' "$dump" | grep -q -- "$1"; then echo "USR FRAME FIXTURE FAILED (image): missing $1"; printf '%s\n' "$dump" | head -40; exit 1; fi; }
+nochk() { if printf '%s\n' "$dump" | grep -q -- "$1"; then echo "USR FRAME FIXTURE FAILED (image): unexpected $1"; exit 1; fi; }
+chk '^USR FRAME gen=1 full=1 slot=0 entry=-1 arg=1 sp=65527 himem=65535 ramtop=65535 bytes=1148 runs=10$'
+chk '^gen=1 30000:7$'                       # the POKE
+chk '^gen=1 16396:201$'                     # the seeded DOS probe byte
+chk '^gen=1 17129:10,67,10,0,'              # the image: next pointer 4311H, line 10
+chk '^gen=1 65528:72,69,76,76,79,5,248,255$'   # HELLO, then its descriptor
+chk '^USR FRAME gen=2 full=0 '
+chk '^gen=2 30001:8$'; nochk '^gen=2 30000:'; nochk '^gen=2 17129:'   # delta: only the new POKE
+chk '^gen=2 65528:72,69,76,76,79,5,248,255$'   # the string, always
+chk '^gen=3 65528:87,79,82,76,68,6,248,255$'   # live value, same cells
+chk '^USR FRAME gen=4 full=0 slot=0 entry=-1 arg=4 sp=65535 '   # CLEAR: SP back at HIMEM
+chk '^gen=4 65528:255,255,255,255,255,255,255,255$'              # the unmapped cells read 255
 echo "USR FRAME FIXTURE OK"

@@ -623,7 +623,7 @@ function poke_byte(a, b) {
     else if (a == 16561 || a == 16562) pm_sethimem(a, b)   # move HIMEM (p75)
     else if (a in SPK) sp_poke(a, b)              # VARPTR write-through (p75)
     else if (a > RAMTOP) { }                      # absent RAM: discarded
-    else { MEM[a] = b; FRDIRTY[a] = 1 }
+    else { MEM[a] = b; if (FRTRACK) FRDIRTY[a] = 1 }
 }
 
 # ---- SET / RESET / POINT ---------------------------------------------------
