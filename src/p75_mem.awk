@@ -42,12 +42,22 @@
 #     a numeric, VARPTR returns the address of the value's 4 Microsoft-
 #     single bytes (fio_mkf/fio_cvf), also live in both directions.
 #     Allocation grows down from HIMEM like real string space; CLEAR/RUN/
-#     NEW reset it (sp_reset from clear_vars).  Documented deviations: the
-#     bytes are a mem[]-backed COPY (a literal's bytes are not the program
-#     line, so pack-then-SAVE captures nothing), a re-VARPTR after the
-#     value changed allocates a fresh region, and POKEing the descriptor's
-#     address cells is ignored.  POKE of the length byte truncates or
-#     space-pads the live value.
+#     NEW reset it (sp_reset from clear_vars).  VARPTR IS STABLE: the
+#     descriptor (or a numeric's 4 bytes) is allocated ONCE per variable per
+#     run and every later VARPTR returns the same address, as on hardware
+#     where it is the variable-table slot.  Only the string's DATA bytes ever
+#     move, and only when the value outgrows the capacity they were given --
+#     then a fresh data region is allocated and the descriptor's address
+#     cells are repointed.  (Until 2026-09-10 EVERY call freed and
+#     re-allocated the whole thing, so VARPTR(A$);VARPTR(A$) answered two
+#     addresses, the two-call idiom PEEK(VARPTR(A$)+1)+256*PEEK(VARPTR(A$)+2)
+#     composed a dead address, and VARPTR in a loop marched SSP down to ?OM --
+#     162 corpus listings call VARPTR on the same string twice.)  Documented
+#     deviations: the bytes are a mem[]-backed COPY (a literal's bytes are
+#     not the program line, so pack-then-SAVE captures nothing), the data
+#     region a string outgrew is unmapped rather than left as stale bytes,
+#     and POKEing the descriptor's address cells is ignored.  POKE of the
+#     length byte truncates or space-pads the live value.
 
 # ---- THE ADDRESS-RESOLUTION CONTRACT --------------------------------------
 # dopeek() (p80) resolves ONE byte per address from several stores.  The order
@@ -243,42 +253,66 @@ function pm_sethimem(a, b) {
 # for a scalar, "A" storage-key for an array element), SPT[a] = role -- a
 # 0-based byte offset for string bytes, "L" the live length byte, "C" a
 # constant descriptor byte (SPV[a]), or "Nj" numeric byte j.  SSP grows down
-# from HIMEM; VPBASE/VPSIZE remember each variable's last allocation so a
-# re-VARPTR frees it first.  sp_reset wipes everything (clear_vars).
+# from HIMEM.  Per variable: VPDESC = its VARPTR (the descriptor address, or
+# a numeric's first byte), permanent for the run; VPDATA/VPCAP = where its
+# string bytes live and how many cells are mapped there.  sp_reset wipes
+# everything (clear_vars).
 
 function sp_reset(   a) {
-    delete SPK; delete SPT; delete SPV; delete VPBASE; delete VPSIZE
+    delete SPK; delete SPT; delete SPV; delete VPDESC; delete VPDATA; delete VPCAP
     SSP = HIMEM
 }
 
-function sp_free(tgt,   a, e) {
-    if (!(tgt in VPBASE)) return
-    e = VPBASE[tgt] + VPSIZE[tgt] - 1
-    for (a = VPBASE[tgt]; a <= e; a++) { delete SPK[a]; delete SPT[a]; delete SPV[a] }
-    delete VPBASE[tgt]; delete VPSIZE[tgt]
+# unmap a string's data cells (the descriptor stays where it is)
+function sp_free_data(tgt,   a, e) {
+    if (!(tgt in VPDATA)) return
+    e = VPDATA[tgt] + VPCAP[tgt] - 1
+    for (a = VPDATA[tgt]; a <= e; a++) { delete SPK[a]; delete SPT[a] }
 }
 
-# materialize var (locator tgt, string flag isstr) and return its VARPTR
+# map len string cells for tgt at base
+function sp_map_data(tgt, base, len,   j) {
+    for (j = 0; j < len; j++) { SPK[base + j] = tgt; SPT[base + j] = j }
+    VPDATA[tgt] = base; VPCAP[tgt] = len
+}
+
+# materialize var (locator tgt, string flag isstr) and return its VARPTR.
+# Idempotent: a second call returns the first call's address.  A string's
+# bytes are re-homed only when the live value is longer than the cells
+# mapped for it; shrinking never moves anything (sp_peek pads with 32 past
+# the live length).
 function sp_materialize(tgt, isstr,   len, need, base, j, dbase) {
     if (SSP == 0) SSP = HIMEM                     # first use this run
-    sp_free(tgt)
-    if (isstr) {
-        len = length(sp_gets(tgt))
-        need = len + 3
-    } else need = 4
-    if (SSP - need < 17131) { raise(7); return 0 }
-    base = SSP - need + 1; SSP -= need
-    VPBASE[tgt] = base; VPSIZE[tgt] = need
-    if (isstr) {
-        for (j = 0; j < len; j++) { SPK[base + j] = tgt; SPT[base + j] = j }
-        dbase = base + len
-        SPK[dbase] = tgt;     SPT[dbase] = "L"
-        SPK[dbase + 1] = tgt; SPT[dbase + 1] = "C"; SPV[dbase + 1] = base % 256
-        SPK[dbase + 2] = tgt; SPT[dbase + 2] = "C"; SPV[dbase + 2] = int(base / 256)
+    if (!isstr) {
+        if (tgt in VPDESC) return VPDESC[tgt]
+        need = 4
+        if (SSP - need < 17131) { raise(7); return 0 }
+        base = SSP - need + 1; SSP -= need
+        for (j = 0; j < 4; j++) { SPK[base + j] = tgt; SPT[base + j] = "N" j }
+        VPDESC[tgt] = base
+        return base
+    }
+    len = length(sp_gets(tgt))
+    if (tgt in VPDESC) {
+        dbase = VPDESC[tgt]
+        if (len <= VPCAP[tgt]) return dbase       # still fits: nothing moves
+        if (SSP - len < 17131) { raise(7); return 0 }
+        base = SSP - len + 1; SSP -= len          # outgrown: fresh data region
+        sp_free_data(tgt)
+        sp_map_data(tgt, base, len)
+        SPV[dbase + 1] = base % 256; SPV[dbase + 2] = int(base / 256)
         return dbase
     }
-    for (j = 0; j < 4; j++) { SPK[base + j] = tgt; SPT[base + j] = "N" j }
-    return base
+    need = len + 3                                # first VARPTR: bytes, then
+    if (SSP - need < 17131) { raise(7); return 0 } # the descriptor just above
+    base = SSP - need + 1; SSP -= need
+    sp_map_data(tgt, base, len)
+    dbase = base + len
+    SPK[dbase] = tgt;     SPT[dbase] = "L"
+    SPK[dbase + 1] = tgt; SPT[dbase + 1] = "C"; SPV[dbase + 1] = base % 256
+    SPK[dbase + 2] = tgt; SPT[dbase + 2] = "C"; SPV[dbase + 2] = int(base / 256)
+    VPDESC[tgt] = dbase
+    return dbase
 }
 
 # live value read/write through the locator
