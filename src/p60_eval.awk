@@ -329,9 +329,20 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, r) {
     # The CALL FRAME is resolved even though nothing consumes it yet:
     # usr_resolve() fills USR_SLOT/USR_ENTRY/USR_ARG, which is what the p77
     # coprocess shim will hand to ../trs80_z80_core.
+    # NOT SILENT (ruled 2026-09-11): 8 of the 11 trs-80.com string-packing
+    # techniques are side-effect routines, and a stub that returns its
+    # argument makes every one of them "succeed" with no effect, no error
+    # and exit 0 -- the silent-wrong-output failure this project names as
+    # the one that matters.  So the stub keeps stdout byte-identical (the
+    # oracle role) and usr_stub_notice() prints ONE stderr line per run
+    # naming every entry address that was called and not executed.
+    # TRS80_USR=strict raises ?FC on the call instead, for a sweep that
+    # wants the run to fail visibly.
     if (name ~ /^USR[0-9]?$/) {
         x = numarg(a1, na); if (E) return "N0"
         usr_resolve(name, x)
+        if (USR_STRICT) { raise(5); return "N0" }
+        usr_stub_count()
         return "N" x
     }
     if (name == "POS") { x = numarg(a1, na); if (E) return "N0"; return "N" (CUR % 64) }
@@ -498,8 +509,29 @@ function usr_entry(slot,   lo, hi) {
 function usr_resolve(name, arg) {
     USR_SLOT = usr_slot(name); USR_ARG = arg
     USR_ENTRY = usr_entry(USR_SLOT)
-    if (USR_TRACE == "") USR_TRACE = ("TRS80_USR_TRACE" in ENVIRON && ENVIRON["TRS80_USR_TRACE"] != "") ? 1 : 0
+    if (USR_TRACE == "") {
+        USR_TRACE = ("TRS80_USR_TRACE" in ENVIRON && ENVIRON["TRS80_USR_TRACE"] != "") ? ENVIRON["TRS80_USR_TRACE"] + 0 : 0
+        USR_STRICT = (ENVIRON["TRS80_USR"] == "strict")
+    }
     if (USR_TRACE) printf "USR slot=%d entry=%s arg=%s\n", USR_SLOT, (USR_ENTRY < 0 ? "undefined" : USR_ENTRY), arg > "/dev/stderr"
+}
+
+# the stub's per-run tally: distinct entry addresses in first-call order.
+# Reset by exec_immediate (p70), which also prints the notice when the
+# command or program that ran has finished.
+function usr_stub_count(   k) {
+    k = (USR_ENTRY < 0) ? "UNDEFINED" : sprintf("%04XH", USR_ENTRY)
+    if (!(k in USR_SEEN)) USR_SEENORD[++USR_NSEEN] = k
+    USR_SEEN[k]++; USR_NCALL++
+}
+function usr_stub_reset() { delete USR_SEEN; delete USR_SEENORD; USR_NSEEN = 0; USR_NCALL = 0 }
+function usr_stub_notice(   i, s) {
+    if (USR_NCALL == 0) return
+    for (i = 1; i <= USR_NSEEN; i++)
+        s = s (i > 1 ? ", " : "") USR_SEENORD[i] " x" USR_SEEN[USR_SEENORD[i]]
+    diag_err("USR STUB: " USR_NCALL " CALL" (USR_NCALL == 1 ? "" : "S") " NOT EXECUTED (" s \
+             "): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead")
+    usr_stub_reset()
 }
 
 function fn_inkey(   c) {

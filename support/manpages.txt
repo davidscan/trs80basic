@@ -1023,9 +1023,13 @@ OUT p,v   write value v to Z80 port p
 :USR DEFUSR
 USR(x) / USRn(x)   machine-language call STUB: evaluates and returns
   its argument x -- no Z80 routine runs.  Programs whose USR result is
-  decorative keep running; result-dependent ones fail visibly.
-DEF USR[n] = addr / DEFUSRn = addr   accepted no-op: the address
-  expression evaluates (?TM if string) and is discarded.
+  decorative keep running; result-dependent ones fail visibly.  When the
+  run ends, one line on stderr names every entry address that was called
+  and not executed (USR STUB: n CALLS NOT EXECUTED ...), so a side-effect
+  routine that did nothing is never silent.  TRS80_USR=strict raises ?FC
+  on the call instead.
+DEF USR[n] = addr / DEFUSRn = addr   accepted: the address expression
+  evaluates (?TM if string) and is stored as slot n's entry address.
   Example: DEFUSR=&H7D00 : X=USR(0)
 
 :FN DEFFN

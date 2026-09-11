@@ -9,7 +9,7 @@
 # argument.
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
 got=$(printf '\nX=USR(1)\nDEFUSR=&H7000\nDEF USR 1=28427\nDEFUSR2=-1\nDEF USR3=40000\nX=USR(5)\nX=USR0(6)\nX=USR 1(7)\nX=USR2(8)\nX=USR3(9)\nX=USR4(10)\nPOKE 16526,1:POKE 16527,2\nDEFUSR=100\nX=USR(12)\nPRINT USR 3(13);USR3(14)\nBYE\n' \
-      | TRS80_USR_TRACE=1 TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 >/dev/null | grep '^USR ')
+      | TRS80_USR_TRACE=1 TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 >/dev/null | grep '^USR slot')
 want='USR slot=0 entry=undefined arg=1
 USR slot=0 entry=28672 arg=5
 USR slot=0 entry=28672 arg=6
@@ -27,10 +27,29 @@ fi
 # Keep the streams apart: the frame trace is on stderr, the returned value on
 # stdout, and merging them through a pipe reorders the lines.
 err=$(printf '\nPOKE 16526,1:POKE 16527,2\nPRINT USR(3);USR 0(4)\nBYE\n' \
-      | TRS80_USR_TRACE=1 TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 >/dev/null | grep '^USR ')
+      | TRS80_USR_TRACE=1 TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 >/dev/null | grep '^USR slot')
 want='USR slot=0 entry=513 arg=3
 USR slot=0 entry=513 arg=4'
 if [ "$err" != "$want" ]; then
     echo "USR FRAME FIXTURE FAILED (vector path)"; echo "--- expected:"; echo "$want"; echo "--- got:"; echo "$err"; exit 1
+fi
+# the stub is not silent: one stderr line per run tallies the calls that
+# were not executed, by entry address in first-call order (ruled 2026-09-11).
+note=$(printf '\n10 DEFUSR=&H7000\n20 X=USR(5):Y=USR(6):Z=USR1(7)\nRUN\nBYE\n' \
+      | TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 >/dev/null | grep '^USR STUB')
+want='USR STUB: 3 CALLS NOT EXECUTED (7000H x2, UNDEFINED x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead'
+if [ "$note" != "$want" ]; then
+    echo "USR FRAME FIXTURE FAILED (stub notice)"; echo "--- expected:"; echo "$want"; echo "--- got:"; echo "$note"; exit 1
+fi
+# and a run with no USR call prints nothing
+none=$(printf '\n10 PRINT 1\nRUN\nBYE\n' | TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 >/dev/null | grep -c '^USR STUB')
+if [ "$none" != "0" ]; then echo "USR FRAME FIXTURE FAILED (notice without a call)"; exit 1; fi
+# TRS80_USR=strict: the call raises ?FC and batch exits 1
+tmp=$(mktemp) || exit 2
+printf '10 X=USR(5)\n20 PRINT "AFTER"\n' > "$tmp"
+out=$(TRS80_USR=strict "$here/basic" "$tmp" 2>&1); rc=$?
+rm -f "$tmp"
+if [ "$rc" != "1" ] || [ "$out" != "?FC ERROR IN 10" ]; then
+    echo "USR FRAME FIXTURE FAILED (strict): rc=$rc out=$out"; exit 1
 fi
 echo "USR FRAME FIXTURE OK"

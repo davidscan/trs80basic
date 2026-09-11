@@ -70,6 +70,7 @@ Environment variables the interpreter reads:
 | `TRS80_OLLAMA_THINK`, `TRS80_OLLAMA_KEEPALIVE` | unset | defaults for the `@THINK` / `@KEEPALIVE` directives | thinking models; keeping a model loaded between calls |
 | `TRS80_OLLAMA_CURL` | unset | replaces the `curl` command (test hook) | deterministic tests with `programs/tests/ollama_stub.sh` |
 | `TRS80_KMHOLD` | `4` | how many `INKEY$` polls one keypress "holds" for (terminals send no key-up events) | a period game reads your taps as too long or too short |
+| `TRS80_USR` | unset | `strict` makes every `USR` call raise `?FC` instead of returning its argument | a sweep that must fail visibly on machine code it cannot run |
 
 (A couple of development-only variables are deliberately undocumented here.)
 
@@ -236,9 +237,12 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 
 ### Not supported
 
-- Machine code — not yet: `USR` and `DEFUSR` are stubs, and `POKE`/`PEEK`
-  address a simulated memory, not a Z80. Real machine code arrives when the
-  companion Z80 coprocessor project lands.
+- Machine code — not yet: `USR` returns its argument and `POKE`/`PEEK`
+  address a simulated memory, not a Z80. A run that called `USR` ends with
+  one stderr line naming the entry addresses that were not executed, so a
+  routine that silently did nothing is never mistaken for one that worked
+  (`TRS80_USR=strict` turns the calls into `?FC`). Real machine code arrives
+  when the companion Z80 coprocessor project lands.
 - Native Windows (cmd/PowerShell) — not yet: the no-install Windows package
   returns once it can be tested on a local Windows machine. Meanwhile run it
   under WSL + Windows Terminal, which is fully compatible, semigraphics

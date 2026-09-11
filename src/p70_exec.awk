@@ -4,8 +4,10 @@ function exec_immediate(line) {
     tokline("I", line)
     CK = "I"; CLI = 0; CLN = 0; CP = 1
     E = 0; HALT = 0; STOPPED = 0
+    usr_stub_reset()
     execloop()
     if (E) report_err()
+    usr_stub_notice()                       # one stderr line per run (p60)
 }
 
 function setline(i) {
