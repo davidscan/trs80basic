@@ -1912,11 +1912,13 @@ function e_prim(   t, s, v, key) {
         # tokenizes past the space, so X=USR 0(n) is legal.  This is the
         # CALL-site twin of the DEF USR 0= fix (c61fdae5): that one
         # covered the definition only, and 134 rescued listings use the
-        # spaced call form (Z80 sub-project FINDING 17).
+        # spaced call form (Z80 sub-project FINDING 17).  The digit is
+        # CARRIED into the name (USR 1( dispatches as USR1) so the slot
+        # reaches usr_resolve -- until 2026-09-10 it was dropped here.
         if (s ~ /^USR[0-9]?$/) {
             if (s == "USR" && TY[CK, CP + 1] == "n" &&
                 TK[CK, CP + 1] ~ /^[0-9]$/ &&
-                TY[CK, CP + 2] == "o" && TK[CK, CP + 2] == "(") CP++
+                TY[CK, CP + 2] == "o" && TK[CK, CP + 2] == "(") { CP++; s = s TK[CK, CP] }
             return fncall(s)
         }
         if (s == "VARPTR") { CP++; return fn_varptr() }   # p75, never a variable
@@ -2079,7 +2081,14 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, r) {
     # argument -- there is no Z80 to run the routine (see STATUS roadmap).
     # X=USR(V) identity keeps more rescued listings partially running than
     # ?FC would; routines whose RESULT is load-bearing still fail visibly.
-    if (name ~ /^USR[0-9]?$/) { x = numarg(a1, na); if (E) return "N0"; return "N" x }
+    # The CALL FRAME is resolved even though nothing consumes it yet:
+    # usr_resolve() fills USR_SLOT/USR_ENTRY/USR_ARG, which is what the p77
+    # coprocess shim will hand to ../trs80_z80_core.
+    if (name ~ /^USR[0-9]?$/) {
+        x = numarg(a1, na); if (E) return "N0"
+        usr_resolve(name, x)
+        return "N" x
+    }
     if (name == "POS") { x = numarg(a1, na); if (E) return "N0"; return "N" (CUR % 64) }
     if (name == "FRE") { if (na < 1) { raise(2); return "N0" }; return "N" 15572 }
     if (name == "LEN") { s = strarg(a1, na); if (E) return "N0"; return "N" length(s) }
@@ -2212,6 +2221,40 @@ function intarg2(a, na) {
     if (na < 2) { raise(2); return 0 }
     if (!isN(a)) { raise(13); return 0 }
     return bfloor(num(a))
+}
+
+# ---- USR call frame ---------------------------------------------------------
+# Two vectors exist on the real machines and this interpreter honours both:
+#   408EH/408FH (16526/16527)  the Level II USR vector, set by POKE -- lives
+#                              in MEM[] like any RAM (279 corpus listings)
+#   DEF USRn=addr              the Disk BASIC ten-slot table, USRDEF[0..9]
+#                              (481 listings; 212 use both, choosing by the
+#                              PEEK(16396)=201 cassette/disk probe)
+# PRECEDENCE, per slot: a DEF USRn executed this session wins; otherwise
+# slot 0 -- which is what a bare USR( means -- falls back to the 408EH
+# vector, and slots 1-9 are UNDEFINED (Disk BASIC's table entries point at
+# the ?FC routine until defined; the core should raise ?FC there).  An
+# unwritten 408EH vector is UNDEFINED too: on hardware the ROM seeds it
+# with the ?FC routine's address, and this side never seeds it, so both
+# bytes read 255.  USR_ENTRY is -1 for UNDEFINED.  The table is NOT cleared
+# by CLEAR/RUN/NEW -- it is system RAM on hardware, like the POKEd vector.
+function usr_slot(name) { return (length(name) == 4) ? substr(name, 4, 1) + 0 : 0 }
+
+function usr_entry(slot,   lo, hi) {
+    if (slot in USRDEF) return USRDEF[slot]
+    if (slot != 0) return -1
+    lo = (16526 in MEM) ? MEM[16526] : 255
+    hi = (16527 in MEM) ? MEM[16527] : 255
+    return (lo == 255 && hi == 255) ? -1 : lo + 256 * hi
+}
+
+# TRS80_USR_TRACE=1 prints one line per call to stderr: the frame the shim
+# will send.  Diagnostic only; programs/tests/usr.sh asserts on it.
+function usr_resolve(name, arg) {
+    USR_SLOT = usr_slot(name); USR_ARG = arg
+    USR_ENTRY = usr_entry(USR_SLOT)
+    if (USR_TRACE == "") USR_TRACE = ("TRS80_USR_TRACE" in ENVIRON && ENVIRON["TRS80_USR_TRACE"] != "") ? 1 : 0
+    if (USR_TRACE) printf "USR slot=%d entry=%s arg=%s\n", USR_SLOT, (USR_ENTRY < 0 ? "undefined" : USR_ENTRY), arg > "/dev/stderr"
 }
 
 function fn_inkey(   c) {
@@ -2416,19 +2459,21 @@ function st_deftype(isstr,   a, b, c) {
 }
 
 # DEF dispatch (Disk BASIC tier).  Three spellings arrive here:
-#   DEF USR[n]=addr / DEFUSRn=addr   -- accepted no-op stub: the address
-#     expression is evaluated for syntax honesty (like OUT) and discarded;
-#     USRn() calls return their argument (fncall).
+#   DEF USR[n]=addr / DEFUSRn=addr   -- the address is evaluated and STORED
+#     in the ten-slot table USRDEF[n] (p60 usr_entry reads it; until
+#     2026-09-10 it was discarded).  USRn() calls still return their
+#     argument (fncall) -- the stub ruling is unchanged, only the frame is
+#     now resolved.
 #   DEF FN name(...)=expr / DEF FNname(...)=expr / DEFFNname(...)=expr
 #     -- real user-defined functions (st_deffn / fn_user).
 # Any other DEF shape stays ?SN.
 function st_def(tx,   v) {
-    if (tx ~ /^DEFUSR[0-9]?$/) { st_defusr_tail(tx == "DEFUSR"); return }
+    if (tx ~ /^DEFUSR[0-9]?$/) { st_defusr_tail(tx == "DEFUSR", substr(tx, 7)); return }
     if (tx ~ /^DEFFN./) { st_deffn(substr(tx, 6)); return }
     # tx == "DEF": look at the next identifier
     if (TY[CK, CP] != "i") { raise(2); return }
     tx = TK[CK, CP]
-    if (tx ~ /^USR[0-9]?$/) { CP++; st_defusr_tail(tx == "USR"); return }
+    if (tx ~ /^USR[0-9]?$/) { CP++; st_defusr_tail(tx == "USR", substr(tx, 4)); return }
     if (tx == "FN") {                       # spaced name: DEF FN AB(X)=...
         CP++
         if (TY[CK, CP] != "i") { raise(2); return }
@@ -2440,15 +2485,17 @@ function st_def(tx,   v) {
     raise(2)
 }
 
-function st_defusr_tail(baredigit,   v) {
+function st_defusr_tail(baredigit, slot,   v, a) {
     # when the spelling carried no slot digit, one may follow as its own
     # token -- real Level II tokenizes past the space, so DEF USR 0=addr
     # is legal (measured on morsmstr/quest_2; Z80 sub-project FINDING 8)
-    if (baredigit && TY[CK, CP] == "n" && TK[CK, CP] ~ /^[0-9]$/) CP++
+    if (baredigit && TY[CK, CP] == "n" && TK[CK, CP] ~ /^[0-9]$/) { slot = TK[CK, CP]; CP++ }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
+    a = addrconv(num(v)); if (E) return          # ?FC outside -65535..65535, negatives wrap
+    USRDEF[(slot == "") ? 0 : slot + 0] = a
 }
 
 # DEF FN: record the parameter names and the token-cache POSITION of the

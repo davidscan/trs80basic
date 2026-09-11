@@ -191,19 +191,21 @@ function st_deftype(isstr,   a, b, c) {
 }
 
 # DEF dispatch (Disk BASIC tier).  Three spellings arrive here:
-#   DEF USR[n]=addr / DEFUSRn=addr   -- accepted no-op stub: the address
-#     expression is evaluated for syntax honesty (like OUT) and discarded;
-#     USRn() calls return their argument (fncall).
+#   DEF USR[n]=addr / DEFUSRn=addr   -- the address is evaluated and STORED
+#     in the ten-slot table USRDEF[n] (p60 usr_entry reads it; until
+#     2026-09-10 it was discarded).  USRn() calls still return their
+#     argument (fncall) -- the stub ruling is unchanged, only the frame is
+#     now resolved.
 #   DEF FN name(...)=expr / DEF FNname(...)=expr / DEFFNname(...)=expr
 #     -- real user-defined functions (st_deffn / fn_user).
 # Any other DEF shape stays ?SN.
 function st_def(tx,   v) {
-    if (tx ~ /^DEFUSR[0-9]?$/) { st_defusr_tail(tx == "DEFUSR"); return }
+    if (tx ~ /^DEFUSR[0-9]?$/) { st_defusr_tail(tx == "DEFUSR", substr(tx, 7)); return }
     if (tx ~ /^DEFFN./) { st_deffn(substr(tx, 6)); return }
     # tx == "DEF": look at the next identifier
     if (TY[CK, CP] != "i") { raise(2); return }
     tx = TK[CK, CP]
-    if (tx ~ /^USR[0-9]?$/) { CP++; st_defusr_tail(tx == "USR"); return }
+    if (tx ~ /^USR[0-9]?$/) { CP++; st_defusr_tail(tx == "USR", substr(tx, 4)); return }
     if (tx == "FN") {                       # spaced name: DEF FN AB(X)=...
         CP++
         if (TY[CK, CP] != "i") { raise(2); return }
@@ -215,15 +217,17 @@ function st_def(tx,   v) {
     raise(2)
 }
 
-function st_defusr_tail(baredigit,   v) {
+function st_defusr_tail(baredigit, slot,   v, a) {
     # when the spelling carried no slot digit, one may follow as its own
     # token -- real Level II tokenizes past the space, so DEF USR 0=addr
     # is legal (measured on morsmstr/quest_2; Z80 sub-project FINDING 8)
-    if (baredigit && TY[CK, CP] == "n" && TK[CK, CP] ~ /^[0-9]$/) CP++
+    if (baredigit && TY[CK, CP] == "n" && TK[CK, CP] ~ /^[0-9]$/) { slot = TK[CK, CP]; CP++ }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
+    a = addrconv(num(v)); if (E) return          # ?FC outside -65535..65535, negatives wrap
+    USRDEF[(slot == "") ? 0 : slot + 0] = a
 }
 
 # DEF FN: record the parameter names and the token-cache POSITION of the
