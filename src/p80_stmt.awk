@@ -588,7 +588,7 @@ function dopeek(x,   a) {
     if (a in SPK) return sp_peek(a)               # VARPTR string space (p75)
     if (a >= 17129) {
         if (a > RAMTOP) return 255                # absent RAM above the physical top
-        pm_sync()
+        pm_sync(); pm_truncnote()
         if (a < PMEND) return PMEM[a]
     }
     return (a in MEM) ? MEM[a] : 255

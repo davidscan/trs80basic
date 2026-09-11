@@ -3062,14 +3062,33 @@ function pm_crunch(text,   i, n, c, ins, ind, lit, j, w, matched) {
 }
 
 # (re)serialize prog[] into PMEM[17129..PMEND-1]
+#
+# THE WINDOW OVERFLOW POLICY (ruled 2026-09-11): TRUNCATE AT A WHOLE LINE.
+# Program text is unbounded on this side, but the image lives in a 16-bit
+# space, so a program can outgrow the window that shows it.  The image now
+# stops before the first line whose record (plus the 00 00 terminator after
+# it) would cross RAMTOP, and writes the terminator there, so any walker of
+# the next-line chain -- a PEEK loop, or a Z80 dispatcher of the Dancing
+# Demon kind, for which the chain IS its symbol table -- sees a well-formed,
+# shorter program instead of a link into garbage.  40F9H reports the
+# truncated end.  The other two options were rejected: REFUSING (?OM at
+# RUN) would take back the unbounded-program generosity the interpreter
+# chose deliberately, and a SLIDING window would change what 40A4H/40F9H
+# mean mid-run.  Not silent: pm_truncnote() prints one stderr line per build
+# the first time the truncated image is consulted (dopeek rule 5, 40F9H, or
+# the USR frame), so a program that reads past its own cut is told, not
+# fooled.  Until 2026-09-11 the next pointer wrapped modulo 65536 and PMEM
+# went on being written above the address space, unreachable by any PEEK.
 function pm_build(   i, ln, addr, nb, j, nxt) {
     if (!TOKIDX) pm_init_index()
     delete PMEM
     addr = 17129
+    PMTRUNC = 0; PMTRUNCLN = 0; PMNOTED = 0
     for (i = 1; i <= NL; i++) {
         ln = LNS[i]
         pm_crunch(prog[ln]); nb = PMBN
-        nxt = (addr + 4 + nb + 1) % 65536         # 16-bit pointer, wraps
+        if (addr + 4 + nb + 1 + 2 - 1 > RAMTOP) { PMTRUNC = 1; PMTRUNCLN = ln; break }
+        nxt = addr + 4 + nb + 1                   # always <= RAMTOP now
         PMEM[addr] = nxt % 256; PMEM[addr + 1] = int(nxt / 256)
         PMEM[addr + 2] = ln % 256; PMEM[addr + 3] = int(ln / 256)
         for (j = 1; j <= nb; j++) PMEM[addr + 4 + j - 1] = PMB[j]
@@ -3079,9 +3098,18 @@ function pm_build(   i, ln, addr, nb, j, nxt) {
     PMEM[addr] = 0; PMEM[addr + 1] = 0
     PMEND = addr + 2
     PROGDIRTY = 0
+    FRPMDIRTY = 1                                 # the USR frame resends the image
 }
 
 function pm_sync() { if (PROGDIRTY || PMEND == 0) pm_build() }
+
+# once per build, the first time a truncated image is consulted
+function pm_truncnote() {
+    if (!PMTRUNC || PMNOTED) return
+    PMNOTED = 1
+    diag_err("PROGRAM IMAGE TRUNCATED: LINE " PMTRUNCLN " AND AFTER DO NOT FIT BELOW " RAMTOP \
+             "; PEEK AND MACHINE CODE SEE A CHAIN ENDING AT " (PMEND - 2))
+}
 
 # the six live system-pointer bytes (dopeek routes them here)
 function pm_sysptr(a) {
@@ -3089,10 +3117,12 @@ function pm_sysptr(a) {
     if (a == 16549) return 66
     if (a == 16561) return HIMEM % 256            # 40B1H: top of memory
     if (a == 16562) return int(HIMEM / 256)
-    pm_sync()                                     # 40F9H: start of variables
+    pm_sync(); pm_truncnote()                     # 40F9H: start of variables
     # a PEEK returns a byte: mask the high half too, so a program image
     # larger than the address space cannot leak a >255 value (reported by
-    # ../trs80_z80_core 2026-09-07; 1200 REM lines used to answer 381)
+    # ../trs80_z80_core 2026-09-07; 1200 REM lines used to answer 381).
+    # Since the truncation ruling PMEND <= RAMTOP + 1, so the mask is now
+    # only a belt for the braces.
     return (a == 16633) ? PMEND % 256 : int(PMEND / 256) % 256
 }
 
@@ -3834,7 +3864,7 @@ function dopeek(x,   a) {
     if (a in SPK) return sp_peek(a)               # VARPTR string space (p75)
     if (a >= 17129) {
         if (a > RAMTOP) return 255                # absent RAM above the physical top
-        pm_sync()
+        pm_sync(); pm_truncnote()
         if (a < PMEND) return PMEM[a]
     }
     return (a in MEM) ? MEM[a] : 255
