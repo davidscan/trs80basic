@@ -23,4 +23,8 @@ command -v gawk >/dev/null 2>&1 || {
 : "${TRS80_MANFILE:=$here/support/manpages.txt}"
 export TRS80_MANFILE
 
-exec gawk -f "$here/trs80basic.awk" -- "$@"
+# -b: BASIC strings are byte strings.  Without it a UTF-8 locale turns
+# CHR$(200) into a two-byte character and mangles raw bytes read from files
+# (graphics, packed machine code); the interpreter builds its own UTF-8 for
+# the terminal glyphs, so the display does not need the locale.
+exec gawk -b -f "$here/trs80basic.awk" -- "$@"

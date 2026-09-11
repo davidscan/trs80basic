@@ -6,7 +6,8 @@
 # Exit:  BYE   (restores terminal; if killed abnormally, run: stty sane)
 # BREAK: Ctrl-C  (stops a running program: "BREAK IN nnnn"; CONT resumes)
 #
-# Requires: GNU awk >= 5.0, a VT100/ANSI terminal >= 64x20, UTF-8 locale.
+# Requires: GNU awk >= 5.0 run with -b (./basic does), a VT100/ANSI terminal
+# >= 64x20 that displays UTF-8.
 # Uses stty/dd/od for raw keyboard input (permitted external utilities).
 # The simulated TRS-80 display is 64x16 at terminal rows 1-16; display
 # memory is 15360..16383; PEEK/POKE/SET/RESET/POINT/PRINT@/CHR$ all share
@@ -81,6 +82,18 @@ BEGIN {
 function init_tables(   i, c, m, n) {
     # character code <-> single-char string tables (byte-value semantics)
     for (i = 0; i < 256; i++) { c = sprintf("%c", i); CHR[i] = c; ORD[c] = i }
+    # BYTES, NOT CHARACTERS.  A BASIC string is a byte string -- CHR$(200)
+    # is one byte, and a loaded file may carry raw bytes 80H-FFH (graphics,
+    # packed machine code).  That holds only under gawk -b: in a UTF-8
+    # locale without it sprintf("%c", 200) is the character U+00C8 (two
+    # bytes on the wire), a raw C8 read from a file is an "invalid" byte
+    # that matches nothing in ORD[], and ASC/PEEK/the program image disagree
+    # about the same byte with no error.  ./basic passes -b; warn once when
+    # someone runs the file directly without it (seam audit 2026-09-10).
+    # The probe is a literal two-byte sequence: length() counts CHARACTERS
+    # in a UTF-8 locale (so it reads 1 there) and bytes under -b (2).
+    if (length("\303\210") != 2)
+        printf "trs80basic: run it as ./basic or gawk -b -- without -b, bytes above 127 in files are corrupted\n" > "/dev/stderr"
     # EXT: SET(x,y,c) color codes 0-8 (the CoCo Color BASIC palette) ->
     # xterm-256 foreground numbers.  0 black, 1 green, 2 yellow, 3 blue,
     # 4 red, 5 buff, 6 cyan, 7 magenta, 8 orange.
@@ -122,9 +135,9 @@ function init_tables(   i, c, m, n) {
               "2301 e0e9 237e 221e 2713 a7 2318 a9 " \
               "a4 b6 a2 ae e0f4 e0f5 e0f6 211e " \
               "2105 2642 2640 e0fb e0fc e0fd e0fe 2302", m, " ")
-    for (i = 0; i < 64; i++) GLSPEC[i] = sprintf("%c", strtonum("0x" m[i + 1]))
-    GLKANA[0] = sprintf("%c", 0xa5)                  # C0 = Yen sign
-    for (i = 1; i < 64; i++) GLKANA[i] = sprintf("%c", 0xff60 + i)
+    for (i = 0; i < 64; i++) GLSPEC[i] = utf8(strtonum("0x" m[i + 1]))
+    GLKANA[0] = utf8(0xa5)                           # C0 = Yen sign
+    for (i = 1; i < 64; i++) GLKANA[i] = utf8(0xff60 + i)
     M3MODE = 0; M3KANA = 0; WIDE = 0
     DUMB = (ENVIRON["TRS80_DUMB"] != "")
     # misc state
@@ -211,6 +224,17 @@ function man_commit(keys, nk, body,   i, k) {
 }
 
 # TRS-80 semigraphics bitmask m (0..63): TL=1 TR=2 ML=4 MR=8 BL=16 BR=32
+# Encode a Unicode code point as UTF-8 BYTES.  The interpreter runs under
+# gawk -b (bytes, not locale characters -- see the launcher), where
+# sprintf("%c", cp) can only produce a single byte, so terminal glyphs are
+# assembled by hand.  Locale-independent: identical output with or without -b.
+function utf8(cp) {
+    if (cp < 0x80)    return sprintf("%c", cp)
+    if (cp < 0x800)   return sprintf("%c%c", 0xC0 + int(cp / 64), 0x80 + cp % 64)
+    if (cp < 0x10000) return sprintf("%c%c%c", 0xE0 + int(cp / 4096), 0x80 + int(cp / 64) % 64, 0x80 + cp % 64)
+    return sprintf("%c%c%c%c", 0xF0 + int(cp / 262144), 0x80 + int(cp / 4096) % 64, 0x80 + int(cp / 64) % 64, 0x80 + cp % 64)
+}
+
 function sext_glyph(m,   b, n) {
     if (GFXMODE == "ascii") {
         n = (m%2) + int(m/2)%2 + int(m/4)%2 + int(m/8)%2 + int(m/16)%2 + int(m/32)
@@ -224,12 +248,12 @@ function sext_glyph(m,   b, n) {
         if (int(m/8) % 2)  b += 16  # MR -> dot5
         if (int(m/16) % 2) b += 4   # BL -> dot3
         if (int(m/32))     b += 32  # BR -> dot6
-        return sprintf("%c", b)
+        return utf8(b)
     }
     # sextant mode: Unicode "Symbols for Legacy Computing" (bit order matches)
     if (m == 0)  return " "
-    if (m == 63) return sprintf("%c", 0x2588)   # full block
-    if (m == 21) return sprintf("%c", 0x258C)   # left half
-    if (m == 42) return sprintf("%c", 0x2590)   # right half
-    return sprintf("%c", 0x1FB00 + m - 1 - (m > 21 ? 1 : 0) - (m > 42 ? 1 : 0))
+    if (m == 63) return utf8(0x2588)            # full block
+    if (m == 21) return utf8(0x258C)            # left half
+    if (m == 42) return utf8(0x2590)            # right half
+    return utf8(0x1FB00 + m - 1 - (m > 21 ? 1 : 0) - (m > 42 ? 1 : 0))
 }

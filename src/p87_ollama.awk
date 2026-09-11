@@ -289,7 +289,7 @@ function ai_junesc(s,   out, i, n, c, e) {
         else if (e == "t") out = out "\t"
         else if (e == "r") out = out "\r"
         else if (e == "u" && i + 5 <= n) {
-            out = out sprintf("%c", strtonum("0x" substr(s, i + 2, 4)))
+            out = out utf8(strtonum("0x" substr(s, i + 2, 4)))   # bytes (p10)
             i += 6
             continue
         }

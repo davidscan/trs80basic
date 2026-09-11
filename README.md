@@ -253,7 +253,7 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 |---|---|---|---|
 | `trs80basic.awk` | the whole interpreter, one file | `cat src/p*.awk > trs80basic.awk` | no — regenerate from `src/` if you edit there |
 | `src/p*.awk` | the interpreter's source modules, concatenated in name order | you | no |
-| `basic` | launcher: finds gawk and the manpages, passes flags through | you | no |
+| `basic` | launcher: finds gawk and the manpages, runs it with `-b` (strings are bytes), passes flags through | you | no |
 | `support/manpages.txt` | text behind `man` and `help`; plain format, edit freely | you | no — `man` stops working |
 | `programs/*.bas` | demo programs (`aethelgard`, `tictactoe`, `demo_*`, `gfxtest`) | you | yes |
 | `programs/examples/` | feature examples with `.in` inputs and `.out` transcripts | `run_examples.sh --update` (transcripts) | transcripts regenerate; programs do not |

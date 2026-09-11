@@ -2,11 +2,15 @@
 
 ## Running it
 
-    ./basic                     # or: gawk -f trs80basic.awk
+    ./basic                     # or: gawk -b -f trs80basic.awk
 
 Requirements: GNU awk 5.x, a POSIX shell, a VT100/ANSI terminal at least 64x20
-(iTerm2 is fine), UTF-8 locale. The script uses `stty`, `dd` and `od` for
-raw keyboard input. Exit with `BYE` (restores your terminal). If the
+that displays UTF-8 (iTerm2 is fine). Always run gawk with `-b`: BASIC strings
+are byte strings, and without `-b` a UTF-8 locale turns `CHR$(200)` into a
+two-byte character and corrupts raw bytes above 127 read from a program
+file (graphics, packed machine code). The launcher passes it; running the
+file directly without it prints a one-line warning. The script uses `stty`,
+`dd` and `od` for raw keyboard input. Exit with `BYE` (restores your terminal). If the
 interpreter is ever killed abnormally, type `stty sane` to recover the tty.
 
 At startup you get the authentic `MEMORY SIZE?` prompt (press ENTER), the
