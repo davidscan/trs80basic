@@ -24,9 +24,9 @@ probe() {
     printf '%s\n' "$prog" > "$tmp"; rm -f "$lp"
     got=$(printf '%s' "$in" | env TRS80_PRINTER="$lp" $envs "$here/basic" "$tmp" 2>&1)
     [ -s "$lp" ] && got="$got|LP:$(cat "$lp")"
-    n=$((n+1))
+    case "$id" in *x) counted=0;; *) counted=1; n=$((n+1));; esac
     if [ "$got" = "$want" ]; then
-        tally "$cat"; [ $verbose = 1 ] && printf '%-4s %s  %s\n' "$id" "$cat" "$label"
+        [ $counted = 1 ] && tally "$cat"; [ $verbose = 1 ] && printf '%-4s %s  %s\n' "$id" "$cat" "$label"
     else
         bad=$((bad+1)); printf '%-4s MISMATCH  %s\n   expected: %s\n   got:      %s\n' "$id" "$label" "$want" "$got"
     fi
@@ -60,9 +60,11 @@ probe 21 D "RESET restarts a SYSTEM program" "" "OK" '10 POKE 16830,195:POKE 168
 probe 22 D "jump to an address on RESET (16391/2)" "" "OK" '10 POKE 16391,0:POKE 16392,125:PRINT "OK"'
 # 23 as printed uses the compressed form POKE16812,195 -- keyword-adjacent
 # source is out of scope by ruling (basclean de-compresses it), so as written
-# it is ?SN; with the spaces a period machine did not need, it runs and is inert.
-probe 23 E "disable RESET and BREAK (packed routine at 4007H) -- as printed, POKE16812 compressed" "" "?SN ERROR IN 30" "10 QQ\$=CHR\$(42)+CHR\$(164)+CHR\$(64)+CHR\$(43)+CHR\$(195)+CHR\$(30)+CHR\$(29)${nl}20 Q=VARPTR(QQ\$):Q1=PEEK(Q+1):Q2=PEEK(Q+2)${nl}30 POKE16812,195:POKE16813,Q1:POKE16814,Q2${nl}40 PRINT \"OK\""
-probe 23b D "disable RESET and BREAK, spaced (not counted in the 78)" "" "OK" "10 QQ\$=CHR\$(42)+CHR\$(164)+CHR\$(64)+CHR\$(43)+CHR\$(195)+CHR\$(30)+CHR\$(29)${nl}20 Q=VARPTR(QQ\$):Q1=PEEK(Q+1):Q2=PEEK(Q+2)${nl}30 POKE 16812,195:POKE 16813,Q1:POKE 16814,Q2${nl}40 PRINT \"OK\""
+# it is ?SN.  RULED 2026-09-11 (user): "dead in spirit if not law" -- the
+# spaced form is what counts in the 78 (D); the as-printed form is pinned
+# below as 23x, uncounted (an id ending in x is never tallied).
+probe 23x E "disable RESET and BREAK (packed routine at 4007H) -- as printed, POKE16812 compressed" "" "?SN ERROR IN 30" "10 QQ\$=CHR\$(42)+CHR\$(164)+CHR\$(64)+CHR\$(43)+CHR\$(195)+CHR\$(30)+CHR\$(29)${nl}20 Q=VARPTR(QQ\$):Q1=PEEK(Q+1):Q2=PEEK(Q+2)${nl}30 POKE16812,195:POKE16813,Q1:POKE16814,Q2${nl}40 PRINT \"OK\""
+probe 23 D "disable RESET and BREAK (packed routine at 4007H), spaced" "" "OK" "10 QQ\$=CHR\$(42)+CHR\$(164)+CHR\$(64)+CHR\$(43)+CHR\$(195)+CHR\$(30)+CHR\$(29)${nl}20 Q=VARPTR(QQ\$):Q1=PEEK(Q+1):Q2=PEEK(Q+2)${nl}30 POKE 16812,195:POKE 16813,Q1:POKE 16814,Q2${nl}40 PRINT \"OK\""
 probe 24 D "disable LIST (16863..)"   "" "20 LIST 20" "10 POKE 16863,95:POKE 16864,204:POKE 16865,6${nl}20 LIST 20"
 probe 25 D "disable SYSTEM (16866..)" "" "OK" '10 POKE 16866,195:POKE 16867,204:POKE 16868,6:PRINT "OK"'
 # ---- Break key pokes ---------------------------------------------------------
@@ -124,7 +126,7 @@ probe 75 W "RND seed POKE 16554-6 = 5,10,15 gives 80 78 91 88 70 91 25 30" "" " 
 probe 76 K "TRON by POKE 16667,1 (TRON does it)"  "" "T" "10 POKE 16667,1${nl}20 PRINT \"T\""
 probe 77 K "TROFF by POKE 16667,0"                "" "T" "10 POKE 16667,0${nl}20 PRINT \"T\""
 probe 78 E "recover after NEW: POKE 17130,1 : SYSTEM" "" "?SN ERROR IN 10" '10 POKE 17130,1:SYSTEM'
-n78=$((n-1)); bad78=$bad; W78=$nW; K78=$nK; D78=$((nD-1)); X78=$nX; E78=$nE   # 23b is extra
+n78=$n; bad78=$bad; W78=$nW; K78=$nK; D78=$nD; X78=$nX; E78=$nE
 
 # ---- B: the page's BASIC sections (not in the 78) ----------------------------
 probe B1 W "screen print via VARPTR alias (Jay Reso): LPRINT a string pointed at a screen row" "" \
@@ -158,6 +160,6 @@ probe B18 D "screen graphics hard copy (PEEKs the screen, LPRINTs #)" "" "|LP:# 
 
 rm -f "$tmp" "$lp"
 echo "TIPS 1-78: works $W78, keyword-route $K78, dead-harmless $D78, wrong-answer $X78, errors $E78  (of $n78)"
-echo "BASIC sections B1-B$((n-n78-1)): works $((nW-W78)), keyword-route $((nK-K78)), dead-harmless $((nD-D78-1)), wrong-answer $((nX-X78)), errors $((nE-E78))"
+echo "BASIC sections B1-B$((n-n78)): works $((nW-W78)), keyword-route $((nK-K78)), dead-harmless $((nD-D78)), wrong-answer $((nX-X78)), errors $((nE-E78))"
 if [ $bad != 0 ]; then echo "TIPS PROBE: $bad MISMATCH(ES) -- behaviour differs from the declared tally"; exit 1; fi
 echo "TIPS PROBE OK"
