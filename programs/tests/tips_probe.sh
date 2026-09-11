@@ -41,7 +41,12 @@ probe 3  W "Model III: PEEK(293)=73"           "" " 0 " '10 PRINT PEEK(293)=73'
 probe 4  W "Model 4/4D: PEEK(125)=4"           "" " 0 " '10 PRINT PEEK(125)=4'
 probe 5  W "Model 4P: PEEK(125)=5"             "" " 0 " '10 PRINT PEEK(125)=5'
 probe 6  W "Model 12: PEEK(125)=12"            "" " 0 " '10 PRINT PEEK(125)=12'
-probe 7  X "no expansion interface: PEEK(14316)=255 (says none; we present 48K)" "" "-1 " '10 PRINT PEEK(14316)=255'
+# 7: 37ECH is the floppy controller status register.  RULED 2026-09-11 (user):
+# stay at 255 = "no expansion interface".  The 14 corpus listings that read
+# it treat "not 255" as "disk present" and go on to CMD, DEF USR from disk or
+# a not-ready wait loop, so reporting an interface would push them off the
+# branch that runs here.  Dead and deliberate, not wrong.
+probe 7  D "no expansion interface: PEEK(14316)=255 (deliberate: keeps disk probes on their cassette branch)" "" "-1 " '10 PRINT PEEK(14316)=255'
 probe 8  X "not Disk BASIC: PEEK(16549)<66 (66 is authentic; the page's boundary is off)" "" " 0 " '10 PRINT PEEK(16549)<66'
 probe 9  D "TRSDOS 6.1: PEEK(&H85)=&H61"       "" " 0 " '10 PRINT PEEK(&H85)=&H61'
 probe 10 D "TRSDOS 6.2: PEEK(&H85)=&H62"       "" " 0 " '10 PRINT PEEK(&H85)=&H62'
@@ -154,7 +159,7 @@ probe B14 D "route LPRINT to video: POKE 16422,88:POKE 16423,4" "" "|LP:TO VIDEO
 probe B15 D "route video to printer: POKE 16414,141:POKE 16415,5" "" "STILL VIDEO" '10 POKE 16414,141:POKE 16415,5:PRINT "STILL VIDEO"'
 probe B16 D "change the cursor (AWFUL routine at 32512)" "" "OK" \
 "20 FOR X=32512 TO 32522:READ A:POKE X,A:NEXT${nl}30 POKE 16414,0:POKE 16415,127${nl}40 DATA 205,88,4,229,42,32,64,54${nl}50 DATA 42${nl}60 DATA 225,201${nl}70 PRINT \"OK\""
-probe B17 E "voice control: INP(255)"             "" "?BS ERROR IN 10" '10 PRINT INP(255)'
+probe B17 W "voice control: INP(255) reads 127, no sound (was ?BS until 2026-09-11)" "" " 127 " '10 PRINT INP(255)'
 probe B18 D "screen graphics hard copy (PEEKs the screen, LPRINTs #)" "" "|LP:#  " \
 "10 SET(0,0):SET(3,2)${nl}20 X=15360:A=1:B=2:FOR K=X TO X+1:IF ((PEEK(K)-128) AND A)=A THEN LPRINT\"#\";:GOTO 40${nl}30 LPRINT\" \";${nl}40 NEXT K:LPRINT \" \""
 

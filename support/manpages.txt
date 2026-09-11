@@ -1025,6 +1025,15 @@ OUT p,v   write value v to Z80 port p
   error but have no effect.  INP is its counterpart.
   Example: OUT 255,4
 
+:INP
+INP(p)   read Z80 port p (0-255, else ?FC)
+  Port 255, the cassette/video-mode port, is live: 127 in 64-character
+  mode, 63 after CHR$(23) selects 32 characters (bit 6 is the mode, bit
+  7 the cassette input, which never has a signal here).  Every other
+  port reads 255, the open bus, so RS-232, floppy and joystick probes see
+  "not present" and take their fallback branch.
+  Example: IF INP(255)=255 THEN PRINT "SOUND"
+
 :USR DEFUSR
 USR(x) / USRn(x)   machine-language call STUB: evaluates and returns
   its argument x -- no Z80 routine runs.  Programs whose USR result is

@@ -146,7 +146,7 @@ function init_tables(   i, c, m, n) {
     EHANDLER = 0; INHANDLER = 0; ERRV = 0; ERLV = 0
     E = 0; RLCANCEL = 0; EOFQUIT = 0; PENDBRK = 0
     BRKCTR = 0; BRKEVERY = 400
-    FNLIST = " ABS INT FIX SGN SQR SIN COS TAN ATN LOG EXP RND CINT CSNG CDBL PEEK POS FRE LEN ASC VAL CHR$ STR$ STRING$ LEFT$ RIGHT$ MID$ INSTR POINT TAB EOF LOF LOC MKI$ MKS$ MKD$ CVI CVS CVD "
+    FNLIST = " ABS INT FIX SGN SQR SIN COS TAN ATN LOG EXP RND CINT CSNG CDBL PEEK POS FRE LEN ASC VAL CHR$ STR$ STRING$ LEFT$ RIGHT$ MID$ INSTR POINT TAB EOF LOF LOC MKI$ MKS$ MKD$ CVI CVS CVD INP "
     # execution throttle: emulate a target Z80 clock (MHz).  A statement is
     # charged CYCPERSTMT "cycles"; delay = CYCPERSTMT/(MHz*1e6) seconds, batched
     # (see execloop).  MHz<=0 => full speed.  Tune the feel via TRS80_MHZ / speed.

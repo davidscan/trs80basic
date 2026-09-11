@@ -146,7 +146,7 @@ function init_tables(   i, c, m, n) {
     EHANDLER = 0; INHANDLER = 0; ERRV = 0; ERLV = 0
     E = 0; RLCANCEL = 0; EOFQUIT = 0; PENDBRK = 0
     BRKCTR = 0; BRKEVERY = 400
-    FNLIST = " ABS INT FIX SGN SQR SIN COS TAN ATN LOG EXP RND CINT CSNG CDBL PEEK POS FRE LEN ASC VAL CHR$ STR$ STRING$ LEFT$ RIGHT$ MID$ INSTR POINT TAB EOF LOF LOC MKI$ MKS$ MKD$ CVI CVS CVD "
+    FNLIST = " ABS INT FIX SGN SQR SIN COS TAN ATN LOG EXP RND CINT CSNG CDBL PEEK POS FRE LEN ASC VAL CHR$ STR$ STRING$ LEFT$ RIGHT$ MID$ INSTR POINT TAB EOF LOF LOC MKI$ MKS$ MKD$ CVI CVS CVD INP "
     # execution throttle: emulate a target Z80 clock (MHz).  A statement is
     # charged CYCPERSTMT "cycles"; delay = CYCPERSTMT/(MHz*1e6) seconds, batched
     # (see execloop).  MHz<=0 => full speed.  Tune the feel via TRS80_MHZ / speed.
@@ -2078,6 +2078,21 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, r) {
     }
     if (name == "CSNG" || name == "CDBL") { x = numarg(a1, na); if (E) return "N0"; return "N" x }
     if (name == "PEEK") { x = numarg(a1, na); if (E) return "N0"; return "N" dopeek(x) }
+    # INP(p): read Z80 port p (0-255, else ?FC).  Until 2026-09-11 INP had no
+    # body, so INP(255) fell through to the array path and died with ?BS --
+    # 96 corpus listings.  Port FFH is the Model I cassette/video-mode port
+    # and the ONE port with state here: bit 6 reads 1 in 64-character mode
+    # and 0 in CHR$(23)'s 32-character mode (127 / 63, the values period
+    # listings test), bit 7 is the cassette input and stays 0 (no signal).
+    # Every other port reads 255, the open bus, as unmapped memory does --
+    # so RS-232 (232), floppy (240) and joystick probes take their
+    # "not present" branch instead of erroring.  OUT is its discarded twin.
+    if (name == "INP") {
+        x = numarg(a1, na); if (E) return "N0"
+        x = bfloor(x)
+        if (x < 0 || x > 255) { raise(5); return "N0" }
+        return "N" ((x == 255) ? (WIDE ? 63 : 127) : 255)
+    }
     # USR/USR0-9: with a core (TRS80_Z80, p77) the routine RUNS; without
     # one this is the STUB, which evaluates and returns its argument.
     # X=USR(V) identity keeps more rescued listings partially running than
