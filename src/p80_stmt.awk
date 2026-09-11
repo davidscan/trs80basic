@@ -568,7 +568,7 @@ function addrconv(x) {
 
 # Resolution order is a CONTRACT the Z80 core must reproduce byte-for-byte --
 # it is written out in full in p75's "THE ADDRESS-RESOLUTION CONTRACT" (read
-# side; st_poke below has its own).  Keep the two in step; in particular SPK
+# side; poke_byte below has its own).  Keep the two in step; in particular SPK
 # (rule 4) must stay ABOVE the program image (rule 5).
 function dopeek(x,   a) {
     a = addrconv(x)
@@ -594,10 +594,7 @@ function dopeek(x,   a) {
     return (a in MEM) ? MEM[a] : 255
 }
 
-# The store order is CONTRACT too -- a Z80 write must land where a POKE of the
-# same address lands.  Written out in full in p75's "THE ADDRESS-RESOLUTION
-# CONTRACT, WRITE SIDE", including the four ranges where a write is stored but
-# can never be read back.  Keep the two in step.
+# POKE a,b: the statement half parses; poke_byte() below is the store.
 function st_poke(   v, a, b) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
@@ -608,12 +605,25 @@ function st_poke(   v, a, b) {
     if (!isN(v)) { raise(13); return }
     b = bfloor(num(v)) % 256
     if (b < 0) b += 256
+    poke_byte(a, b)
+}
+
+# The ONE store primitive: a resolved 16-bit address and a byte 0-255.  Its
+# order is CONTRACT, dopeek's twin -- a Z80 write from ../trs80_z80_core must
+# land where a POKE of the same address lands.  Written out in full in p75's
+# "THE ADDRESS-RESOLUTION CONTRACT, WRITE SIDE", including the four ranges
+# where a write is stored but can never be read back.  Keep the two in step.
+# Every writer that must agree with POKE comes through here: the POKE
+# statement, the p77 shim applying a Z80 write-set, and the string-alias
+# write-through (seam audit finding 7).  Marks the address dirty for the USR
+# frame's delta tracking (p75 fr_*).
+function poke_byte(a, b) {
     if (a >= 15360 && a <= 16383) { s_poke(a - 15360, b); sync_cursor() }
     else if (a >= 16554 && a <= 16556) rnd_poke(a - 16554, b)
     else if (a == 16561 || a == 16562) pm_sethimem(a, b)   # move HIMEM (p75)
     else if (a in SPK) sp_poke(a, b)              # VARPTR write-through (p75)
     else if (a > RAMTOP) { }                      # absent RAM: discarded
-    else MEM[a] = b
+    else { MEM[a] = b; FRDIRTY[a] = 1 }
 }
 
 # ---- SET / RESET / POINT ---------------------------------------------------

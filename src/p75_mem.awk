@@ -94,12 +94,16 @@
 # at that address returns -- and the core models unwritten RAM the same way.
 
 # ---- THE ADDRESS-RESOLUTION CONTRACT, WRITE SIDE --------------------------
-# st_poke() (p80) is dopeek's twin and its order is CONTRACT for the same
+# poke_byte() (p80) is dopeek's twin and its order is CONTRACT for the same
 # reason: a Z80 store from ../trs80_z80_core must land exactly where a POKE of
 # the same address lands, or the two disagree about memory with no error.
 # Requested by that project 2026-09-08 (handoff REPLY 2).  They read the order
 # off the code themselves and read it correctly; all six rules are theirs,
-# re-verified against st_poke 2026-09-09.  Highest precedence first:
+# re-verified against st_poke 2026-09-09.  Split 2026-09-11: st_poke is now
+# only the statement parser, and poke_byte(a, b) is the single store
+# primitive every write that must agree with POKE goes through -- the p77
+# shim applying a Z80 write-set, and the string-alias write-through (finding
+# 7).  Highest precedence first:
 #
 #   1. 3C00-3FFFH (15360-16383) -> s_poke() + sync_cursor()
 #   2. 40AA-40ACH (16554-16556) -> rnd_poke(), the ROM RND seed
@@ -135,8 +139,8 @@
 #
 # RULE 5 IS UNREACHABLE TODAY, as dopeek's is (RAMTOP == 65535 == addrconv's
 # bound), and the two stay equivalent for any RAMTOP: dopeek tests a > RAMTOP
-# only inside its a >= 17129 branch and st_poke tests it unconditionally, but
-# RAMTOP >= 17129 always holds, so no address is judged differently.
+# only inside its a >= 17129 branch and poke_byte tests it unconditionally,
+# but RAMTOP >= 17129 always holds, so no address is judged differently.
 
 # ---- keyword table (byte 128-251 <-> expansion), longest-match index -------
 function pm_init_index(   tbl, pairs, np, i, j, v, w, ins) {

@@ -90,7 +90,7 @@ function toS(u) { return (u > 32767) ? u - 65536 : u }
 
 # ---- authentic ROM RND (LEVEL2BASIC RND at 14C9-1540H) ----------------------
 # 24-bit LCG over the seed stored at 40AA-40ACH (dec 16554-16556, LSB/mid/MSB,
-# POKEable -- dopeek/st_poke map it):
+# POKEable -- dopeek/poke_byte map it):
 #   seed' = (seed*4253261 + 372837) mod 2^24
 # (multiplier bytes 40 E6 4D at 4090H, addend 05B065H).  RND(0) = seed'/2^24;
 # RND(n) = INT(RND(0)*n + 1) with the multiply rounded to single precision

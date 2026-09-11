@@ -2917,12 +2917,16 @@ function st_resume(   p, ty, tx) {
 # at that address returns -- and the core models unwritten RAM the same way.
 
 # ---- THE ADDRESS-RESOLUTION CONTRACT, WRITE SIDE --------------------------
-# st_poke() (p80) is dopeek's twin and its order is CONTRACT for the same
+# poke_byte() (p80) is dopeek's twin and its order is CONTRACT for the same
 # reason: a Z80 store from ../trs80_z80_core must land exactly where a POKE of
 # the same address lands, or the two disagree about memory with no error.
 # Requested by that project 2026-09-08 (handoff REPLY 2).  They read the order
 # off the code themselves and read it correctly; all six rules are theirs,
-# re-verified against st_poke 2026-09-09.  Highest precedence first:
+# re-verified against st_poke 2026-09-09.  Split 2026-09-11: st_poke is now
+# only the statement parser, and poke_byte(a, b) is the single store
+# primitive every write that must agree with POKE goes through -- the p77
+# shim applying a Z80 write-set, and the string-alias write-through (finding
+# 7).  Highest precedence first:
 #
 #   1. 3C00-3FFFH (15360-16383) -> s_poke() + sync_cursor()
 #   2. 40AA-40ACH (16554-16556) -> rnd_poke(), the ROM RND seed
@@ -2958,8 +2962,8 @@ function st_resume(   p, ty, tx) {
 #
 # RULE 5 IS UNREACHABLE TODAY, as dopeek's is (RAMTOP == 65535 == addrconv's
 # bound), and the two stay equivalent for any RAMTOP: dopeek tests a > RAMTOP
-# only inside its a >= 17129 branch and st_poke tests it unconditionally, but
-# RAMTOP >= 17129 always holds, so no address is judged differently.
+# only inside its a >= 17129 branch and poke_byte tests it unconditionally,
+# but RAMTOP >= 17129 always holds, so no address is judged differently.
 
 # ---- keyword table (byte 128-251 <-> expansion), longest-match index -------
 function pm_init_index(   tbl, pairs, np, i, j, v, w, ins) {
@@ -3776,7 +3780,7 @@ function addrconv(x) {
 
 # Resolution order is a CONTRACT the Z80 core must reproduce byte-for-byte --
 # it is written out in full in p75's "THE ADDRESS-RESOLUTION CONTRACT" (read
-# side; st_poke below has its own).  Keep the two in step; in particular SPK
+# side; poke_byte below has its own).  Keep the two in step; in particular SPK
 # (rule 4) must stay ABOVE the program image (rule 5).
 function dopeek(x,   a) {
     a = addrconv(x)
@@ -3802,10 +3806,7 @@ function dopeek(x,   a) {
     return (a in MEM) ? MEM[a] : 255
 }
 
-# The store order is CONTRACT too -- a Z80 write must land where a POKE of the
-# same address lands.  Written out in full in p75's "THE ADDRESS-RESOLUTION
-# CONTRACT, WRITE SIDE", including the four ranges where a write is stored but
-# can never be read back.  Keep the two in step.
+# POKE a,b: the statement half parses; poke_byte() below is the store.
 function st_poke(   v, a, b) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
@@ -3816,12 +3817,25 @@ function st_poke(   v, a, b) {
     if (!isN(v)) { raise(13); return }
     b = bfloor(num(v)) % 256
     if (b < 0) b += 256
+    poke_byte(a, b)
+}
+
+# The ONE store primitive: a resolved 16-bit address and a byte 0-255.  Its
+# order is CONTRACT, dopeek's twin -- a Z80 write from ../trs80_z80_core must
+# land where a POKE of the same address lands.  Written out in full in p75's
+# "THE ADDRESS-RESOLUTION CONTRACT, WRITE SIDE", including the four ranges
+# where a write is stored but can never be read back.  Keep the two in step.
+# Every writer that must agree with POKE comes through here: the POKE
+# statement, the p77 shim applying a Z80 write-set, and the string-alias
+# write-through (seam audit finding 7).  Marks the address dirty for the USR
+# frame's delta tracking (p75 fr_*).
+function poke_byte(a, b) {
     if (a >= 15360 && a <= 16383) { s_poke(a - 15360, b); sync_cursor() }
     else if (a >= 16554 && a <= 16556) rnd_poke(a - 16554, b)
     else if (a == 16561 || a == 16562) pm_sethimem(a, b)   # move HIMEM (p75)
     else if (a in SPK) sp_poke(a, b)              # VARPTR write-through (p75)
     else if (a > RAMTOP) { }                      # absent RAM: discarded
-    else MEM[a] = b
+    else { MEM[a] = b; FRDIRTY[a] = 1 }
 }
 
 # ---- SET / RESET / POINT ---------------------------------------------------
@@ -4849,7 +4863,7 @@ function toS(u) { return (u > 32767) ? u - 65536 : u }
 
 # ---- authentic ROM RND (LEVEL2BASIC RND at 14C9-1540H) ----------------------
 # 24-bit LCG over the seed stored at 40AA-40ACH (dec 16554-16556, LSB/mid/MSB,
-# POKEable -- dopeek/st_poke map it):
+# POKEable -- dopeek/poke_byte map it):
 #   seed' = (seed*4253261 + 372837) mod 2^24
 # (multiplier bytes 40 E6 4D at 4090H, addend 05B065H).  RND(0) = seed'/2^24;
 # RND(n) = INT(RND(0)*n + 1) with the multiply rounded to single precision
