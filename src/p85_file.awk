@@ -414,10 +414,9 @@ function st_lset(left,   name, key, v, s, n, w, cur) {
         fld_sync(n)
         return
     }
-    cur = (key != "") ? ((key in VA) ? vstr(VA[key]) : "") : SV[name]
+    cur = al_cur(name, key); if (E) return
     s = fio_just(s, length(cur), left)
-    if (key != "") VA[key] = "S" s
-    else SV[name] = s
+    al_setinplace(name, key, s)                   # in place (p75 finding 7)
 }
 
 function st_get(   n, rec, v) {

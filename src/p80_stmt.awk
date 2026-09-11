@@ -204,12 +204,13 @@ function st_midset(   name, key, n, m, v, s, r, cnt) {
     v = e_or(); if (E) return
     if (isN(v)) { raise(13); return }
     r = vstr(v)
-    s = (key != "") ? ((key in VA) ? vstr(VA[key]) : "") : SV[name]
+    s = al_cur(name, key); if (E) return
     if (n < 1 || n > 255 || n > length(s)) { raise(5); return }
     cnt = length(r)
     if (m >= 0 && m < cnt) cnt = m
     if (cnt > length(s) - n + 1) cnt = length(s) - n + 1
-    assignv(name, key, "S" substr(s, 1, n - 1) substr(r, 1, cnt) substr(s, n + cnt))
+    # in place: the target keeps its length and its descriptor (p75 finding 7)
+    al_setinplace(name, key, substr(s, 1, n - 1) substr(r, 1, cnt) substr(s, n + cnt))
 }
 
 # ---- PRINT USING formatter -------------------------------------------------

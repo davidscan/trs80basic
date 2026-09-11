@@ -180,10 +180,11 @@ function e_prim(   t, s, v, key) {
         CP++
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
             key = aref(s); if (E) return "N0"
+            if (ALN && (("A" key) in ALIAS)) return "S" al_read("A" key)   # finding 7 (p75)
             if (key in VA) return VA[key]
             return strname(s) ? "S" : "N0"
         }
-        if (strname(s)) return "S" SV[s]
+        if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : SV[s])
         return "N" (NV[s] + 0)
     }
     raise(2)

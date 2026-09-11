@@ -295,6 +295,7 @@ function pm_sethimem(a, b) {
 function sp_reset(   a) {
     if (FRTRACK) for (a in SPK) FRDIRTY[a] = 1   # the frame resends what these read as now
     delete SPK; delete SPT; delete SPV; delete VPDESC; delete VPDATA; delete VPCAP
+    delete ALIAS; ALN = 0
     SSP = HIMEM
 }
 
@@ -331,6 +332,7 @@ function sp_materialize(tgt, isstr,   len, need, base, j, dbase) {
     if (tgt in VPDESC) {
         dbase = VPDESC[tgt]
         if (len <= VPCAP[tgt]) return dbase       # still fits: nothing moves
+        if (tgt in ALIAS) return dbase            # aliased: the cells are not what is read
         if (SSP - len < 17131) { raise(7); return 0 }
         base = SSP - len + 1; SSP -= len          # outgrown: fresh data region
         sp_free_data(tgt)
@@ -386,7 +388,7 @@ function sp_peek(a,   t, tgt, v) {
 
 function sp_poke(a, b,   t, tgt, v, j) {
     t = SPT[a]; tgt = SPK[a]
-    if (t == "C") return                          # can't relocate the bytes
+    if (t == "C") { al_repoint(a, b, tgt); return } # descriptor address cell (finding 7)
     if (t == "L") {                               # truncate / space-pad
         v = sp_gets(tgt)
         while (length(v) < b) v = v " "
@@ -417,6 +419,78 @@ function fn_varptr(   name, key, tgt) {
     CP++
     tgt = (key != "") ? "A" key : "V" name
     return "N" sp_materialize(tgt, strname(name))
+}
+
+# ===================== string aliasing via the descriptor (finding 7) =======
+# The period trick: POKE VARPTR(A$)+1 / +2 repoints a string's descriptor at
+# video RAM (high byte 3CH) or system RAM (40H), and from then on ordinary
+# string operations READ AND WRITE that region -- PRINT A$ shows the screen,
+# LSET A$="..." paints it, MID$(A$,n,1) picks a cell.  Pure BASIC, no USR;
+# ~23 corpus listings use the direct form (TAXMAN, VIDENTRY, INOUTPUT, the
+# tax and screen editors) and more the indirect V=VARPTR(A$):POKE V+1 form.
+# Until 2026-09-11 the descriptor cells ignored POKE, so every one of them
+# ran to a clean END doing nothing (seam audit finding 7; built the same day
+# after the user greenlit it).
+#
+# NOT a storage re-architecture: an ALIAS side-table (locator -> address),
+# resolved through dopeek / poke_byte, so the aliased region obeys THE
+# ADDRESS-RESOLUTION CONTRACT for free -- screen, keyboard, packed strings,
+# system pointers, the program image, all of it.  The rules, each mirroring
+# what the real descriptor does:
+#   * POKE of an address cell STORES the byte (PEEK reads it back) and, when
+#     the two cells no longer name the string's own data, sets ALIAS[tgt];
+#     poking them back to the own data address clears it.
+#   * READ of an aliased variable (e_prim scalar, aref element, and the
+#     current value LSET/RSET/MID$= start from) assembles LEN bytes live from
+#     dopeek(addr..); LEN is the live length, which POKE VARPTR(A$)+0 sets.
+#   * an ASSIGNMENT (LET, READ, INPUT, FOR... -- assignv, p70) allocates a
+#     new string on hardware and moves the descriptor, so it CLEARS the
+#     alias and points the cells back at the own data.
+#   * an IN-PLACE write (LSET/RSET p85, MID$= p80) writes THROUGH to the
+#     aliased region via poke_byte, one byte per position, keeps the alias,
+#     and leaves the string's own bytes as they were (repointing the cells
+#     back shows the old value, as on hardware).
+#   * VARPTR of an aliased string never re-homes its data cells (they are
+#     not what is read), so the descriptor stays put.
+#   * CLEAR/RUN/NEW drop every alias with the string space (sp_reset).
+# Edges left alone, documented: an aliased string used as a DEF FN parameter
+# reads the aliased bytes inside the body, not the bound argument (p60 binds
+# SV[] directly); FIELDed strings are never aliased (their own path).  ALN
+# counts live aliases so every check on an ordinary string is one integer
+# test.  Addresses wrap at 65536 like the hardware's.
+function al_repoint(a, b, tgt,   d, addr) {
+    SPV[a] = b
+    d = VPDESC[tgt]
+    addr = SPV[d + 1] + 256 * SPV[d + 2]
+    if (addr == VPDATA[tgt]) { if (tgt in ALIAS) { delete ALIAS[tgt]; ALN-- } }
+    else { if (!(tgt in ALIAS)) ALN++; ALIAS[tgt] = addr }
+}
+function al_read(tgt,   addr, len, j, s, b) {
+    addr = ALIAS[tgt]; len = length(sp_gets(tgt)); s = ""
+    for (j = 0; j < len; j++) { b = dopeek((addr + j) % 65536); if (E) return ""; s = s CHR[b] }
+    return s
+}
+# the current value of a string variable, alias-aware (name, array key)
+function al_cur(name, key,   tgt) {
+    tgt = (key != "") ? "A" key : "V" name
+    if (ALN && (tgt in ALIAS)) return al_read(tgt)
+    return (key != "") ? ((key in VA) ? vstr(VA[key]) : "") : SV[name]
+}
+# an in-place write: through to the alias when there is one (the string's
+# own bytes stay as they were, as on hardware), else into the value
+function al_setinplace(name, key, s,   tgt, addr, j) {
+    tgt = (key != "") ? "A" key : "V" name
+    if (!(ALN && (tgt in ALIAS))) { sp_sets(tgt, s); return }
+    addr = ALIAS[tgt]
+    for (j = 1; j <= length(s); j++) poke_byte((addr + j - 1) % 65536, ORD[substr(s, j, 1)])
+}
+# an assignment: the descriptor moves, so the alias is gone
+function al_clear(name, key,   tgt, d) {
+    tgt = (key != "") ? "A" key : "V" name
+    if (!(tgt in ALIAS)) return
+    delete ALIAS[tgt]; ALN--
+    d = VPDESC[tgt]
+    SPV[d + 1] = VPDATA[tgt] % 256; SPV[d + 2] = int(VPDATA[tgt] / 256)
 }
 
 # ===================== the USR frame's memory image ==========================
