@@ -2078,8 +2078,8 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, r) {
     }
     if (name == "CSNG" || name == "CDBL") { x = numarg(a1, na); if (E) return "N0"; return "N" x }
     if (name == "PEEK") { x = numarg(a1, na); if (E) return "N0"; return "N" dopeek(x) }
-    # USR/USR0-9 machine-language call STUB: evaluates and returns its
-    # argument -- there is no Z80 to run the routine (see STATUS roadmap).
+    # USR/USR0-9: with a core (TRS80_Z80, p77) the routine RUNS; without
+    # one this is the STUB, which evaluates and returns its argument.
     # X=USR(V) identity keeps more rescued listings partially running than
     # ?FC would; routines whose RESULT is load-bearing still fail visibly.
     # The CALL FRAME is resolved even though nothing consumes it yet:
@@ -2097,8 +2097,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, r) {
     if (name ~ /^USR[0-9]?$/) {
         x = numarg(a1, na); if (E) return "N0"
         usr_resolve(name, x)
-        if (USR_STRICT) { raise(5); return "N0" }
-        usr_stub_count()
+        x = z80_usr(x); if (E) return "N0"        # the core (p77), or the stub
         return "N" x
     }
     if (name == "POS") { x = numarg(a1, na); if (E) return "N0"; return "N" (CUR % 64) }
@@ -3425,8 +3424,8 @@ function fr_build(full,   a, e, n, run, last, lo, hi) {
     }
     if (run != "") FRRUN[++FRN] = run
     delete PROCINFO["sorted_in"]
-    FRGEN++
-    FRHDR = "USR FRAME gen=" FRGEN " full=" (full ? 1 : 0) " slot=" USR_SLOT " entry=" USR_ENTRY \
+    FRGEN++; FRFULL = full ? 1 : 0
+    FRHDR = "USR FRAME gen=" FRGEN " full=" FRFULL " slot=" USR_SLOT " entry=" USR_ENTRY \
             " arg=" USR_ARG " sp=" SSP " himem=" HIMEM " ramtop=" RAMTOP " bytes=" n " runs=" FRN
     delete FRDIRTY; FRPMDIRTY = 0; FRPMHI = PMEND; FRTRACK = 1
     delete FRSET
@@ -3440,6 +3439,177 @@ function fr_dump(   i) {
     for (i = 1; i <= FRN; i++) printf "  %s\n", FRRUN[i] > "/dev/stderr"
     fflush("/dev/stderr")
 }
+# ===================== p77: the Z80 coprocess -- USR routines executed =====
+# The companion engine ../trs80_z80_core executes machine code; this shim
+# drives it over one persistent gawk |& coprocess per session.  PROTOCOL.md
+# in the repo root is the contract (mirrored into the core's repository);
+# programs/tests/z80_stub.py is its reference implementation on the core's
+# side and programs/tests/z80.sh the conformance suite.  Nothing here
+# executes an opcode.
+#
+# The rulings this implements (2026-09-11, STATUS "Machine-language" entry):
+#   * frame OUT = fr_build's sparse, contract-resolved, delta-after-first
+#     memory image (p75), plus slot/entry/arg and sp=SSP (the Z80 stack
+#     seats where Level II's does, at the bottom of string space);
+#   * video IN is streamed as V lines and drawn as it arrives; the keyboard
+#     is the one live callback (K); T ticks let a long routine keep the
+#     interpreter polling for BREAK and keep the timeout guard quiet;
+#   * the write-set IN is applied in address order through poke_byte, so a
+#     Z80 store lands exactly where a POKE would;
+#   * GRACEFUL FALLBACK: no TRS80_Z80, a command that will not start, a
+#     protocol mismatch or a timeout all leave USR as the shipped stub
+#     (returns its argument, one tally line per run) with one notice, so
+#     trs80basic.awk stays a complete single-file gawk program.
+# Discovery: TRS80_Z80 is the COMMAND to run (e.g. "python3 /x/core.py");
+# unset means no core.  TRS80_Z80_TIMEOUT is the per-line read guard in
+# milliseconds (default 5000) -- gawk's PROCINFO[cmd, "READ_TIMEOUT"], so a
+# hung core cannot hang the interpreter.  This is the first |& coprocess in
+# the interpreter; both sides flush after every line or they deadlock.
+
+function z80_init() {
+    if (Z80INIT) return
+    Z80INIT = 1
+    Z80PROTO = 1
+    Z80CMD = ENVIRON["TRS80_Z80"]
+    Z80TO = (ENVIRON["TRS80_Z80_TIMEOUT"] + 0 > 0) ? ENVIRON["TRS80_Z80_TIMEOUT"] + 0 : 5000
+    Z80STATE = (Z80CMD == "") ? "none" : "cold"   # none | cold | up | dead
+}
+
+function z80_notice(msg) { diag_err("USR CORE: " msg) }
+
+# one line from the core into Z80LINE; 0 on timeout or EOF
+function z80_recv(   r) {
+    r = (Z80CMD |& getline Z80LINE)
+    if (r <= 0) { Z80LINE = ""; return 0 }
+    sub(/\r$/, "", Z80LINE)
+    return 1
+}
+
+function z80_send(s) { print s |& Z80CMD; fflush(Z80CMD) }
+
+# value of key=... in Z80LINE ("" if absent)
+function z80_field(key,   s) {
+    if (match(Z80LINE, "(^|[ \t])" key "=[^ \t]*")) {
+        s = substr(Z80LINE, RSTART, RLENGTH)
+        sub(/^[ \t]/, "", s); sub(/^[^=]*=/, "", s)
+        return s
+    }
+    return ""
+}
+
+# Give up on the core.  close() of a two-way pipe WAITS for the child, so a
+# core that is hung (the timeout case) is killed first when it told us its
+# pid in the handshake; gawk's own PROCINFO[cmd, "pid"] is empty on the gawk
+# this was built with, which is why the protocol carries it.
+function z80_close() {
+    if (Z80PID > 0 && !WINNATIVE) system("kill " Z80PID " 2>/dev/null")
+    close(Z80CMD)
+    Z80STATE = "dead"; Z80PID = 0
+}
+
+# HELLO / Z80 handshake, once per session
+function z80_start() {
+    z80_init()
+    if (Z80STATE != "cold") return
+    Z80STATE = "dead"                             # until the handshake succeeds
+    PROCINFO[Z80CMD, "READ_TIMEOUT"] = Z80TO
+    z80_send("HELLO proto=" Z80PROTO " mhz=" (THROTTLE_MHZ + 0) " ramtop=" RAMTOP)
+    if (!z80_recv()) {
+        z80_notice("cannot start '" Z80CMD "'; USR is the stub for this session")
+        z80_close(); return
+    }
+    if (Z80LINE !~ /^Z80 / || z80_field("proto") != Z80PROTO) {
+        z80_notice("'" Z80CMD "' speaks protocol " (z80_field("proto") == "" ? "?" : z80_field("proto")) \
+                   ", this interpreter speaks " Z80PROTO "; USR is the stub for this session")
+        z80_close(); return
+    }
+    Z80NAME = z80_field("name"); Z80PID = z80_field("pid") + 0
+    Z80STATE = "up"
+    fr_reset()                                    # the first frame is full
+}
+
+function z80_stop() {
+    if (Z80STATE == "up") { z80_send("BYE"); close(Z80CMD) }
+    Z80STATE = "dead"; Z80PID = 0
+}
+
+# apply one run "addr:b,b,b": video straight to the screen, else poke_byte
+function z80_apply(run, isvideo,   p, a, n, bs, j, b) {
+    p = index(run, ":"); if (p == 0) return
+    a = substr(run, 1, p - 1) + 0
+    n = split(substr(run, p + 1), bs, ",")
+    for (j = 1; j <= n; j++) {
+        b = bs[j] + 0
+        if (isvideo) { if (a >= 15360 && a <= 16383) s_poke(a - 15360, b) }
+        else poke_byte(a, b)
+        a++
+    }
+}
+
+# USR(x) with the core: returns the value of the expression, or raises.
+# Called from the USR branch of fncall (p60) after usr_resolve().
+function z80_usr(x,   full, res) {
+    z80_start()
+    if (Z80STATE != "up") {                       # the shipped stub
+        if (USR_STRICT) { raise(5); return 0 }
+        usr_stub_count()
+        return x
+    }
+    if (USR_ENTRY < 0) { raise(5); return 0 }     # undefined: ?FC, as the ROM vector does
+    full = 0
+    for (;;) {
+        fr_build(full)
+        z80_sendframe()
+        res = z80_run(x)
+        if (Z80STATE == "need") {                 # the core lost its RAM: once more, full
+            Z80STATE = "up"; fr_reset(); full = 1
+            continue
+        }
+        return res
+    }
+}
+
+function z80_sendframe(   i) {
+    print "CALL gen=" FRGEN " full=" FRFULL " slot=" USR_SLOT " entry=" USR_ENTRY \
+          " arg=" USR_ARG " sp=" SSP " himem=" HIMEM " ramtop=" RAMTOP " runs=" FRN |& Z80CMD
+    for (i = 1; i <= FRN; i++) print "M " FRRUN[i] |& Z80CMD
+    z80_send("GO")
+}
+
+# the message loop for one call
+function z80_run(x,   hl, res, k, brk, i, vid) {
+    vid = 0
+    for (;;) {
+        if (!z80_recv()) {
+            z80_notice("no reply within " Z80TO " ms; the core is dead for this session, USR is the stub")
+            z80_close(); raise(5); return 0
+        }
+        if (Z80LINE ~ /^V /) { z80_apply(substr(Z80LINE, 3), 1); vid = 1; continue }
+        if (Z80LINE ~ /^K /) { z80_send("K " kb_matrix(substr(Z80LINE, 3) + 0)); continue }
+        if (Z80LINE ~ /^T /) { z80_send(pollbrk() ? "BREAK" : "OK"); continue }
+        if (Z80LINE ~ /^NEED /) { Z80STATE = "need"; return 0 }
+        if (Z80LINE ~ /^RET /) {
+            hl = z80_field("hl") + 0; res = z80_field("result") + 0
+            brk = z80_field("break") + 0; k = z80_field("writes") + 0
+            for (i = 1; i <= k; i++) {
+                if (!z80_recv() || Z80LINE !~ /^W /) {
+                    z80_notice("write-set cut short; the core is dead for this session, USR is the stub")
+                    z80_close(); raise(5); return 0
+                }
+                z80_apply(substr(Z80LINE, 3), 0)
+            }
+            if (vid) sync_cursor()
+            if (brk) dobreak()                    # BREAK IN n; CONT resumes the statement
+            if (hl > 32767) hl -= 65536           # HL to result: signed 16-bit
+            return res ? hl : x
+        }
+        if (Z80LINE ~ /^ERR /) { z80_notice(substr(Z80LINE, 5)); raise(5); return 0 }
+        z80_notice("unexpected '" Z80LINE "'; the core is dead for this session, USR is the stub")
+        z80_close(); raise(5); return 0
+    }
+}
+
+END { z80_stop() }
 # ===================== PRINT, INPUT, READ/DATA, DIM, POKE, graphics =========
 
 function st_print(   sep, ty, tx, v, tgt, col, t) {

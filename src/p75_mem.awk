@@ -563,8 +563,8 @@ function fr_build(full,   a, e, n, run, last, lo, hi) {
     }
     if (run != "") FRRUN[++FRN] = run
     delete PROCINFO["sorted_in"]
-    FRGEN++
-    FRHDR = "USR FRAME gen=" FRGEN " full=" (full ? 1 : 0) " slot=" USR_SLOT " entry=" USR_ENTRY \
+    FRGEN++; FRFULL = full ? 1 : 0
+    FRHDR = "USR FRAME gen=" FRGEN " full=" FRFULL " slot=" USR_SLOT " entry=" USR_ENTRY \
             " arg=" USR_ARG " sp=" SSP " himem=" HIMEM " ramtop=" RAMTOP " bytes=" n " runs=" FRN
     delete FRDIRTY; FRPMDIRTY = 0; FRPMHI = PMEND; FRTRACK = 1
     delete FRSET

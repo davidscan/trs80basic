@@ -323,8 +323,8 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, r) {
     }
     if (name == "CSNG" || name == "CDBL") { x = numarg(a1, na); if (E) return "N0"; return "N" x }
     if (name == "PEEK") { x = numarg(a1, na); if (E) return "N0"; return "N" dopeek(x) }
-    # USR/USR0-9 machine-language call STUB: evaluates and returns its
-    # argument -- there is no Z80 to run the routine (see STATUS roadmap).
+    # USR/USR0-9: with a core (TRS80_Z80, p77) the routine RUNS; without
+    # one this is the STUB, which evaluates and returns its argument.
     # X=USR(V) identity keeps more rescued listings partially running than
     # ?FC would; routines whose RESULT is load-bearing still fail visibly.
     # The CALL FRAME is resolved even though nothing consumes it yet:
@@ -342,8 +342,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, r) {
     if (name ~ /^USR[0-9]?$/) {
         x = numarg(a1, na); if (E) return "N0"
         usr_resolve(name, x)
-        if (USR_STRICT) { raise(5); return "N0" }
-        usr_stub_count()
+        x = z80_usr(x); if (E) return "N0"        # the core (p77), or the stub
         return "N" x
     }
     if (name == "POS") { x = numarg(a1, na); if (E) return "N0"; return "N" (CUR % 64) }
