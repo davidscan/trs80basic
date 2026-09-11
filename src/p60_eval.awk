@@ -555,8 +555,9 @@ function usr_stub_notice(   i, s) {
 function fn_inkey(   c) {
     if (CK == "I" && !TTYIN) return "S"
     c = kb_poll1()
-    if (c == 3) { PENDBRK = 1; return "S" }
+    if (c == 3) { if (brk_take()) PENDBRK = 1; return "S" }   # the BREAK vector (p30)
     if (c < 0) return "S"
+    BRKFORCE = 0
     return "S" CHR[c]
 }
 

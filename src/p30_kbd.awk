@@ -92,19 +92,43 @@ function kb_poll1() {
     return KBQ[++KH]
 }
 
+# THE BREAK VECTOR, 400CH (16396).  The ROM's BREAK check CALLs 400CH,
+# normally a RET (201); period listings patch the byte to disable BREAK --
+# 23 (INC HL) under Level II, 175 (XOR A) under DOS, 165 for "BREAK off,
+# SHIFT-BREAK still works".  Measured over the corpus 2026-09-11: POKE
+# 16396,23 in 32 files, 201 in 19, 175 in 18 (195 and 207 are DOS restore
+# values and count as enabled).  Built the same day (tips 26, 27, 37, 43).
+# Every site that turns a Ctrl-C into BREAK asks brk_take() first.  THE
+# OVERRIDE, so a runaway program that disabled BREAK stays killable from
+# the keyboard: three Ctrl-C presses in a row (no other key between) break
+# anyway -- the analogue of the SHIFT-BREAK the 165 idiom leaves open.
+# The keyboard MATRIX still shows the BREAK key when pressed (hardware);
+# only the ROM's reaction is gated.  Batch mode has no keyboard, so a
+# Ctrl-C byte fed on stdin follows the same rule (programs/tests/break.sh).
+function brk_off() { return (16396 in MEM) && (MEM[16396] == 23 || MEM[16396] == 175 || MEM[16396] == 165) }
+function brk_take() {
+    if (!brk_off()) { BRKFORCE = 0; return 1 }
+    if (++BRKFORCE >= 3) { BRKFORCE = 0; return 1 }
+    return 0
+}
+
 # check for BREAK (Ctrl-C, byte 3) without consuming other typed-ahead input.
 # Ctrl-S (byte 19) = the real SHIFT-@ pause: block until a key; Ctrl-C breaks.
-function pollbrk(   i, c) {
+function pollbrk(   i, c, j) {
     if (PENDBRK) { PENDBRK = 0; kb_flush(); return 1 }
     if (!TTYIN) return 0
     kb_mode("poll")
     if (KH >= KT) kb_fill()
     for (i = KH + 1; i <= KT; i++) {
-        if (KBQ[i] == 3) { kb_flush(); return 1 }
+        if (KBQ[i] == 3) {
+            if (brk_take()) { kb_flush(); return 1 }
+            for (j = i; j < KT; j++) KBQ[j] = KBQ[j + 1]   # swallowed: drop it from the queue
+            KT--; i--; continue
+        }
         if (KBQ[i] == 19) {
             KH = i                          # consume through the Ctrl-S only:
             c = kb_get()                    # typed-ahead after it must survive
-            if (c == 3) { kb_flush(); return 1 }
+            if (c == 3 && brk_take()) { kb_flush(); return 1 }
             return 0
         }
     }
@@ -203,7 +227,8 @@ function km_pump(   c) {
         return
     }
     c = KBQ[++KH]
-    if (c == 3) { PENDBRK = 1; kb_flush(); km_latch(6, 4, 0); return }
+    if (c == 3) { if (brk_take()) { PENDBRK = 1; kb_flush() }; km_latch(6, 4, 0); return }
+    BRKFORCE = 0
     if (c == 27) {
         c = km_next()
         if (c == 91 || c == 79) {
@@ -256,7 +281,8 @@ function rl_read(repl,   c, r, s, oldl, oldp) {
             s_nl(); sync_cursor()
             return RLS
         }
-        if (c == 3) { RLCANCEL = 1; s_nl(); sync_cursor(); return "" }
+        if (c == 3) { if (!brk_take()) continue; RLCANCEL = 1; s_nl(); sync_cursor(); return "" }
+        BRKFORCE = 0
         oldl = length(RLS); oldp = RLP
         if (c == 127 || c == 8) {
             if (RLP > 0) {

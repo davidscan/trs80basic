@@ -33,6 +33,7 @@ probe() {
 }
 nl='
 '
+c3=$(printf '\003')   # a BREAK keypress, for the batch keyboard
 
 # ---- System status / ID -----------------------------------------------------
 probe 1  W "Model I: PEEK(293)<>73"            "" "-1 " '10 PRINT PEEK(293)<>73'
@@ -73,8 +74,8 @@ probe 23 D "disable RESET and BREAK (packed routine at 4007H), spaced" "" "OK" "
 probe 24 D "disable LIST (16863..)"   "" "20 LIST 20" "10 POKE 16863,95:POKE 16864,204:POKE 16865,6${nl}20 LIST 20"
 probe 25 D "disable SYSTEM (16866..)" "" "OK" '10 POKE 16866,195:POKE 16867,204:POKE 16868,6:PRINT "OK"'
 # ---- Break key pokes ---------------------------------------------------------
-probe 26 D "BREAK disabled (L2): POKE 16396,23"   "" "OK" '10 POKE 16396,23:PRINT "OK"'
-probe 27 D "BREAK enabled (L2): POKE 16396,201"   "" "OK" '10 POKE 16396,201:PRINT "OK"'
+probe 26 W "BREAK disabled (L2): POKE 16396,23 -- a Ctrl-C no longer breaks" "$c3${nl}" "STILL RUNNING" '10 POKE 16396,23:A$=INKEY$:FOR I=1 TO 500:NEXT:PRINT "STILL RUNNING"'
+probe 27 W "BREAK enabled (L2): POKE 16396,201 -- a Ctrl-C breaks again" "$c3${nl}" "BREAK IN 10" '10 POKE 16396,23:POKE 16396,201:A$=INKEY$:FOR I=1 TO 500:NEXT:PRINT "NOT REACHED"'
 probe 28 D "BREAK disabled (DOS): POKE 17170/1"   "" "OK" '10 POKE 17170,175:POKE 17171,201:PRINT "OK"'
 probe 29 D "BREAK re-enabled (DOS)"               "" "OK" '10 POKE 17170,195:POKE 17171,164:PRINT "OK"'
 probe 30 D "BREAK = reverse tab"                  "" "OK" '10 POKE 16396,10:PRINT "OK"'
@@ -84,13 +85,13 @@ probe 33 D "BREAK = SHIFT-@"                      "" "OK" '10 POKE 16396,62:POKE
 probe 34 D "BREAK = freeze"                       "" "OK" '10 POKE 16396,49:PRINT "OK"'
 probe 35 D "BREAK = READY"                        "" "OK" '10 POKE 16396,118:PRINT "OK"'
 probe 36 D "BREAK = U, shift = V"                 "" "OK" '10 POKE 16396,133:PRINT "OK"'
-probe 37 D "BREAK disabled, shift-BREAK ok"       "" "OK" '10 POKE 16396,165:PRINT "OK"'
+probe 37 W "BREAK disabled, shift-BREAK ok: POKE 16396,165 (three Ctrl-C = the shift-BREAK)" "$c3$c3$c3${nl}" "STILL${nl}BREAK IN 20" "10 POKE 16396,165:A\$=INKEY\$:FOR I=1 TO 500:NEXT:PRINT \"STILL\"${nl}20 B\$=INKEY\$:C\$=INKEY\$:FOR I=1 TO 500:NEXT:PRINT \"NOT REACHED\""
 probe 38 D "BREAK = SN ERROR"                     "" "OK" '10 POKE 16396,227:PRINT "OK"'
 probe 39 D "BREAK = MEMORY SIZE"                  "" "OK" '10 POKE 16396,228:PRINT "OK"'
 probe 40 D "BREAK reinitialises BASIC"            "" "OK" '10 POKE 16396,199:PRINT "OK"'
 probe 41 D "BREAK disabled (NewDOS 2.1): POKE 23461,0" "" "OK" '10 POKE 23461,0:PRINT "OK"'
 probe 42 D "BREAK disabled (TRSDOS 2.3): POKE 23886,0" "" "OK" '10 POKE 23886,0:PRINT "OK"'
-probe 43 D "BREAK -> SHIFT-BREAK"                 "" "OK" '10 POKE 16396,165:PRINT "OK"'
+probe 43 W "BREAK -> SHIFT-BREAK: POKE 16396,165, plain Ctrl-C ignored" "$c3${nl}" "STILL RUNNING" '10 POKE 16396,165:A$=INKEY$:FOR I=1 TO 500:NEXT:PRINT "STILL RUNNING"'
 probe 44 D "BREAK -> RESET"                       "" "OK" '10 POKE 16396,233:PRINT "OK"'
 probe 45 D "BREAK enabled flag (PEEK(124) AND &H10)" "" "-1 " '10 PRINT (PEEK(124) AND &H10)<>0'
 # ---- Keyboard ----------------------------------------------------------------

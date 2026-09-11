@@ -212,6 +212,9 @@ before `--update`.
   use `LOC(n)` for lines read or written.
 - **`ERR` is not the error code.** As on the real machine, `ERR/2+1` is the
   code (1 = NF, 2 = SN, 11 = /0, 29 = FF). `man ERR` lists them.
+- **A program can disable BREAK**, as on the real machine, with `POKE 16396,23`
+  (or 175, 165); `POKE 16396,201` re-enables it. Press Ctrl-C three times in
+  a row to break anyway.
 - **Ctrl-C is BREAK, not exit.** It stops the program and returns to `READY`;
   `BYE` leaves.
 - **A named OLLAMA thread persists.** `OPEN "O",1,"OLLAMA:llama3.2:story"`

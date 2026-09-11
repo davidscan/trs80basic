@@ -1032,6 +1032,14 @@ OUT p,v   write value v to Z80 port p
   error but have no effect.  INP is its counterpart.
   Example: OUT 255,4
 
+:BREAK
+BREAK   the BREAK key is Ctrl-C: stops the program ("BREAK IN n"), CONT
+  resumes.  A program can DISABLE it the period way, POKE 16396,23 (or
+  175, 165) -- 16396 is the ROM's BREAK vector -- and re-enable it with
+  POKE 16396,201.  While disabled, three Ctrl-C presses in a row break
+  anyway, so a runaway program can always be stopped.  The keyboard
+  matrix (PEEK 14400) still shows the key either way.
+
 :INP
 INP(p)   read Z80 port p (0-255, else ?FC)
   Port 255, the cassette/video-mode port, is live: 127 in 64-character
