@@ -22,6 +22,7 @@ function t_sep(   i, s) {
 
 function t_done() {
     kb_restore()
+    if (!DUMB && CURCH == 0) printf "\033[?25h"   # a POKE 16418,0 hid the cursor: give it back
     if (ALTSCR) { printf "\033[?1049l\033[0m"; ALTSCR = 0 }
     # park the shell prompt at the BOTTOM of the terminal (999 clamps to the
     # last row) so it doesn't land inside the below-grid help/man text

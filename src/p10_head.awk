@@ -103,6 +103,15 @@ function init_tables(   i, c, m, n) {
     # unset (the hardware analog: printing into no attached printer)
     LPFILE = ("TRS80_PRINTER" in ENVIRON) ? ENVIRON["TRS80_PRINTER"] : ""
     LPCOL = 0
+    # the SYSTEM VARIABLE WINDOW (p75 sv_*): ROM RAM cells period listings
+    # PEEK and POKE, served from live state.  CURCH = the cursor character
+    # (4022H; the ROM's default block), LPPAGE/LPLINES = printer lines per
+    # page + 1 and lines printed so far (4028H/4029H), AUTOLINE/AUTOINC/
+    # AUTOREQ = AUTO's line, increment and "start AUTO at the next prompt"
+    # (40E1H-40E5H).
+    CURCH = 176; LPPAGE = 67; LPLINES = 0
+    AUTOLINE = 10; AUTOINC = 10; AUTOREQ = 0; AUTOON = 0
+    sv_init()
     # EXT gate: syntax that valid Level II rejects but damaged OCR listings
     # can plausibly spell (bare/prompt-only INPUT, DIM of a scalar) is only
     # accepted when this is on -- `ext on` metacommand or TRS80_EXT=1 --

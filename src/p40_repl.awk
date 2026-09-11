@@ -5,6 +5,12 @@ function repl(   line, iscmd) {
         if (EOFQUIT || QUITFLAG) return
         s_puts("READY"); s_nl()
         for (;;) {
+            if (AUTOREQ) {                  # POKE 16609,1: AUTO from the next prompt (p75)
+                AUTOREQ = 0
+                auto_run(AUTOLINE, (AUTOINC < 1) ? 10 : AUTOINC)
+                if (EOFQUIT || QUITFLAG) return
+                break
+            }
             kb_mode("line")
             s_putc(62)                      # ">" prompt
             line = rl_read(1)               # 1 = REPL read: history/Tab/Ctrl-L on
@@ -180,7 +186,15 @@ function st_auto(   start, inc, line, k) {
         }
     }
     if (inc < 1) inc = 10
+    auto_run(start, inc)
+}
+
+# the AUTO prompt loop; its state is PEEKable through the system variable
+# window (p75: 40E1H flag, 40E2/E3H line, 40E4/E5H increment)
+function auto_run(start, inc,   line, k) {
+    AUTOON = 1; AUTOINC = inc
     while (start <= 65529) {
+        AUTOLINE = start
         kb_mode("line")
         k = (start in prog)
         s_puts(start (k ? "*" : " "))
@@ -190,6 +204,7 @@ function st_auto(   start, inc, line, k) {
         else storeline(start, line)
         start += inc
     }
+    AUTOON = 0
 }
 
 function st_new(   x) {

@@ -60,7 +60,7 @@ dump=$(printf '\n10 POKE 30000,7:A$="HELLO":V=VARPTR(A$)\n20 X=USR(1)\n30 POKE 3
       | awk '/^USR FRAME/ { g = $3; print; next } /^  / && g != "" { print g " " $1 }')
 chk() { if ! printf '%s\n' "$dump" | grep -q -- "$1"; then echo "USR FRAME FIXTURE FAILED (image): missing $1"; printf '%s\n' "$dump" | head -40; exit 1; fi; }
 nochk() { if printf '%s\n' "$dump" | grep -q -- "$1"; then echo "USR FRAME FIXTURE FAILED (image): unexpected $1"; exit 1; fi; }
-chk '^USR FRAME gen=1 full=1 slot=0 entry=-1 arg=1 sp=65527 himem=65535 ramtop=65535 bytes=1148 runs=10$'
+chk '^USR FRAME gen=1 full=1 slot=0 entry=-1 arg=1 sp=65527 himem=65535 ramtop=65535 bytes=1168 runs=16$'   # +20 window bytes since 2026-09-11
 chk '^gen=1 30000:7$'                       # the POKE
 chk '^gen=1 16396:201$'                     # the seeded DOS probe byte
 chk '^gen=1 17129:10,67,10,0,'              # the image: next pointer 4311H, line 10

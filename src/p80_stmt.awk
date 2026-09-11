@@ -94,6 +94,7 @@ function lp_puts(s) {
 
 function lp_nl() {
     LPCOL = 0
+    if (++LPLINES >= LPPAGE - 1) LPLINES = 0   # 4029H: lines on this page, a page is LPPAGE-1
     if (LPFILE != "") { print "" >> LPFILE; fflush(LPFILE) }
 }
 
@@ -586,6 +587,7 @@ function dopeek(x,   a) {
     # live system pointers + the read-only tokenized program image (p75)
     if (a == 16548 || a == 16549 || a == 16561 || a == 16562 || a == 16633 || a == 16634)
         return pm_sysptr(a)
+    if (a >= 16416 && a <= 16667 && (a in SVW)) return sv_peek(a)   # system variable window (p75)
     if (a in SPK) return sp_peek(a)               # VARPTR string space (p75)
     if (a >= 17129) {
         if (a > RAMTOP) return 255                # absent RAM above the physical top
@@ -622,6 +624,7 @@ function poke_byte(a, b) {
     if (a >= 15360 && a <= 16383) { s_poke(a - 15360, b); sync_cursor() }
     else if (a >= 16554 && a <= 16556) rnd_poke(a - 16554, b)
     else if (a == 16561 || a == 16562) pm_sethimem(a, b)   # move HIMEM (p75)
+    else if (a >= 16416 && a <= 16667 && (a in SVW)) sv_poke(a, b)   # system variable window (p75)
     else if (a in SPK) sp_poke(a, b)              # VARPTR write-through (p75)
     else if (a > RAMTOP) { }                      # absent RAM: discarded
     else { MEM[a] = b; if (FRTRACK) FRDIRTY[a] = 1 }

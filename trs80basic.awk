@@ -103,6 +103,15 @@ function init_tables(   i, c, m, n) {
     # unset (the hardware analog: printing into no attached printer)
     LPFILE = ("TRS80_PRINTER" in ENVIRON) ? ENVIRON["TRS80_PRINTER"] : ""
     LPCOL = 0
+    # the SYSTEM VARIABLE WINDOW (p75 sv_*): ROM RAM cells period listings
+    # PEEK and POKE, served from live state.  CURCH = the cursor character
+    # (4022H; the ROM's default block), LPPAGE/LPLINES = printer lines per
+    # page + 1 and lines printed so far (4028H/4029H), AUTOLINE/AUTOINC/
+    # AUTOREQ = AUTO's line, increment and "start AUTO at the next prompt"
+    # (40E1H-40E5H).
+    CURCH = 176; LPPAGE = 67; LPLINES = 0
+    AUTOLINE = 10; AUTOINC = 10; AUTOREQ = 0; AUTOON = 0
+    sv_init()
     # EXT gate: syntax that valid Level II rejects but damaged OCR listings
     # can plausibly spell (bare/prompt-only INPUT, DIM of a scalar) is only
     # accepted when this is on -- `ext on` metacommand or TRS80_EXT=1 --
@@ -281,6 +290,7 @@ function t_sep(   i, s) {
 
 function t_done() {
     kb_restore()
+    if (!DUMB && CURCH == 0) printf "\033[?25h"   # a POKE 16418,0 hid the cursor: give it back
     if (ALTSCR) { printf "\033[?1049l\033[0m"; ALTSCR = 0 }
     # park the shell prompt at the BOTTOM of the terminal (999 clamps to the
     # last row) so it doesn't land inside the below-grid help/man text
@@ -952,6 +962,12 @@ function repl(   line, iscmd) {
         if (EOFQUIT || QUITFLAG) return
         s_puts("READY"); s_nl()
         for (;;) {
+            if (AUTOREQ) {                  # POKE 16609,1: AUTO from the next prompt (p75)
+                AUTOREQ = 0
+                auto_run(AUTOLINE, (AUTOINC < 1) ? 10 : AUTOINC)
+                if (EOFQUIT || QUITFLAG) return
+                break
+            }
             kb_mode("line")
             s_putc(62)                      # ">" prompt
             line = rl_read(1)               # 1 = REPL read: history/Tab/Ctrl-L on
@@ -1127,7 +1143,15 @@ function st_auto(   start, inc, line, k) {
         }
     }
     if (inc < 1) inc = 10
+    auto_run(start, inc)
+}
+
+# the AUTO prompt loop; its state is PEEKable through the system variable
+# window (p75: 40E1H flag, 40E2/E3H line, 40E4/E5H increment)
+function auto_run(start, inc,   line, k) {
+    AUTOON = 1; AUTOINC = inc
     while (start <= 65529) {
+        AUTOLINE = start
         kb_mode("line")
         k = (start in prog)
         s_puts(start (k ? "*" : " "))
@@ -1137,6 +1161,7 @@ function st_auto(   start, inc, line, k) {
         else storeline(start, line)
         start += inc
     }
+    AUTOON = 0
 }
 
 function st_new(   x) {
@@ -2950,6 +2975,13 @@ function st_resume(   p, ty, tx) {
 #      40A4/40B1/40F9H pairs    -> pm_sysptr() below (program base, HIMEM,
 #      start of variables).  40B1H is the one WRITABLE member: see
 #      pm_sethimem().
+#      THE SYSTEM VARIABLE WINDOW (sv_peek, below; the SVW set): 4020-4022H
+#      cursor position and character, 4028H/4029H/409BH printer lines per
+#      page, line counter and column, 4041-4046H the Model I clock,
+#      40A2/40A3H the current line number, 40E1-40E5H AUTO's flag, line and
+#      increment, 411BH the TRON flag -- each read from the live state it
+#      names.  Added 2026-09-11; see the window's own comment for the write
+#      side of each.
 #   4. a in SPK -> VARPTR string space (sp_peek).  THIS DELIBERATELY OUTRANKS
 #      RULE 5: a packed string inside the program-image range must win over
 #      the image, which is what makes the string-packing idiom work at any
@@ -2984,6 +3016,9 @@ function st_resume(   p, ty, tx) {
 #   1. 3C00-3FFFH (15360-16383) -> s_poke() + sync_cursor()
 #   2. 40AA-40ACH (16554-16556) -> rnd_poke(), the ROM RND seed
 #   3. 40B1/40B2H (16561/16562) -> pm_sethimem(), the one writable pointer
+#      the SYSTEM VARIABLE WINDOW (a in SVW) -> sv_poke(): cursor moves,
+#      cursor character, printer counters, AUTO request, TRON flag; the
+#      clock and the current line number ignore writes (documented)
 #   4. a in SPK                 -> sp_poke(), VARPTR string-space write-through
 #   5. a > RAMTOP               -> DISCARDED (absent RAM)
 #   6. otherwise                -> MEM[a] = b
@@ -3297,6 +3332,92 @@ function fn_varptr(   name, key, tgt) {
     return "N" sp_materialize(tgt, strname(name))
 }
 
+# ===================== the SYSTEM VARIABLE WINDOW ============================
+# ROM RAM cells that period listings PEEK and POKE, served from the live
+# state they name instead of dead MEM[].  Proposed 2026-09-05 from the
+# trs-80.com tips tally, MEASURED over the corpus before building (2026-09-11:
+# the cursor cell has 92 readers and 26 writers, the printer line counter 27
+# and 36, lines per page 13 and 21, the cursor character 26 and 43 -- eleven
+# of them hiding the cursor; everything else under 3), built the same day.
+# These are real Model I addresses, so EXT rule 1 is not in play.  Per cell:
+#   4020/4021H (16416/7)  cursor position = 3C00H + CUR.  POKE moves the
+#                         cursor once both bytes name a video address.
+#   4022H (16418)         cursor character (CURCH).  POKE 0 hides the
+#                         terminal cursor, anything else shows it; the glyph
+#                         itself is the terminal's (documented).
+#   4028H (16424)         lines per page + 1 (LPPAGE, 67).  POKE sets it.
+#   4029H (16425)         lines printed on this page (LPLINES): lp_nl counts,
+#                         wraps at LPPAGE-1.  POKE sets it (the "POKE
+#                         16425,1 after a form feed" idiom, 36 listings).
+#   409BH (16539)         printer column (LPCOL).  POKE sets it.
+#   4041-4046H (16449-54) SS MN HH YY DD MM from the host clock, as TIME$
+#                         reads it.  POKEs are ignored: the clock is the
+#                         host's (documented deviation).
+#   40A2/40A3H (16546/7)  the line number executing (CLN; 0 at READY).
+#                         POKEs ignored.
+#   40E1H (16609)         AUTO flag: 1 while AUTO is prompting.  POKE
+#                         non-zero REQUESTS AUTO: it starts at the next
+#                         READY prompt from 40E2/E3H by 40E4/E5H, as the ROM
+#                         would (tip 70).  Batch mode has no prompt, so the
+#                         request is inert there.
+#   40E2/40E3H (16610/1)  AUTO's current line (AUTOLINE).  POKE sets it.
+#   40E4/40E5H (16612/3)  AUTO's increment (AUTOINC).  POKE sets it (tip 71).
+#   411BH (16667)         TRON flag: 175 on, 0 off.  POKE non-zero = TRON,
+#                         0 = TROFF (tips 76/77).
+# Every cell is also in the USR frame's always-sent set (fr_build).
+function sv_init(   a) {
+    SVW[16416] = 1; SVW[16417] = 1; SVW[16418] = 1
+    SVW[16424] = 1; SVW[16425] = 1; SVW[16539] = 1
+    for (a = 16449; a <= 16454; a++) SVW[a] = 1
+    SVW[16546] = 1; SVW[16547] = 1
+    for (a = 16609; a <= 16613; a++) SVW[a] = 1
+    SVW[16667] = 1
+}
+function sv_peek(a,   v) {
+    if (a == 16416) return (15360 + CUR) % 256
+    if (a == 16417) return int((15360 + CUR) / 256)
+    if (a == 16418) return CURCH
+    if (a == 16424) return LPPAGE % 256
+    if (a == 16425) return LPLINES % 256
+    if (a == 16539) return LPCOL % 256
+    if (a >= 16449 && a <= 16454) {
+        v = strftime("%S %M %H %y %d %m")
+        return substr(v, 3 * (a - 16449) + 1, 2) + 0
+    }
+    if (a == 16546) return CLN % 256
+    if (a == 16547) return int(CLN / 256) % 256
+    if (a == 16609) return AUTOON ? 1 : (AUTOREQ ? 1 : 0)
+    if (a == 16610) return AUTOLINE % 256
+    if (a == 16611) return int(AUTOLINE / 256) % 256
+    if (a == 16612) return AUTOINC % 256
+    if (a == 16613) return int(AUTOINC / 256) % 256
+    if (a == 16667) return TRACE ? 175 : 0
+    return 255
+}
+function sv_poke(a, b,   v) {
+    if (a == 16416 || a == 16417) {
+        v = 15360 + CUR
+        v = (a == 16416) ? int(v / 256) * 256 + b : v % 256 + 256 * b
+        if (v >= 15360 && v <= 16383) { CUR = v - 15360; sync_cursor() }
+        return
+    }
+    if (a == 16418) {
+        CURCH = b
+        if (!DUMB) { printf "%s", (b == 0 ? "\033[?25l" : "\033[?25h"); fflush() }
+        return
+    }
+    if (a == 16424) { LPPAGE = b; return }
+    if (a == 16425) { LPLINES = b; return }
+    if (a == 16539) { LPCOL = b; return }
+    if (a == 16609) { AUTOREQ = (b != 0); return }
+    if (a == 16610) { AUTOLINE = int(AUTOLINE / 256) * 256 + b; return }
+    if (a == 16611) { AUTOLINE = AUTOLINE % 256 + 256 * b; return }
+    if (a == 16612) { AUTOINC = int(AUTOINC / 256) * 256 + b; return }
+    if (a == 16613) { AUTOINC = AUTOINC % 256 + 256 * b; return }
+    if (a == 16667) { TRACE = (b != 0); return }
+    # 16449-16454 (the clock) and 16546/16547 (the current line): ignored
+}
+
 # ===================== string aliasing via the descriptor (finding 7) =======
 # The period trick: POKE VARPTR(A$)+1 / +2 repoints a string's descriptor at
 # video RAM (high byte 3CH) or system RAM (40H), and from then on ordinary
@@ -3418,6 +3539,7 @@ function fr_build(full,   a, e, n, run, last, lo, hi) {
     for (a = 16554; a <= 16556; a++) FRSET[a] = 1     # RND seed
     FRSET[16548] = 1; FRSET[16549] = 1; FRSET[16561] = 1; FRSET[16562] = 1
     FRSET[16633] = 1; FRSET[16634] = 1                 # the live pointers
+    for (a in SVW) FRSET[a] = 1                        # the system variable window
     for (a in SPK) FRSET[a] = 1                        # packed strings, always
     pm_sync(); pm_truncnote()
     if (full || FRPMDIRTY) {
@@ -3721,6 +3843,7 @@ function lp_puts(s) {
 
 function lp_nl() {
     LPCOL = 0
+    if (++LPLINES >= LPPAGE - 1) LPLINES = 0   # 4029H: lines on this page, a page is LPPAGE-1
     if (LPFILE != "") { print "" >> LPFILE; fflush(LPFILE) }
 }
 
@@ -4213,6 +4336,7 @@ function dopeek(x,   a) {
     # live system pointers + the read-only tokenized program image (p75)
     if (a == 16548 || a == 16549 || a == 16561 || a == 16562 || a == 16633 || a == 16634)
         return pm_sysptr(a)
+    if (a >= 16416 && a <= 16667 && (a in SVW)) return sv_peek(a)   # system variable window (p75)
     if (a in SPK) return sp_peek(a)               # VARPTR string space (p75)
     if (a >= 17129) {
         if (a > RAMTOP) return 255                # absent RAM above the physical top
@@ -4249,6 +4373,7 @@ function poke_byte(a, b) {
     if (a >= 15360 && a <= 16383) { s_poke(a - 15360, b); sync_cursor() }
     else if (a >= 16554 && a <= 16556) rnd_poke(a - 16554, b)
     else if (a == 16561 || a == 16562) pm_sethimem(a, b)   # move HIMEM (p75)
+    else if (a >= 16416 && a <= 16667 && (a in SVW)) sv_poke(a, b)   # system variable window (p75)
     else if (a in SPK) sp_poke(a, b)              # VARPTR write-through (p75)
     else if (a > RAMTOP) { }                      # absent RAM: discarded
     else { MEM[a] = b; if (FRTRACK) FRDIRTY[a] = 1 }

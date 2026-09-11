@@ -109,27 +109,27 @@ probe 56 D "enable display POKE 16413,7"          "" "OK" '10 POKE 16413,7:PRINT
 probe 57 D "special character set via &HB94"      "" "OK" '10 POKE &HB94,(PEEK(&HB94) OR 8):PRINT "OK"'
 probe 58 D "three-line scroll protect via &HB94"  "" "OK" '10 POKE &HB94,(PEEK(0) OR 8):PRINT "OK"'
 probe 59 D "change cursor character POKE &HB98"   "" "OK" '10 POKE &HB98,42:PRINT "OK"'
-probe 60 K "cursor position PEEK(16416/7) (POS does it)" "" " 50175  13 " '10 PRINT@70,"";:PRINT PEEK(16416)+256*PEEK(16417)-15360;POS(0)'
+probe 60 W "cursor position PEEK(16416/7) = 3C00H + cursor" "" " 70 " '10 PRINT@70,"";:P=PEEK(16416)+256*PEEK(16417)-15360:PRINT P'
 # ---- Time / date, Model 4 --------------------------------------------------
-probe 61 D "Model I time/date PEEK(16449..16454)" "" " 255  255 " '10 PRINT PEEK(16449);PEEK(16454)'
+probe 61 W "Model I time/date PEEK(16449..16454) from the host clock" "" "-1 " '10 PRINT PEEK(16454)>=1 AND PEEK(16454)<=12 AND PEEK(16451)<=23 AND PEEK(16449)<=59'
 probe 62 D "Model III time/date PEEK(16919..16924)" "" " 255  255 " '10 PRINT PEEK(16919);PEEK(16924)'
 probe 63 D "Model 4 speed-up (16912, OUT 235)"   "" "OK" '10 X=PEEK(16912):X=X OR 64:POKE 16912,X:OUT 235,X:PRINT "OK"'
 # ---- Printer -----------------------------------------------------------------
 probe 64 D "screen printer OUT 254,255"          "" "OK" '10 OUT 254,255:PRINT "OK"'
-probe 65 D "printer line position PEEK(16425)"   "" " 255 " '10 PRINT PEEK(16425)'
-probe 66 D "print head position PEEK(16539)"     "" " 255 " '10 PRINT PEEK(16539)'
-probe 67 D "lines per page PEEK(16424)"          "" " 255 " '10 PRINT PEEK(16424)'
+probe 65 W "printer line counter PEEK(16425) after two LPRINT lines" "" " 2 |LP:A${nl}B" '10 LPRINT "A":LPRINT "B":PRINT PEEK(16425)'
+probe 66 W "print head position PEEK(16539) after LPRINT \"ABC\";" "" " 3 |LP:ABC" '10 LPRINT "ABC";:PRINT PEEK(16539)'
+probe 67 W "lines per page + 1: PEEK(16424) = 67" "" " 67 " '10 PRINT PEEK(16424)'
 probe 68 W "printer status PEEK(14312)=63 ready" "" " 63 " '10 PRINT PEEK(14312)'
 probe 69 D "JKL off POKE 16422,216"              "" "OK" '10 POKE 16422,216:PRINT "OK"'
 # ---- Keyword tips ------------------------------------------------------------
-probe 70 K "start AUTO by POKE 16609,1 (AUTO does it)" "" "OK" '10 POKE 16609,1:PRINT "OK"'
-probe 71 K "AUTO increment by POKE 16612/3"       "" "OK" '10 POKE 16612,0:POKE 16613,0:PRINT "OK"'
+probe 70 W "start AUTO by POKE 16609,1: flag reads back, AUTO fires at the next READY (t33)" "" " 1 " '10 POKE 16609,1:PRINT PEEK(16609)'
+probe 71 W "AUTO increment by POKE 16612/3 reads back" "" " 7 " '10 POKE 16612,7:POKE 16613,0:PRINT PEEK(16612)+256*PEEK(16613)'
 probe 72 D "disable LIST method 1 (16863: 145,25,26)" "" "20 LIST 20" "10 POKE 16863,145:POKE 16864,25:POKE 16865,26${nl}20 LIST 20"
 probe 73 D "disable LIST method 2 (16863: 195,114,0)" "" "20 LIST 20" "10 POKE 16863,195:POKE 16864,114:POKE 16865,0${nl}20 LIST 20"
 probe 74 D "disable LLIST POKE 16422,103 (LLIST still prints)" "" "|LP:10 POKE 16422,103:POKE 16423,0:LLIST 10" '10 POKE 16422,103:POKE 16423,0:LLIST 10'
 probe 75 W "RND seed POKE 16554-6 = 5,10,15 gives 80 78 91 88 70 91 25 30" "" " 80  78  91  88  70  91  25  30 " "10 POKE 16554,5:POKE 16555,10:POKE 16556,15${nl}20 FOR I=1 TO 8:PRINT RND(100);:NEXT:PRINT"
-probe 76 K "TRON by POKE 16667,1 (TRON does it)"  "" "T" "10 POKE 16667,1${nl}20 PRINT \"T\""
-probe 77 K "TROFF by POKE 16667,0"                "" "T" "10 POKE 16667,0${nl}20 PRINT \"T\""
+probe 76 W "TRON by POKE 16667,1 traces the next line" "" "<20>T" "10 POKE 16667,1${nl}20 PRINT \"T\""
+probe 77 W "TROFF by POKE 16667,0 stops the trace" "" "<20>T${nl}X" "10 POKE 16667,1${nl}20 POKE 16667,0:PRINT \"T\"${nl}30 PRINT \"X\""
 probe 78 E "recover after NEW: POKE 17130,1 : SYSTEM" "" "?SN ERROR IN 10" '10 POKE 17130,1:SYSTEM'
 n78=$n; bad78=$bad; W78=$nW; K78=$nK; D78=$nD; X78=$nX; E78=$nE
 
@@ -150,8 +150,8 @@ probe B6 D "renumber by POKEing line numbers into the program image (image is re
 "10 PRINT \"A\"${nl}20 PRINT \"B\"${nl}30 P=17129:FOR L=1 TO 9000:IF PEEK(P+1)>0 THEN POKE P+3,PEEK(P+3)+125:P=PEEK(P)+256*PEEK(P+1):NEXT${nl}40 LIST"
 probe B7 D "append two programs by POKEing 16548/9 (pointer is read-only)" "" " 233 " '10 POKE 16548,0:PRINT PEEK(16548)'
 probe B8 W "start and end of program PEEK(16548/9), PEEK(16633/4)" "" " 17129  17181 " '10 PRINT PEEK(16548)+256*PEEK(16549);PEEK(16633)+256*PEEK(16634)'
-probe B9 D "current line number PEEK(16546/7)"   "" " 65535 " '10 PRINT PEEK(16546)+256*PEEK(16547)'
-probe B10 D "current cursor character PEEK(16418)" "" " 255 " '10 PRINT PEEK(16418)'
+probe B9 W "current line number PEEK(16546/7)"   "" " 20 " "10 X=1${nl}20 PRINT PEEK(16546)+256*PEEK(16547)"
+probe B10 W "current cursor character PEEK(16418), and POKE 16418,0 hides it" "" " 176  0 " '10 PRINT PEEK(16418);:POKE 16418,0:PRINT PEEK(16418)'
 probe B11 W "get your 48K: POKE 16561/2 = 255 then CLEAR 50" "" " 65535 " '10 POKE 16561,255:POKE 16562,255:CLEAR 50:PRINT PEEK(16561)+256*PEEK(16562)'
 probe B12 W "(X,Y) <-> PRINT@ conversion"        "" " 133  10  6 " '10 X=10:Y=7:P=INT(Y/3)*64+INT(X/2):Y2=3*INT(P/64):X2=2*(P-64*Y2/3):PRINT P;X2;Y2'
 probe B13 D "cause a reset: POKE 16415,5"         "" "OK" '10 POKE 16415,5:PRINT "OK"'
