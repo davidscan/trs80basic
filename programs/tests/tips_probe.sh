@@ -127,7 +127,7 @@ probe 70 W "start AUTO by POKE 16609,1: flag reads back, AUTO fires at the next 
 probe 71 W "AUTO increment by POKE 16612/3 reads back" "" " 7 " '10 POKE 16612,7:POKE 16613,0:PRINT PEEK(16612)+256*PEEK(16613)'
 probe 72 D "disable LIST method 1 (16863: 145,25,26)" "" "20 LIST 20" "10 POKE 16863,145:POKE 16864,25:POKE 16865,26${nl}20 LIST 20"
 probe 73 D "disable LIST method 2 (16863: 195,114,0)" "" "20 LIST 20" "10 POKE 16863,195:POKE 16864,114:POKE 16865,0${nl}20 LIST 20"
-probe 74 D "disable LLIST POKE 16422,103 (LLIST still prints)" "" "|LP:10 POKE 16422,103:POKE 16423,0:LLIST 10" '10 POKE 16422,103:POKE 16423,0:LLIST 10'
+probe 74 W "disable LLIST: POKE 16422,103:POKE 16423,0 points the printer at a RET" "" "OK" '10 POKE 16422,103:POKE 16423,0:LLIST 10:LPRINT "X":PRINT "OK"'
 probe 75 W "RND seed POKE 16554-6 = 5,10,15 gives 80 78 91 88 70 91 25 30" "" " 80  78  91  88  70  91  25  30 " "10 POKE 16554,5:POKE 16555,10:POKE 16556,15${nl}20 FOR I=1 TO 8:PRINT RND(100);:NEXT:PRINT"
 probe 76 W "TRON by POKE 16667,1 traces the next line" "" "<20>T" "10 POKE 16667,1${nl}20 PRINT \"T\""
 probe 77 W "TROFF by POKE 16667,0 stops the trace" "" "<20>T${nl}X" "10 POKE 16667,1${nl}20 POKE 16667,0:PRINT \"T\"${nl}30 PRINT \"X\""
@@ -156,8 +156,8 @@ probe B10 W "current cursor character PEEK(16418), and POKE 16418,0 hides it" ""
 probe B11 W "get your 48K: POKE 16561/2 = 255 then CLEAR 50" "" " 65535 " '10 POKE 16561,255:POKE 16562,255:CLEAR 50:PRINT PEEK(16561)+256*PEEK(16562)'
 probe B12 W "(X,Y) <-> PRINT@ conversion"        "" " 133  10  6 " '10 X=10:Y=7:P=INT(Y/3)*64+INT(X/2):Y2=3*INT(P/64):X2=2*(P-64*Y2/3):PRINT P;X2;Y2'
 probe B13 D "cause a reset: POKE 16415,5"         "" "OK" '10 POKE 16415,5:PRINT "OK"'
-probe B14 D "route LPRINT to video: POKE 16422,88:POKE 16423,4" "" "|LP:TO VIDEO?" '10 POKE 16422,88:POKE 16423,4:LPRINT "TO VIDEO?"'
-probe B15 D "route video to printer: POKE 16414,141:POKE 16415,5" "" "STILL VIDEO" '10 POKE 16414,141:POKE 16415,5:PRINT "STILL VIDEO"'
+probe B14 W "route LPRINT to video: POKE 16422,88:POKE 16423,4" "" "TO VIDEO" '10 POKE 16422,88:POKE 16423,4:LPRINT "TO VIDEO"'
+probe B15 W "route video to printer: POKE 16414,141:POKE 16415,5" "" "|LP:TO PRINTER" '10 POKE 16414,141:POKE 16415,5:PRINT "TO PRINTER"'
 probe B16 D "change the cursor (AWFUL routine at 32512)" "" "OK" \
 "20 FOR X=32512 TO 32522:READ A:POKE X,A:NEXT${nl}30 POKE 16414,0:POKE 16415,127${nl}40 DATA 205,88,4,229,42,32,64,54${nl}50 DATA 42${nl}60 DATA 225,201${nl}70 PRINT \"OK\""
 probe B17 W "voice control: INP(255) reads 127, no sound (was ?BS until 2026-09-11)" "" " 127 " '10 PRINT INP(255)'

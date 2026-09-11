@@ -183,6 +183,13 @@ function init_tables(   i, c, m, n) {
     # other reason (measured -- Z80 sub-project FINDING 16).  Seeded into
     # MEM rather than special-cased in dopeek so POKE 16396 still works.
     MEM[16396] = 201
+    # 401E/401FH and 4026/4027H: the video and printer DRIVER VECTORS, seeded
+    # with the ROM's own drivers (0458H = 88,4 and 058DH = 141,5) so a
+    # listing that saves them to restore later reads the real values.
+    # POKEing them re-routes output (dv_update, p80): the period "send the
+    # screen to the printer" and "send LPRINT to the screen" idioms.
+    MEM[16414] = 88; MEM[16415] = 4; MEM[16422] = 141; MEM[16423] = 5
+    dv_update()
     init_man()
 }
 
@@ -481,6 +488,7 @@ function s_scroll(   i) {
 }
 
 function s_nl() {
+    if (VIDTOLP) { lp_nl(); return }
     # On a real tty we hold the line in `stty raw` for our own key handling,
     # so LF alone won't return the carriage -- emit CR+LF when streaming.
     if (DUMB) printf (TTYIN ? "\r\n" : "\n")
@@ -490,6 +498,10 @@ function s_nl() {
 
 # output one byte with LEVEL II display-control semantics
 function s_putc(b,   n, r) {
+    if (VIDTOLP) {                          # video vector -> the ROM printer driver (p80 dv_update)
+        if (b == 13) lp_nl(); else if (b >= 32) lp_puts(CHR[b])
+        return
+    }
     # printable: 32-191 always; 192-255 too when the Model III special/
     # Katakana mode is on (CHR$(21)) -- then they are characters, not
     # space-compression codes
@@ -3048,7 +3060,11 @@ function st_resume(   p, ty, tx) {
 #      clock and the current line number ignore writes (documented)
 #   4. a in SPK                 -> sp_poke(), VARPTR string-space write-through
 #   5. a > RAMTOP               -> DISCARDED (absent RAM)
-#   6. otherwise                -> MEM[a] = b
+#   6. otherwise                -> MEM[a] = b.  Four cells there have a SIDE
+#      EFFECT on write: 401E/401FH and 4026/4027H, the video and printer
+#      driver vectors (dv_update, p80) -- the ROM's two driver addresses
+#      re-route output, 0067H silences the printer.  The bytes themselves
+#      are ordinary MEM[] (seeded 88,4 and 141,5 in init).
 #
 # FOUR ASYMMETRIES AGAINST THE READ SIDE.  Each is a range the read side
 # projects from somewhere other than MEM[], so a write there lands in MEM[]
@@ -3864,11 +3880,15 @@ function pr_using(   sep, ty, tx, v, fmt) {
 # when unset.  Same value formatting and USING support as PRINT; own column
 # counter (LPCOL) for , zones and TAB; no @, no #, no screen wrap.
 function lp_puts(s) {
+    if (LPTOVID) { s_puts(s); return }        # printer vector -> the ROM video driver
+    if (LPOFF) return                         # printer vector -> a RET
     LPCOL += length(s)
     if (LPFILE != "") printf "%s", s >> LPFILE
 }
 
 function lp_nl() {
+    if (LPTOVID) { s_nl(); return }
+    if (LPOFF) return
     LPCOL = 0
     if (++LPLINES >= LPPAGE - 1) LPLINES = 0   # 4029H: lines on this page, a page is LPPAGE-1
     if (LPFILE != "") { print "" >> LPFILE; fflush(LPFILE) }
@@ -4403,7 +4423,35 @@ function poke_byte(a, b) {
     else if (a >= 16416 && a <= 16667 && (a in SVW)) sv_poke(a, b)   # system variable window (p75)
     else if (a in SPK) sp_poke(a, b)              # VARPTR write-through (p75)
     else if (a > RAMTOP) { }                      # absent RAM: discarded
-    else { MEM[a] = b; if (FRTRACK) FRDIRTY[a] = 1 }
+    else {
+        MEM[a] = b; if (FRTRACK) FRDIRTY[a] = 1
+        if (a >= 16414 && a <= 16423) dv_update()   # the device vectors (side effect only)
+    }
+}
+
+# ---- THE ROM DEVICE VECTORS (2026-09-11) ------------------------------------
+# 401E/401FH (16414/5) is the video driver vector and 4026/4027H (16422/3)
+# the printer driver vector; the ROM's drivers live at 0458H and 058DH.
+# Period listings swap them: POKE 16414,141:POKE 16415,5 sends everything
+# PRINTed to the printer (14 corpus files, the "print the whole report"
+# mode), POKE 16422,88:POKE 16423,4 sends LPRINT to the screen (2 files,
+# "no printer attached"), POKE 16422,103:POKE 16423,0 points the printer
+# at a ROM RET so LLIST/LPRINT go nowhere (tip 74).  The cells are plain
+# MEM[] (read rule 6, write rule 6) with this one side effect on write.
+# ONLY the two ROM addresses and the RET re-route: any other value is a
+# custom machine-language driver (32 corpus files install one at 16422/3),
+# which cannot run without the core, and the closest honest behaviour is
+# the driver it usually wraps -- the default.  Both vectors swapped at once
+# would make the ROM loop; here the printer-to-video route wins and the
+# video stays on the screen.
+function dv_update(   v, l) {
+    v = MEM[16414] + 256 * MEM[16415]; l = MEM[16422] + 256 * MEM[16423]
+    LPTOVID = (l == 1112); LPOFF = (l == 103)
+    VIDTOLP = (v == 1421 && !LPTOVID)
+    if (VIDTOLP && LPFILE == "" && !DVNOTED) {
+        DVNOTED = 1
+        diag_err("VIDEO ROUTED TO THE PRINTER (POKE 16414/16415); set TRS80_PRINTER to see it, or POKE 16414,88:POKE 16415,4")
+    }
 }
 
 # ---- SET / RESET / POINT ---------------------------------------------------

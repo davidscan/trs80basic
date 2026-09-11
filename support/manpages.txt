@@ -857,6 +857,10 @@ PEEK(addr)   read a memory byte (unset = 255)
   (SS MN HH YY DD MM, read-only), 16546/16547 the line number executing,
   16609-16613 AUTO's flag, line and increment (POKE 16609,1 starts AUTO
   at the next READY), 16667 the TRON flag (175 on; POKE switches it).
+  The driver vectors re-route output: POKE 16414,141:POKE 16415,5 sends
+  PRINT to the printer, POKE 16422,88:POKE 16423,4 sends LPRINT to the
+  screen, POKE 16422,103:POKE 16423,0 silences the printer; restore with
+  POKE 16414,88:POKE 16415,4 and POKE 16422,141:POKE 16423,5.
   Display memory 15360-16383 reads the screen.  14336-14591 reads the
   live KEYBOARD MATRIX (row r at 14336+2^r; 14400 = arrows/space/ENTER
   row; 14464 = SHIFT; composite addresses OR rows) synthesized from the

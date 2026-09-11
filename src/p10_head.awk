@@ -183,6 +183,13 @@ function init_tables(   i, c, m, n) {
     # other reason (measured -- Z80 sub-project FINDING 16).  Seeded into
     # MEM rather than special-cased in dopeek so POKE 16396 still works.
     MEM[16396] = 201
+    # 401E/401FH and 4026/4027H: the video and printer DRIVER VECTORS, seeded
+    # with the ROM's own drivers (0458H = 88,4 and 058DH = 141,5) so a
+    # listing that saves them to restore later reads the real values.
+    # POKEing them re-routes output (dv_update, p80): the period "send the
+    # screen to the printer" and "send LPRINT to the screen" idioms.
+    MEM[16414] = 88; MEM[16415] = 4; MEM[16422] = 141; MEM[16423] = 5
+    dv_update()
     init_man()
 }
 

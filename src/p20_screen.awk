@@ -213,6 +213,7 @@ function s_scroll(   i) {
 }
 
 function s_nl() {
+    if (VIDTOLP) { lp_nl(); return }
     # On a real tty we hold the line in `stty raw` for our own key handling,
     # so LF alone won't return the carriage -- emit CR+LF when streaming.
     if (DUMB) printf (TTYIN ? "\r\n" : "\n")
@@ -222,6 +223,10 @@ function s_nl() {
 
 # output one byte with LEVEL II display-control semantics
 function s_putc(b,   n, r) {
+    if (VIDTOLP) {                          # video vector -> the ROM printer driver (p80 dv_update)
+        if (b == 13) lp_nl(); else if (b >= 32) lp_puts(CHR[b])
+        return
+    }
     # printable: 32-191 always; 192-255 too when the Model III special/
     # Katakana mode is on (CHR$(21)) -- then they are characters, not
     # space-compression codes
