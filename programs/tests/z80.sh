@@ -2,7 +2,8 @@
 # z80.sh -- the USR coprocess protocol (PROTOCOL.md, src/p77_z80.awk) against
 # its reference stub, programs/tests/z80_stub.py.  Self-checking: exits 1 on
 # any mismatch.  Run from the repo root:  sh programs/tests/z80.sh
-# A real core is conformant when this passes with TRS80_Z80 pointing at it.
+# A real core is conformant when this passes with TRS80_Z80 pointing at it:
+#   TRS80_Z80="python3 ../trs80_z80_core/core.py --fixture" sh programs/tests/z80.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
 core="python3 $here/programs/tests/z80_stub.py"
 [ -n "$TRS80_Z80" ] && core="$TRS80_Z80"
@@ -87,7 +88,7 @@ want="USR CORE: '$core' speaks protocol 2, this interpreter speaks 1; USR is the
  4 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead"
 [ "$out" = "$want" ] || fail "protocol mismatch fallback" "$out"
-out=$("$here/basic" "$tmp" 2>&1 </dev/null)
+out=$(env -u TRS80_Z80 "$here/basic" "$tmp" 2>&1 </dev/null)
 want=' 4 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead'
 [ "$out" = "$want" ] || fail "no TRS80_Z80: byte-identical stub" "$out"
