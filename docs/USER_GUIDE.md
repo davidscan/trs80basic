@@ -424,8 +424,11 @@ because period programs poke at it:
   does nothing); **`INP(255)`** reads the live video-mode port (127 in
   64-character mode, 63 after `CHR$(23)`), every other port the open bus,
   255. **`USR`** has three states: with `TRS80_Z80` naming the companion
-  Z80 core, the routine at `DEF USRn=addr` (or the POKEd vector at
-  16526/7) runs; without it, `USRn(x)` returns its argument and the run
+  Z80 core (`python3 ../trs80_z80_core/core.py`), the routine at
+  `DEF USRn=addr` (or the POKEd vector at 16526/7) runs for real — video
+  it writes shows as it runs, the keyboard is live, Ctrl-C breaks, and
+  the ROM entry points it may call are `01C9H`, `0A7FH` and `0A9AH`;
+  without it, `USRn(x)` returns its argument and the run
   ends with one stderr line naming the entry addresses not executed;
   `TRS80_USR=strict` raises `?FC` on the call instead. `SYSTEM` does not
   exist and `CMD` is `?SN`.

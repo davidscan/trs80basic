@@ -309,7 +309,13 @@ the interpreter reports the first `?SN`. Repairing them is a separate tool
   resolve. With `TRS80_Z80=<command>` naming the companion Z80 core, a
   USR call sends the machine's memory image to the core and the routine
   RUNS (the wire format is `PROTOCOL.md`; `TRS80_Z80_TIMEOUT` is the
-  per-reply guard in milliseconds, default 5000). Without a core the
+  per-reply guard in milliseconds, default 5000). THE CORE EXISTS
+  (2026-09-12): `TRS80_Z80="python3 ../trs80_z80_core/core.py"` runs the
+  routine for real — a full Z80 validated against 1.6 million single-step
+  vectors, serving 01C9H (CLS), 0A7FH (argument to HL) and 0A9AH (HL to
+  result) as the only ROM entry points, the USR return pushed as the
+  sentinel 2FFDH, port FFH reading 127 and every OUT discarded; any other
+  jump into ROM space is ?FC with the address on stderr. Without a core the
   call is a stub that returns its argument — and is no longer silent: a
   run that called USR ends with one stderr line naming the entries and
   call counts that were not executed, and `TRS80_USR=strict` raises ?FC

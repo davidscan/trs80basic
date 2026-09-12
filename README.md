@@ -71,7 +71,7 @@ Environment variables the interpreter reads:
 | `TRS80_OLLAMA_CURL` | unset | replaces the `curl` command (test hook) | deterministic tests with `programs/tests/ollama_stub.sh` |
 | `TRS80_KMHOLD` | `4` | how many `INKEY$` polls one keypress "holds" for (terminals send no key-up events) | a period game reads your taps as too long or too short |
 | `TRS80_USR` | unset | `strict` makes every `USR` call raise `?FC` instead of returning its argument | a sweep that must fail visibly on machine code it cannot run |
-| `TRS80_Z80` | unset | the command that runs the companion Z80 core (e.g. `python3 /path/to/core.py`); `USR` routines then execute (see `PROTOCOL.md`) | running listings with embedded machine code |
+| `TRS80_Z80` | unset | the command that runs the companion Z80 core, `python3 ../trs80_z80_core/core.py`; `USR` routines then execute (see `PROTOCOL.md`) | running listings with embedded machine code |
 | `TRS80_Z80_TIMEOUT` | `5000` | milliseconds to wait for each reply from the core before giving up on it | a slow machine, or debugging the core |
 
 (A couple of development-only variables are deliberately undocumented here.)
@@ -138,6 +138,21 @@ BASIC directly, `CLOAD "game.bas"` to load one (`LOAD` is the Disk BASIC
 spelling; `LOAD "f",R` also runs it and keeps file channels open), `RUN`,
 Ctrl-C to break, `CONT` to resume, `BYE` to leave. The screen is the real
 64x16 grid; long output pages with PgUp/PgDn.
+
+**Run with the Z80 core.** A listing whose `USR` routines matter needs the
+companion core checked out beside this repo:
+
+```bash
+TRS80_Z80="python3 ../trs80_z80_core/core.py" ./basic game.bas
+```
+
+The routine then executes against the same memory `PEEK` and `POKE` see,
+video it writes appears while it runs, the keyboard matrix is live, and
+Ctrl-C still breaks. The core serves three documented ROM entry points
+(`01C9H` CLS, `0A7FH` argument to HL, `0A9AH` HL to result); a call
+anywhere else in ROM space is a `?FC` with the address on stderr, since
+no ROM is shipped. Without the variable nothing changes: `USR` is the
+argument-returning stub described under "Not supported".
 
 **Convert an archived program.** Most TRS-80 programs found online are
 tokenized images, and `CLOAD` reads only text:
@@ -242,13 +257,13 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 
 ### Not supported
 
-- Machine code — only through the companion Z80 core, which is not yet
-  built: set `TRS80_Z80` to its command and `USR` routines execute against
-  the simulated memory (`PROTOCOL.md` is the contract; the interpreter side
-  is complete and tested against a reference stub). Without it `USR`
-  returns its argument, and a run that called `USR` ends with one stderr
-  line naming the entry addresses that were not executed, so a routine that
-  silently did nothing is never mistaken for one that worked
+- Machine code without the companion core. `USR` routines run only when
+  `TRS80_Z80` names the Z80 core in
+  [`../trs80_z80_core`](../trs80_z80_core) (`python3
+  ../trs80_z80_core/core.py`; `PROTOCOL.md` is the contract). Without it
+  `USR` returns its argument, and a run that called `USR` ends with one
+  stderr line naming the entry addresses that were not executed, so a
+  routine that silently did nothing is never mistaken for one that worked
   (`TRS80_USR=strict` turns the calls into `?FC`).
 - Native Windows (cmd/PowerShell) — not yet: the no-install Windows package
   returns once it can be tested on a local Windows machine. Meanwhile run it
@@ -269,7 +284,7 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 | `programs/*.bas` | demo programs (`aethelgard`, `tictactoe`, `demo_*`, `gfxtest`) | you | yes |
 | `programs/examples/` | feature examples with `.in` inputs and `.out` transcripts | `run_examples.sh --update` (transcripts) | transcripts regenerate; programs do not |
 | `programs/tests/t*.txt`, `prog1.bas` | interactive-mode input scripts for regression checks (t1–t33) | you | no |
-| `programs/tests/*.bas`, `programs/tests/*.sh` | self-checking fixtures and shell suites: VARPTR, string aliasing, INP, the system variable window, the BREAK and driver vectors, USR, image truncation, the Z80 protocol, the trs-80.com tips tally | you | no |
+| `programs/tests/*.bas`, `programs/tests/*.sh` | self-checking fixtures and shell suites: VARPTR, string aliasing, INP, the system variable window, the BREAK and driver vectors, USR, image truncation, the Z80 protocol (`z80.sh`), POKEd and string-packed routines through the real core (`z80core.sh`, skips without it), the trs-80.com tips tally | you | no |
 | `programs/tests/ollama_stub.sh` | canned Ollama replies for tests | you | no — `oracle`, `t13` and `t29` use it |
 | `programs/tests/z80_stub.py` | the reference Z80 core stand-in that `z80.sh` and `t32` run against | you | no |
 | `PROTOCOL.md` | the USR coprocess protocol between the interpreter and the Z80 core; mirrored into the core repo | you | no |
