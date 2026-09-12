@@ -1592,16 +1592,20 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
     # through to the line loop below, re-read the ordinary way.
     r = slurp_bytes(f)
     if (r < 0) return 0
-    if (r > 0 && tok_header(SLURPED)) { data = SLURPED; SLURPED = ""; return prog_load_tok(data, verify, keepfiles, merge) }
-    # Under gawk -b every one-byte string is in ORD[].  A first character
-    # that is not is an invalid multibyte sequence, which means the run is
-    # NOT byte mode and this is a binary file: say so, instead of the four
-    # "NO LINE NUMBER" lines the text path would print (seen 2026-09-12 when
-    # a stale launcher without -b met the Dancing Demon image).
-    if (r > 0 && !(substr(SLURPED, 1, 1) in ORD)) {
-        SLURPED = ""; LOADBAD = 1
-        diag("?FD ERROR - BINARY FILE: run the interpreter as ./basic (gawk -b) to load a tokenized image")
-        return 1
+    if (r > 0) {
+        # Under gawk -b every one-byte string is a key of ORD[].  A first
+        # character that is NOT is an invalid multibyte sequence: the run is
+        # not byte mode and the file is binary, so say that instead of the
+        # four "NO LINE NUMBER" lines the text path would print (seen
+        # 2026-09-12 when a stale launcher without -b met a tokenized image).
+        # This test MUST precede tok_header(): a bare ORD[x] reference
+        # auto-creates the key x, which would make this membership test lie.
+        if (!(substr(SLURPED, 1, 1) in ORD)) {
+            SLURPED = ""; LOADBAD = 1
+            diag("?FD ERROR - BINARY FILE: run the interpreter as ./basic (gawk -b) to load a tokenized image")
+            return 1
+        }
+        if (tok_header(SLURPED)) { data = SLURPED; SLURPED = ""; return prog_load_tok(data, verify, keepfiles, merge) }
     }
     SLURPED = ""
     r = (getline l < f); pln = 1
@@ -1665,9 +1669,12 @@ function slurp_bytes(f,   save, r) {
 
 # the 0xFF header of a tokenized image, within the first four bytes (some
 # archived files carry a byte or two of junk ahead of an intact header)
-function tok_header(data,   i) {
-    for (i = 1; i <= 4 && i <= length(data); i++)
-        if (ORD[substr(data, i, 1)] == 255) { TOKHDR = i; return 1 }
+function tok_header(data,   i, c) {
+    for (i = 1; i <= 4 && i <= length(data); i++) {
+        c = substr(data, i, 1)
+        # membership before indexing: a bare ORD[c] would auto-create the key
+        if (c in ORD && ORD[c] == 255) { TOKHDR = i; return 1 }
+    }
     return 0
 }
 
