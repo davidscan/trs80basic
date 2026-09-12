@@ -21,6 +21,7 @@ Entries (hex):
   700A  a video byte AND a write-set byte in one call
   700B  OUT (FFH) bit 3 set: 32-column mode (MODE 1)
   700C  OUT (FFH) bit 3 clear: 64-column mode (MODE 0)
+  700D  32-column, then CLS (CALL 01C9H) restores 64-column
   anything else: an immediate RET (hl=0, result=0, no writes)
 
 Z80_STUB_PROTO=<n> makes the stub claim another protocol version.
@@ -147,6 +148,10 @@ def main():
             ret()
         elif entry == 0x700C:
             send("MODE 0")            # OUT (FFH) with bit 3 clear: 64-column
+            ret()
+        elif entry == 0x700D:
+            send("MODE 1")            # 32-column, then CLS restores 64-column
+            send("MODE 0")
             ret()
         else:
             ret()

@@ -50,6 +50,11 @@ printf '10 DEFUSR=&H7001:K=USR(0):PRINT K;PEEK(15424)\n' > "$tmp"
 out=$(printf 'A\n' | TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1); rc=$?
 [ "$rc" = "0" ] && [ "$out" = " 3  3 " ] || fail "keyboard callback: rc=$rc" "$out"
 
+# --- CLS restores 64-column mode after 32-column (the Dancing Demon idiom)
+printf '10 DEFUSR=&H700B:X=USR(0):IF INP(255)<>63 THEN PRINT "no 32col":END\n20 DEFUSR=&H700D:X=USR(0):PRINT INP(255)\n' > "$tmp"
+out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+[ "$rc" = "0" ] && [ "$out" = " 127 " ] || fail "CLS restores 64-column: rc=$rc" "$out"
+
 # --- an undefined entry is ?FC on this side, never sent
 printf '10 X=USR6(0)\n' > "$tmp"
 out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?

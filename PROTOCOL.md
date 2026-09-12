@@ -121,7 +121,9 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     flushed first so the switch lands between the right frames.  The
     interpreter re-renders the screen in the new width; a routine that
     sets 32-column text then clears it for full-width graphics (the
-    Dancing Demon) is drawn correctly.  No reply.
+    Dancing Demon) is drawn correctly.  CLS (01C9H) also restores
+    64-column mode, as the ROM and BASIC's own CLS do, so the core emits
+    `MODE 0` when it serves that trap in 32-column mode.  No reply.
 *   `T <cycles>` -- a tick: the T-states executed since the last tick.
     The core sends one every few thousand T-states (every ~5 ms of
     emulated time at 1.77 MHz is a good rate) so the interpreter can poll
