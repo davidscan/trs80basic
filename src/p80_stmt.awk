@@ -596,7 +596,15 @@ function dopeek(x,   a) {
     if (a >= 17129) {
         if (a > RAMTOP) return 255                # absent RAM above the physical top
         pm_sync(); pm_truncnote()
-        if (a < PMEND) return PMEM[a]
+        # THE PROGRAM IMAGE IS WRITABLE (2026-09-12).  A byte the program (or a
+        # USR routine) stored into the image range reads back -- image RAM is
+        # RAM, as on the machine -- so a payload that keeps a buffer inside its
+        # own loaded bytes works (the Dancing Demon's score/dance editor does
+        # exactly this at 6B9BH).  Unwritten image addresses still read the
+        # original tokenized byte.  RUN and LIST are unaffected: they work from
+        # prog[] (the source text), never from PMEM, so a stray POKE here can
+        # never corrupt the running program the way it would on hardware.
+        if (a < PMEND) return (a in MEM) ? MEM[a] : PMEM[a]
     }
     return (a in MEM) ? MEM[a] : 255
 }

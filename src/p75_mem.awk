@@ -2,7 +2,7 @@
 # Three related pieces of the real Level II memory model (STATUS roadmap:
 # "Program-memory mapping", shipped 2026-08-14):
 #
-#  1. READ-ONLY tokenized program image: PEEK of 42E9H (17129) onward sees
+#  1. THE TOKENIZED PROGRAM IMAGE (writable since 2026-09-12): PEEK of 42E9H (17129) onward sees
 #     the stored program in the authentic crunched cassette format -- per
 #     line [next-addr lo][hi][line lo][hi][tokenized body][00], terminated
 #     by 00 00 -- rebuilt lazily whenever the program changed (PROGDIRTY is
@@ -86,10 +86,15 @@
 #      the image, which is what makes the string-packing idiom work at any
 #      program size.  It is an invariant, not a consequence of statement
 #      order -- do not reorder it under rule 5.
-#   5. a >= 17129 and a < PMEND -> PMEM[], the READ-ONLY tokenized program
-#      image (rule 2's shape again: POKEs land in MEM[] and vanish).  The
-#      bound is RAMTOP, not HIMEM -- lowering HIMEM does NOT shrink the
-#      shadowed range.  a > RAMTOP -> 255, currently unreachable (see below).
+#   5. a >= 17129 and a < PMEND -> the tokenized program image.  WRITABLE
+#      since 2026-09-12: a >= 17129 returns MEM[a] if that address was ever
+#      stored (a POKE, or a USR write-set), else the original crunched byte
+#      PMEM[a].  Image RAM is RAM, as on the machine -- a payload that keeps
+#      a buffer inside its own loaded bytes (the Dancing Demon's score/dance
+#      editor, at 6B9BH) reads back what it wrote.  RUN and LIST are never
+#      affected: they work from prog[] (the source text), not PMEM, so a POKE
+#      here cannot corrupt the running program the way it does on hardware.
+#      The bound is RAMTOP, not HIMEM.  a > RAMTOP -> 255 (unreachable today).
 #   6. otherwise -> MEM[a] if it was ever written, else 255.
 #
 # TWO READ-ONLY PROJECTIONS, NOT ONE (rules 2 and 5): "POKE lands in MEM[] and
@@ -134,10 +139,12 @@
 #   * 40A4/40A5H and 40F9/40FAH (read rule 3) -- no write branch.  40B1/40B2H
 #     is the ONLY writable member; rule 3 above is where that finally gets
 #     said on the write side, having been stated only on the read side.
-#   * the tokenized program image, a >= 17129 && a < PMEND (read rule 5) --
-#     no write branch.  THIS ASYMMETRY IS THE SHADOW of FINDING 23: a byte
-#     POKEd into the image is stored and invisible.  Measured at zero across
-#     4,339 corpus files, so it stays exactly as it is.
+#   * the tokenized program image, a >= 17129 && a < PMEND -- rule 6 stores
+#     MEM[a] and read rule 5 NOW READS IT BACK (writable since 2026-09-12,
+#     superseding FINDING 23's read-only shadow: the Dancing Demon keeps its
+#     score buffer inside its own image at 6B9BH and needs the write to
+#     stick).  Not an asymmetry any more; no image-specific write branch is
+#     needed because rule 6 already stores it and rule 5 reads it.
 #
 # THOSE BYTES ARE UNDEFINED -- not zero, not absent.  If this side and the
 # core ever diff their memory images, the four ranges above are OUT OF SCOPE

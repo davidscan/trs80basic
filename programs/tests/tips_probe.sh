@@ -146,7 +146,7 @@ probe B4 W "set a USR routine for DOS and Level II (PEEK(16396) picks 16526)" ""
 " 16526 ${nl}USR slot=0 entry=32000 arg=0${nl}USR STUB: 1 CALL NOT EXECUTED (7D00H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead" \
 "10 A=PEEK(16396):IF A=195 THEN AD=23316 ELSE AD=16526${nl}20 POKE AD,0:POKE AD+1,125:PRINT AD${nl}30 X=USR(0)" "TRS80_USR_TRACE=1"
 probe B5 W "poking above 32767 with a negative address" "" " 0  7 " '10 POKE -1,0:PRINT PEEK(-1);:POKE -1,7:PRINT PEEK(-1)'
-probe B6 D "renumber by POKEing line numbers into the program image (image is read-only)" "" \
+probe B6 D "renumber by POKEing line numbers into the program image (LIST reads the source, so the listing is unchanged)" "" \
 "A${nl}B${nl}10 PRINT \"A\"${nl}20 PRINT \"B\"${nl}30 P=17129:FOR L=1 TO 9000:IF PEEK(P+1)>0 THEN POKE P+3,PEEK(P+3)+125:P=PEEK(P)+256*PEEK(P+1):NEXT${nl}40 LIST" \
 "10 PRINT \"A\"${nl}20 PRINT \"B\"${nl}30 P=17129:FOR L=1 TO 9000:IF PEEK(P+1)>0 THEN POKE P+3,PEEK(P+3)+125:P=PEEK(P)+256*PEEK(P+1):NEXT${nl}40 LIST"
 probe B7 D "append two programs by POKEing 16548/9 (pointer is read-only)" "" " 233 " '10 POKE 16548,0:PRINT PEEK(16548)'
