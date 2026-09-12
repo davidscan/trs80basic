@@ -1,4 +1,4 @@
-# trs80basic.awk — TRS-80 Model I LEVEL II BASIC interpreter in GNU awk
+# trs80basic.awk — TRS-80 Model I/III LEVEL II BASIC interpreter in GNU awk
 
 ## Running it
 
@@ -22,7 +22,12 @@ exactly as displayed memory. Display memory is PEEK/POKEable at
 
 **BREAK key = Ctrl-C.** It stops a running program (`BREAK IN nnnn`),
 cancels the current input line, stops a LIST, and exits AUTO. `CONT`
-resumes after BREAK/STOP/END (not after an error or program edit).
+resumes after BREAK/STOP/END (not after an error or program edit). A
+program can disable BREAK the period way (2026-09-11): 16396 (400CH) is
+the ROM's BREAK vector, and `POKE 16396,23` (or 175, 165) turns Ctrl-C
+off until `POKE 16396,201` (or 195) restores it. While disabled, three
+Ctrl-C presses in a row break anyway, so a runaway program can always be
+stopped; the keyboard matrix still shows the key either way.
 
 **Other keys** (`help keys` lists them; control keys work shifted or
 unshifted): **Ctrl-S** pauses a running program or LIST — the real
@@ -32,6 +37,8 @@ arrow); **Ctrl-A**/**Ctrl-E** jump to start/end of the line;
 **left/right arrows** move the cursor (insert happens at the cursor);
 **up/down arrows** recall command history at the `>` prompt (the
 `history` / `h` metacommand lists it; memory-only, per session);
+**PgUp/PgDn** (or **Ctrl-B**/**Ctrl-F**) page long metacommand output
+below the grid;
 **TAB** completes a filename at the `>` prompt — longest common prefix,
 `/` appended to a unique directory match, candidates listed below the
 grid when ambiguous. In fullscreen mode, editing a line longer than the
@@ -41,9 +48,9 @@ editor handles full 255-char lines.
 **Unquoted filenames**: CLOAD/CLOAD?/CSAVE accept an unquoted filename,
 which runs to the end of the line with case, `/`, and `.` preserved
 (`CLOAD programs/demo.bas`). A `:`-statement cannot follow an unquoted
-name; quote it instead. Metacommand output (`dir`, `speed`, `history`,
-`help`, `man`) renders below the 64x16 grid, not on the simulated
-screen; `dir` shows at most 29 lines.
+name; quote it instead. Metacommand output (`dir`, `cat`, `speed`,
+`history`, `help`, `man`, `ext`) renders below the 64x16 grid, not on the
+simulated screen; long output pages with PgUp/PgDn.
 
 ## Implemented statements and commands
 
@@ -59,8 +66,8 @@ ON e GOTO/GOSUB list, ON ERROR GOTO n, RESUME [0|NEXT|n], POKE, PRINT
 RESET, RUN [n], SET, STOP, TRON/TROFF, `?` as PRINT shorthand.
 
 Functions: ABS INT FIX SGN SQR SIN COS TAN ATN LOG EXP RND CINT CSNG CDBL
-PEEK POINT POS FRE LEN ASC VAL CHR$ STR$ STRING$ LEFT$ RIGHT$ MID$ (2- and
-3-arg) INKEY$ ERR ERL MEM.
+PEEK INP POINT POS FRE LEN ASC VAL CHR$ STR$ STRING$ LEFT$ RIGHT$ MID$ (2-
+and 3-arg) INKEY$ ERR ERL MEM VARPTR USR.
 
 Operators: ^ (also `[`, the Model I up-arrow byte), * / + - (string
 concatenation with +), = < > <= >= <> (also =< => ><), AND OR NOT (16-bit
@@ -79,8 +86,9 @@ a newline from the 4th zone; numbers print with leading sign space,
 trailing space, no leading zero on fractions (`.5`), ~6 significant
 digits, E-notation for extremes; errors are `?XX ERROR IN nnnn` with the
 full 23-code table (NF SN RG OD FC OV OM UL BS DD /0 ID TM OS LS ST CN NR
-RW UE MO FD L3); `ERR/2+1` gives the error code; unPOKEd non-display
-PEEK returns 255; POKE stores value AND 255; negative addresses wrap
+RW UE MO FD L3); `ERR/2+1` gives the error code; unPOKEd RAM that is
+not a live cell (see the memory map under *Omissions and deviations*)
+PEEKs as 255; POKE stores value AND 255; negative addresses wrap
 (+65536); line numbers 0-65529; a bare line number deletes the line
 (?UL ERROR if absent); keyboard lines cap at 255 chars; syntax errors are
 diagnosed at RUN, not at entry; RUN resets variables/arrays/stacks/DATA
@@ -128,9 +136,8 @@ and is diagnosed later at RUN.
 line text, exactly what `CSAVE` writes). The tokenized "crunched" cassette
 format — a binary image beginning with a `0xFF` header, storing keywords as
 single bytes 0x80-0xFB in a linked list of lines — is **not** loadable by the
-interpreter, and there are no plans to add it: the interpreter reads text.
-Many archived commercial programs are in that format; `less` reports them as
-binary.
+interpreter today: it reads text. Many archived commercial programs are in
+that format; `less` reports them as binary.
 
 Convert them first, with `tools/detok.py`:
 
@@ -290,19 +297,46 @@ the interpreter reports the first `?SN`. Repairing them is a separate tool
 ## Omissions and deviations (documented)
 
 - EDIT is not implemented (excluded by design). AUTO and DELETE are.
-- Machine-language and hardware features are excluded: SYSTEM, INP.
-  OUT is an accepted no-op (2026-08-12: both expressions evaluate, the
-  port write does nothing). USR is a parse-and-stub (2026-08-13:
-  DEF USR[n]=addr evaluates and discards; USRn(x) returns its
-  argument — no Z80 runs). VARPTR IS implemented (2026-08-14): for a
-  string it returns a live [len][addr lo][addr hi] descriptor whose
-  byte region PEEKs and POKEs through to the value (the string-packing
-  sprite idiom works); for a numeric, the address of its 4
-  Microsoft-single bytes, also live both ways.
+- SYSTEM is the one machine-language feature still excluded. OUT is an
+  accepted no-op (2026-08-12: both expressions evaluate, the port write
+  does nothing). INP(p) is implemented (2026-09-11): port 255, the
+  cassette/video-mode port, is live (127 in 64-character mode, 63 after
+  CHR$(23)); every other port reads 255, the open bus, so RS-232, floppy
+  and joystick probes take their "not present" branch.
+- USR (2026-09-10/11): `DEF USRn=addr` is stored as slot n's entry
+  address (?FC on a bad one), and slot 0 falls back to the POKEd vector
+  at 16526/7 (408EH), so period loaders that never say DEF USR still
+  resolve. With `TRS80_Z80=<command>` naming the companion Z80 core, a
+  USR call sends the machine's memory image to the core and the routine
+  RUNS (the wire format is `PROTOCOL.md`; `TRS80_Z80_TIMEOUT` is the
+  per-reply guard in milliseconds, default 5000). Without a core the
+  call is a stub that returns its argument — and is no longer silent: a
+  run that called USR ends with one stderr line naming the entries and
+  call counts that were not executed, and `TRS80_USR=strict` raises ?FC
+  at the call instead, so a routine that silently did nothing is never
+  mistaken for one that worked.
+- VARPTR IS implemented (2026-08-14): for a string it returns a live
+  [len][addr lo][addr hi] descriptor whose byte region PEEKs and POKEs
+  through to the value (the string-packing sprite idiom works); for a
+  numeric, the address of its 4 Microsoft-single bytes, also live both
+  ways. The address is STABLE (2026-09-10): one address per variable per
+  run, data re-homed only when a string grows, so the two-call idiom
+  `PEEK(VARPTR(A$)+1)+256*PEEK(VARPTR(A$)+2)` composes the real address.
+  POKEing the descriptor repoints the string (2026-09-11): `POKE
+  VARPTR(A$)+1,lo:POKE VARPTR(A$)+2,hi` aliases A$ onto video or system
+  RAM, the screen-editor trick, and LSET/RSET/MID$= then write through
+  to that memory; an ordinary assignment to A$ ends the alias.
 - LPRINT and LLIST work (2026-08-12): the line printer is a host stream —
   set TRS80_PRINTER=path to append printed output to that file; unset,
   output is discarded (the hardware analog of no printer attached).
-  LPRINT supports ; , TAB and USING with its own column counter.
+  LPRINT supports ; , TAB and USING with its own column counter, and
+  the printer status at 14312/3 always reads 63 (attached and ready).
+  The ROM device vectors re-route output (2026-09-11): `POKE 16414,141:
+  POKE 16415,5` sends PRINT to the printer, `POKE 16422,88:POKE 16423,4`
+  sends LPRINT to the screen, `POKE 16422,103:POKE 16423,0` silences
+  the printer, and restoring the ROM values (88,4 / 141,5) puts it back;
+  the printer's lines-per-page, line counter and column at 16424, 16425
+  and 16539 are live.
 - Disk BASIC file I/O IS implemented (see "Disk BASIC file I/O" above),
   as are LOAD/SAVE, RUN "file", INSTR, TIME$, &H/&O literals, the
   MID$ statement (2026-08-12: in-place replace, target length never
@@ -312,7 +346,7 @@ the interpreter reports the first `?SN`. Repairing them is a separate tool
   implicit NEW; file lines overwrite/interleave, variables clear,
   returns to command level), and NAME (2026-08-14: renumber with full
   reference rewrite — GOTO/GOSUB/ON.. lists/THEN/ELSE/RESTORE/RESUME/
-  RUN; ERL comparisons cannot be fixed). Still absent: CMD.
+  RUN; ERL comparisons cannot be fixed). Still absent: CMD (raises ?SN).
 - CLEAR takes any numeric expression (2026-08-12 conformance fix —
   CLEAR M, CLEAR FR!-8000 appear throughout period listings).
 - Gated extensions (2026-08-12): `ext on` (metacommand; or TRS80_EXT=1)
@@ -362,17 +396,31 @@ the interpreter reports the first `?SN`. Repairing them is a separate tool
   The seed is PEEK/POKEable at 16554-16556; RANDOM (and boot) rewrite
   only the middle byte, like the ROM's R-register read. `--seed N`
   makes the whole sequence repeatable.
+- The memory map (`man PEEK` has the full list). Live cells, each read
+  from the state it names: the keyboard matrix at 14336-14591 (INKEY$'s
+  key, row by row); printer status 14312/3; the display at 15360-16383;
+  the BREAK vector 16396; the video and printer driver vectors 16414/5
+  and 16422/3; the system variable window (2026-09-11) — cursor position
+  and character 16416-16418, printer lines-per-page, line counter and
+  column 16424/16425/16539, the Model I clock 16449-16454, the current
+  line number 16546/7, AUTO's flag, line and increment 16609-16613
+  (`POKE 16609,1` starts AUTO), the TRON flag 16667; the USR vector
+  16526/7; the program base 16548/9, start of variables 16633/4, and top
+  of memory 16561/2; the RND seed 16554-16556. Everything else is RAM
+  that reads 255 until POKEd.
 - The stored program is PEEKable in the authentic tokenized format from
-  17129 (42E9H) with live system pointers at 16548/9 (program base),
-  16633/4 (start of variables) and 16561/2 (top of memory); a numeric
-  answer to MEMORY SIZE? becomes HIMEM, the ceiling string space
-  allocates below. Memory above HIMEM is reserved, not absent — still
-  readable and writable, which is what makes the classic reserve-then-
-  load idiom work (corrected 2026-09-08; it used to read 255 and discard
-  POKEs). 16561/2 is also WRITABLE, so `POKE 16561,lo:POKE 16562,hi:CLEAR n`
-  moves HIMEM from inside a program, the way listings reserve their own
-  space (2026-09-08; the POKE used to be silently dropped). POKEs into the
-  program region are not read back (no self-modifying code).
+  17129 (42E9H); a numeric answer to MEMORY SIZE? becomes HIMEM, the
+  ceiling string space allocates below. Memory above HIMEM is reserved,
+  not absent — still readable and writable, which is what makes the
+  classic reserve-then-load idiom work (corrected 2026-09-08; it used to
+  read 255 and discard POKEs). 16561/2 is also WRITABLE, so `POKE
+  16561,lo:POKE 16562,hi:CLEAR n` moves HIMEM from inside a program, the
+  way listings reserve their own space (2026-09-08; the POKE used to be
+  silently dropped). POKEs into the program region are not read back
+  (no self-modifying code). A program too large for the space below the
+  top of memory is imaged up to the last whole line that fits, with the
+  terminator there, and one stderr line says so (2026-09-11); the
+  program itself still runs in full.
 - Model III character modes (2026-08-14): printing CHR$(21) toggles
   codes 192-255 between space compression and character display,
   CHR$(22) picks the set (card suits/Greek/math vs halfwidth Katakana);
@@ -387,12 +435,27 @@ the interpreter reports the first `?SN`. Repairing them is a separate tool
 
 ## Testing / automation aids (not LEVEL II features)
 
+Batch mode: `./basic prog.bas` LOADs and RUNs the program non-interactively
+and exits 0 on a clean run, 1 on an uncaught BASIC error (also printed to
+stderr as `?SN ERROR IN 40`), 2 on a bad invocation or unreadable file.
+stdin feeds the program's INPUT statements; `--seed N` makes RND
+repeatable; `--screen` keeps the 64x16 screen control codes in the output
+(plain text is the default without a tty); `--` ends the options and
+`-h`/`--help` prints the usage. Batch mode has no raw keyboard, so INKEY$
+reads whole lines from stdin.
+
 Piped stdin (no tty) is read line-by-line; INKEY$ then consumes input
 characters. `TRS80_DUMB=1` disables ANSI positioning for readable
-transcripts. The immediate command `@dump` (lowercase only, like the other
-metacommands) prints the current 16-row screen buffer. The
-`programs/tests/` folder contains the scripted regression inputs used during
-development.
+transcripts. `TRS80_KMHOLD=<n>` (default 4) is how many INKEY$ polls one
+keypress holds for in the interactive grid, since a terminal sends no
+key-up events. The immediate command `@dump` (lowercase only, like the
+other metacommands) prints the current 16-row screen buffer. The
+`programs/tests/` folder holds the scripted regression transcripts
+(t1..t33), self-checking `.bas` fixtures that assert on their own output
+(VARPTR, raw bytes, string aliasing, INP, the system variable window),
+shell suites for the BREAK and device vectors, the USR frame, image
+truncation and the coprocess protocol, and `z80_stub.py`, the reference
+stand-in for the Z80 core.
 
 At startup, a short credit/help banner is drawn below the virtual screen (it
 shares the region used by `man`/`help`, so the first such call replaces it).

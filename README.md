@@ -2,7 +2,7 @@
 
 ## What it is
 
-A TRS-80 Model I LEVEL II BASIC interpreter — the 1978 Radio Shack dialect,
+A TRS-80 Model I/III LEVEL II BASIC interpreter — the 1978 Radio Shack dialect,
 with its 64x16 screen and semigraphics, cassette (`CLOAD`/`CSAVE` as text
 files), Disk BASIC file I/O, and an `OLLAMA` channel for talking to a local
 LLM from BASIC. It runs `.bas` listings interactively at a `READY` prompt or
@@ -242,12 +242,14 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 
 ### Not supported
 
-- Machine code — not yet: `USR` returns its argument and `POKE`/`PEEK`
-  address a simulated memory, not a Z80. A run that called `USR` ends with
-  one stderr line naming the entry addresses that were not executed, so a
-  routine that silently did nothing is never mistaken for one that worked
-  (`TRS80_USR=strict` turns the calls into `?FC`). Real machine code arrives
-  when the companion Z80 coprocessor project lands.
+- Machine code — only through the companion Z80 core, which is not yet
+  built: set `TRS80_Z80` to its command and `USR` routines execute against
+  the simulated memory (`PROTOCOL.md` is the contract; the interpreter side
+  is complete and tested against a reference stub). Without it `USR`
+  returns its argument, and a run that called `USR` ends with one stderr
+  line naming the entry addresses that were not executed, so a routine that
+  silently did nothing is never mistaken for one that worked
+  (`TRS80_USR=strict` turns the calls into `?FC`).
 - Native Windows (cmd/PowerShell) — not yet: the no-install Windows package
   returns once it can be tested on a local Windows machine. Meanwhile run it
   under WSL + Windows Terminal, which is fully compatible, semigraphics
@@ -266,8 +268,11 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 | `support/manpages.txt` | text behind `man` and `help`; plain format, edit freely | you | no — `man` stops working |
 | `programs/*.bas` | demo programs (`aethelgard`, `tictactoe`, `demo_*`, `gfxtest`) | you | yes |
 | `programs/examples/` | feature examples with `.in` inputs and `.out` transcripts | `run_examples.sh --update` (transcripts) | transcripts regenerate; programs do not |
-| `programs/tests/t*.txt`, `prog1.bas` | interactive-mode input scripts for regression checks | you | no |
-| `programs/tests/ollama_stub.sh` | canned Ollama replies for tests | you | no — `oracle` and `t29` need it |
+| `programs/tests/t*.txt`, `prog1.bas` | interactive-mode input scripts for regression checks (t1–t33) | you | no |
+| `programs/tests/*.bas`, `programs/tests/*.sh` | self-checking fixtures and shell suites: VARPTR, string aliasing, INP, the system variable window, the BREAK and driver vectors, USR, image truncation, the Z80 protocol, the trs-80.com tips tally | you | no |
+| `programs/tests/ollama_stub.sh` | canned Ollama replies for tests | you | no — `oracle`, `t13` and `t29` use it |
+| `programs/tests/z80_stub.py` | the reference Z80 core stand-in that `z80.sh` and `t32` run against | you | no |
+| `PROTOCOL.md` | the USR coprocess protocol between the interpreter and the Z80 core; mirrored into the core repo | you | no |
 | `tools/detok.py`, `tools/tok.py`, `tools/level2_tokens.tsv` | image ↔ listing converters and the Level II token table | you | no |
 | `tools/test_*.py` | their tests (`python3 -m unittest`) | you | no |
 | `tools/DETOK.md` | the token format and conversion notes | you | yes |

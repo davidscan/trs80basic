@@ -3554,8 +3554,9 @@ function al_clear(name, key,   tgt, d) {
 # resends only what may have changed since the last one, so a listing that
 # calls a scroll routine thousands of times does not pay 14 ms per call.
 # What is resent and why:
-#   * the screen (1K) and the 14 constant/pointer bytes -- always; cheap,
-#     and written from many places (PRINT, scroll, CLS) with no chokepoint.
+#   * the screen (1K), the 11 constant/pointer bytes and the 20 system
+#     variable window cells -- always; cheap, and written from many places
+#     (PRINT, scroll, CLS) with no chokepoint.
 #   * every SPK cell -- always; string VALUES change through ordinary
 #     assignment (SV[]/VA[]), not through a chokepoint, and the region is
 #     small (only what VARPTR materialised).

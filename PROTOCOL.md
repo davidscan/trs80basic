@@ -75,10 +75,13 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     it answers the `GO` with `NEED full` instead of running.  The
     interpreter then resends the call as a full frame with `gen=1`.
 *   What a delta contains, so the core never has to guess: the screen
-    (3C00-3FFFH, 1024 bytes), the 14 constant and pointer bytes (37E8/9H,
-    40A4/5H, 40AA-40ACH, 40B1/2H, 40F9/FAH), every VARPTR'd string and
-    numeric cell, the program image when it was rebuilt, and every other
-    address the interpreter wrote or unmapped since the last frame.  Every
+    (3C00-3FFFH, 1024 bytes), the 11 constant and pointer bytes (37E8/9H,
+    40A4/5H, 40AA-40ACH, 40B1/2H, 40F9/FAH), the 20 system variable
+    window cells (4020H-4022H, 4028/4029H, 409BH, 4041H-4046H, 40A2/A3H,
+    40E1H-40E5H, 411BH) -- all of these always -- every VARPTR'd string
+    and numeric cell, the program image when it was rebuilt, and every
+    other address the interpreter wrote or unmapped since the last frame.
+    Every
     byte is what a BASIC `PEEK` would return -- the address-resolution
     contract in `src/p75_mem.awk` -- so the core reproduces nothing; it
     just applies the runs.  Addresses NOT in any frame read 255.

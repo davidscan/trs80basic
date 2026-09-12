@@ -174,7 +174,7 @@ image.
 
 ## Tests
 
-    python3 tools/test_detok.py        # 29 checks, stdlib only
+    python3 tools/test_detok.py        # 32 checks, stdlib only
     python3 tools/test_tok.py          # 22 checks, stdlib only
 
 These pin the decisions a corpus sweep cannot localise --- literal-region

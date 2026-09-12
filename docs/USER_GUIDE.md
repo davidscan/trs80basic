@@ -28,9 +28,9 @@ Level II never did. Everything else is intended to match the manuals.
 ```
 
 You get the authentic `MEMORY SIZE?` prompt (press ENTER — or answer with a
-number, which really does become the top of RAM: `PEEK` above it reads 255,
-`POKE` above it is discarded), the `RADIO SHACK LEVEL II BASIC` banner, and
-`READY`. Exit with `BYE`, which restores your terminal; if the interpreter
+number, which becomes HIMEM, the ceiling BASIC allocates below; memory above
+it stays present for a machine-language routine to load into, see Part III),
+the `RADIO SHACK LEVEL II BASIC` banner, and `READY`. Exit with `BYE`, which restores your terminal; if the interpreter
 is ever killed abnormally, `stty sane` recovers the tty.
 
 The top 16 rows of your terminal are the simulated 64x16 display. Everything
@@ -42,8 +42,26 @@ A statement typed without a line number executes at once — that is
 **immediate mode**, the `>` prompt; a line that starts with a number is
 stored into the program instead. The guide uses the term throughout.
 
-Requirements: GNU awk 5.x, a VT100/ANSI terminal at least 64x20, UTF-8
-locale.
+Requirements: GNU awk 5.x, run with `-b` so strings are bytes (the
+`basic` launcher does this; without it a UTF-8 locale corrupts every byte
+above 127 read from a file, and the interpreter warns once), and a
+VT100/ANSI terminal at least 64x20. No particular locale is needed.
+
+Environment variables the interpreter reads (the OLLAMA ones are in Part
+II):
+
+| variable | default | what it does |
+|---|---|---|
+| `TRS80_GFX` | Unicode sextants | `braille` or `ascii` semigraphics glyphs for fonts without the legacy block |
+| `TRS80_DUMB` | unset | `1` forces plain streamed output even on a terminal (logging, diffing) |
+| `TRS80_MHZ` | full speed | throttle to a period clock; the `speed` metacommand does the same |
+| `TRS80_PRINTER` | unset (discard) | file that `LPRINT`/`LLIST` append to |
+| `TRS80_EXT` | `0` | `1` turns on the EXT gate (Part IV); `ext on` does the same |
+| `TRS80_MANFILE` | `support/manpages.txt` | where `man` reads its text |
+| `TRS80_KMHOLD` | `4` | how many `INKEY$` polls one keypress holds for |
+| `TRS80_USR` | unset | `strict` makes a `USR` call raise `?FC` instead of returning its argument |
+| `TRS80_Z80` | unset | command that runs the companion Z80 core; `USR` routines then execute (`PROTOCOL.md`) |
+| `TRS80_Z80_TIMEOUT` | `5000` | milliseconds to wait for each reply from the core |
 
 ### Keys
 
@@ -52,7 +70,7 @@ or unshifted.
 
 | key | does |
 |---|---|
-| Ctrl-C | **BREAK**: stops a running program (`BREAK IN nnnn`), cancels the input line, stops LIST, exits AUTO. `CONT` resumes after BREAK/STOP/END |
+| Ctrl-C | **BREAK**: stops a running program (`BREAK IN nnnn`), cancels the input line, stops LIST, exits AUTO. `CONT` resumes after BREAK/STOP/END. A program can disable it with `POKE 16396,23` (Part III); three presses in a row break anyway |
 | Ctrl-S | pause a running program or LIST (the real SHIFT-@); any key resumes, Ctrl-C breaks |
 | Ctrl-L | CLEAR: wipe the screen at the `>` prompt |
 | Ctrl-U | erase the input line (SHIFT-left-arrow) |
@@ -147,7 +165,10 @@ classic `?SN ERROR IN 40` form), **2** bad invocation. Output is a plain
 text transcript (`--screen` keeps the cursor codes; graphics are not
 rendered in batch). Running out of stdin at an `INPUT` is an error, so a
 test can never hang on a prompt — but there is no loop guard, so wrap a
-possibly-non-halting program in `timeout`.
+possibly-non-halting program in `timeout`. Two advisory lines can also
+reach stderr on an exit-0 run: `USR STUB: n CALLS NOT EXECUTED ...` when
+`USR` was called with no Z80 core attached, and `PROGRAM IMAGE TRUNCATED:
+...` when the tokenized image did not fit below the top of memory.
 
 **Batch mode has no keyboard.** It turns the raw keyboard off, so `INKEY$`
 reads whole lines from stdin rather than single keypresses. A program whose
@@ -358,13 +379,24 @@ because period programs poke at it:
 
 - **The stored program is PEEKable** in the authentic tokenized format from
   17129 (42E9H), with live system pointers at 16548/9 (program base),
-  16633/4 (start of variables), 16561/2 (top of memory). POKEs into the
-  program region are not read back — no self-modifying code.
+  16633/4 (start of variables), 16561/2 (top of memory), plus the system
+  variable window and driver vectors listed under `PEEK` in Part V:
+  cursor position and character, printer line and column counters, the
+  clock, the line number executing, AUTO and TRON. POKEs into the
+  program region are not read back — no self-modifying code. A program
+  too large to fit below the top of memory is imaged up to the last whole
+  line that fits, with one stderr line saying so.
 - **Display memory** 15360–16383, live both ways.
 - **`VARPTR`** returns a live descriptor: for a string, `[len][addr lo]
   [addr hi]` whose byte region PEEKs and POKEs *through* to the value —
-  the string-packing sprite idiom from the magazines works. For a numeric,
-  the address of its 4 Microsoft-single bytes, also live.
+  the string-packing sprite idiom from the magazines works. The address
+  is stable — one per variable per run, so the two-call
+  `PEEK(VARPTR(A$)+1)+256*PEEK(VARPTR(A$)+2)` idiom composes — and
+  POKEing the address cells repoints the string, so
+  `POKE VARPTR(A$)+1,0:POKE VARPTR(A$)+2,60` makes `A$` read and write
+  video RAM (`LSET`/`RSET`/`MID$=` paint through; an assignment ends the
+  alias). For a numeric, the address of its 4 Microsoft-single bytes,
+  also live.
 - **RND is the authentic ROM 24-bit LCG**: `RND(0)` a float in [0,1),
   `RND(n)` an integer 1..n, `RND(1)` always 1, as on hardware. The seed is
   PEEK/POKEable at 16554–16556; `RANDOM` (and boot) rewrite only the middle
@@ -385,10 +417,18 @@ because period programs poke at it:
   15572 rather than a real count.
 - **LPRINT/LLIST** print to a host stream: set `TRS80_PRINTER=path` to
   append there; unset, output is discarded — the hardware analogue of no
-  printer attached.
+  printer attached. The ROM driver vectors are honoured: `POKE 16414,141:
+  POKE 16415,5` sends `PRINT` to the printer, `POKE 16422,88:POKE 16423,4`
+  sends `LPRINT` to the screen, `POKE 16422,103:POKE 16423,0` silences it.
 - **`OUT` is an accepted no-op** (both expressions evaluate, the port write
-  does nothing); **`USR`/`DEF USR` parse and stub** (`USRn(x)` returns its
-  argument — no Z80 runs, yet); `INP`, `SYSTEM`, `CMD` do not exist.
+  does nothing); **`INP(255)`** reads the live video-mode port (127 in
+  64-character mode, 63 after `CHR$(23)`), every other port the open bus,
+  255. **`USR`** has three states: with `TRS80_Z80` naming the companion
+  Z80 core, the routine at `DEF USRn=addr` (or the POKEd vector at
+  16526/7) runs; without it, `USRn(x)` returns its argument and the run
+  ends with one stderr line naming the entry addresses not executed;
+  `TRS80_USR=strict` raises `?FC` on the call instead. `SYSTEM` does not
+  exist and `CMD` is `?SN`.
 - **`speed` / `TRS80_MHZ`** charge each statement a delay derived from the
   target clock — games become playable at their intended pace.
 
@@ -444,8 +484,8 @@ Honest list, stated as current behaviour:
   downloaded `.bas` a shell-execution vector on `LOAD`. With the gate off,
   the line is an ordinary remark, so a listing carrying one is still valid
   Level II on real hardware and survives `CSAVE`/detokenizer round-trips.
-- **Absent**: `EDIT` (by design), `CMD`, `INP`, `SYSTEM` (machine-language
-  territory; `USR` stubs as above).
+- **Absent**: `EDIT` (by design) and `SYSTEM`; `CMD` is `?SN`. `USR` runs
+  only with a Z80 core attached (Part III).
 - `CLEAR` takes any numeric expression (`CLEAR FR!-8000` appears throughout
   period listings and works).
 
@@ -899,6 +939,18 @@ OUT p,v   write value v to Z80 port p
   Example: OUT 255,4
 ```
 
+#### INP
+
+```text
+INP(p)   read Z80 port p (0-255, else ?FC)
+  Port 255, the cassette/video-mode port, is live: 127 in 64-character
+  mode, 63 after CHR$(23) selects 32 characters (bit 6 is the mode, bit
+  7 the cassette input, which never has a signal here).  Every other
+  port reads 255, the open bus, so RS-232, floppy and joystick probes see
+  "not present" and take their fallback branch.
+  Example: IF INP(255)=255 THEN PRINT "SOUND"
+```
+
 #### TAB
 
 ```text
@@ -1120,6 +1172,17 @@ RANDOM   reseed the random number generator
   Example: RANDOM: PRINT RND(6)
 ```
 
+#### BREAK
+
+```text
+BREAK   the BREAK key is Ctrl-C: stops the program ("BREAK IN n"), CONT
+  resumes.  A program can DISABLE it the period way, POKE 16396,23 (or
+  175, 165) -- 16396 is the ROM's BREAK vector -- and re-enable it with
+  POKE 16396,201.  While disabled, three Ctrl-C presses in a row break
+  anyway, so a runaway program can always be stopped.  The keyboard
+  matrix (PEEK 14400) still shows the key either way.
+```
+
 ### Graphics
 
 #### SET
@@ -1245,10 +1308,26 @@ DEFSNG / DEFDBL / DEFSTR      integer / single / double / string
 VARPTR(var)   address of a variable's storage
   String: a live 3-byte descriptor [len][addr lo][addr hi]; the bytes
   at that address PEEK and POKE through to the value (string packing).
+  POKE of the address cells REPOINTS the string (the period screen-editor
+  trick): after POKE VARPTR(A$)+1,0:POKE VARPTR(A$)+2,60 the string reads
+  and writes video RAM -- PRINT A$ shows the screen, LSET/RSET/MID$=
+  paint it, POKE VARPTR(A$),n sets how much is seen.  An assignment
+  (LET, READ, INPUT) moves the descriptor and ends the alias.
   Numeric: address of the value's 4 Microsoft-single bytes, also live.
   Example: D=VARPTR(A$):M=PEEK(D+1)+256*PEEK(D+2):POKE M,191
 
 PEEK(addr)   read a memory byte (unset = 255)
+  System variables are LIVE (and POKE moves them): 16416/16417 the cursor
+  position (15360 + cell), 16418 the cursor character (POKE 16418,0
+  hides the cursor), 16424 printer lines per page + 1, 16425 lines
+  printed on this page, 16539 the printer column, 16449-16454 the clock
+  (SS MN HH YY DD MM, read-only), 16546/16547 the line number executing,
+  16609-16613 AUTO's flag, line and increment (POKE 16609,1 starts AUTO
+  at the next READY), 16667 the TRON flag (175 on; POKE switches it).
+  The driver vectors re-route output: POKE 16414,141:POKE 16415,5 sends
+  PRINT to the printer, POKE 16422,88:POKE 16423,4 sends LPRINT to the
+  screen, POKE 16422,103:POKE 16423,0 silences the printer; restore with
+  POKE 16414,88:POKE 16415,4 and POKE 16422,141:POKE 16423,5.
   Display memory 15360-16383 reads the screen.  14336-14591 reads the
   live KEYBOARD MATRIX (row r at 14336+2^r; 14400 = arrows/space/ENTER
   row; 14464 = SHIFT; composite addresses OR rows) synthesized from the
@@ -1261,11 +1340,18 @@ PEEK(addr)   read a memory byte (unset = 255)
 #### USR DEFUSR
 
 ```text
-USR(x) / USRn(x)   machine-language call STUB: evaluates and returns
-  its argument x -- no Z80 routine runs.  Programs whose USR result is
-  decorative keep running; result-dependent ones fail visibly.
-DEF USR[n] = addr / DEFUSRn = addr   accepted no-op: the address
-  expression evaluates (?TM if string) and is discarded.
+USR(x) / USRn(x)   machine-language call.  With TRS80_Z80 naming the
+  companion Z80 core the routine at slot n's entry runs against the
+  simulated memory and its HL comes back as the result (PROTOCOL.md).
+  Without a core it is a STUB: it evaluates and returns its argument x
+  and no Z80 routine runs.  Programs whose USR result is decorative keep
+  running; result-dependent ones fail visibly.  When a stubbed run ends,
+  one line on stderr names every entry address that was called and not
+  executed (USR STUB: n CALLS NOT EXECUTED ...), so a side-effect routine
+  that did nothing is never silent.  TRS80_USR=strict raises ?FC
+  on the call instead.
+DEF USR[n] = addr / DEFUSRn = addr   accepted: the address expression
+  evaluates (?TM if string) and is stored as slot n's entry address.
   Example: DEFUSR=&H7D00 : X=USR(0)
 ```
 

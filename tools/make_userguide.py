@@ -33,11 +33,11 @@ CATEGORIES = [
         "PRINT", "USING", "?", "LET", "IF", "THEN", "ELSE", "GOTO", "GOSUB",
         "RETURN", "FOR", "TO", "STEP", "NEXT", "INPUT", "READ", "DATA",
         "RESTORE", "REM", "END", "STOP", "DIM", "CLS", "CLEAR", "ON",
-        "POKE", "OUT", "LPRINT", "LLIST", "TAB",
+        "POKE", "OUT", "INP", "LPRINT", "LLIST", "TAB",
     ]),
     ("Command level", [
         "RUN", "LIST", "NEW", "CONT", "AUTO", "DELETE", "CLOAD", "CSAVE",
-        "LOAD", "SAVE", "MERGE", "NAME", "BYE", "TRON", "TROFF", "RANDOM",
+        "LOAD", "SAVE", "MERGE", "NAME", "BYE", "TRON", "TROFF", "BREAK", "RANDOM",
     ]),
     ("Graphics", ["SET", "RESET", "POINT"]),
     ("Error handling", ["ERROR", "RESUME", "ERR", "ERL"]),
