@@ -406,6 +406,24 @@ function show_banner() {
           "\"help meta\" to display supported metacommands")
 }
 
+# 32-column mode (CHR$(23)): every visible cell is double width.  Text is
+# doubled as glyph + trailing space, which reads fine; a SEMIGRAPHICS cell
+# must instead fill both columns with no gap, or the 2x3 block mosaic breaks
+# into a grid of specks (the demon's whole dance is in this mode).  So split
+# the cell's pattern into its left column and its right column, double each to
+# a full 2-wide sextant, and draw the two side by side -- a faithful
+# horizontal stretch.  b>=128 is graphics, 192-255 aliased to 128-191 unless
+# a Model III set is active, matching GL[]'s own aliasing.
+function wide_glyph(b,   m, lm, rm) {
+    if (b >= 128 && (b < 192 || !M3MODE)) {
+        m = (b < 192 ? b - 128 : b - 192)
+        lm = (and(m, 1) ? 3 : 0) + (and(m, 4) ? 12 : 0) + (and(m, 16) ? 48 : 0)
+        rm = (and(m, 2) ? 3 : 0) + (and(m, 8) ? 12 : 0) + (and(m, 32) ? 48 : 0)
+        return sext_glyph(lm) sext_glyph(rm)
+    }
+    return GL[b] " "
+}
+
 function drawcell(p) {
     if (DUMB) return
     if (WIDE) {
@@ -414,9 +432,9 @@ function drawcell(p) {
         # an odd byte repaints its even partner (no visible change)
         p -= p % 2
         if (p in CCOL)
-            printf "\033[%d;%dH\033[38;5;%dm%s \033[39m", int(p / 64) + 1, p % 64 + 1, GCANSI[CCOL[p]], GL[SCR[p]]
+            printf "\033[%d;%dH\033[38;5;%dm%s\033[39m", int(p / 64) + 1, p % 64 + 1, GCANSI[CCOL[p]], wide_glyph(SCR[p])
         else
-            printf "\033[%d;%dH%s ", int(p / 64) + 1, p % 64 + 1, GL[SCR[p]]
+            printf "\033[%d;%dH%s", int(p / 64) + 1, p % 64 + 1, wide_glyph(SCR[p])
         return
     }
     if (p in CCOL)
@@ -446,7 +464,7 @@ function redraw_all(   r, c, s, p, g) {
         s = ""
         for (c = 0; c < 64; c += (WIDE ? 2 : 1)) {
             p = r * 64 + c
-            g = GL[SCR[p]] (WIDE ? " " : "")
+            g = (WIDE ? wide_glyph(SCR[p]) : GL[SCR[p]])
             if (p in CCOL) s = s "\033[38;5;" GCANSI[CCOL[p]] "m" g "\033[39m"
             else s = s g
         }
