@@ -598,6 +598,16 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
     r = slurp_bytes(f)
     if (r < 0) return 0
     if (r > 0 && tok_header(SLURPED)) { data = SLURPED; SLURPED = ""; return prog_load_tok(data, verify, keepfiles, merge) }
+    # Under gawk -b every one-byte string is in ORD[].  A first character
+    # that is not is an invalid multibyte sequence, which means the run is
+    # NOT byte mode and this is a binary file: say so, instead of the four
+    # "NO LINE NUMBER" lines the text path would print (seen 2026-09-12 when
+    # a stale launcher without -b met the Dancing Demon image).
+    if (r > 0 && !(substr(SLURPED, 1, 1) in ORD)) {
+        SLURPED = ""; LOADBAD = 1
+        diag("?FD ERROR - BINARY FILE: run the interpreter as ./basic (gawk -b) to load a tokenized image")
+        return 1
+    }
     SLURPED = ""
     r = (getline l < f); pln = 1
     if (r < 0) return 0
