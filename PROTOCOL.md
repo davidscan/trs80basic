@@ -115,6 +115,13 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     the row-select bits).  The interpreter answers `K <value>` with the
     live matrix byte.  This is the ONLY callback; every other read is
     served from the core's own RAM.
+*   `MODE <w>` -- the video width changed: `w=1` is 32-column mode, `w=0`
+    is 64-column.  The core sends it when a routine's `OUT (FFH)` flips
+    bit 3 (the same latch `CHR$(23)` sets from BASIC), pending video
+    flushed first so the switch lands between the right frames.  The
+    interpreter re-renders the screen in the new width; a routine that
+    sets 32-column text then clears it for full-width graphics (the
+    Dancing Demon) is drawn correctly.  No reply.
 *   `T <cycles>` -- a tick: the T-states executed since the last tick.
     The core sends one every few thousand T-states (every ~5 ms of
     emulated time at 1.77 MHz is a good rate) so the interpreter can poll

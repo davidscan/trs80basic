@@ -19,6 +19,8 @@ Entries (hex):
   7008  forget everything: the NEXT call is answered with NEED full
   7009  push 1234H at SP-2/SP-1 -- the stack lands in the write-set
   700A  a video byte AND a write-set byte in one call
+  700B  OUT (FFH) bit 3 set: 32-column mode (MODE 1)
+  700C  OUT (FFH) bit 3 clear: 64-column mode (MODE 0)
   anything else: an immediate RET (hl=0, result=0, no writes)
 
 Z80_STUB_PROTO=<n> makes the stub claim another protocol version.
@@ -140,6 +142,12 @@ def main():
         elif entry == 0x700A:
             send("V 15400:65")
             ret(writes=["30000:1"])
+        elif entry == 0x700B:
+            send("MODE 1")            # OUT (FFH) with bit 3 set: 32-column
+            ret()
+        elif entry == 0x700C:
+            send("MODE 0")            # OUT (FFH) with bit 3 clear: 64-column
+            ret()
         else:
             ret()
 

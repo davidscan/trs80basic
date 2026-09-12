@@ -149,6 +149,18 @@ function wide_glyph(b,   m, lm, rm) {
     return GL[b] " "
 }
 
+# Set 32/64-column width from a port-FF bit-3 write -- the latch CHR$(23)
+# also sets, toggled by OUT (FFH) in ROM and in machine-language routines
+# (the Dancing Demon clears it for its 64-column figure after the intro's
+# 32-column text).  Redraw so the whole screen re-renders in the new width,
+# as the hardware re-interprets video RAM the instant the mode changes.
+function s_setwide(w) {
+    w = (w ? 1 : 0)
+    if (w == WIDE) return
+    WIDE = w
+    if (!DUMB) { redraw_all(); sync_cursor() }
+}
+
 function drawcell(p) {
     if (DUMB) return
     if (WIDE) {

@@ -146,6 +146,7 @@ function z80_run(x,   hl, res, k, brk, i, vid) {
         if (Z80LINE ~ /^V /) { z80_apply(substr(Z80LINE, 3), 1); vid = 1; continue }
         if (Z80LINE ~ /^K /) { z80_send("K " kb_matrix(substr(Z80LINE, 3) + 0)); continue }
         if (Z80LINE ~ /^T /) { z80_send(pollbrk() ? "BREAK" : "OK"); continue }
+        if (Z80LINE ~ /^MODE /) { s_setwide(substr(Z80LINE, 6) + 0); continue }
         if (Z80LINE ~ /^NEED /) { Z80STATE = "need"; return 0 }
         if (Z80LINE ~ /^RET /) {
             hl = z80_field("hl") + 0; res = z80_field("result") + 0

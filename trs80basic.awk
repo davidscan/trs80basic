@@ -424,6 +424,18 @@ function wide_glyph(b,   m, lm, rm) {
     return GL[b] " "
 }
 
+# Set 32/64-column width from a port-FF bit-3 write -- the latch CHR$(23)
+# also sets, toggled by OUT (FFH) in ROM and in machine-language routines
+# (the Dancing Demon clears it for its 64-column figure after the intro's
+# 32-column text).  Redraw so the whole screen re-renders in the new width,
+# as the hardware re-interprets video RAM the instant the mode changes.
+function s_setwide(w) {
+    w = (w ? 1 : 0)
+    if (w == WIDE) return
+    WIDE = w
+    if (!DUMB) { redraw_all(); sync_cursor() }
+}
+
 function drawcell(p) {
     if (DUMB) return
     if (WIDE) {
@@ -3986,6 +3998,7 @@ function z80_run(x,   hl, res, k, brk, i, vid) {
         if (Z80LINE ~ /^V /) { z80_apply(substr(Z80LINE, 3), 1); vid = 1; continue }
         if (Z80LINE ~ /^K /) { z80_send("K " kb_matrix(substr(Z80LINE, 3) + 0)); continue }
         if (Z80LINE ~ /^T /) { z80_send(pollbrk() ? "BREAK" : "OK"); continue }
+        if (Z80LINE ~ /^MODE /) { s_setwide(substr(Z80LINE, 6) + 0); continue }
         if (Z80LINE ~ /^NEED /) { Z80STATE = "need"; return 0 }
         if (Z80LINE ~ /^RET /) {
             hl = z80_field("hl") + 0; res = z80_field("result") + 0
