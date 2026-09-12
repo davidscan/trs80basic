@@ -184,8 +184,68 @@ function pm_init_index(   tbl, pairs, np, i, j, v, w, ins) {
             TIV[j + 1] = TIV[j]; TIW[j + 1] = TIW[j]; ins = j
         }
         TIV[ins] = v; TIW[ins] = w
+        if (!(v in TOKW)) TOKW[v] = w   # byte -> text for pm_detok; the first
+                                        # spelling wins (D1H lists as [, and
+                                        # both [ and ^ parse as the power op)
     }
     TOKIDX = 1
+}
+
+# detokenize one stored line body into the text prog[] holds (R1, p40).  The
+# inverse of pm_crunch and a port of tools/detok.py's expand() with keyword
+# spacing on: strings, DATA items up to a colon and everything after REM or
+# ' stay literal; ' is stored as the three bytes :REM'; a keyword gets a
+# space before it when the previous character would glue onto it (an
+# alphanumeric, $, . or #) and one after it when an alphanumeric follows,
+# because tokline lexes FORX as one identifier.  A CR or LF -- legal in a
+# stored body, impossible in a text line -- becomes a space, or inside a
+# non-DATA string the equivalent "+CHR$(n)+" splice.  Those rewrites touch
+# only this text; the image is built from the escrowed bytes.
+function pm_detok(body,   out, i, n, b, c, ins, ind, lit, kw, nxt) {
+    if (!TOKIDX) pm_init_index()
+    out = ""; i = 1; n = length(body); ins = 0; ind = 0; lit = 0
+    while (i <= n) {
+        c = substr(body, i, 1); b = ORD[c]
+        if (lit) { out = out ((b == 10 || b == 13) ? " " : c); i++; continue }
+        if (ins) {
+            if (b == 10 || b == 13) { out = out (ind ? " " : "\"+CHR$(" b ")+\""); i++; continue }
+            out = out c
+            if (b == 34) ins = 0
+            i++; continue
+        }
+        if (b == 34) { ins = 1; out = out c; i++; continue }
+        if (ind) {
+            if (b == 10 || b == 13) { out = out " "; i++; continue }
+            if (b == 58) ind = 0
+            out = out c; i++; continue
+        }
+        if (b == 58 && i + 2 <= n && ORD[substr(body, i + 1, 1)] == 147 && ORD[substr(body, i + 2, 1)] == 251) {
+            out = out "'"; lit = 1; i += 3; continue
+        }
+        if (b == 10 || b == 13) { out = out " "; i++; continue }
+        if (b >= 128) {
+            if (!(b in TOKW)) { out = out c; i++; continue }
+            kw = TOKW[b]
+            if (kw ~ /^[A-Za-z]/ && out != "" && substr(out, length(out), 1) ~ /[A-Za-z0-9$.#]/) out = out " "
+            out = out kw
+            nxt = (i < n) ? substr(body, i + 1, 1) : ""
+            if (kw ~ /[A-Za-z0-9]$/ && nxt ~ /^[A-Za-z0-9]$/) out = out " "
+            if (b == 147 || b == 251) lit = 1
+            else if (b == 136) ind = 1
+            i++; continue
+        }
+        out = out c; i++
+    }
+    return out
+}
+
+# the bytes of one line for the image: the escrowed originals when the line
+# came from a tokenized file (R1), else the crunched text
+function pm_body(ln,   body, j) {
+    if (ln in ESC) {
+        body = ESC[ln]; PMBN = length(body)
+        for (j = 1; j <= PMBN; j++) PMB[j] = ORD[substr(body, j, 1)]
+    } else pm_crunch(prog[ln])
 }
 
 # crunch one line body into PMB[1..PMBN] (mirrors tools/tok.py: strings,
@@ -243,7 +303,7 @@ function pm_build(   i, ln, addr, nb, j, nxt) {
     PMTRUNC = 0; PMTRUNCLN = 0; PMNOTED = 0
     for (i = 1; i <= NL; i++) {
         ln = LNS[i]
-        pm_crunch(prog[ln]); nb = PMBN
+        pm_body(ln); nb = PMBN
         if (addr + 4 + nb + 1 + 2 - 1 > RAMTOP) { PMTRUNC = 1; PMTRUNCLN = ln; break }
         nxt = addr + 4 + nb + 1                   # always <= RAMTOP now
         PMEM[addr] = nxt % 256; PMEM[addr + 1] = int(nxt / 256)

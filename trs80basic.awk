@@ -1100,6 +1100,7 @@ function st_history(   i, from, out) {
 
 function storeline(ln, text) {
     prog[ln] = text
+    delete ESC[ln]                  # a typed line is text again (R1 escrow)
     LASTLN = ln
     inval_cache(ln)
     rebuild()
@@ -1107,7 +1108,7 @@ function storeline(ln, text) {
 }
 
 function delline(ln) {
-    delete prog[ln]
+    delete prog[ln]; delete ESC[ln]
     inval_cache(ln)
     rebuild()
     DATADIRTY = 1; CONTOK = 0
@@ -1166,7 +1167,7 @@ function st_delete(   i, ln, n, hits) {
         if (ln >= RA && ln <= RB) { hits[++n] = ln }
     }
     if (n == 0) { raise(8); return }
-    for (i = 1; i <= n; i++) { delete prog[hits[i]]; inval_cache(hits[i]) }
+    for (i = 1; i <= n; i++) { delete prog[hits[i]]; delete ESC[hits[i]]; inval_cache(hits[i]) }
     rebuild()
     DATADIRTY = 1; CONTOK = 0
 }
@@ -1204,6 +1205,7 @@ function auto_run(start, inc,   line, k) {
 
 function st_new(   x) {
     for (x in prog) { inval_cache(x); delete prog[x] }
+    delete ESC
     rebuild()
     clear_vars()
     FSN = 0; GSN = 0; NDATA = 0; DP = 1; DATADIRTY = 1
@@ -1526,6 +1528,9 @@ function st_name(   n, m, i, j, cnt, ln, maxbelow, newn, map, newprog, wa, wn, w
         inval_cache(ln)
     }
     delete prog
+    delete ESC                      # renumbering rewrites text; the escrowed
+                                    # bytes would be stale, so every line is
+                                    # text again (R1 ruling, 2026-09-12)
     for (ln in newprog) prog[ln] = newprog[ln]
     rebuild()
     if (LASTLN in map) LASTLN = map[LASTLN]
@@ -1579,12 +1584,20 @@ function name_rewrite(text, oldln, map,   t, ty, tx, out, last, o, len, val, lis
 # (MERGE) keeps the current program: file lines overwrite/interleave instead
 # of replacing it.  Returns 0 if the file can't be opened; sets LOADBAD=1 if
 # any line was rejected.
-function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen, ok, pln, rpt, ra, ri, nn) {
+function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen, ok, pln, rpt, ra, ri, nn, data) {
     LOADBAD = 0
+    # R1 (2026-09-12): a TOKENIZED image -- the 0xFF-headed cassette/disk
+    # form every archived TRS-80 program is in -- loads directly.  The file
+    # is read once as bytes to look for the header; a text listing falls
+    # through to the line loop below, re-read the ordinary way.
+    r = slurp_bytes(f)
+    if (r < 0) return 0
+    if (r > 0 && tok_header(SLURPED)) { data = SLURPED; SLURPED = ""; return prog_load_tok(data, verify, keepfiles, merge) }
+    SLURPED = ""
     r = (getline l < f); pln = 1
     if (r < 0) return 0
     if (!verify) {
-        if (!merge) for (x in prog) { inval_cache(x); delete prog[x] }
+        if (!merge) { for (x in prog) { inval_cache(x); delete prog[x] }; delete ESC }
         clear_vars(keepfiles)
         NDATA = 0; DP = 1; CONTOK = 0
     }
@@ -1603,12 +1616,122 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
                 else if (verify) {
                     nseen++
                     if (!(ln in prog) || prog[ln] != rest) ok = 0
-                } else { prog[ln] = rest; inval_cache(ln); LASTLN = ln }
+                } else { prog[ln] = rest; delete ESC[ln]; inval_cache(ln); LASTLN = ln }
             } else { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " pln " (NO LINE NUMBER)\n" }
         }
         r = (getline l < f); pln++
     }
     close(f)
+    LOADBAD = (bad ? 1 : 0)
+    if (verify) {
+        for (x in prog) nseen--
+        if (nseen != 0) ok = 0
+        if (!ok) diag("BAD")
+    } else {
+        rebuild()
+        DATADIRTY = 1
+        if (bad) {
+            nn = split(rpt, ra, "\n")
+            for (ri = 1; ri <= nn; ri++) if (ra[ri] != "") diag(ra[ri])
+        }
+    }
+    return 1
+}
+
+# read a whole file as one byte string into SLURPED.  Returns -1 if it cannot
+# be opened, 0 if empty, 1 otherwise.  RS = "^$" never matches, so the first
+# record is the entire file; with gawk -b every byte is one character, NULs
+# included.  RS = "\0" is NOT an option: a line number below 256 has a 00 high
+# byte and would split the record inside the line header.
+function slurp_bytes(f,   save, r) {
+    save = RS; RS = "^$"
+    r = (getline SLURPED < f)
+    RS = save
+    close(f)
+    if (r < 0) { SLURPED = ""; return -1 }
+    if (r == 0) { SLURPED = ""; return 0 }
+    return 1
+}
+
+# the 0xFF header of a tokenized image, within the first four bytes (some
+# archived files carry a byte or two of junk ahead of an intact header)
+function tok_header(data,   i) {
+    for (i = 1; i <= 4 && i <= length(data); i++)
+        if (ORD[substr(data, i, 1)] == 255) { TOKHDR = i; return 1 }
+    return 0
+}
+
+# ---- R1: THE TOKENIZED LOADER (ruled 2026-09-10, built 2026-09-12) ---------
+# A tokenized image is what the 1978 machine wrote to tape and what nearly
+# every archived TRS-80 program is.  Converting one to text first (detok)
+# is lossy for exactly the programs that matter to the Z80 core: a machine-
+# language payload stored as fake BASIC lines can hold CR/LF bytes an ASCII
+# listing cannot carry (Dancing Demon: 14 such bytes, all inside the payload,
+# 0DH being DEC C), so the converted copy executes corrupted instructions
+# with no error.  The escrow keeps the ORIGINAL BODY BYTES of every line that
+# arrived this way -- ESC[ln] -- and pm_build (p75) images those bytes
+# verbatim instead of re-crunching the text, so PEEK into the image and the
+# USR frame see the file's bytes exactly, relinked at 42E9H.  prog[ln] holds
+# the detokenized text (pm_detok, p75, keyword spacing included) for LIST,
+# EDIT and RUN, and is what a program's real BASIC lines run from.
+#
+# THE THREE USER-VISIBLE DECISIONS, taken 2026-09-12 (the defaults the
+# session recommended; the user did not object):
+#   * LIST shows the detokenized text, as the machine's LIST did.  A payload
+#     line lists as the glyph soup it always listed as.
+#   * The loader is ONE-WAY: CSAVE and SAVE write text, as before.  Writing
+#     the tokenized form back is a separate feature if it is ever wanted.
+#   * ESCROW INVALIDATION: any typed replacement of a line (storeline, AUTO),
+#     DELETE, NEW, MERGE of a text file over the line, and NAME (renumber,
+#     which drops EVERY line's escrow, since it rewrites references in
+#     text) turn the line back into text.  A line the program never touches
+#     keeps its bytes for the life of the program.
+#
+# Desync signals stop the walk where they occur and are reported like the
+# text loader's ?FD lines (LOADBAD, batch exit 2): a truncated header, an
+# unterminated line, a line number above 65529, a duplicate line number.
+# Lines before the desync stay loaded.  An empty body (real images carry
+# them) is kept empty in the image and shown as REM in the text, which is
+# what detok does and what keeps the line a valid branch target.
+#
+# Verification (finding 8b, seam audit): payload lines are NOT excluded
+# from datascan.  The ROM's READ scans the program bytes for the DATA token
+# and would consume a payload's 88H bytes the same way, so including them
+# is the authentic behaviour; the earlier note asked for exclusion on the
+# assumption that it was an artefact of text scanning.
+function prog_load_tok(data, verify, keepfiles, merge,   n, pos, nxt, ln, z, body, x, bad, rpt, rec, ok, nseen, text, ra, ri, nn, seen) {
+    n = length(data)
+    pos = TOKHDR + 1
+    if (!verify) {
+        if (!merge) { for (x in prog) { inval_cache(x); delete prog[x] }; delete ESC }
+        clear_vars(keepfiles)
+        NDATA = 0; DP = 1; CONTOK = 0
+    }
+    ok = 1; nseen = 0; rec = 0; bad = 0
+    for (;;) {
+        if (pos + 1 > n) {                       # fewer than the 2 end-marker bytes left
+            if (pos <= n) { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " (rec + 1) " (TRUNCATED HEADER)\n" }
+            break
+        }
+        nxt = ORD[substr(data, pos, 1)] + 256 * ORD[substr(data, pos + 1, 1)]
+        if (nxt == 0) break                      # the 00 00 end of program
+        if (pos + 3 > n) { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " (rec + 1) " (TRUNCATED HEADER)\n"; break }
+        ln = ORD[substr(data, pos + 2, 1)] + 256 * ORD[substr(data, pos + 3, 1)]
+        rec++
+        z = index(substr(data, pos + 4), CHR[0])
+        if (z == 0) { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " rec " (UNTERMINATED LINE)\n"; break }
+        body = substr(data, pos + 4, z - 1)
+        pos += 4 + z
+        if (ln > 65529) { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " rec " (LINE NUMBER > 65529)\n"; break }
+        if (ln in seen) { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " rec " (DUPLICATE LINE NUMBER)\n"; break }
+        seen[ln] = 1
+        text = pm_detok(body)
+        if (text == "") text = "REM"
+        if (verify) {
+            nseen++
+            if (!(ln in prog) || prog[ln] != text) ok = 0
+        } else { prog[ln] = text; ESC[ln] = body; inval_cache(ln); LASTLN = ln }
+    }
     LOADBAD = (bad ? 1 : 0)
     if (verify) {
         for (x in prog) nseen--
@@ -3124,8 +3247,68 @@ function pm_init_index(   tbl, pairs, np, i, j, v, w, ins) {
             TIV[j + 1] = TIV[j]; TIW[j + 1] = TIW[j]; ins = j
         }
         TIV[ins] = v; TIW[ins] = w
+        if (!(v in TOKW)) TOKW[v] = w   # byte -> text for pm_detok; the first
+                                        # spelling wins (D1H lists as [, and
+                                        # both [ and ^ parse as the power op)
     }
     TOKIDX = 1
+}
+
+# detokenize one stored line body into the text prog[] holds (R1, p40).  The
+# inverse of pm_crunch and a port of tools/detok.py's expand() with keyword
+# spacing on: strings, DATA items up to a colon and everything after REM or
+# ' stay literal; ' is stored as the three bytes :REM'; a keyword gets a
+# space before it when the previous character would glue onto it (an
+# alphanumeric, $, . or #) and one after it when an alphanumeric follows,
+# because tokline lexes FORX as one identifier.  A CR or LF -- legal in a
+# stored body, impossible in a text line -- becomes a space, or inside a
+# non-DATA string the equivalent "+CHR$(n)+" splice.  Those rewrites touch
+# only this text; the image is built from the escrowed bytes.
+function pm_detok(body,   out, i, n, b, c, ins, ind, lit, kw, nxt) {
+    if (!TOKIDX) pm_init_index()
+    out = ""; i = 1; n = length(body); ins = 0; ind = 0; lit = 0
+    while (i <= n) {
+        c = substr(body, i, 1); b = ORD[c]
+        if (lit) { out = out ((b == 10 || b == 13) ? " " : c); i++; continue }
+        if (ins) {
+            if (b == 10 || b == 13) { out = out (ind ? " " : "\"+CHR$(" b ")+\""); i++; continue }
+            out = out c
+            if (b == 34) ins = 0
+            i++; continue
+        }
+        if (b == 34) { ins = 1; out = out c; i++; continue }
+        if (ind) {
+            if (b == 10 || b == 13) { out = out " "; i++; continue }
+            if (b == 58) ind = 0
+            out = out c; i++; continue
+        }
+        if (b == 58 && i + 2 <= n && ORD[substr(body, i + 1, 1)] == 147 && ORD[substr(body, i + 2, 1)] == 251) {
+            out = out "'"; lit = 1; i += 3; continue
+        }
+        if (b == 10 || b == 13) { out = out " "; i++; continue }
+        if (b >= 128) {
+            if (!(b in TOKW)) { out = out c; i++; continue }
+            kw = TOKW[b]
+            if (kw ~ /^[A-Za-z]/ && out != "" && substr(out, length(out), 1) ~ /[A-Za-z0-9$.#]/) out = out " "
+            out = out kw
+            nxt = (i < n) ? substr(body, i + 1, 1) : ""
+            if (kw ~ /[A-Za-z0-9]$/ && nxt ~ /^[A-Za-z0-9]$/) out = out " "
+            if (b == 147 || b == 251) lit = 1
+            else if (b == 136) ind = 1
+            i++; continue
+        }
+        out = out c; i++
+    }
+    return out
+}
+
+# the bytes of one line for the image: the escrowed originals when the line
+# came from a tokenized file (R1), else the crunched text
+function pm_body(ln,   body, j) {
+    if (ln in ESC) {
+        body = ESC[ln]; PMBN = length(body)
+        for (j = 1; j <= PMBN; j++) PMB[j] = ORD[substr(body, j, 1)]
+    } else pm_crunch(prog[ln])
 }
 
 # crunch one line body into PMB[1..PMBN] (mirrors tools/tok.py: strings,
@@ -3183,7 +3366,7 @@ function pm_build(   i, ln, addr, nb, j, nxt) {
     PMTRUNC = 0; PMTRUNCLN = 0; PMNOTED = 0
     for (i = 1; i <= NL; i++) {
         ln = LNS[i]
-        pm_crunch(prog[ln]); nb = PMBN
+        pm_body(ln); nb = PMBN
         if (addr + 4 + nb + 1 + 2 - 1 > RAMTOP) { PMTRUNC = 1; PMTRUNCLN = ln; break }
         nxt = addr + 4 + nb + 1                   # always <= RAMTOP now
         PMEM[addr] = nxt % 256; PMEM[addr + 1] = int(nxt / 256)

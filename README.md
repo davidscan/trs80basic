@@ -154,13 +154,20 @@ anywhere else in ROM space is a `?FC` with the address on stderr, since
 no ROM is shipped. Without the variable nothing changes: `USR` is the
 argument-returning stub described under "Not supported".
 
-**Convert an archived program.** Most TRS-80 programs found online are
-tokenized images, and `CLOAD` reads only text:
+**Load an archived program.** Most TRS-80 programs found online are
+tokenized images (binary, first byte `0xFF`). Since 2026-09-12 `CLOAD`,
+`LOAD`, `MERGE` and `./basic IMAGE.BAS` read them directly: every line's
+original bytes are kept and imaged at 42E9H exactly as the file holds
+them, so a machine-language payload stored as fake BASIC lines survives
+intact, while `LIST` shows the detokenized text. The loader is one-way —
+`CSAVE` and `SAVE` write text — and a line you retype, `DELETE`, `NAME`
+or overwrite with a text `MERGE` becomes text again. `detok.py` remains
+the tool for *reading* an image outside the interpreter:
 
 ```bash
+./basic IMAGE.BAS                              # runs the image as it is
 python3 tools/detok.py --check IMAGE.BAS       # is it tokenized?
-python3 tools/detok.py -s -o listings/ IMAGE.BAS
-./basic listings/IMAGE.bas
+python3 tools/detok.py -s -o listings/ IMAGE.BAS   # a text copy to read or edit
 ```
 
 **Talk to a model.** This needs a running [Ollama](https://ollama.com)
@@ -269,7 +276,6 @@ overwrites `.out` files; `git diff` shows exactly what changed.
   returns once it can be tested on a local Windows machine. Meanwhile run it
   under WSL + Windows Terminal, which is fully compatible, semigraphics
   included.
-- Loading tokenized images directly — convert with `detok.py` first.
 - Reading OCR-damaged listings — that is a different problem (repair, not
   conversion) and lives in a separate project.
 
@@ -284,7 +290,7 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 | `programs/*.bas` | demo programs (`aethelgard`, `tictactoe`, `demo_*`, `gfxtest`) | you | yes |
 | `programs/examples/` | feature examples with `.in` inputs and `.out` transcripts | `run_examples.sh --update` (transcripts) | transcripts regenerate; programs do not |
 | `programs/tests/t*.txt`, `prog1.bas` | interactive-mode input scripts for regression checks (t1–t33) | you | no |
-| `programs/tests/*.bas`, `programs/tests/*.sh` | self-checking fixtures and shell suites: VARPTR, string aliasing, INP, the system variable window, the BREAK and driver vectors, USR, image truncation, the Z80 protocol (`z80.sh`), POKEd and string-packed routines through the real core (`z80core.sh`, skips without it), the trs-80.com tips tally | you | no |
+| `programs/tests/*.bas`, `programs/tests/*.sh` | self-checking fixtures and shell suites: VARPTR, string aliasing, INP, the system variable window, the BREAK and driver vectors, USR, image truncation, the Z80 protocol (`z80.sh`), POKEd and string-packed routines through the real core (`z80core.sh`, skips without it), CLOAD of a tokenized image (`tokload.sh`), the trs-80.com tips tally | you | no |
 | `programs/tests/ollama_stub.sh` | canned Ollama replies for tests | you | no — `oracle`, `t13` and `t29` use it |
 | `programs/tests/z80_stub.py` | the reference Z80 core stand-in that `z80.sh` and `t32` run against | you | no |
 | `PROTOCOL.md` | the USR coprocess protocol between the interpreter and the Z80 core; mirrored into the core repo | you | no |

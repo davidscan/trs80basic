@@ -132,14 +132,25 @@ number *within the .bas file* (not a BASIC line number) and the reason is
 only structural problems; a syntactically bad but well-numbered line loads
 and is diagnosed later at RUN.
 
-`CLOAD` expects a plain-ASCII program listing (line number followed by the
-line text, exactly what `CSAVE` writes). The tokenized "crunched" cassette
-format — a binary image beginning with a `0xFF` header, storing keywords as
-single bytes 0x80-0xFB in a linked list of lines — is **not** loadable by the
-interpreter today: it reads text. Many archived commercial programs are in
-that format; `less` reports them as binary.
+`CLOAD` reads two forms. A plain-ASCII program listing (line number
+followed by the line text, exactly what `CSAVE` writes), and — since
+2026-09-12 — the tokenized "crunched" cassette format: a binary image
+beginning with a `0xFF` header, storing keywords as single bytes 0x80-0xFB
+in a linked list of lines, which is how most archived commercial programs
+survive. `LOAD`, `MERGE` and batch mode accept it too. Every line's
+original body bytes are kept and imaged at 42E9H exactly as the file holds
+them, relinked, so a machine-language payload stored as fake BASIC lines
+(CR bytes and all) is what `PEEK` and a `USR` routine see; `LIST` shows
+the detokenized text, with the same keyword spacing `detok.py -s` inserts.
+The loader is one-way: `CSAVE` and `SAVE` write text. A line that is
+retyped, `DELETE`d, overwritten by a text `MERGE`, or renumbered with
+`NAME` (which touches every line) becomes text again and is re-crunched
+from its listing. A malformed image stops at the first desync — truncated
+header, unterminated line, line number above 65529, duplicate line number
+— with a `?FD ERROR - FILE LINE n (reason)` line; lines before it stay
+loaded. An empty stored body stays empty in the image and lists as `REM`.
 
-Convert them first, with `tools/detok.py`:
+To read or edit an image as text, convert a copy with `tools/detok.py`:
 
     python3 tools/detok.py -s -o listings/ IMAGE.BAS
 

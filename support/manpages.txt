@@ -414,7 +414,9 @@ DELETE n[-[m]]   remove program lines
 CLOAD "name"   NEW the program, then load one from a file
 CLOAD? "name"   compare the file against memory instead of loading
   Clears what is in memory first and reads the plain-text listing that
-  CSAVE wrote, so anything unsaved is lost.
+  CSAVE wrote, so anything unsaved is lost.  A tokenized cassette image
+  (first byte FFH, the form archived programs are in) loads directly:
+  its bytes become the program image exactly, LIST shows the text.
   The ? form loads nothing: it checks the file against the program in
   memory and prints BAD if they differ, which is how a save was verified
   before the tape was trusted.

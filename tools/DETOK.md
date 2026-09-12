@@ -9,9 +9,14 @@
 > | of those, listings the interpreter loads | **4,721 / 4,721 (100%)** |
 > | files containing an unknown token byte | 49 (all embedded machine code) |
 
-`CLOAD` accepts only plain-ASCII listings (see the CLOAD/CSAVE section of
-`RELEASE_NOTES.md`). Most archived TRS-80 programs are *tokenized* cassette images
-instead, so they cannot be loaded at all. `detok.py` converts them.
+Most archived TRS-80 programs are *tokenized* cassette images. Since
+2026-09-12 the interpreter loads them directly (`CLOAD`, `LOAD`, `MERGE`,
+batch), keeping every line's original bytes for the program image and
+showing detokenized text on `LIST` — see the CLOAD/CSAVE section of
+`RELEASE_NOTES.md`. `detok.py` remains the tool for *reading* an image
+outside the interpreter, for producing an editable text copy, and for the
+corpus measurements below; `tok.py` is its inverse. (Until then `CLOAD`
+accepted only plain-ASCII listings and this converter was the only route.)
 
 It is a standalone utility. It imports nothing from the interpreter, and the
 interpreter does not know it exists.

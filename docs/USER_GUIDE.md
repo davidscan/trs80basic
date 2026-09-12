@@ -139,17 +139,25 @@ NEW); `NAME` renumbers, rewriting every `GOTO`/`GOSUB`/`ON`-list/`THEN`/
 rewritten).
 
 **Tokenized cassette images** — binary files starting with a `0xFF` byte,
-which is how most archived commercial software survives — are *not*
-loadable and never will be: the interpreter reads text. Convert first:
+which is how most archived commercial software survives — load directly
+(since 2026-09-12): `CLOAD "IMAGE.BAS"`, `LOAD`, `MERGE` or `./basic
+IMAGE.BAS`. Every line's original bytes are kept for the program image
+(Part III), so a machine-language payload stored as fake BASIC lines is
+`PEEK`ed and run exactly as the file holds it, while `LIST` shows the
+detokenized text with keywords spaced. The loader is one-way — `CSAVE`
+and `SAVE` write text — and a line you retype, `DELETE`, renumber with
+`NAME` or overwrite with a text `MERGE` becomes text again. To read or
+edit an image as text, convert a copy:
 
 ```bash
 python3 tools/detok.py -s -o listings/ IMAGE.BAS
 ```
 
-The `-s` matters. Level II stored what you typed, so a faithful listing
-reads `FORX=1TOR` — and this interpreter lexes that as the single
-identifier `FORX` (see Part IV). `-s` re-separates keywords using the exact
-boundaries in the token stream. `tools/tok.py` is the inverse;
+The `-s` matters for a text copy. Level II stored what you typed, so a
+faithful listing reads `FORX=1TOR` — and this interpreter lexes that as
+the single identifier `FORX` (see Part IV). `-s` re-separates keywords
+using the exact boundaries in the token stream, which is also what the
+loader does for the text it shows. `tools/tok.py` is the inverse;
 `tools/DETOK.md` documents the format.
 
 ### Batch mode (EXT)
@@ -1056,7 +1064,9 @@ DELETE n[-[m]]   remove program lines
 CLOAD "name"   NEW the program, then load one from a file
 CLOAD? "name"   compare the file against memory instead of loading
   Clears what is in memory first and reads the plain-text listing that
-  CSAVE wrote, so anything unsaved is lost.
+  CSAVE wrote, so anything unsaved is lost.  A tokenized cassette image
+  (first byte FFH, the form archived programs are in) loads directly:
+  its bytes become the program image exactly, LIST shows the text.
   The ? form loads nothing: it checks the file against the program in
   memory and prints BAD if they differ, which is how a save was verified
   before the tape was trusted.
