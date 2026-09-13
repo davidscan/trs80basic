@@ -13,3 +13,6 @@ STATUS.local.md
 # cross-project handoff notes -- the mirror of trs80_z80_core/handoff/, written
 # session-to-session about the USR seam and memory model; working files, never ships
 handoff/
+
+# Claude Code orientation notes for this working copy; versioned locally, never ships
+CLAUDE.md
