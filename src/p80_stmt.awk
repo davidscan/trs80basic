@@ -169,13 +169,29 @@ function lp_using(   sep, ty, tx, v, fmt) {
 # are evaluated (errors still raise), the port write itself does nothing.
 # OUT is a reserved word on hardware, so no period program uses it as a
 # variable name.
-function st_out(   v) {
+# OUT p,v.  Port FFH is the Model I's four-bit output latch: bits 0-1 the
+# cassette signal, bit 2 the cassette relay, bit 3 the 32-characters-per-line
+# video mode -- the same latch bit CHR$(23) writes (Barden, Programming
+# Techniques for Level II BASIC, 1981, figure 12-9).  OUT 255,8 selects 32
+# columns and OUT 255,0 returns to 64; 81 corpus listings do so from BASIC,
+# most of them to flash the screen, and until 2026-09-13 both were silent
+# no-ops here.  Only the hardware changes: the ROM's print-size flag at
+# 403DH, which sets the cursor step, is CHR$(23)'s and CLS's to change
+# (s_setwide, p20).  Bits 0-2 stay silent by ruling (sound is machine code
+# only; the core's port_out sees the same latch during a USR call), and
+# every other port is open bus, as INP reads it.  The value wraps to a byte
+# like POKE's.
+function st_out(   v, p) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
+    p = bfloor(num(v))
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
+    v = bfloor(num(v)) % 256
+    if (v < 0) v += 256
+    if (p == 255) s_setwide(int(v / 8) % 2)
 }
 
 # ---- MID$ statement --------------------------------------------------------
@@ -642,6 +658,7 @@ function poke_byte(a, b) {
     else {
         MEM[a] = b; if (FRTRACK) FRDIRTY[a] = 1
         if (a >= 16414 && a <= 16423) dv_update()   # the device vectors (side effect only)
+        if (a == 16445) WIDE = int(b / 8) % 2       # 403DH: the ROM's 32-column print flag (side effect only)
     }
 }
 

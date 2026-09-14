@@ -863,6 +863,9 @@ PEEK(addr)   read a memory byte (unset = 255)
   PRINT to the printer, POKE 16422,88:POKE 16423,4 sends LPRINT to the
   screen, POKE 16422,103:POKE 16423,0 silences the printer; restore with
   POKE 16414,88:POKE 16415,4 and POKE 16422,141:POKE 16423,5.
+  16445 (403DH) is the ROM's image of the port-255 bits: bit 3 is its
+  32-column print flag, set by CHR$(23), cleared by CLS, and POKEable, as
+  Barden's OUT 255,8 with POKE 16445,8 recipe does (see OUT).
   Display memory 15360-16383 reads the screen.  14336-14591 reads the
   live KEYBOARD MATRIX (row r at 14336+2^r; 14400 = arrows/space/ENTER
   row; 14464 = SHIFT; composite addresses OR rows) synthesized from the
@@ -1031,11 +1034,19 @@ LLIST [n][-[m]]   list program lines to the PRINTER
 
 :OUT
 OUT p,v   write value v to Z80 port p
-  Accepted but does nothing here: both expressions are evaluated (so a
-  type error still reports) and the write itself is discarded, because
-  no port hardware is simulated.
-  Period programs use it to drive peripherals; those parts run without
-  error but have no effect.  INP is its counterpart.
+  Port 255 is the Model I's output latch, and bit 3 of the value selects
+  32 characters per line -- the same switch CHR$(23) throws.  OUT 255,8
+  gives 32 columns, OUT 255,0 returns to 64, and CLS also returns to 64;
+  INP(255) reads 63 or 127 accordingly.  Period programs flash the screen
+  by toggling it in a loop.  Only the hardware changes: the ROM's print
+  routines step the cursor by their own flag, bit 3 of 16445 (403DH),
+  which CHR$(23) sets and CLS clears, so OUT 255,8 alone shows every
+  other character of what is printed next, as on the machine.  Barden's
+  recipe for readable 32-column text from BASIC is OUT 255,8 with
+  POKE 16445,8.  The other bits of port 255 (the cassette signal and
+  relay) and every other port are accepted and discarded: both
+  expressions are evaluated (so a type error still reports) and no other
+  port hardware is simulated.  INP is its counterpart.
   Example: OUT 255,4
 
 :BREAK

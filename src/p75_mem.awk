@@ -125,11 +125,15 @@
 #      clock and the current line number ignore writes (documented)
 #   4. a in SPK                 -> sp_poke(), VARPTR string-space write-through
 #   5. a > RAMTOP               -> DISCARDED (absent RAM)
-#   6. otherwise                -> MEM[a] = b.  Four cells there have a SIDE
+#   6. otherwise                -> MEM[a] = b.  Five cells there have a SIDE
 #      EFFECT on write: 401E/401FH and 4026/4027H, the video and printer
 #      driver vectors (dv_update, p80) -- the ROM's two driver addresses
-#      re-route output, 0067H silences the printer.  The bytes themselves
-#      are ordinary MEM[] (seeded 88,4 and 141,5 in init).
+#      re-route output, 0067H silences the printer; and 403DH (16445), the
+#      ROM's image of the port-FF bits, whose bit 3 is its 32-column print
+#      flag (the cursor step in s_putc, p20; CHR$(23) sets it and CLS
+#      clears it through this same primitive, so the frame sees them).
+#      The bytes themselves are ordinary MEM[] (seeded 88,4, 141,5 and 0
+#      in init).
 #
 # FOUR ASYMMETRIES AGAINST THE READ SIDE.  Each is a range the read side
 # projects from somewhere other than MEM[], so a write there lands in MEM[]

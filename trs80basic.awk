@@ -147,7 +147,7 @@ function init_tables(   i, c, m, n) {
     for (i = 0; i < 64; i++) GLSPEC[i] = utf8(strtonum("0x" m[i + 1]))
     GLKANA[0] = utf8(0xa5)                           # C0 = Yen sign
     for (i = 1; i < 64; i++) GLKANA[i] = utf8(0xff60 + i)
-    M3MODE = 0; M3KANA = 0; WIDE = 0
+    M3MODE = 0; M3KANA = 0; WIDE = 0; LATCH = 0
     DUMB = (ENVIRON["TRS80_DUMB"] != "")
     # misc state
     CUR = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
@@ -189,6 +189,7 @@ function init_tables(   i, c, m, n) {
     # POKEing them re-routes output (dv_update, p80): the period "send the
     # screen to the printer" and "send LPRINT to the screen" idioms.
     MEM[16414] = 88; MEM[16415] = 4; MEM[16422] = 141; MEM[16423] = 5
+    MEM[16445] = 0      # 403DH, the ROM's image of the port-FF bits: bit 3 is its 32-column print flag (s_putc, p20)
     dv_update()
     init_man()
 }
@@ -424,24 +425,32 @@ function wide_glyph(b,   m, lm, rm) {
     return GL[b] " "
 }
 
-# Set 32/64-column width from a port-FF bit-3 write -- the latch CHR$(23)
-# also sets, toggled by OUT (FFH) in ROM and in machine-language routines
-# (the Dancing Demon clears it for its 64-column figure after the intro's
-# 32-column text).  Redraw so the whole screen re-renders in the new width,
-# as the hardware re-interprets video RAM the instant the mode changes.
+# The port-FF latch, bit 3: the HARDWARE's 32/64-column switch (LATCH).  Set
+# by OUT 255,v from BASIC (st_out, p80), by the core's MODE line when a
+# machine-language routine writes port FFH (p77; the Dancing Demon clears it
+# for its 64-column figure after the intro's 32-column text), and by
+# CHR$(23), which also sets the ROM's print-size flag (WIDE, the 403DH bit).
+# Rendering follows the latch alone: only even display bytes are visible,
+# each double wide, as the video hardware re-interprets RAM the instant the
+# bit changes.  The ROM's routines never read the hardware -- they step the
+# cursor by the 403DH flag (ROM Routines Documented, 1983, ch. 1 and 5: it
+# "contains the current port FFH output bits") -- so OUT 255,8 alone shows
+# every other character of what BASIC prints next, and CHR$(23) followed by
+# OUT 255,0 prints spaced-out text on a 64-column screen, both as on the
+# machine.  Redraw so the whole screen re-renders in the new width.
 function s_setwide(w) {
     w = (w ? 1 : 0)
-    if (w == WIDE) return
-    WIDE = w
+    if (w == LATCH) return
+    LATCH = w
     if (!DUMB) { redraw_all(); sync_cursor() }
 }
 
 function drawcell(p) {
     if (DUMB) return
-    if (WIDE) {
-        # CHR$(23) 32-column mode: only even display bytes are visible,
-        # each rendered double wide (glyph + trailing space); a write to
-        # an odd byte repaints its even partner (no visible change)
+    if (LATCH) {
+        # the 32-column latch: only even display bytes are visible, each
+        # rendered double wide (glyph + trailing space); a write to an
+        # odd byte repaints its even partner (no visible change)
         p -= p % 2
         if (p in CCOL)
             printf "\033[%d;%dH\033[38;5;%dm%s\033[39m", int(p / 64) + 1, p % 64 + 1, GCANSI[CCOL[p]], wide_glyph(SCR[p])
@@ -474,9 +483,9 @@ function redraw_all(   r, c, s, p, g) {
     if (DUMB) return
     for (r = 0; r < 16; r++) {
         s = ""
-        for (c = 0; c < 64; c += (WIDE ? 2 : 1)) {
+        for (c = 0; c < 64; c += (LATCH ? 2 : 1)) {
             p = r * 64 + c
-            g = (WIDE ? wide_glyph(SCR[p]) : GL[SCR[p]])
+            g = (LATCH ? wide_glyph(SCR[p]) : GL[SCR[p]])
             if (p in CCOL) s = s "\033[38;5;" GCANSI[CCOL[p]] "m" g "\033[39m"
             else s = s g
         }
@@ -488,7 +497,8 @@ function s_cls(   i) {
     for (i = 0; i < 1024; i++) SCR[i] = 32
     delete CCOL
     CUR = 0
-    WIDE = 0                                # CLS returns to 64 chars per line
+    LATCH = 0                               # CLS returns to 64 chars per line: the ROM clears
+    poke_byte(16445, and(MEM[16445], 247))  # bit 3 of its 403DH image (WIDE follows, p80) and writes the latch
     if (!DUMB) { printf "\033[H\033[2J"; t_sep() }
 }
 
@@ -537,13 +547,16 @@ function s_putc(b,   n, r) {
     # space-compression codes
     if (b >= 32 && (b < 192 || M3MODE)) {
         if (WIDE) {
-            # CHR$(23) 32-column mode: characters land on even display
-            # bytes (the ROM masks the low cursor bit) and advance by 2
+            # the ROM's 32-column print flag (403DH, set by CHR$(23)):
+            # characters land on even display bytes (the ROM masks the
+            # low cursor bit) and advance by 2
             CUR -= CUR % 2
             if (DUMB) printf "%s ", GL[b]
             setcell(CUR, b); CUR += 2
         } else {
-            if (DUMB) printf "%s", GL[b]
+            # a 1-byte step; with the latch set by OUT 255,8 alone only
+            # the even bytes show, so teletype output shows those, wide
+            if (DUMB) { if (!LATCH) printf "%s", GL[b]; else if (CUR % 2 == 0) printf "%s ", GL[b] }
             setcell(CUR, b); CUR++
         }
         if (CUR > 1023) { s_scroll(); CUR = 960 }
@@ -560,8 +573,10 @@ function s_putc(b,   n, r) {
     # character display; 22 picks which set that shows (special/Katakana)
     if (b == 21) { M3MODE = !M3MODE; m3_rebuild(); return }
     if (b == 22) { M3KANA = !M3KANA; if (M3MODE) m3_rebuild(); return }
-    # LEVEL II: 23 shifts to 32 characters per line (CLS returns to 64)
-    if (b == 23) { if (!WIDE) { WIDE = 1; if (!DUMB) { redraw_all(); sync_cursor() } } return }
+    # LEVEL II: 23 shifts to 32 characters per line (CLS returns to 64):
+    # the ROM sets bit 3 of its 403DH image (WIDE follows, p80) and writes
+    # the latch
+    if (b == 23) { poke_byte(16445, or(MEM[16445], 8)); s_setwide(1); return }
     if (b == 24) { if (CUR > 0) CUR--; return }
     if (b == 25) { if (CUR < 1023) CUR++; return }
     if (b == 26) { if (CUR < 960) CUR += 64; else { s_scroll(); } return }
@@ -2319,12 +2334,13 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, r) {
     # listings test), bit 7 is the cassette input and stays 0 (no signal).
     # Every other port reads 255, the open bus, as unmapped memory does --
     # so RS-232 (232), floppy (240) and joystick probes take their
-    # "not present" branch instead of erroring.  OUT is its discarded twin.
+    # "not present" branch instead of erroring.  OUT (st_out, p80) is its
+    # twin: only port 255 bit 3 does anything there.
     if (name == "INP") {
         x = numarg(a1, na); if (E) return "N0"
         x = bfloor(x)
         if (x < 0 || x > 255) { raise(5); return "N0" }
-        return "N" ((x == 255) ? (WIDE ? 63 : 127) : 255)
+        return "N" ((x == 255) ? (LATCH ? 63 : 127) : 255)
     }
     # USR/USR0-9: with a core (TRS80_Z80, p77) the routine RUNS; without
     # one this is the STUB, which evaluates and returns its argument.
@@ -3235,11 +3251,15 @@ function st_resume(   p, ty, tx) {
 #      clock and the current line number ignore writes (documented)
 #   4. a in SPK                 -> sp_poke(), VARPTR string-space write-through
 #   5. a > RAMTOP               -> DISCARDED (absent RAM)
-#   6. otherwise                -> MEM[a] = b.  Four cells there have a SIDE
+#   6. otherwise                -> MEM[a] = b.  Five cells there have a SIDE
 #      EFFECT on write: 401E/401FH and 4026/4027H, the video and printer
 #      driver vectors (dv_update, p80) -- the ROM's two driver addresses
-#      re-route output, 0067H silences the printer.  The bytes themselves
-#      are ordinary MEM[] (seeded 88,4 and 141,5 in init).
+#      re-route output, 0067H silences the printer; and 403DH (16445), the
+#      ROM's image of the port-FF bits, whose bit 3 is its 32-column print
+#      flag (the cursor step in s_putc, p20; CHR$(23) sets it and CLS
+#      clears it through this same primitive, so the frame sees them).
+#      The bytes themselves are ordinary MEM[] (seeded 88,4, 141,5 and 0
+#      in init).
 #
 # FOUR ASYMMETRIES AGAINST THE READ SIDE.  Each is a range the read side
 # projects from somewhere other than MEM[], so a write there lands in MEM[]
@@ -4200,13 +4220,29 @@ function lp_using(   sep, ty, tx, v, fmt) {
 # are evaluated (errors still raise), the port write itself does nothing.
 # OUT is a reserved word on hardware, so no period program uses it as a
 # variable name.
-function st_out(   v) {
+# OUT p,v.  Port FFH is the Model I's four-bit output latch: bits 0-1 the
+# cassette signal, bit 2 the cassette relay, bit 3 the 32-characters-per-line
+# video mode -- the same latch bit CHR$(23) writes (Barden, Programming
+# Techniques for Level II BASIC, 1981, figure 12-9).  OUT 255,8 selects 32
+# columns and OUT 255,0 returns to 64; 81 corpus listings do so from BASIC,
+# most of them to flash the screen, and until 2026-09-13 both were silent
+# no-ops here.  Only the hardware changes: the ROM's print-size flag at
+# 403DH, which sets the cursor step, is CHR$(23)'s and CLS's to change
+# (s_setwide, p20).  Bits 0-2 stay silent by ruling (sound is machine code
+# only; the core's port_out sees the same latch during a USR call), and
+# every other port is open bus, as INP reads it.  The value wraps to a byte
+# like POKE's.
+function st_out(   v, p) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
+    p = bfloor(num(v))
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
+    v = bfloor(num(v)) % 256
+    if (v < 0) v += 256
+    if (p == 255) s_setwide(int(v / 8) % 2)
 }
 
 # ---- MID$ statement --------------------------------------------------------
@@ -4673,6 +4709,7 @@ function poke_byte(a, b) {
     else {
         MEM[a] = b; if (FRTRACK) FRDIRTY[a] = 1
         if (a >= 16414 && a <= 16423) dv_update()   # the device vectors (side effect only)
+        if (a == 16445) WIDE = int(b / 8) % 2       # 403DH: the ROM's 32-column print flag (side effect only)
     }
 }
 

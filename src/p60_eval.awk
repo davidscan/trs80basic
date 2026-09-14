@@ -331,12 +331,13 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, r) {
     # listings test), bit 7 is the cassette input and stays 0 (no signal).
     # Every other port reads 255, the open bus, as unmapped memory does --
     # so RS-232 (232), floppy (240) and joystick probes take their
-    # "not present" branch instead of erroring.  OUT is its discarded twin.
+    # "not present" branch instead of erroring.  OUT (st_out, p80) is its
+    # twin: only port 255 bit 3 does anything there.
     if (name == "INP") {
         x = numarg(a1, na); if (E) return "N0"
         x = bfloor(x)
         if (x < 0 || x > 255) { raise(5); return "N0" }
-        return "N" ((x == 255) ? (WIDE ? 63 : 127) : 255)
+        return "N" ((x == 255) ? (LATCH ? 63 : 127) : 255)
     }
     # USR/USR0-9: with a core (TRS80_Z80, p77) the routine RUNS; without
     # one this is the STUB, which evaluates and returns its argument.

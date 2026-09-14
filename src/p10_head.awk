@@ -147,7 +147,7 @@ function init_tables(   i, c, m, n) {
     for (i = 0; i < 64; i++) GLSPEC[i] = utf8(strtonum("0x" m[i + 1]))
     GLKANA[0] = utf8(0xa5)                           # C0 = Yen sign
     for (i = 1; i < 64; i++) GLKANA[i] = utf8(0xff60 + i)
-    M3MODE = 0; M3KANA = 0; WIDE = 0
+    M3MODE = 0; M3KANA = 0; WIDE = 0; LATCH = 0
     DUMB = (ENVIRON["TRS80_DUMB"] != "")
     # misc state
     CUR = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
@@ -189,6 +189,7 @@ function init_tables(   i, c, m, n) {
     # POKEing them re-routes output (dv_update, p80): the period "send the
     # screen to the printer" and "send LPRINT to the screen" idioms.
     MEM[16414] = 88; MEM[16415] = 4; MEM[16422] = 141; MEM[16423] = 5
+    MEM[16445] = 0      # 403DH, the ROM's image of the port-FF bits: bit 3 is its 32-column print flag (s_putc, p20)
     dv_update()
     init_man()
 }

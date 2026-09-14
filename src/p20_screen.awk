@@ -149,24 +149,32 @@ function wide_glyph(b,   m, lm, rm) {
     return GL[b] " "
 }
 
-# Set 32/64-column width from a port-FF bit-3 write -- the latch CHR$(23)
-# also sets, toggled by OUT (FFH) in ROM and in machine-language routines
-# (the Dancing Demon clears it for its 64-column figure after the intro's
-# 32-column text).  Redraw so the whole screen re-renders in the new width,
-# as the hardware re-interprets video RAM the instant the mode changes.
+# The port-FF latch, bit 3: the HARDWARE's 32/64-column switch (LATCH).  Set
+# by OUT 255,v from BASIC (st_out, p80), by the core's MODE line when a
+# machine-language routine writes port FFH (p77; the Dancing Demon clears it
+# for its 64-column figure after the intro's 32-column text), and by
+# CHR$(23), which also sets the ROM's print-size flag (WIDE, the 403DH bit).
+# Rendering follows the latch alone: only even display bytes are visible,
+# each double wide, as the video hardware re-interprets RAM the instant the
+# bit changes.  The ROM's routines never read the hardware -- they step the
+# cursor by the 403DH flag (ROM Routines Documented, 1983, ch. 1 and 5: it
+# "contains the current port FFH output bits") -- so OUT 255,8 alone shows
+# every other character of what BASIC prints next, and CHR$(23) followed by
+# OUT 255,0 prints spaced-out text on a 64-column screen, both as on the
+# machine.  Redraw so the whole screen re-renders in the new width.
 function s_setwide(w) {
     w = (w ? 1 : 0)
-    if (w == WIDE) return
-    WIDE = w
+    if (w == LATCH) return
+    LATCH = w
     if (!DUMB) { redraw_all(); sync_cursor() }
 }
 
 function drawcell(p) {
     if (DUMB) return
-    if (WIDE) {
-        # CHR$(23) 32-column mode: only even display bytes are visible,
-        # each rendered double wide (glyph + trailing space); a write to
-        # an odd byte repaints its even partner (no visible change)
+    if (LATCH) {
+        # the 32-column latch: only even display bytes are visible, each
+        # rendered double wide (glyph + trailing space); a write to an
+        # odd byte repaints its even partner (no visible change)
         p -= p % 2
         if (p in CCOL)
             printf "\033[%d;%dH\033[38;5;%dm%s\033[39m", int(p / 64) + 1, p % 64 + 1, GCANSI[CCOL[p]], wide_glyph(SCR[p])
@@ -199,9 +207,9 @@ function redraw_all(   r, c, s, p, g) {
     if (DUMB) return
     for (r = 0; r < 16; r++) {
         s = ""
-        for (c = 0; c < 64; c += (WIDE ? 2 : 1)) {
+        for (c = 0; c < 64; c += (LATCH ? 2 : 1)) {
             p = r * 64 + c
-            g = (WIDE ? wide_glyph(SCR[p]) : GL[SCR[p]])
+            g = (LATCH ? wide_glyph(SCR[p]) : GL[SCR[p]])
             if (p in CCOL) s = s "\033[38;5;" GCANSI[CCOL[p]] "m" g "\033[39m"
             else s = s g
         }
@@ -213,7 +221,8 @@ function s_cls(   i) {
     for (i = 0; i < 1024; i++) SCR[i] = 32
     delete CCOL
     CUR = 0
-    WIDE = 0                                # CLS returns to 64 chars per line
+    LATCH = 0                               # CLS returns to 64 chars per line: the ROM clears
+    poke_byte(16445, and(MEM[16445], 247))  # bit 3 of its 403DH image (WIDE follows, p80) and writes the latch
     if (!DUMB) { printf "\033[H\033[2J"; t_sep() }
 }
 
@@ -262,13 +271,16 @@ function s_putc(b,   n, r) {
     # space-compression codes
     if (b >= 32 && (b < 192 || M3MODE)) {
         if (WIDE) {
-            # CHR$(23) 32-column mode: characters land on even display
-            # bytes (the ROM masks the low cursor bit) and advance by 2
+            # the ROM's 32-column print flag (403DH, set by CHR$(23)):
+            # characters land on even display bytes (the ROM masks the
+            # low cursor bit) and advance by 2
             CUR -= CUR % 2
             if (DUMB) printf "%s ", GL[b]
             setcell(CUR, b); CUR += 2
         } else {
-            if (DUMB) printf "%s", GL[b]
+            # a 1-byte step; with the latch set by OUT 255,8 alone only
+            # the even bytes show, so teletype output shows those, wide
+            if (DUMB) { if (!LATCH) printf "%s", GL[b]; else if (CUR % 2 == 0) printf "%s ", GL[b] }
             setcell(CUR, b); CUR++
         }
         if (CUR > 1023) { s_scroll(); CUR = 960 }
@@ -285,8 +297,10 @@ function s_putc(b,   n, r) {
     # character display; 22 picks which set that shows (special/Katakana)
     if (b == 21) { M3MODE = !M3MODE; m3_rebuild(); return }
     if (b == 22) { M3KANA = !M3KANA; if (M3MODE) m3_rebuild(); return }
-    # LEVEL II: 23 shifts to 32 characters per line (CLS returns to 64)
-    if (b == 23) { if (!WIDE) { WIDE = 1; if (!DUMB) { redraw_all(); sync_cursor() } } return }
+    # LEVEL II: 23 shifts to 32 characters per line (CLS returns to 64):
+    # the ROM sets bit 3 of its 403DH image (WIDE follows, p80) and writes
+    # the latch
+    if (b == 23) { poke_byte(16445, or(MEM[16445], 8)); s_setwide(1); return }
     if (b == 24) { if (CUR > 0) CUR--; return }
     if (b == 25) { if (CUR < 1023) CUR++; return }
     if (b == 26) { if (CUR < 960) CUR += 64; else { s_scroll(); } return }
