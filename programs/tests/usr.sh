@@ -47,7 +47,7 @@ if [ "$none" != "0" ]; then echo "USR FRAME FIXTURE FAILED (notice without a cal
 # TRS80_USR=strict: the call raises ?FC and batch exits 1
 tmp=$(mktemp) || exit 2
 printf '10 X=USR(5)\n20 PRINT "AFTER"\n' > "$tmp"
-out=$(TRS80_USR=strict "$here/basic" "$tmp" 2>&1); rc=$?
+out=$(TRS80_Z80="" TRS80_USR=strict "$here/basic" "$tmp" 2>&1); rc=$?   # the stub, not a core beside the checkout
 rm -f "$tmp"
 if [ "$rc" != "1" ] || [ "$out" != "?FC ERROR IN 10" ]; then
     echo "USR FRAME FIXTURE FAILED (strict): rc=$rc out=$out"; exit 1

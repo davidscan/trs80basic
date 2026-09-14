@@ -12,7 +12,7 @@ step; it writes only the files your BASIC program tells it to.
 ## Quick start
 
 ```bash
-gawk --version | head -1                        # needs GNU awk >= 5.0
+gawk --version | head -1                        # needs GNU awk >= 5.0 (and python3 for the optional Z80 core)
 ./basic --seed 1 programs/examples/hilo.bas < programs/examples/hilo.in   # <1s — runs a program, prints its screen text
 ./basic                                         # interactive READY prompt; type BYE to leave
 programs/examples/run_examples.sh               # ~5s — every example against its checked-in transcript, all "ok"
@@ -71,7 +71,7 @@ Environment variables the interpreter reads:
 | `TRS80_OLLAMA_CURL` | unset | replaces the `curl` command (test hook) | deterministic tests with `programs/tests/ollama_stub.sh` |
 | `TRS80_KMHOLD` | `4` | how many `INKEY$` polls one keypress "holds" for (terminals send no key-up events) | a period game reads your taps as too long or too short |
 | `TRS80_USR` | unset | `strict` makes every `USR` call raise `?FC` instead of returning its argument | a sweep that must fail visibly on machine code it cannot run |
-| `TRS80_Z80` | unset | the command that runs the companion Z80 core, `python3 ../trs80_z80_core/core.py`; `USR` routines then execute (see `PROTOCOL.md`) | running listings with embedded machine code |
+| `TRS80_Z80` | a core beside this checkout, else none | the command that runs the companion Z80 core; `USR` routines then execute (see `PROTOCOL.md`). Unset, the launcher uses `../trs80_z80_core/core.py` when it exists; empty (`TRS80_Z80=`) means no core | running listings with embedded machine code, or keeping them off |
 | `TRS80_Z80_TIMEOUT` | `5000` | milliseconds to wait for each reply from the core before giving up on it | a slow machine, or debugging the core |
 
 (A couple of development-only variables are deliberately undocumented here.)
@@ -140,12 +140,18 @@ Ctrl-C to break, `CONT` to resume, `BYE` to leave. The screen is the real
 64x16 grid; long output pages with PgUp/PgDn.
 
 **Run with the Z80 core.** A listing whose `USR` routines matter needs the
-companion core checked out beside this repo:
+companion core, `trs80_z80_core`, checked out beside this repo. The launcher
+finds it there by itself, so this is enough:
 
 ```bash
-TRS80_Z80="python3 ../trs80_z80_core/core.py" ./basic game.bas
+git clone <the core> ../trs80_z80_core      # once, beside this checkout
+TRS80_MHZ=1.77408 ./basic game.bas          # paced to the Model I clock
 ```
 
+`TRS80_Z80` names the core command explicitly when it lives elsewhere
+(`TRS80_Z80="python3 /path/to/core.py"`), and `TRS80_Z80=` (empty) runs
+without a core even when one is beside the checkout. Set `TRS80_MHZ`, or
+the `speed` metacommand, or a long routine runs as fast as Python goes.
 The routine then executes against the same memory `PEEK` and `POKE` see,
 video it writes appears while it runs, the keyboard matrix is live, and
 Ctrl-C still breaks. The core serves three documented ROM entry points
@@ -264,10 +270,9 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 
 ### Not supported
 
-- Machine code without the companion core. `USR` routines run only when
-  `TRS80_Z80` names the Z80 core in
-  [`../trs80_z80_core`](../trs80_z80_core) (`python3
-  ../trs80_z80_core/core.py`; `PROTOCOL.md` is the contract). Without it
+- Machine code without the companion core. `USR` routines run only with
+  the Z80 core, `trs80_z80_core`, checked out beside this repo or named by
+  `TRS80_Z80` (`PROTOCOL.md` is the contract). Without it
   `USR` returns its argument, and a run that called `USR` ends with one
   stderr line naming the entry addresses that were not executed, so a
   routine that silently did nothing is never mistaken for one that worked

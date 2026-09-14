@@ -22,7 +22,7 @@ tally() { case "$1" in W) nW=$((nW+1));; K) nK=$((nK+1));; D) nD=$((nD+1));; X) 
 probe() {
     id=$1; cat=$2; label=$3; in=$4; want=$5; prog=$6; envs=$7
     printf '%s\n' "$prog" > "$tmp"; rm -f "$lp"
-    got=$(printf '%s' "$in" | env TRS80_PRINTER="$lp" $envs "$here/basic" "$tmp" 2>&1)
+    got=$(printf '%s' "$in" | env TRS80_PRINTER="$lp" TRS80_Z80="" $envs "$here/basic" "$tmp" 2>&1)   # the stub: outcomes are declared against it
     [ -s "$lp" ] && got="$got|LP:$(cat "$lp")"
     case "$id" in *x) counted=0;; *) counted=1; n=$((n+1));; esac
     if [ "$got" = "$want" ]; then

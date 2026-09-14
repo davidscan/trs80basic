@@ -95,7 +95,7 @@ want="USR CORE: '$core' speaks protocol 2, this interpreter speaks 1; USR is the
  4 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead"
 [ "$out" = "$want" ] || fail "protocol mismatch fallback" "$out"
-out=$(env -u TRS80_Z80 "$here/basic" "$tmp" 2>&1 </dev/null)
+out=$(TRS80_Z80="" "$here/basic" "$tmp" 2>&1 </dev/null)   # empty: no core, even one beside the checkout
 want=' 4 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead'
 [ "$out" = "$want" ] || fail "no TRS80_Z80: byte-identical stub" "$out"

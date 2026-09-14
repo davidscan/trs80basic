@@ -4,6 +4,12 @@
 #   ./basic                  interactive READY prompt
 #   ./basic mygame.bas       LOAD + RUN it, then exit (see `./basic --help`)
 #
+# The companion Z80 core (USR routines executed): TRS80_Z80 names the command
+# that runs it.  When the variable is unset and the core is checked out beside
+# this repo, as ../trs80_z80_core/core.py, the launcher names it itself; set
+# TRS80_Z80 to override, or to the empty string for no core at all (the
+# argument-returning stub, as before).  See README "Run with the Z80 core".
+#
 # The "--" is what makes flags work: without it gawk tries to parse --seed
 # and friends as its own long options.  exec passes the interpreter's exit
 # status straight through to the caller.
@@ -22,6 +28,13 @@ command -v gawk >/dev/null 2>&1 || {
 # so `man` and `help` find their text from any working directory
 : "${TRS80_MANFILE:=$here/support/manpages.txt}"
 export TRS80_MANFILE
+
+# the companion core beside this checkout, unless TRS80_Z80 is set (even empty)
+if [ -z "${TRS80_Z80+set}" ] && [ -f "$here/../trs80_z80_core/core.py" ] \
+   && command -v python3 >/dev/null 2>&1; then
+    TRS80_Z80="python3 $here/../trs80_z80_core/core.py"
+    export TRS80_Z80
+fi
 
 # -b: BASIC strings are byte strings.  Without it a UTF-8 locale turns
 # CHR$(200) into a two-byte character and mangles raw bytes read from files

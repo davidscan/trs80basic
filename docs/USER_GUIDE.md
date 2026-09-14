@@ -60,7 +60,7 @@ II):
 | `TRS80_MANFILE` | `support/manpages.txt` | where `man` reads its text |
 | `TRS80_KMHOLD` | `4` | how many `INKEY$` polls one keypress holds for |
 | `TRS80_USR` | unset | `strict` makes a `USR` call raise `?FC` instead of returning its argument |
-| `TRS80_Z80` | unset | command that runs the companion Z80 core; `USR` routines then execute (`PROTOCOL.md`) |
+| `TRS80_Z80` | a core beside the checkout, else none | command that runs the companion Z80 core; `USR` routines then execute (`PROTOCOL.md`). Unset, the launcher uses `../trs80_z80_core/core.py` when it exists; empty means no core |
 | `TRS80_Z80_TIMEOUT` | `5000` | milliseconds to wait for each reply from the core |
 
 ### Keys
@@ -431,8 +431,9 @@ because period programs poke at it:
 - **`OUT` is an accepted no-op** (both expressions evaluate, the port write
   does nothing); **`INP(255)`** reads the live video-mode port (127 in
   64-character mode, 63 after `CHR$(23)`), every other port the open bus,
-  255. **`USR`** has three states: with `TRS80_Z80` naming the companion
-  Z80 core (`python3 ../trs80_z80_core/core.py`), the routine at
+  255. **`USR`** has three states: with the companion Z80 core (checked
+  out beside the interpreter as `../trs80_z80_core`, which the launcher
+  finds by itself, or named by `TRS80_Z80`), the routine at
   `DEF USRn=addr` (or the POKEd vector at 16526/7) runs for real — video
   it writes shows as it runs, the keyboard is live, Ctrl-C breaks, and
   the ROM entry points it may call are `01C9H`, `0A7FH` and `0A9AH`;
