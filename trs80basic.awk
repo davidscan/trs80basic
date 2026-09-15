@@ -3959,7 +3959,13 @@ function z80_init() {
     if (Z80INIT) return
     Z80INIT = 1
     Z80PROTO = 1
-    Z80CMD = ENVIRON["TRS80_Z80"]
+    Z80NAMED = ENVIRON["TRS80_Z80"]               # as the user wrote it, for notices
+    # gawk runs a coprocess through `sh -c`.  Where sh keeps itself between us
+    # and the core (Ubuntu's dash does; macOS's sh execs a simple command), the
+    # kill in z80_close makes that shell print "Terminated" into our stderr.
+    # `exec` makes the core the shell's own process on every platform, so the
+    # pid the handshake reports is the only process, and nothing reports it.
+    Z80CMD = (Z80NAMED == "") ? "" : "exec " Z80NAMED
     Z80TO = (ENVIRON["TRS80_Z80_TIMEOUT"] + 0 > 0) ? ENVIRON["TRS80_Z80_TIMEOUT"] + 0 : 5000
     Z80STATE = (Z80CMD == "") ? "none" : "cold"   # none | cold | up | dead
 }
@@ -4004,11 +4010,11 @@ function z80_start() {
     PROCINFO[Z80CMD, "READ_TIMEOUT"] = Z80TO
     z80_send("HELLO proto=" Z80PROTO " mhz=" (THROTTLE_MHZ + 0) " ramtop=" RAMTOP)
     if (!z80_recv()) {
-        z80_notice("cannot start '" Z80CMD "'; USR is the stub for this session")
+        z80_notice("cannot start '" Z80NAMED "'; USR is the stub for this session")
         z80_close(); return
     }
     if (Z80LINE !~ /^Z80 / || z80_field("proto") != Z80PROTO) {
-        z80_notice("'" Z80CMD "' speaks protocol " (z80_field("proto") == "" ? "?" : z80_field("proto")) \
+        z80_notice("'" Z80NAMED "' speaks protocol " (z80_field("proto") == "" ? "?" : z80_field("proto")) \
                    ", this interpreter speaks " Z80PROTO "; USR is the stub for this session")
         z80_close(); return
     }
