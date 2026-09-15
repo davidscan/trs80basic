@@ -536,5 +536,8 @@ terminal, clear of the below-grid text.
 - `gfxtest.bas` — the graphics bit-layout self-test: prints CHR$(128) to
   CHR$(191), then SET/POINT/PEEK cross-check (expects six -1s and 191).
 
-Load any of them with e.g. `CLOAD "programs/demo_graphics.bas"` then `RUN`
+Load any of them with e.g. `CLOAD "programs/demos/demo_graphics.bas"` then `RUN`
+(paths as of 2026-09-15: the interactive demos live in `programs/demos/`,
+`demo_showcase` moved to `programs/examples/` with a transcript, and
+`gfxtest.bas` was removed)
 (paths resolve against the directory you started in).

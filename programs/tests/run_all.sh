@@ -3,10 +3,11 @@
 #
 #   sh programs/tests/run_all.sh          # from anywhere; exit 0 = everything passed
 #
-# Five parts, in the order CLAUDE.md lists them: (1) the committed
+# Six parts, in the order CLAUDE.md lists them: (1) the committed
 # trs80basic.awk is exactly `cat src/p*.awk`; (2) transcripts t1-t33 exit 0
 # (t13/t29 through the OLLAMA stub, t32 through the Z80 stub); (3) the
-# self-checking .bas fixtures; (4) the .sh suites; (5) the Python tool tests.
+# self-checking .bas fixtures; (4) the .sh suites; (5) the examples against
+# their .out transcripts; (6) the Python tool tests.
 # Nothing here needs a terminal, the network, or the companion core: the
 # suites that want the core skip without it, and TRS80_Z80= pins the stub for
 # the rest so a core beside the checkout does not change what is measured.
@@ -46,7 +47,10 @@ for s in break devvec usr pmtrunc z80 z80core sound tokload tips_probe; do
     sh "programs/tests/$s.sh" >/dev/null 2>&1 || bad "$s.sh"
 done
 
-# 5. the tokenizer tools
+# 5. the examples against their checked-in transcripts
+sh programs/examples/run_examples.sh >/dev/null 2>&1 || bad "programs/examples (run_examples.sh)"
+
+# 6. the tokenizer tools
 if command -v python3 >/dev/null 2>&1; then
     (cd tools && python3 -m unittest -q test_tok test_detok >/dev/null 2>&1) \
         || bad "tools/test_*.py"

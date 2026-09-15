@@ -300,8 +300,8 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 | `src/p*.awk` | the interpreter's source modules, concatenated in name order | you | no |
 | `basic` | launcher: finds gawk and the manpages, runs it with `-b` (strings are bytes), passes flags through | you | no |
 | `support/manpages.txt` | text behind `man` and `help`; plain format, edit freely | you | no — `man` stops working |
-| `programs/*.bas` | demo programs (`aethelgard`, `tictactoe`, `demo_*`, `gfxtest`) | you | yes |
-| `programs/examples/` | feature examples with `.in` inputs and `.out` transcripts | `run_examples.sh --update` (transcripts) | transcripts regenerate; programs do not |
+| `programs/demos/` | interactive demos (`tictactoe`, `demo_graphics`) — INKEY$-driven, so run them at the READY prompt, not in batch | you | yes |
+| `programs/examples/` | feature examples with `.in` inputs and `.out` transcripts (`tiny_if` the text adventure, `demo_showcase`, `hilo`, `life`, …) | `run_examples.sh --update` (transcripts) | transcripts regenerate; programs do not |
 | `programs/tests/t*.txt`, `prog1.bas` | interactive-mode input scripts for regression checks (t1–t33) | you | no |
 | `programs/tests/*.bas`, `programs/tests/*.sh` | self-checking fixtures and shell suites: VARPTR, string aliasing, INP, the system variable window, the BREAK and driver vectors, USR, image truncation, the Z80 protocol (`z80.sh`), POKEd and string-packed routines through the real core (`z80core.sh`, skips without it), CLOAD of a tokenized image (`tokload.sh`), the trs-80.com tips tally | you | no |
 | `programs/tests/ollama_stub.sh` | canned Ollama replies for tests | you | no — `oracle`, `t13` and `t29` use it |
