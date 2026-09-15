@@ -217,7 +217,7 @@ def find_header(data):
     """Offset just past the 0xFF header.
 
     Some archived files carry junk ahead of an otherwise intact header
-    (PRINTDIR.BAS in LargeCollection begins 15 FF 06), so accept a header
+    (one archived PRINTDIR.BAS begins 15 FF 06), so accept a header
     within the first few bytes rather than demanding offset 0.
     """
     for off in range(min(4, len(data))):

@@ -3,7 +3,7 @@
 #
 #   sh programs/tests/run_all.sh          # from anywhere; exit 0 = everything passed
 #
-# Six parts, in the order CLAUDE.md lists them: (1) the committed
+# Six parts: (1) the committed
 # trs80basic.awk is exactly `cat src/p*.awk`; (2) transcripts t1-t33 exit 0
 # (t13/t29 through the OLLAMA stub, t32 through the Z80 stub); (3) the
 # self-checking .bas fixtures; (4) the .sh suites; (5) the examples against

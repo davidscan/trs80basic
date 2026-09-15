@@ -2,7 +2,7 @@
 # tips_probe.sh -- the trs-80.com Level II tips page, probed not reasoned.
 # Source: https://www.trs-80.com/sub-tips-level2.htm (Goldklang).  The 78
 # numbered tips are the page's top half in order, numbered as the 2026-09-05
-# tally numbered them (STATUS.local.md "PERIOD TIPS/TRICKS COMPATIBILITY");
+# tally numbered them;
 # B1-B18 are the page's later BASIC sections, first measured 2026-09-11.
 # Every probe is a batch program with a DECLARED expected output and a
 # category; the tally is computed from what actually ran.  Exit 1 if any
@@ -65,7 +65,7 @@ probe 20 D "RESET disabled"    "" "OK" '10 POKE 16830,201:PRINT "OK"'
 probe 21 D "RESET restarts a SYSTEM program" "" "OK" '10 POKE 16830,195:POKE 16831,PEEK(16607):POKE 16832,PEEK(16608):PRINT "OK"'
 probe 22 D "jump to an address on RESET (16391/2)" "" "OK" '10 POKE 16391,0:POKE 16392,125:PRINT "OK"'
 # 23 as printed uses the compressed form POKE16812,195 -- keyword-adjacent
-# source is out of scope by ruling (basclean de-compresses it), so as written
+# source is out of scope by ruling (a separate cleanup tool de-compresses it), so as written
 # it is ?SN.  RULED 2026-09-11 (user): "dead in spirit if not law" -- the
 # spaced form is what counts in the 78 (D); the as-printed form is pinned
 # below as 23x, uncounted (an id ending in x is never tallied).

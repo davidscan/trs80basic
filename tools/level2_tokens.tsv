@@ -7,7 +7,7 @@
 # period listings actually read.
 #
 # Entries marked VERIFIED below were confirmed by hand-decoding bytes out of
-# programs/LargeCollection; the rest are the published Level II table and are
+# archived listings; the rest are the published Level II table and are
 # exercised by tools/detok.py --check over the corpus.
 #
 # byte	expansion

@@ -38,6 +38,6 @@ printf '10 POKE 16396,23:PRINT PEEK(14400)\n' > "$tmp"
 out=$(run "$c3
 "); [ "$out" = " 4 " ] || fail "matrix should still show BREAK" "$out"
 # (INPUT's Ctrl-C cancel is the tty line editor's path and cannot be fed in
-# batch -- HAND_TEST.local.md check 13 covers it.)
+# batch -- a real-terminal check covers it.)
 rm -f "$tmp"
 echo "BREAK FIXTURE OK"

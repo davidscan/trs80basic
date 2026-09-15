@@ -147,7 +147,7 @@ companion core, `trs80_z80_core`, checked out beside this repo. The launcher
 finds it there by itself, so this is enough:
 
 ```bash
-git clone <the core> ../trs80_z80_core      # once, beside this checkout
+git clone https://github.com/davidscan/trs80_z80_core ../trs80_z80_core   # once, beside this checkout
 TRS80_MHZ=1.77408 ./basic game.bas          # paced to the Model I clock
 ```
 

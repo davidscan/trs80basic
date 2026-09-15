@@ -302,8 +302,8 @@ Semantics:
 
 Listings copy/pasted out of PDFs or OCR scans are damaged text, not a
 different encoding, and are out of scope here: `detok.py` will not help, and
-the interpreter reports the first `?SN`. Repairing them is a separate tool
-(basclean), maintained outside this repository.
+the interpreter reports the first `?SN`. Repairing them is a separate tool,
+maintained outside this repository.
 
 ## Omissions and deviations (documented)
 
