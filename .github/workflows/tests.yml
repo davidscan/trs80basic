@@ -1,0 +1,21 @@
+# The regression suite on every push and pull request: exactly what
+# programs/tests/run_all.sh runs at a checkout, on GitHub's Ubuntu image.
+# The companion Z80 core is not checked out here, so its suites skip; the
+# protocol suite (z80.sh) and t32 run against the reference stub as always.
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  run-all:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install gawk
+        run: sudo apt-get update -q && sudo apt-get install -y -q gawk
+      - name: Versions
+        run: gawk --version | head -1 && python3 --version
+      - name: Run the suite
+        run: sh programs/tests/run_all.sh

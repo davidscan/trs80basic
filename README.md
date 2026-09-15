@@ -306,6 +306,8 @@ overwrites `.out` files; `git diff` shows exactly what changed.
 | `programs/tests/*.bas`, `programs/tests/*.sh` | self-checking fixtures and shell suites: VARPTR, string aliasing, INP, the system variable window, the BREAK and driver vectors, USR, image truncation, the Z80 protocol (`z80.sh`), POKEd and string-packed routines through the real core (`z80core.sh`, skips without it), CLOAD of a tokenized image (`tokload.sh`), the trs-80.com tips tally | you | no |
 | `programs/tests/ollama_stub.sh` | canned Ollama replies for tests | you | no — `oracle`, `t13` and `t29` use it |
 | `programs/tests/z80_stub.py` | the reference Z80 core stand-in that `z80.sh` and `t32` run against | you | no |
+| `programs/tests/run_all.sh` | the whole suite in one exit status: the generated file, t1–t33, every fixture and suite, the tool tests | you | no |
+| `.github/workflows/tests.yml` | runs `run_all.sh` on GitHub on every push and pull request | you | no |
 | `PROTOCOL.md` | the USR coprocess protocol between the interpreter and the Z80 core; mirrored into the core repo | you | no |
 | `tools/detok.py`, `tools/tok.py`, `tools/level2_tokens.tsv` | image ↔ listing converters and the Level II token table | you | no |
 | `tools/test_*.py` | their tests (`python3 -m unittest`) | you | no |
