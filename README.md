@@ -11,11 +11,17 @@ step; it writes only the files your BASIC program tells it to.
 
 ## Very brief FAQ:
 - Why awk??
+
 A. It's funny, and there's an inside joke about it.
+
 B. I wanted to see if Claude could deal with such a ridiculous request.  It's first pass included everything I had asked for, which was probably around 90% of BASIC.
+
 - Does it run Dancing Demon?
+
 Yes, including the embedded machine language and sound.
+
 - What platformms are supported?
+
 Developed and tested on MacOS (iTerm2), untested but probably works fine under Linux.  No Windows support right now, but that'll be added at some point.
 
 
