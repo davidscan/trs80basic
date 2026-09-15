@@ -16,7 +16,11 @@
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
 cd "$here" || exit 2
 fail=0
+log=$(mktemp) || exit 2
+trap 'rm -f "$log"' EXIT
 bad() { echo "FAIL: $*"; fail=$((fail+1)); }
+# a failing suite's own output, so a CI log says why and not only what
+show() { echo "--- $1 output (last 40 lines) ---"; tail -40 "$log"; echo "--- end $1 ---"; }
 
 # 1. the generated file
 if ! cat src/p*.awk | cmp -s - trs80basic.awk; then
@@ -35,25 +39,26 @@ done
 
 # 3. the batch fixtures (the stub: a core beside the checkout must not matter)
 for b in varptr rawbytes alias inp out255; do
-    TRS80_Z80= ./basic "programs/tests/$b.bas" >/dev/null 2>&1 || bad "$b.bas"
+    TRS80_Z80= ./basic "programs/tests/$b.bas" >"$log" 2>&1 || { bad "$b.bas"; show "$b.bas"; }
 done
 lp=$(mktemp) || exit 2
-TRS80_Z80= TRS80_PRINTER="$lp" ./basic programs/tests/sysvar.bas >/dev/null 2>&1 \
-    || bad "sysvar.bas"
+TRS80_Z80= TRS80_PRINTER="$lp" ./basic programs/tests/sysvar.bas >"$log" 2>&1 \
+    || { bad "sysvar.bas"; show "sysvar.bas"; }
 rm -f "$lp"
 
 # 4. the shell suites (each pins its own core or stub; z80core/sound skip without one)
 for s in break devvec usr pmtrunc z80 z80core sound tokload tips_probe; do
-    sh "programs/tests/$s.sh" >/dev/null 2>&1 || bad "$s.sh"
+    sh "programs/tests/$s.sh" >"$log" 2>&1 || { bad "$s.sh"; show "$s.sh"; }
 done
 
 # 5. the examples against their checked-in transcripts
-sh programs/examples/run_examples.sh >/dev/null 2>&1 || bad "programs/examples (run_examples.sh)"
+sh programs/examples/run_examples.sh >"$log" 2>&1 \
+    || { bad "programs/examples (run_examples.sh)"; show "run_examples.sh"; }
 
 # 6. the tokenizer tools
 if command -v python3 >/dev/null 2>&1; then
-    (cd tools && python3 -m unittest -q test_tok test_detok >/dev/null 2>&1) \
-        || bad "tools/test_*.py"
+    (cd tools && python3 -m unittest -q test_tok test_detok >"$log" 2>&1) \
+        || { bad "tools/test_*.py"; show "tools/test_*.py"; }
 fi
 
 if [ $fail -eq 0 ]; then echo "run_all: all passed"; exit 0; fi
