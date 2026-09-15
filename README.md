@@ -140,7 +140,7 @@ Environment variables the interpreter reads:
 | `TRS80_DUMB` | unset | `1` forces plain streamed output even on a terminal | logging a session, or a terminal that can't do the 64x16 grid |
 | `TRS80_MHZ` | full speed | throttle execution to a period-correct feel (also `speed` metacommand) | games that are unplayable at modern speed |
 | `TRS80_PRINTER` | unset (discard) | file that `LPRINT`/`LLIST` append to | you want the printer output |
-| `TRS80_EXT` | `0` | `1` accepts a few forms real Level II rejects (bare `INPUT`, `DIM` of a scalar) and lets a program's `REM META:speed`/`REM META:fullscreen` remarks fire; also `ext on` | running listings that use those idioms; leave off to keep strict `?SN` behaviour |
+| `TRS80_EXT` | `0` | `1` accepts a few forms real Level II rejects (bare `INPUT`, `DIM` of a scalar) and lets a program's `REM META:speed`/`REM META:fullscreen` remarks fire; also `ext on` | running listings that use those idioms; leave off to keep strict `?SN` behavior |
 | `TRS80_MANFILE` | `support/manpages.txt` next to `basic` | where `man` reads its text | only if you relocate the file |
 | `TRS80_OLLAMA_MODEL` | none | default model for `OPEN "OLLAMA"` when the name gives none | every OLLAMA program without a hard-coded model |
 | `TRS80_OLLAMA_HOST` | `localhost:11434` | the Ollama server | Ollama on another machine |
@@ -252,13 +252,13 @@ area and runs as a fixture:
 | `trapper.bas` | `ON ERROR GOTO`, `ERR`, `ERL`, `RESUME`, `ERROR n` |
 
 `run_examples.sh` prints `ok` per program. If one prints `FAIL` and a diff,
-either the interpreter's behaviour changed or the example did; decide which
+either the interpreter's behavior changed or the example did; decide which
 before `--update`.
 
 ### Decision points
 
 - **Before `--update` on the examples**: read the diff. The transcripts are
-  the specification of current behaviour; updating them silently accepts a
+  the specification of current behavior; updating them silently accepts a
   change.
 - **After `detok.py`**: skim the listing for `?`-marked bytes or lines that
   do not start with a number. `--check` first tells you whether the file is

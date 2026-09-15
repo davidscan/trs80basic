@@ -1188,12 +1188,12 @@ CVI(s$) CVS(s$) CVD(s$)   unpack 2, 4 or 8 packed bytes into a number
 
 # ============================== metacommands ===============================
 # Not Level II BASIC: host-side conveniences added by this interpreter.
-# All are recognised in LOWERCASE ONLY, so they can never collide with a
+# All are recognized in LOWERCASE ONLY, so they can never collide with a
 # BASIC keyword or a variable name.
 
 :man
 man <KEYWORD>   show the manual entry for a BASIC keyword
-  Prints syntax, behaviour and worked examples for one keyword, in the
+  Prints syntax, behavior and worked examples for one keyword, in the
   region below the grid.  The keyword may be typed in any case, so
   `man print` and `man PRINT` are the same.
   Entries come from support/manpages.txt, a plain editable file -- point
@@ -1233,7 +1233,7 @@ dir [args]   list files in the current directory
 :cat
 cat <file...>   show the contents of one or more files
   Displays the files below the grid.  Bytes that are not printable text
-  are shown as a full stop, so a tokenised or binary file can be
+  are shown as a full stop, so a tokenized or binary file can be
   inspected without disturbing the terminal.
   Handy for checking a data file a program has just written without
   leaving the interpreter.
@@ -1244,7 +1244,7 @@ cat <file...>   show the contents of one or more files
 ext on | off   enable or disable the gated extensions
 ext            report the current state
   The extensions are small conveniences that real Level II does not
-  have, kept behind this switch so that default behaviour stays
+  have, kept behind this switch so that default behavior stays
   faithful.  Currently gated: INPUT with a prompt but no variable, DIM
   of a scalar name, and REM META: directives (see: man REM).
   Off by default.  The environment variable TRS80_EXT=1 turns them on

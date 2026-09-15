@@ -8,13 +8,19 @@ particular attention to where it **extends, modifies, or appropriates** the
 It assumes you know BASIC, or can read the original documentation:
 
 - [Level II BASIC Reference Manual, 1st Ed. (1978, Radio Shack)](https://archive.org/details/Level_II_BASIC_Reference_Manual_1st_Ed._1978_Radio_Shack) —
-  the functional specification this interpreter was written against.
+  the functional specification for the language.
 - [TRSDOS & Disk BASIC Reference Manual](https://archive.org/details/trsdos-disk-basic-ref) —
   the file I/O statements come from here.
 - [Ira Goldklang's TRS-80 Revived Site](https://www.trs-80.com/) — the
   encyclopedic community reference for everything Model I.
 
-Throughout, **EXT** marks behaviour that is an extension — things real
+The language follows those two manuals. Machine-level details (memory
+addresses, system variables, the RND generator) come from period ROM
+reference books and magazines, trs-80.com, and a published ROM disassembly
+(for the RND generator); period program listings served as test cases.
+Nothing here reproduces ROM code, disassembly text, or the manuals' text.
+
+Throughout, **EXT** marks behavior that is an extension — things real
 Level II never did. Everything else is intended to match the manuals.
 
 ---
@@ -201,7 +207,7 @@ demonstrates one area of this guide and doubles as a regression fixture
 | `logbook.bas` | sequential files, `ON ERROR` for a missing file |
 | `starfile.bas` | random-access files, `FIELD`/`MKI$`/`CVI` |
 | `life.bas` | `SET`/`RESET`/`POINT` |
-| `palette.bas` | colour semigraphics (EXT) |
+| `palette.bas` | color semigraphics (EXT) |
 | `oracle.bas` | the OLLAMA channel, `@TOKENS` |
 | `trapper.bas` | `ON ERROR GOTO`, `ERR`/`ERL`, `RESUME`, `ERROR n` |
 
@@ -239,7 +245,7 @@ Things worth knowing even if you know Level II:
 The heart of the matter: what this interpreter does that the books don't
 describe.
 
-### Graphics, colour, and the character set
+### Graphics, color, and the character set
 
 `SET`/`RESET`/`POINT` address the authentic 128x48 grid over the 64x16
 screen; `CHR$(128..191)` are the 2x3 semigraphics cells (bits TL=1 TR=2
@@ -252,24 +258,24 @@ memory and string-packing tricks all agree.
 Authentic oddities preserved: printing codes 192–255 performs space
 compression (192+n prints n spaces) while *POKEing* them into display
 memory renders the same glyph as 128–191 (the Model I ignores bit 6 —
-real hardware behaviour); codes 96–126 render as lowercase; the PRINT
+real hardware behavior); codes 96–126 render as lowercase; the PRINT
 control codes (8, 24–31…) move and erase as on the ROM.
 
-**Colour (EXT).** `SET(x,y,c)` with c 0–8 colours the pixel's character
+**Color (EXT).** `SET(x,y,c)` with c 0–8 colors the pixel's character
 cell using the CoCo Color BASIC palette: 0 black, 1 green, 2 yellow,
 3 blue, 4 red, 5 buff, 6 cyan, 7 magenta, 8 orange. The rules keep period
 programs untouched:
 
 - valid Level II never writes a third argument, so nothing old changes;
-- **only `SET` colours anything**: printed text cannot be colorized — it is
-  always black-and-white, and printing over a coloured cell reverts that
+- **only `SET` colors anything**: printed text cannot be colorized — it is
+  always black-and-white, and printing over a colored cell reverts that
   cell to black-and-white;
-- colour is per character cell and the last SET wins;
+- color is per character cell and the last SET wins;
 - `POINT` still returns exactly -1/0 — period idioms compare `=-1`,
   accumulate -1s, and apply NOT, so the return value is frozen;
-- colour renders in the interactive grid only (not fullscreen, not batch).
+- color renders in the interactive grid only (not fullscreen, not batch).
 
-`programs/examples/palette.bas` shows the palette and a colour-coded chart.
+`programs/examples/palette.bas` shows the palette and a color-coded chart.
 
 **Model III character modes.** Printing `CHR$(21)` toggles codes 192–255
 between space compression and character display; `CHR$(22)` picks the
@@ -299,7 +305,7 @@ next one), `LOF(n)` = record count, and the `MKI$`/`MKS$`/`MKD$` /
 `CVI`/`CVS`/`CVD` pack functions in genuine Microsoft Binary Format —
 real FIELD widths from published listings work unchanged.
 
-Simulation notes, honestly labelled:
+Simulation notes, honestly labeled:
 
 - A random file holds one record per line, space-padded to the record
   length, with non-printable bytes escaped `\xNN` on disk; records live in
@@ -394,8 +400,10 @@ because period programs poke at it:
   16633/4 (start of variables), 16561/2 (top of memory), plus the system
   variable window and driver vectors listed under `PEEK` in Part V:
   cursor position and character, printer line and column counters, the
-  clock, the line number executing, AUTO and TRON. POKEs into the
-  program region are not read back — no self-modifying code. A program
+  clock, the line number executing, AUTO and TRON. The image is RAM:
+  a POKE into it reads back through `PEEK` and to machine code, but `RUN`
+  and `LIST` work from the program text, so a POKE never changes the BASIC
+  that executes (on the machine it would). A program
   too large to fit below the top of memory is imaged up to the last whole
   line that fits, with one stderr line saying so.
 - **Display memory** 15360–16383, live both ways.
@@ -456,7 +464,7 @@ because period programs poke at it:
 
 ### Where this interpreter differs from the ROM
 
-Honest list, stated as current behaviour:
+Honest list, stated as current behavior:
 
 - **`MEM` and `FRE(0)` are constants** (15572). A program that loops
   "until memory is low", or sizes an array from `MEM`, will not see the
@@ -1619,7 +1627,7 @@ CVI(s$) CVS(s$) CVD(s$)   unpack 2, 4 or 8 packed bytes into a number
 
 # ============================== metacommands ===============================
 # Not Level II BASIC: host-side conveniences added by this interpreter.
-# All are recognised in LOWERCASE ONLY, so they can never collide with a
+# All are recognized in LOWERCASE ONLY, so they can never collide with a
 # BASIC keyword or a variable name.
 ```
 
@@ -2045,7 +2053,7 @@ INKEY$   the key being pressed right now, or "" if none
 
 ```text
 man <KEYWORD>   show the manual entry for a BASIC keyword
-  Prints syntax, behaviour and worked examples for one keyword, in the
+  Prints syntax, behavior and worked examples for one keyword, in the
   region below the grid.  The keyword may be typed in any case, so
   `man print` and `man PRINT` are the same.
   Entries come from support/manpages.txt, a plain editable file -- point
@@ -2094,7 +2102,7 @@ dir [args]   list files in the current directory
 ```text
 cat <file...>   show the contents of one or more files
   Displays the files below the grid.  Bytes that are not printable text
-  are shown as a full stop, so a tokenised or binary file can be
+  are shown as a full stop, so a tokenized or binary file can be
   inspected without disturbing the terminal.
   Handy for checking a data file a program has just written without
   leaving the interpreter.
@@ -2108,7 +2116,7 @@ cat <file...>   show the contents of one or more files
 ext on | off   enable or disable the gated extensions
 ext            report the current state
   The extensions are small conveniences that real Level II does not
-  have, kept behind this switch so that default behaviour stays
+  have, kept behind this switch so that default behavior stays
   faithful.  Currently gated: INPUT with a prompt but no variable, DIM
   of a scalar name, and REM META: directives (see: man REM).
   Off by default.  The environment variable TRS80_EXT=1 turns them on

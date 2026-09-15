@@ -433,8 +433,10 @@ maintained outside this repository.
   read 255 and discard POKEs). 16561/2 is also WRITABLE, so `POKE
   16561,lo:POKE 16562,hi:CLEAR n` moves HIMEM from inside a program, the
   way listings reserve their own space (2026-09-08; the POKE used to be
-  silently dropped). POKEs into the program region are not read back
-  (no self-modifying code). A program too large for the space below the
+  silently dropped). POKEs into the program region read back through
+  PEEK and to machine code (2026-09-12; they used to be discarded), but
+  RUN and LIST work from the program text, so a POKE never changes the
+  BASIC that executes. A program too large for the space below the
   top of memory is imaged up to the last whole line that fits, with the
   terminator there, and one stderr line says so (2026-09-11); the
   program itself still runs in full.
