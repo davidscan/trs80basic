@@ -24,7 +24,7 @@ Developed and tested on MacOS (iTerm2), untested but probably works fine under L
 ## Features
 
 - **Embedded machine language.** `USR` routines execute for real through the
-  companion Z80 core, whether POKEd into memory, packed into strings, or
+  [companion Z80 core](https://github.com/davidscan/trs80_z80_core), whether POKEd into memory, packed into strings, or
   carried as fake BASIC lines in a tokenized image. Video they write appears
   as they run, the keyboard is live, and their cassette-port sound plays
   (`sound on`) or records to a WAV file.
