@@ -50,10 +50,14 @@ printf '10 DEFUSR=&H7001:K=USR(0):PRINT K;PEEK(15424)\n' > "$tmp"
 out=$(printf 'A\n' | TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1); rc=$?
 [ "$rc" = "0" ] && [ "$out" = " 3  3 " ] || fail "keyboard callback: rc=$rc" "$out"
 
-# --- CLS restores 64-column mode after 32-column (the Dancing Demon idiom)
-printf '10 DEFUSR=&H700B:X=USR(0):IF INP(255)<>63 THEN PRINT "no 32col":END\n20 DEFUSR=&H700D:X=USR(0):PRINT INP(255)\n' > "$tmp"
+# --- CLS restores 64-column mode after 32-column (the Dancing Demon idiom:
+# CHR$(23) from BASIC, then a routine's CLS).  The write-set clears bit 3
+# of 403DH, the ROM's print flag, so the PRINT after the call steps one
+# byte again (15361 holds the B); without it the stage the demon paints
+# from BASIC lands on every other cell.
+printf '10 DEFUSR=&H700B:X=USR(0):IF INP(255)<>63 THEN PRINT "no 32col":END\n20 PRINT CHR$(23);:DEFUSR=&H700D:X=USR(0):PRINT@0,"AB";:PRINT INP(255);PEEK(16445);PEEK(15361)\n' > "$tmp"
 out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
-[ "$rc" = "0" ] && [ "$out" = " 127 " ] || fail "CLS restores 64-column: rc=$rc" "$out"
+[ "$rc" = "0" ] && [ "$out" = "AB 127  0  66 " ] || fail "CLS restores 64-column and the print flag: rc=$rc" "$out"
 
 # --- an undefined entry is ?FC on this side, never sent
 printf '10 X=USR6(0)\n' > "$tmp"

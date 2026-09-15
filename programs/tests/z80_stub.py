@@ -21,7 +21,8 @@ Entries (hex):
   700A  a video byte AND a write-set byte in one call
   700B  OUT (FFH) bit 3 set: 32-column mode (MODE 1)
   700C  OUT (FFH) bit 3 clear: 64-column mode (MODE 0)
-  700D  32-column, then CLS (CALL 01C9H) restores 64-column
+  700D  32-column, then CLS (CALL 01C9H) restores 64-column and clears
+        bit 3 of 403DH (16445), the ROM's print flag, in the write-set
   anything else: an immediate RET (hl=0, result=0, no writes)
 
 Z80_STUB_PROTO=<n> makes the stub claim another protocol version.
@@ -151,8 +152,8 @@ def main():
             ret()
         elif entry == 0x700D:
             send("MODE 1")            # 32-column, then CLS restores 64-column
-            send("MODE 0")
-            ret()
+            send("MODE 0")            # and clears bit 3 of the ROM's port image
+            ret(writes=["16445:%d" % (mem.get(16445, 0) & 0xF7)])
         else:
             ret()
 
