@@ -46,7 +46,7 @@ Developed and tested on MacOS (iTerm2), untested but probably works fine under L
   up/down recall history, Ctrl-A/Ctrl-E/Ctrl-U work as in a shell, TAB
   completes filenames, and PgUp/PgDn page long output.
 - **The 64x16 screen** with semigraphics drawn in Unicode sextants (braille or
-  ASCII if your font lacks them), plus optional colour for `SET`.
+  ASCII if your font lacks them), plus optional color for `SET`.
 - **Period pacing.** `speed 1.77408` runs a game at the Model I's clock rate.
 - **Disk BASIC file I/O**, sequential and random-access.
 - **Batch mode for scripts.** `./basic prog.bas` reads `INPUT` from stdin,
@@ -99,7 +99,7 @@ programs/examples/run_examples.sh               # ~5s — every example against 
 Inside the interpreter, `man <keyword>` documents any BASIC word (e.g.
 `man PRINT`), `help meta` lists the metacommands, and `help keys` the key
 bindings. `docs/USER_GUIDE.md` is the
-full manual — the extensions (colour, OLLAMA, the simulated machine) live
+full manual — the extensions (color, OLLAMA, the simulated machine) live
 there.
 
 ## Commands and arguments
@@ -170,7 +170,7 @@ scratch directory, against the OLLAMA stub, and diffs against the checked-in
 ## User manual
 
 **Start with the [User Guide](docs/USER_GUIDE.md).** It is the full manual:
-keys and metacommands, loading and batch mode, the extensions (colour
+keys and metacommands, loading and batch mode, the extensions (color
 graphics, Disk BASIC files, the OLLAMA channel, the simulated machine),
 every place this interpreter differs from the ROM, and a reference entry for
 each BASIC keyword. What follows here is the short version.
@@ -247,7 +247,7 @@ area and runs as a fixture:
 | `logbook.bas` | sequential files: `OPEN "O"/"E"/"I"`, `PRINT#`, `LINE INPUT#`, `EOF`, `KILL`; `ON ERROR` for a missing file |
 | `starfile.bas` | random-access files: `FIELD`, `LSET`, `PUT`/`GET`, `MKI$`/`CVI`, `LOF` |
 | `life.bas` | `SET`/`RESET`/`POINT` on the 128x48 grid (run it interactively to watch) |
-| `palette.bas` | colour semigraphics, `SET(x,y,c)` — an extension; colour shows only in the interactive grid |
+| `palette.bas` | color semigraphics, `SET(x,y,c)` — an extension; color shows only in the interactive grid |
 | `oracle.bas` | the `OLLAMA` channel with `@TOKENS` steering the reply |
 | `trapper.bas` | `ON ERROR GOTO`, `ERR`, `ERL`, `RESUME`, `ERROR n` |
 
@@ -274,12 +274,12 @@ before `--update`.
   to look next to the `.bas` file; actually it resolves against *your*
   current directory, because the interpreter never changes directory. Run
   from where the program's data is, or call `basic` by absolute path.
-- **Batch output has no graphics, and no colour anywhere but the grid.** You
+- **Batch output has no graphics, and no color anywhere but the grid.** You
   might expect `SET` to show up in `./basic prog.bas` output; actually only
   printed text is streamed, because the screen grid is not rendered without
   a terminal. `--screen` keeps the control codes; interactive mode shows the
-  picture. `SET(x,y,c)` colour renders only in the interactive grid, and
-  `POINT` reports lit/unlit regardless of colour.
+  picture. `SET(x,y,c)` color renders only in the interactive grid, and
+  `POINT` reports lit/unlit regardless of color.
 - **Printing scrolls the picture.** You might expect `POINT` to read back
   what `SET` drew; actually any `PRINT` that reaches the bottom line scrolls
   the whole screen, pixels included — read before you print, or use
@@ -410,11 +410,15 @@ markers in `docs/USER_GUIDE.md`; nothing else.
 Copyright (c) 2026 David Forbis. GNU General Public License v3.0 — see
 `LICENSE`. Distributed WITHOUT ANY WARRANTY.
 
-This is an independent, from-scratch reimplementation of the LEVEL II BASIC
-language's *behaviour*, written against the published Radio Shack LEVEL II
-BASIC Reference Manual (1978) as a functional specification. It contains no
-ROM code, no disassembly, no Microsoft or Tandy source, and no text of the
-manual. **TRS-80**, **Radio Shack** and **Tandy** are trademarks of their
+This is an independent, from-scratch reimplementation of LEVEL II BASIC's
+*behavior*. The language follows the published Radio Shack LEVEL II BASIC
+Reference Manual (1978) and the TRSDOS & Disk BASIC Reference Manual, used as
+functional specifications. Machine-level details (memory addresses, system
+variables, the RND generator) come from period ROM reference books and
+magazines, trs-80.com, and a published ROM disassembly (for the RND
+generator); period program listings served as test cases. The repository
+contains no ROM code, no disassembly text, no Microsoft or Tandy source, and
+no text of the manuals. **TRS-80**, **Radio Shack** and **Tandy** are trademarks of their
 respective owners, used only to describe compatibility; this project is not
 affiliated with or endorsed by them. Programs under `programs/` are original
 to this project.
