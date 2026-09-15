@@ -12,14 +12,80 @@ step; it writes only the files your BASIC program tells it to.
 ## Very brief FAQ:
 - Why awk??\
 A. It's funny, and there's an inside joke about it.\
-B. I wanted to see if Claude could deal with such a ridiculous request.  It's first pass included everything I had asked for, which was probably around 90% of BASIC.
+B. I wanted to see if Claude could deal with such a ridiculous request.  Its first pass included everything I had asked for, which was probably around 90% of BASIC.
 
 - Does it run Dancing Demon?\
 Yes, including the embedded machine language and sound.
 
-- What platformms are supported?\
+- What platforms are supported?\
 Developed and tested on MacOS (iTerm2), untested but probably works fine under Linux.  No Windows support right now, but that'll be added at some point.
 
+
+## Features
+
+- **Embedded machine language.** `USR` routines execute for real through the
+  companion Z80 core, whether POKEd into memory, packed into strings, or
+  carried as fake BASIC lines in a tokenized image. Video they write appears
+  as they run, the keyboard is live, and their cassette-port sound plays
+  (`sound on`) or records to a WAV file.
+- **A memory map programs can `PEEK` and `POKE`:** the tokenized program at
+  42E9H, display memory, the system variables and pointers, the BREAK and
+  driver vectors, and `VARPTR` string aliasing for the magazine
+  string-packing tricks.
+- **Tokenized images load directly.** `CLOAD`, `LOAD` and `./basic IMAGE.BAS`
+  read the binary files most archives hold, keeping every byte.
+- **Ollama integration.** `OPEN "O",1,"OLLAMA:llama3.2"` turns a file channel
+  into a conversation with a local LLM; `@TOKENS` pins the reply's first line
+  to one of a list of words so a program can branch on it; named threads
+  persist between runs.
+- **Metacommands**, lowercase so they never collide with BASIC: `dir`, `cat`,
+  `history`, `speed`, `sound`, `fullscreen`, `ext`, `man`, `help`.
+- **Man pages.** `man PRINT` gives the syntax and an example for any BASIC
+  keyword; `help <text>` searches them.
+- **Shell-style line editing.** Left/right arrows move through the line,
+  up/down recall history, Ctrl-A/Ctrl-E/Ctrl-U work as in a shell, TAB
+  completes filenames, and PgUp/PgDn page long output.
+- **The 64x16 screen** with semigraphics drawn in Unicode sextants (braille or
+  ASCII if your font lacks them), plus optional colour for `SET`.
+- **Period pacing.** `speed 1.77408` runs a game at the Model I's clock rate.
+- **Disk BASIC file I/O**, sequential and random-access.
+- **Batch mode for scripts.** `./basic prog.bas` reads `INPUT` from stdin,
+  puts BASIC errors on stderr and exits 0, 1 or 2.
+
+## Helper scripts
+
+None of these is needed to run programs. Arguments are documented under
+[Python tools](#python-tools) and, for `run_examples.sh`,
+[Commands and arguments](#commands-and-arguments).
+
+| script | what it does |
+|---|---|
+| `tools/detok.py` | converts a tokenized cassette or disk image into a text listing you can read or edit |
+| `tools/tok.py` | converts a text listing back into a tokenized image; `--round-trip` checks that a conversion loses nothing |
+| `tools/make_userguide.py` | regenerates the keyword reference in `docs/USER_GUIDE.md` from `support/manpages.txt`, so the guide matches `man` |
+| `programs/examples/run_examples.sh` | runs every example program and compares its output with the checked-in transcript |
+| `programs/tests/run_all.sh` | runs the whole test suite with one exit status, as CI does on every push |
+| `programs/tests/ollama_stub.sh` | returns canned Ollama replies, so OLLAMA programs run without a server (via `TRS80_OLLAMA_CURL`) |
+| `programs/tests/z80_stub.py` | a minimal stand-in for the Z80 core that the `USR` protocol tests run against |
+
+## Requirements
+
+- **GNU awk 5.0 or later** (`gawk`). The `awk` that ships with macOS and
+  many Linux distributions is not GNU awk: `brew install gawk`, or
+  `apt install gawk`.
+- **macOS or Linux** with the standard `sh`, `stty`, `dd`, `od` and `ls`
+  (interactive mode uses them for the raw keyboard and TAB completion), and a
+  terminal of at least 64x20 for the screen grid.
+
+Everything else is optional, needed only for the feature named:
+
+| dependency | needed for | without it |
+|---|---|---|
+| `python3` (standard library only) | the Z80 core and the scripts in `tools/` | no `USR` execution; no tools |
+| a checkout of [`trs80_z80_core`](https://github.com/davidscan/trs80_z80_core) beside this repo | running `USR` machine code | `USR` returns its argument, and the run ends with a stderr line naming the routines that did not execute |
+| a sound player: **ffplay** (part of FFmpeg), else `ffmpeg` on macOS, `aplay` or `pw-play` | hearing machine-code sound live (`sound on`) | no live sound; `sound wav out.wav` still records it |
+| `curl` and a running [Ollama](https://ollama.com) server with a model pulled | the `OLLAMA` channel | reading a reply raises `?FD` |
+| a terminal font with the Unicode "Symbols for Legacy Computing" block | semigraphics drawn as sextants | set `TRS80_GFX=braille` or `TRS80_GFX=ascii` |
 
 ## Quick start
 
@@ -85,37 +151,11 @@ Environment variables the interpreter reads:
 | `TRS80_USR` | unset | `strict` makes every `USR` call raise `?FC` instead of returning its argument | a sweep that must fail visibly on machine code it cannot run |
 | `TRS80_Z80` | a core beside this checkout, else none | the command that runs the companion Z80 core; `USR` routines then execute (see `PROTOCOL.md`). Unset, the launcher uses `../trs80_z80_core/core.py` when it exists; empty (`TRS80_Z80=`) means no core | running listings with embedded machine code, or keeping them off |
 | `TRS80_Z80_TIMEOUT` | `5000` | milliseconds to wait for each reply from the core before giving up on it | a slow machine, or debugging the core |
-| `TRS80_SOUND` | unset | player command for the machine-code sound a `USR` routine makes on port 255, fed raw 16-bit mono PCM by the core; `auto` picks an installed ffplay (ffmpeg on macOS without it); also `sound on` | hearing a sound routine as the machine played it |
+| `TRS80_SOUND` | unset | player command for the machine-code sound a `USR` routine makes on port 255, fed raw 16-bit mono PCM by the core; `auto` picks the first installed player: ffplay, then ffmpeg on macOS, aplay, pw-play; also `sound on` | hearing a sound routine as the machine played it |
 | `TRS80_SOUND_WAV` | unset | file the core writes that audio to, emulated time only; also `sound wav <path>` | keeping a recording, or checking pitch without speakers |
 | `TRS80_SOUND_RATE` | `22050` | the sample rate for both | `44100` for a finer file |
 
 (A couple of development-only variables are deliberately undocumented here.)
-
-### `python3 tools/detok.py [-o DIR] [-s] [--check] IMAGE...`
-
-Converts tokenized cassette/disk images (binary, first byte `0xFF`) into the
-text listings this interpreter reads. **Writes:** `DIR/<name>.bas` per input
-with `-o`; otherwise to stdout.
-
-| argument | default | what it does | when you'd use it |
-|---|---|---|---|
-| `-o DIR`, `--outdir DIR` | stdout | write one `.bas` per input into DIR | converting more than one file |
-| `-s`, `--space-keywords` | off | re-separate keywords the ROM ran together (`FORX=1TOR` → `FOR X=1 TO R`) | **always, for this interpreter** — it lexes `FORX` as one identifier |
-| `--check` | off | parse only, report problems, write nothing | finding out whether a file is really a tokenized image |
-| `--raw-newlines` | off | keep CR/LF inside strings and REMs byte-for-byte | archival fidelity only; the result will not reload |
-| `--table TSV` | `tools/level2_tokens.tsv` | alternate token table | never, unless you are studying another ROM |
-
-### `python3 tools/tok.py [-o DIR] [--round-trip] LISTING...`
-
-The inverse: a text listing back to a tokenized image. **Writes:** `DIR/<name>.bas`
-with `-o`, else stdout.
-
-| argument | default | what it does | when you'd use it |
-|---|---|---|---|
-| `-o DIR`, `--outdir DIR` | stdout | write one image per input | producing files for a real machine or emulator |
-| `--round-trip` | off | detokenize each *image*, re-tokenize, compare bytes; writes nothing | checking that a conversion is lossless |
-| `--base ADDR` | `0x42E9` | load address for the line pointers | matching a specific machine's memory layout |
-| `-v` | off | show every mismatch in `--round-trip` | when a round trip fails |
 
 ### `programs/examples/run_examples.sh [--update]`
 
@@ -127,18 +167,13 @@ scratch directory, against the OLLAMA stub, and diffs against the checked-in
 |---|---|---|---|
 | `--update` | off | regenerate the transcripts instead of checking them | after a deliberate change to an example or to output formatting — read the diff first |
 
-### `python3 tools/make_userguide.py [--check]`
-
-Regenerates Part V of `docs/USER_GUIDE.md` from `support/manpages.txt`, so
-the guide's keyword reference always matches what `man` shows. Run it after
-any manpages edit. **Writes:** the region between the generated-reference
-markers in `docs/USER_GUIDE.md`; nothing else.
-
-| argument | default | what it does | when you'd use it |
-|---|---|---|---|
-| `--check` | off | exit 1 if the guide is stale, write nothing | CI, or before committing a manpages change |
-
 ## User manual
+
+**Start with the [User Guide](docs/USER_GUIDE.md).** It is the full manual:
+keys and metacommands, loading and batch mode, the extensions (colour
+graphics, Disk BASIC files, the OLLAMA channel, the simulated machine),
+every place this interpreter differs from the ROM, and a reference entry for
+each BASIC keyword. What follows here is the short version.
 
 ### Workflow
 
@@ -303,6 +338,48 @@ overwrites `.out` files; `git diff` shows exactly what changed.
   included.
 - Reading OCR-damaged listings — that is a different problem (repair, not
   conversion) and lives in a separate project.
+
+## Python tools
+
+Standalone helpers for program files and the documentation; the interpreter
+itself does not need them.
+
+### `python3 tools/detok.py [-o DIR] [-s] [--check] IMAGE...`
+
+Converts tokenized cassette/disk images (binary, first byte `0xFF`) into the
+text listings this interpreter reads. **Writes:** `DIR/<name>.bas` per input
+with `-o`; otherwise to stdout.
+
+| argument | default | what it does | when you'd use it |
+|---|---|---|---|
+| `-o DIR`, `--outdir DIR` | stdout | write one `.bas` per input into DIR | converting more than one file |
+| `-s`, `--space-keywords` | off | re-separate keywords the ROM ran together (`FORX=1TOR` → `FOR X=1 TO R`) | **always, for this interpreter** — it lexes `FORX` as one identifier |
+| `--check` | off | parse only, report problems, write nothing | finding out whether a file is really a tokenized image |
+| `--raw-newlines` | off | keep CR/LF inside strings and REMs byte-for-byte | archival fidelity only; the result will not reload |
+| `--table TSV` | `tools/level2_tokens.tsv` | alternate token table | never, unless you are studying another ROM |
+
+### `python3 tools/tok.py [-o DIR] [--round-trip] LISTING...`
+
+The inverse: a text listing back to a tokenized image. **Writes:** `DIR/<name>.bas`
+with `-o`, else stdout.
+
+| argument | default | what it does | when you'd use it |
+|---|---|---|---|
+| `-o DIR`, `--outdir DIR` | stdout | write one image per input | producing files for a real machine or emulator |
+| `--round-trip` | off | detokenize each *image*, re-tokenize, compare bytes; writes nothing | checking that a conversion is lossless |
+| `--base ADDR` | `0x42E9` | load address for the line pointers | matching a specific machine's memory layout |
+| `-v` | off | show every mismatch in `--round-trip` | when a round trip fails |
+
+### `python3 tools/make_userguide.py [--check]`
+
+Regenerates Part V of `docs/USER_GUIDE.md` from `support/manpages.txt`, so
+the guide's keyword reference always matches what `man` shows. Run it after
+any manpages edit. **Writes:** the region between the generated-reference
+markers in `docs/USER_GUIDE.md`; nothing else.
+
+| argument | default | what it does | when you'd use it |
+|---|---|---|---|
+| `--check` | off | exit 1 if the guide is stale, write nothing | CI, or before committing a manpages change |
 
 ## Files and logs
 
