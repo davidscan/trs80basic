@@ -37,6 +37,10 @@ cat > "$tmp" <<'EOF2'
 230 DEFUSR3=32200:X=USR3(0)
 240 IF PEEK(15360)<>32 OR PEEK(16383)<>32 THEN PRINT "FAIL CLS trap":F=1
 250 IF PEEK(32072)<>7 THEN PRINT "FAIL write-set byte";PEEK(32072):F=1
+255 REM --- a routine parked across the clock cells 4041-4046H (Space Chase, 80 Micro 5/1982): the POKEd bytes reach the frame
+256 FOR I=0 TO 9:READ B:POKE 16446+I,B:NEXT
+257 DATA 205,127,10,41,41,41,41,195,154,10
+258 DEFUSR4=16446:IF USR4(3)<>48 THEN PRINT "FAIL routine across the clock cells";USR4(3):F=1
 260 REM --- a routine that changes HIMEM by storing to 40B1H comes back through poke_byte
 270 IF F THEN PRINT "Z80 CORE FIXTURE FAILED":END
 280 PRINT "Z80 CORE FIXTURE OK"

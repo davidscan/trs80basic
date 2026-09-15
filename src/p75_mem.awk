@@ -121,8 +121,11 @@
 #   2. 40AA-40ACH (16554-16556) -> rnd_poke(), the ROM RND seed
 #   3. 40B1/40B2H (16561/16562) -> pm_sethimem(), the one writable pointer
 #      the SYSTEM VARIABLE WINDOW (a in SVW) -> sv_poke(): cursor moves,
-#      cursor character, printer counters, AUTO request, TRON flag; the
-#      clock and the current line number ignore writes (documented)
+#      cursor character, printer counters, AUTO request, TRON flag; a
+#      clock cell (4041-4046H) becomes plain RAM once written (MEM[a],
+#      read back by sv_peek; on a cassette machine nothing updates those
+#      bytes, and Space Chase parks its routine across them); the current
+#      line number ignores writes (documented)
 #   4. a in SPK                 -> sp_poke(), VARPTR string-space write-through
 #   5. a > RAMTOP               -> DISCARDED (absent RAM)
 #   6. otherwise                -> MEM[a] = b.  Five cells there have a SIDE
@@ -525,8 +528,16 @@ function fn_varptr(   name, key, tgt) {
 #                         16425,1 after a form feed" idiom, 36 listings).
 #   409BH (16539)         printer column (LPCOL).  POKE sets it.
 #   4041-4046H (16449-54) SS MN HH YY DD MM from the host clock, as TIME$
-#                         reads it.  POKEs are ignored: the clock is the
-#                         host's (documented deviation).
+#                         reads it (documented deviation: Level II has no
+#                         clock interrupt, so on the machine these bytes
+#                         hold whatever was last stored).  A POKE makes the
+#                         cell plain RAM from then on (SVWRIT): the byte
+#                         reads back and reaches the USR frame.  Found by
+#                         the 2026-09-15 corpus sweep: Space Chase (80
+#                         Micro 5/1982) POKEs its routine at 403EH-405AH,
+#                         and the frame carried the wall clock in place of
+#                         six of its bytes -- 340 calls ran, the 341st
+#                         crashed when the seconds byte became an opcode.
 #   40A2/40A3H (16546/7)  the line number executing (CLN; 0 at READY).
 #                         POKEs ignored.
 #   40E1H (16609)         AUTO flag: 1 while AUTO is prompting.  POKE
@@ -555,6 +566,7 @@ function sv_peek(a,   v) {
     if (a == 16425) return LPLINES % 256
     if (a == 16539) return LPCOL % 256
     if (a >= 16449 && a <= 16454) {
+        if (a in SVWRIT) return MEM[a]
         v = strftime("%S %M %H %y %d %m")
         return substr(v, 3 * (a - 16449) + 1, 2) + 0
     }
@@ -589,7 +601,8 @@ function sv_poke(a, b,   v) {
     if (a == 16612) { AUTOINC = int(AUTOINC / 256) * 256 + b; return }
     if (a == 16613) { AUTOINC = AUTOINC % 256 + 256 * b; return }
     if (a == 16667) { TRACE = (b != 0); return }
-    # 16449-16454 (the clock) and 16546/16547 (the current line): ignored
+    if (a >= 16449 && a <= 16454) { MEM[a] = b; SVWRIT[a] = 1; return }
+    # 16546/16547 (the current line): ignored
 }
 
 # ===================== string aliasing via the descriptor (finding 7) =======

@@ -1349,7 +1349,9 @@ PEEK(addr)   read a memory byte (unset = 255)
   position (15360 + cell), 16418 the cursor character (POKE 16418,0
   hides the cursor), 16424 printer lines per page + 1, 16425 lines
   printed on this page, 16539 the printer column, 16449-16454 the clock
-  (SS MN HH YY DD MM, read-only), 16546/16547 the line number executing,
+  (SS MN HH YY DD MM; a POKEd cell keeps its byte from then on, as on a
+  cassette machine, where nothing updates them), 16546/16547 the line
+  number executing,
   16609-16613 AUTO's flag, line and increment (POKE 16609,1 starts AUTO
   at the next READY), 16667 the TRON flag (175 on; POKE switches it).
   The driver vectors re-route output: POKE 16414,141:POKE 16415,5 sends

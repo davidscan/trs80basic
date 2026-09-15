@@ -20,6 +20,9 @@
 200 REM --- the Model I clock 4041-4046H agrees with TIME$ (MM/DD/YY HH:MN:SS)
 210 T$=TIME$:IF PEEK(16454)<>VAL(LEFT$(T$,2)) OR PEEK(16453)<>VAL(MID$(T$,4,2)) OR PEEK(16452)<>VAL(MID$(T$,7,2)) THEN PRINT "FAIL clock date";PEEK(16454);PEEK(16453);PEEK(16452);T$:F=1
 220 IF PEEK(16451)<>VAL(MID$(T$,10,2)) THEN PRINT "FAIL clock hour";PEEK(16451);T$:F=1
+225 REM --- a POKEd clock cell is plain RAM from then on (Space Chase parks code at 403EH-405AH)
+226 POKE 16449,41:IF PEEK(16449)<>41 THEN PRINT "FAIL clock cell keeps its byte";PEEK(16449):F=1
+227 POKE 16454,195:IF PEEK(16454)<>195 OR PEEK(16453)<>VAL(MID$(T$,4,2)) THEN PRINT "FAIL clock cell alone":F=1
 230 REM --- the current line number 40A2/40A3H
 240 IF PEEK(16546)+256*PEEK(16547)<>240 THEN PRINT "FAIL current line";PEEK(16546)+256*PEEK(16547):F=1
 250 REM --- AUTO state 40E1-40E5H: readable, POKEable; the request itself fires at the READY prompt (t33)
