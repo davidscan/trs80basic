@@ -159,9 +159,12 @@ core -> interpreter   ERR <code> <text>
 
 Sent instead of `RET`.  The interpreter raises `?FC` at the `USR` call and
 prints `USR CORE: <text>` on stderr.  Codes: `rom` (a jump or call into
-ROM space that is neither the sentinel nor a served trap), `halt` (the
-routine executed HALT), `bad` (the core could not parse a message).  After
-an `ERR` the core is still up and the next call proceeds normally.
+ROM space that is neither the sentinel nor a served trap; when no frame
+and no store ever wrote the entry address, the text adds `-- no routine
+at XXXXH: its memory was never written`, the signature of a loader that
+never ran), `halt` (the routine executed HALT), `bad` (the core could not
+parse a message).  After an `ERR` the core is still up and the next call
+proceeds normally.
 
 ## Fallback
 
