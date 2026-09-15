@@ -50,6 +50,11 @@ function handle_line(line,   s, ln, rest) {
         st_speed(rest)
         return 1
     }
+    if (s ~ /^sound($|[ \t])/) {
+        rest = substr(s, 6); sub(/^[ \t]+/, "", rest); sub(/[ \t]+$/, "", rest)
+        st_sound(rest)
+        return 1
+    }
     if (s ~ /^dir($|[ \t])/) {
         rest = substr(s, 4)
         sub(/^[ \t]+/, "", rest)
@@ -326,6 +331,8 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  help keys             terminal key bindings\n" \
               "  help <text>           search BASIC commands\n" \
               "  speed <mhz>           throttle execution (0 = full speed)\n" \
+              "  sound on|off          machine-code sound through the Z80 core\n" \
+              "  sound wav <path>|off  ...and/or capture it to a WAV file (bare: state)\n" \
               "  @dump                 dump the screen buffer (debug)\n" \
               "IN A PROGRAM (needs ext on): a REM fires speed/fullscreen when\n" \
               "execution reaches it --  10 REM META:fullscreen on")
@@ -382,6 +389,21 @@ function st_speed(arg) {
 
 function speed_msg() {
     return (THROTTLE_MHZ > 0) ? "SPEED " THROTTLE_MHZ " MHZ" : "SPEED: FULL (no throttle)"
+}
+
+# --- sound metacommand (EXT): machine-code sound through the Z80 core -------
+# Switches only; the player command stays in the environment (p77 header).
+function st_sound(arg,   rest) {
+    snd_init()
+    if (arg == "") { t_man(snd_msg()); return }
+    if (arg == "on" || arg == "1") { SNDON = 1; snd_apply(); t_man(snd_msg()); return }
+    if (arg == "off" || arg == "0") { SNDON = 0; snd_apply(); t_man(snd_msg()); return }
+    if (arg ~ /^wav[ \t]+[^ \t]/) {
+        rest = substr(arg, 4); sub(/^[ \t]+/, "", rest)
+        SNDWAV = (rest == "off" || rest == "0") ? "" : rest
+        snd_apply(); t_man(snd_msg()); return
+    }
+    t_man("USAGE: sound on|off   sound wav <path>|off   (bare: show state)")
 }
 
 # --- dir metacommand: shell passthrough for "ls -al" (below-grid output) ----

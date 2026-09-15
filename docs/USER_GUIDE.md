@@ -62,6 +62,9 @@ II):
 | `TRS80_USR` | unset | `strict` makes a `USR` call raise `?FC` instead of returning its argument |
 | `TRS80_Z80` | a core beside the checkout, else none | command that runs the companion Z80 core; `USR` routines then execute (`PROTOCOL.md`). Unset, the launcher uses `../trs80_z80_core/core.py` when it exists; empty means no core |
 | `TRS80_Z80_TIMEOUT` | `5000` | milliseconds to wait for each reply from the core |
+| `TRS80_SOUND` | unset | player command for the machine-code sound a `USR` routine makes (raw 16-bit mono PCM on stdin); `auto` picks an installed ffplay (ffmpeg on macOS without it); `sound on` does the same |
+| `TRS80_SOUND_WAV` | unset | file the core writes that audio to; `sound wav <path>` does the same |
+| `TRS80_SOUND_RATE` | `22050` | the sample rate for both |
 
 ### Keys
 
@@ -102,6 +105,7 @@ ever colliding with a period program.
 | `ext on\|off` | the gated-extensions switch (see Part IV); bare `ext` shows state |
 | `fullscreen on\|off` | stream output with the terminal's own scrollback instead of the captive 64x16 grid; graphics addressing is unchanged either way |
 | `speed <mhz>` | throttle execution to a period pace (`speed 1.77` ≈ a real Model I); `speed 0` = full host speed. A feel knob, not a cycle-accurate emulator |
+| `sound on\|off`, `sound wav <path>\|off` | machine-code sound: the cassette-port pulses a `USR` routine makes, played live through the core's player and/or written to a WAV file; bare `sound` shows the state. Needs the Z80 core; BASIC's own `OUT 255` stays silent |
 | `history` (or `h`) | list this session's typed commands |
 | `@dump` | print the 16-row screen buffer (debugging aid) |
 
@@ -436,7 +440,9 @@ because period programs poke at it:
   finds by itself, or named by `TRS80_Z80`), the routine at
   `DEF USRn=addr` (or the POKEd vector at 16526/7) runs for real — video
   it writes shows as it runs, the keyboard is live, Ctrl-C breaks, and
-  the ROM entry points it may call are `01C9H`, `0A7FH` and `0A9AH`;
+  the ROM entry points it may call are `01C9H`, `0A7FH` and `0A9AH`,
+  and its cassette-port sound is heard with `sound on` or kept with
+  `sound wav <path>`;
   without it, `USRn(x)` returns its argument and the run
   ends with one stderr line naming the entry addresses not executed;
   `TRS80_USR=strict` raises `?FC` on the call instead. `SYSTEM` does not
@@ -2147,6 +2153,31 @@ speed         report the current setting
   (see: man REM); that needs `ext on`.
   Example: speed 1.77
   Example: speed 0
+```
+
+#### sound
+
+```text
+sound on | off         live playback of machine-code sound
+sound wav <path> | off  also, or instead, capture it to a WAV file
+sound                  report the current state
+  The Model I's only sound was the cassette output port, toggled by
+  machine-language routines called through USR.  With the Z80 core
+  attached those port writes are captured and rendered: `sound on`
+  plays them live through a player program, `sound wav out.wav` writes
+  them to a file, and both may be on at once.  The player command comes
+  from the environment variable TRS80_SOUND (an installed ffplay is
+  found by default); TRS80_SOUND_WAV and TRS80_SOUND_RATE
+  preset the file and the sample rate.  Live sound paces the routine to
+  the Model I clock when no `speed` is set.
+  BASIC's own OUT 255 stays silent: its pitch would follow the
+  interpreter's pace, not the machine's.
+  A change takes effect at the next USR call, which starts a fresh core;
+  nothing in memory is lost.  Without the core there is no sound.
+  Metacommand: lowercase only.
+  Example: sound on
+  Example: sound wav demon.wav
+  Example: sound wav off
 ```
 
 #### history h

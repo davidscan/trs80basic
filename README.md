@@ -73,6 +73,9 @@ Environment variables the interpreter reads:
 | `TRS80_USR` | unset | `strict` makes every `USR` call raise `?FC` instead of returning its argument | a sweep that must fail visibly on machine code it cannot run |
 | `TRS80_Z80` | a core beside this checkout, else none | the command that runs the companion Z80 core; `USR` routines then execute (see `PROTOCOL.md`). Unset, the launcher uses `../trs80_z80_core/core.py` when it exists; empty (`TRS80_Z80=`) means no core | running listings with embedded machine code, or keeping them off |
 | `TRS80_Z80_TIMEOUT` | `5000` | milliseconds to wait for each reply from the core before giving up on it | a slow machine, or debugging the core |
+| `TRS80_SOUND` | unset | player command for the machine-code sound a `USR` routine makes on port 255, fed raw 16-bit mono PCM by the core; `auto` picks an installed ffplay (ffmpeg on macOS without it); also `sound on` | hearing a sound routine as the machine played it |
+| `TRS80_SOUND_WAV` | unset | file the core writes that audio to, emulated time only; also `sound wav <path>` | keeping a recording, or checking pitch without speakers |
+| `TRS80_SOUND_RATE` | `22050` | the sample rate for both | `44100` for a finer file |
 
 (A couple of development-only variables are deliberately undocumented here.)
 
@@ -152,6 +155,10 @@ TRS80_MHZ=1.77408 ./basic game.bas          # paced to the Model I clock
 (`TRS80_Z80="python3 /path/to/core.py"`), and `TRS80_Z80=` (empty) runs
 without a core even when one is beside the checkout. Set `TRS80_MHZ`, or
 the `speed` metacommand, or a long routine runs as fast as Python goes.
+A routine's sound, the cassette-port pulses the machine played through
+an amplifier, is heard with `sound on` at the prompt (or `TRS80_SOUND`)
+and kept with `sound wav out.wav`; it is machine code only, so BASIC's
+own `OUT 255` stays silent.
 The routine then executes against the same memory `PEEK` and `POKE` see,
 video it writes appears while it runs, the keyboard matrix is live, and
 Ctrl-C still breaks. The core serves three documented ROM entry points
@@ -265,6 +272,7 @@ overwrites `.out` files; `git diff` shows exactly what changed.
   BASIC errors.
 - `help <text>` searches the keyword documentation; `man` needs the exact word.
 - `speed 1.77` (or `TRS80_MHZ=1.77`) slows a game to the original machine's pace.
+- `sound on` plays a `USR` routine's cassette-port sound through the core; `sound wav f.wav` records it.
 - `TRS80_GFX=ascii` works on every terminal, including the raw Linux console.
 - The interactive grid needs a terminal of at least 64x20.
 

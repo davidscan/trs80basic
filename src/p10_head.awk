@@ -197,6 +197,7 @@ function init_tables(   i, c, m, n) {
 # recompute the per-statement throttle delay from a target clock in MHz
 function set_speed(mhz) {
     if (WINNATIVE) mhz = 0      # cmd.exe has no sub-second sleep: throttle off
+    if ((mhz > 0 ? mhz : 0) != THROTTLE_MHZ) z80_recycle()   # the clock travels on HELLO (p77)
     THROTTLE_MHZ = (mhz > 0 ? mhz : 0)
     THROTTLE_D = (THROTTLE_MHZ > 0 ? CYCPERSTMT / (THROTTLE_MHZ * 1000000) : 0)
     DACC = 0

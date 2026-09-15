@@ -114,11 +114,15 @@ function brk_take() {
 
 # check for BREAK (Ctrl-C, byte 3) without consuming other typed-ahead input.
 # Ctrl-S (byte 19) = the real SHIFT-@ pause: block until a key; Ctrl-C breaks.
-function pollbrk(   i, c, j) {
+# nofill: answer from what is already queued without reading the tty.  For
+# the core's ticks (p77): kb_fill forks dd|od, ~3 ms of a paced core's 5 ms
+# tick when interactive, so p77 reads the tty on every fourth tick only and
+# BREAK is still seen within 20 ms.  Every other caller reads it every time.
+function pollbrk(nofill,   i, c, j) {
     if (PENDBRK) { PENDBRK = 0; kb_flush(); return 1 }
     if (!TTYIN) return 0
     kb_mode("poll")
-    if (KH >= KT) kb_fill()
+    if (KH >= KT && !nofill) kb_fill()
     for (i = KH + 1; i <= KT; i++) {
         if (KBQ[i] == 3) {
             if (brk_take()) { kb_flush(); return 1 }

@@ -24,6 +24,17 @@
 # milliseconds (default 5000) -- gawk's PROCINFO[cmd, "READ_TIMEOUT"], so a
 # hung core cannot hang the interpreter.  This is the first |& coprocess in
 # the interpreter; both sides flush after every line or they deadlock.
+#
+# SOUND (EXT, 2026-09-14): machine-code sound lives in the core (its
+# z80/sound.py): TRS80_SOUND names a player command, TRS80_SOUND_WAV a file,
+# TRS80_SOUND_RATE the rate, all read from the core's environment when it
+# starts, and the protocol does not change.  The `sound` metacommand (p40
+# st_sound, the snd_* functions below) carries SWITCHES ONLY: the player
+# command comes from the environment and never from a line of text, so the
+# directive can one day join the REM META whitelist without a file ever
+# naming a shell command.  A switch, like a changed `speed`, takes effect
+# through z80_recycle(): BYE now, a fresh core with a full frame at the next
+# USR call.  BASIC's own OUT 255 stays silent, by ruling.
 
 function z80_init() {
     if (Z80INIT) return
@@ -145,7 +156,9 @@ function z80_run(x,   hl, res, k, brk, i, vid) {
         }
         if (Z80LINE ~ /^V /) { z80_apply(substr(Z80LINE, 3), 1); vid = 1; continue }
         if (Z80LINE ~ /^K /) { z80_send("K " kb_matrix(substr(Z80LINE, 3) + 0)); continue }
-        if (Z80LINE ~ /^T /) { z80_send(pollbrk() ? "BREAK" : "OK"); continue }
+        if (Z80LINE ~ /^T /) {                # BREAK poll; the tty itself on every fourth tick (p30)
+            z80_send(pollbrk((++Z80TICK % 4) != 0) ? "BREAK" : "OK"); continue
+        }
         if (Z80LINE ~ /^MODE /) { s_setwide(substr(Z80LINE, 6) + 0); continue }
         if (Z80LINE ~ /^NEED /) { Z80STATE = "need"; return 0 }
         if (Z80LINE ~ /^RET /) {
@@ -167,6 +180,47 @@ function z80_run(x,   hl, res, k, brk, i, vid) {
         z80_notice("unexpected '" Z80LINE "'; the core is dead for this session, USR is the stub")
         z80_close(); raise(5); return 0
     }
+}
+
+# Recycle the core: BYE now, a fresh start with a full frame at the next USR
+# call.  The clock travels on HELLO and the sound variables in the
+# environment, once per core, so `speed` and `sound` restart a running one.
+# Nothing is lost -- the interpreter owns memory and every core write came
+# back through poke_byte.  A core that died stays dead for the session.
+function z80_recycle() {
+    if (Z80STATE != "up") return
+    z80_send("BYE"); close(Z80CMD)
+    Z80STATE = "cold"; Z80PID = 0
+}
+
+# --- the `sound` metacommand's state (see the header) ----------------------
+# gawk hands ENVIRON changes to a coprocess started afterwards, so a switch
+# sets or deletes the variable and recycles a running core.  `sound on` with
+# no TRS80_SOUND asks the core for its default player ("auto").
+function snd_init() {
+    if (SNDINIT) return
+    SNDINIT = 1
+    SNDCMD = ENVIRON["TRS80_SOUND"]           # the player command: never shown, never set here
+    SNDON = (SNDCMD != "")
+    SNDWAV = ENVIRON["TRS80_SOUND_WAV"]
+}
+
+function snd_apply() {
+    if (SNDON) ENVIRON["TRS80_SOUND"] = (SNDCMD != "" ? SNDCMD : "auto")
+    else delete ENVIRON["TRS80_SOUND"]
+    if (SNDWAV != "") ENVIRON["TRS80_SOUND_WAV"] = SNDWAV
+    else delete ENVIRON["TRS80_SOUND_WAV"]
+    z80_recycle()
+}
+
+function snd_msg(   s) {
+    snd_init()
+    s = "SOUND " (SNDON ? "ON" : "OFF")
+    if (SNDON) s = s ((SNDCMD != "" && SNDCMD != "auto") ? " (player from TRS80_SOUND)" : " (the core's default player)")
+    s = s ", WAV " (SNDWAV != "" ? SNDWAV : "OFF")
+    z80_init()
+    if (Z80STATE == "none") s = s "\nNO CORE: sound is machine code, run by the Z80 core (TRS80_Z80)"
+    return s
 }
 
 END { z80_stop() }

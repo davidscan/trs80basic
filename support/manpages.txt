@@ -1284,6 +1284,28 @@ speed         report the current setting
   Example: speed 1.77
   Example: speed 0
 
+:sound
+sound on | off         live playback of machine-code sound
+sound wav <path> | off  also, or instead, capture it to a WAV file
+sound                  report the current state
+  The Model I's only sound was the cassette output port, toggled by
+  machine-language routines called through USR.  With the Z80 core
+  attached those port writes are captured and rendered: `sound on`
+  plays them live through a player program, `sound wav out.wav` writes
+  them to a file, and both may be on at once.  The player command comes
+  from the environment variable TRS80_SOUND (an installed ffplay is
+  found by default); TRS80_SOUND_WAV and TRS80_SOUND_RATE
+  preset the file and the sample rate.  Live sound paces the routine to
+  the Model I clock when no `speed` is set.
+  BASIC's own OUT 255 stays silent: its pitch would follow the
+  interpreter's pace, not the machine's.
+  A change takes effect at the next USR call, which starts a fresh core;
+  nothing in memory is lost.  Without the core there is no sound.
+  Metacommand: lowercase only.
+  Example: sound on
+  Example: sound wav demon.wav
+  Example: sound wav off
+
 :history h
 history   list the commands typed this session
 h         the same thing, abbreviated
