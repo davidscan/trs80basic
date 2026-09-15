@@ -588,8 +588,8 @@ function sv_poke(a, b,   v) {
         return
     }
     if (a == 16418) {
-        CURCH = b
-        if (!DUMB) { printf "%s", (b == 0 ? "\033[?25l" : "\033[?25h"); fflush() }
+        CURCH = b                    # 0 hides it; sync_cursor applies the rule
+        sync_cursor()
         return
     }
     if (a == 16424) { LPPAGE = b; return }

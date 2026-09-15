@@ -265,13 +265,15 @@ function kb_matrix(sel,   out) {
 # only): up/down history, TAB filename completion, Ctrl-L = CLEAR key.
 function rl_read(repl,   c, r, s, oldl, oldp) {
     RLCANCEL = 0
+    RLWAIT = 1                              # a waiting read shows the cursor
     sync_cursor()
     if (!TTYIN) {
         r = (getline s < "/dev/stdin")
-        if (r <= 0) { EOFQUIT = 1; return "" }
+        if (r <= 0) { EOFQUIT = 1; RLWAIT = 0; return "" }
         sub(/\r$/, "", s)
         if (length(s) > 255) s = substr(s, 1, 255)
         s_puts(s); s_nl()
+        RLWAIT = 0
         return s
     }
     RLS = ""; RLP = 0
@@ -279,13 +281,14 @@ function rl_read(repl,   c, r, s, oldl, oldp) {
     HIX = 0; RLDRAFT = ""
     for (;;) {
         c = kb_get()
-        if (c < 0) return RLS
+        if (c < 0) { RLWAIT = 0; sync_cursor(); return RLS }
         if (c == 13 || c == 10) {
             if (!DUMB) { CUR = RLSTART + length(RLS); if (CUR > 1023) CUR = 1023 }
+            RLWAIT = 0
             s_nl(); sync_cursor()
             return RLS
         }
-        if (c == 3) { if (!brk_take()) continue; RLCANCEL = 1; s_nl(); sync_cursor(); return "" }
+        if (c == 3) { if (!brk_take()) continue; RLCANCEL = 1; RLWAIT = 0; s_nl(); sync_cursor(); return "" }
         BRKFORCE = 0
         oldl = length(RLS); oldp = RLP
         if (c == 127 || c == 8) {

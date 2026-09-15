@@ -3,6 +3,7 @@
 30 REM Run it interactively to watch; in batch mode only the text
 40 REM snapshots below appear, since the screen is not streamed.
 50 CLS: W=32: H=16: DIM A(W,H),B(W,H),S$(6)
+55 PRINT@768,"";: REM park the cursor below the board (row 12)
 60 REM a glider (moves one cell diagonally every 4 generations) and a blinker
 70 A(2,1)=1: A(3,2)=1: A(1,3)=1: A(2,3)=1: A(3,3)=1
 80 A(20,8)=1: A(21,8)=1: A(22,8)=1
@@ -24,10 +25,12 @@
 390 FOR Y=0 TO H-1: FOR X=0 TO W-1: A(X,Y)=B(X,Y): NEXT X: NEXT Y
 400 RETURN
 500 REM ---- snapshot of the glider corner, read back with POINT ----
-505 REM (read first: printing text scrolls the screen and moves the pixels)
+505 REM (PRINT@ puts it beside the board: text printed at the cursor would
+506 REM  land on the board and scroll the screen, pixels and all)
 510 FOR Y=0 TO 6: S$(Y)=""
 520 FOR X=0 TO 9: IF POINT(X*2,Y*2) THEN S$(Y)=S$(Y)+"#" ELSE S$(Y)=S$(Y)+"."
 530 NEXT X: NEXT Y
-540 PRINT "GEN";G;" POP";P;" -- TOP-LEFT 10X7 CELLS:"
-550 FOR Y=0 TO 6: PRINT "  ";S$(Y): NEXT Y: PRINT
+540 PRINT@34,"GEN";G;" POP";P;" TOP-LEFT 10X7:"
+550 FOR Y=0 TO 6: PRINT@98+64*Y,"  ";S$(Y): NEXT Y: PRINT@546,""
+555 PRINT@768,"";
 560 RETURN

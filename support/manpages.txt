@@ -940,6 +940,7 @@ CHR$(n)   the one-character string whose character code is n
   inside a string, CHR$(34), and sending control codes to the display.
   Codes that act rather than print, when sent through PRINT:
      8   backspace          13  newline
+    14   cursor on          15  cursor off
     21   toggle Model III special characters for codes 192-255
     22   select the special / Katakana character set
     23   switch to 32 characters per line (CLS returns to 64)

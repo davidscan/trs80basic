@@ -22,7 +22,7 @@ function t_sep(   i, s) {
 
 function t_done() {
     kb_restore()
-    if (!DUMB && CURCH == 0) printf "\033[?25h"   # a POKE 16418,0 hid the cursor: give it back
+    if (!DUMB) { printf "\033[?25h"; CURVIS = 1 }  # the shell gets its cursor back, whoever hid it
     if (ALTSCR) { printf "\033[?1049l\033[0m"; ALTSCR = 0 }
     # park the shell prompt at the BOTTOM of the terminal (999 clamps to the
     # last row) so it doesn't land inside the below-grid help/man text
@@ -36,6 +36,7 @@ function t_done() {
 function t_leave_grid() {
     # back to the primary screen: the pre-grid shell content returns and
     # fullscreen streaming continues below it, with scrollback available
+    printf "\033[?25h"; CURVIS = 1        # streamed output never hides it
     if (ALTSCR) { printf "\033[?1049l\033[0m"; ALTSCR = 0 }
     else printf "\033[18;1H\033[0m\n"
     fflush()
@@ -198,8 +199,17 @@ function m3_rebuild(   i) {
     if (!DUMB) { redraw_all(); sync_cursor() }
 }
 
-function sync_cursor() {
-    if (!DUMB) printf "\033[%d;%dH", int(CUR / 64) + 1, CUR % 64 + 1
+# Put the terminal cursor where the simulated one is, and show it only when
+# the machine would: a zero cursor character (POKE 16418,0) hides it, and
+# otherwise it shows while a read waits for a key (RLWAIT) or the program
+# turned it on with CHR$(14).  Only a CHANGE is written: this runs on every
+# PRINT, and an escape pair per character would bloat every capture.
+function sync_cursor(   vis) {
+    if (!DUMB) {
+        printf "\033[%d;%dH", int(CUR / 64) + 1, CUR % 64 + 1
+        vis = (CURCH != 0 && (CURON || RLWAIT)) ? 1 : 0
+        if (vis != CURVIS) { printf "%s", (vis ? "\033[?25h" : "\033[?25l"); CURVIS = vis }
+    }
     fflush()
 }
 
@@ -293,6 +303,9 @@ function s_putc(b,   n, r) {
         if (CUR > 0) { CUR -= (WIDE ? 2 : 1); if (CUR < 0) CUR = 0; setcell(CUR, 32) }
         return
     }
+    # LEVEL II: 14 and 15 turn the cursor on and off.  The cursor is the
+    # terminal's here, so this only gates its visibility (sync_cursor).
+    if (b == 14 || b == 15) { CURON = (b == 14); sync_cursor(); return }
     # Model III: 21 toggles codes 192-255 between space compression and
     # character display; 22 picks which set that shows (special/Katakana)
     if (b == 21) { M3MODE = !M3MODE; m3_rebuild(); return }
@@ -309,7 +322,7 @@ function s_putc(b,   n, r) {
     if (b == 29) { CUR = int(CUR / 64) * 64; return }
     if (b == 30) { r = int(CUR / 64) * 64 + 63; for (n = CUR; n <= r; n++) setcell(n, 32); return }
     if (b == 31) { for (n = CUR; n < 1024; n++) setcell(n, 32); return }
-    # 0-7, 9, 11, 12, 14-20: ignored
+    # 0-7, 9, 11, 12, 16-20: ignored
 }
 
 function s_puts(s,   i, n, c) {

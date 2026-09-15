@@ -1,5 +1,13 @@
 # trs80basic
 
+![A house drawn in TRS-80 semigraphics on the 64x16 screen, above the line "BALL BOUNCES - PRESS Q TO QUIT"](docs/images/semigraphics-house.png)
+
+*Semigraphics drawn with `SET` on the 128x48 grid — `programs/demos/demo_graphics.bas`.*
+
+![An interactive session: the MEMORY SIZE? prompt, the LEVEL II banner, a two-line program entered with AUTO that prints graphics characters around a name, and its output](docs/images/virtual-terminal.png)
+
+*The simulated 64x16 screen: answer MEMORY SIZE?, type a program, RUN it.*
+
 ## What it is
 
 A TRS-80 Model I/III LEVEL II BASIC interpreter — the 1978 Radio Shack dialect,

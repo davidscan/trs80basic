@@ -110,6 +110,12 @@ function init_tables(   i, c, m, n) {
     # AUTOREQ = AUTO's line, increment and "start AUTO at the next prompt"
     # (40E1H-40E5H).
     CURCH = 176; LPPAGE = 67; LPLINES = 0
+    # CURON = the cursor-on flag CHR$(14)/CHR$(15) sets (Barden, Programming
+    # Techniques for Level II BASIC, ch. 3).  Off while a program prints --
+    # the machine shows the cursor when it waits for a key, which is why
+    # listings that want one during output turn it on.  CURVIS = what the
+    # terminal is currently showing, so sync_cursor only writes on a change.
+    CURON = 0; CURVIS = 1
     AUTOLINE = 10; AUTOINC = 10; AUTOREQ = 0; AUTOON = 0
     sv_init()
     # EXT gate: syntax that valid Level II rejects but damaged OCR listings
