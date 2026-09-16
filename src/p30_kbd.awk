@@ -1,4 +1,4 @@
-# ===================== keyboard: raw tty via dd/od, or piped stdin ==========
+# ============ keyboard: raw tty (gawk polls it; dd/od blocks), or piped stdin =
 
 function kb_init() {
     KH = 0; KT = 0; KBMODE = ""
@@ -29,8 +29,43 @@ function kb_mode(m) {
     KBMODE = m
 }
 
-# read whatever is available from the tty into the queue (>=1 byte if "line")
-function kb_fill(   cmd, ln, a, n, i, got) {
+# read whatever is available from the tty into the queue (>=1 byte if "line").
+# Two readers, chosen by the stty state kb_mode set, because gawk's getline
+# can serve only one of them:
+#   "poll" (min 0 time 0: INKEY$, the matrix, every BREAK poll, the core's
+#   K and T lines) -- gawk reads the tty itself.  An empty read is EOF and
+#   RS = "^$" never matches (as slurp_bytes), so one getline returns every
+#   waiting byte as one record with RT empty; close() clears the EOF for
+#   the next poll.  No process at all: 0.007 ms a poll against 2.6-2.9 ms
+#   for the pipeline it replaced on 2026-09-16 (the core's FINDING 27,
+#   tools/kbd_probe.py; every INKEY$/PEEK loop at a terminal ran 40-60x
+#   slower a pass, and a paced routine fell behind real time past ~200
+#   keyboard reads a second).  RS = "." (the recipe first measured there)
+#   is WRONG: a typed period ends the record and the bytes after it are
+#   lost at close().
+#   "line" (min 1 time 0: the blocking read behind kb_get) -- dd | od, as
+#   before.  Under min 1 gawk's getline reads on until RS or EOF, so it
+#   blocks for a SECOND byte before returning the first; READ_TIMEOUT
+#   drops the byte it read; min 0 time 1 works but adds 100 ms of echo lag.
+#   Once per human keystroke, the pipeline's 3 ms is invisible.
+# The reader must match KBMODE: a getline under "line" hangs, dd under
+# "poll" returns at once with nothing.
+function kb_fill() {
+    return (KBMODE == "poll") ? kb_fill_tty() : kb_fill_pipe()
+}
+
+function kb_fill_tty(   save, r, i, n, line) {
+    save = RS; RS = "^$"
+    r = (getline line < "/dev/tty")
+    RS = save
+    close("/dev/tty")
+    if (r <= 0) return 0
+    n = length(line)
+    for (i = 1; i <= n; i++) KBQ[++KT] = ORD[substr(line, i, 1)]
+    return n
+}
+
+function kb_fill_pipe(   cmd, ln, a, n, i, got) {
     cmd = "dd if=/dev/tty bs=256 count=1 2>/dev/null | od -A n -t u1 -v"
     got = 0
     while ((cmd | getline ln) > 0) {
@@ -114,15 +149,15 @@ function brk_take() {
 
 # check for BREAK (Ctrl-C, byte 3) without consuming other typed-ahead input.
 # Ctrl-S (byte 19) = the real SHIFT-@ pause: block until a key; Ctrl-C breaks.
-# nofill: answer from what is already queued without reading the tty.  For
-# the core's ticks (p77): kb_fill forks dd|od, ~3 ms of a paced core's 5 ms
-# tick when interactive, so p77 reads the tty on every fourth tick only and
-# BREAK is still seen within 20 ms.  Every other caller reads it every time.
-function pollbrk(nofill,   i, c, j) {
+# Every caller reads the tty, the core's ticks (p77) included: the poll is
+# 0.007 ms since 2026-09-16 (kb_fill_tty).  Until then a tick's poll forked
+# dd|od, ~3 ms of a paced core's 5 ms tick, and p77 read the tty on every
+# fourth tick only (the nofill argument, gone with the fork).
+function pollbrk(   i, c, j) {
     if (PENDBRK) { PENDBRK = 0; kb_flush(); return 1 }
     if (!TTYIN) return 0
     kb_mode("poll")
-    if (KH >= KT && !nofill) kb_fill()
+    if (KH >= KT) kb_fill()
     for (i = KH + 1; i <= KT; i++) {
         if (KBQ[i] == 3) {
             if (brk_take()) { kb_flush(); return 1 }

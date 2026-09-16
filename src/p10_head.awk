@@ -8,7 +8,8 @@
 #
 # Requires: GNU awk >= 5.0 run with -b (./basic does), a VT100/ANSI terminal
 # >= 64x20 that displays UTF-8.
-# Uses stty/dd/od for raw keyboard input (permitted external utilities).
+# Uses stty for raw keyboard input, and dd/od for the one blocking read
+# (permitted external utilities; the polls are gawk's own, p30 kb_fill_tty).
 # The simulated TRS-80 display is 64x16 at terminal rows 1-16; display
 # memory is 15360..16383; PEEK/POKE/SET/RESET/POINT/PRINT@/CHR$ all share
 # the internal screen buffer.  Semigraphics 128-191 render as Unicode
