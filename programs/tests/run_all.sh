@@ -3,14 +3,17 @@
 #
 #   sh programs/tests/run_all.sh          # from anywhere; exit 0 = everything passed
 #
-# Six parts: (1) the committed
+# Seven parts: (1) the committed
 # trs80basic.awk is exactly `cat src/p*.awk`; (2) transcripts t1-t33 exit 0
 # (t13/t29 through the OLLAMA stub, t32 through the Z80 stub); (3) the
 # self-checking .bas fixtures; (4) the .sh suites; (5) the examples against
-# their .out transcripts; (6) the Python tool tests.
+# their .out transcripts; (6) the Python tool tests; (7) the interactive
+# keyboard through a pseudo-terminal (kbd_pty.py).
 # Nothing here needs a terminal, the network, or the companion core: the
 # suites that want the core skip without it, and TRS80_Z80= pins the stub for
 # the rest so a core beside the checkout does not change what is measured.
+# (7) is the exception in spirit: kbd_pty.py makes its own pseudo-terminal, so
+# the interactive keyboard reader is covered here and on CI's Linux.
 # Failures are named as they happen; the summary line is the last one.
 
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
@@ -59,6 +62,8 @@ sh programs/examples/run_examples.sh >"$log" 2>&1 \
 if command -v python3 >/dev/null 2>&1; then
     (cd tools && python3 -m unittest -q test_tok test_detok >"$log" 2>&1) \
         || { bad "tools/test_*.py"; show "tools/test_*.py"; }
+    # 7. the interactive keyboard, through a pseudo-terminal
+    python3 programs/tests/kbd_pty.py >"$log" 2>&1 || { bad "kbd_pty.py"; show "kbd_pty.py"; }
 fi
 
 if [ $fail -eq 0 ]; then echo "run_all: all passed"; exit 0; fi

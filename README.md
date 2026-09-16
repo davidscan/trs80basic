@@ -155,7 +155,7 @@ Environment variables the interpreter reads:
 | `TRS80_OLLAMA_TIMEOUT` | `300` | seconds to wait for a reply | slow models |
 | `TRS80_OLLAMA_THINK`, `TRS80_OLLAMA_KEEPALIVE` | unset | defaults for the `@THINK` / `@KEEPALIVE` directives | thinking models; keeping a model loaded between calls |
 | `TRS80_OLLAMA_CURL` | unset | replaces the `curl` command (test hook) | deterministic tests with `programs/tests/ollama_stub.sh` |
-| `TRS80_KMHOLD` | `4` | how many `INKEY$` polls one keypress "holds" for (terminals send no key-up events) | a period game reads your taps as too long or too short |
+| `TRS80_KMHOLD` | `100` ms at a terminal; `4` polls in batch | how long one keypress "holds" its key on the keyboard matrix (`PEEK` of 14336-14591, machine code), since terminals send no key-up events; milliseconds when gawk's time extension loads, polls otherwise | a period game reads your taps as too long or too short |
 | `TRS80_USR` | unset | `strict` makes every `USR` call raise `?FC` instead of returning its argument | a sweep that must fail visibly on machine code it cannot run |
 | `TRS80_Z80` | a core beside this checkout, else none | the command that runs the companion Z80 core; `USR` routines then execute (see `PROTOCOL.md`). Unset, the launcher uses `../trs80_z80_core/core.py` when it exists; empty (`TRS80_Z80=`) means no core | running listings with embedded machine code, or keeping them off |
 | `TRS80_Z80_TIMEOUT` | `5000` | milliseconds to wait for each reply from the core before giving up on it | a slow machine, or debugging the core |

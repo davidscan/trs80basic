@@ -64,7 +64,7 @@ II):
 | `TRS80_PRINTER` | unset (discard) | file that `LPRINT`/`LLIST` append to |
 | `TRS80_EXT` | `0` | `1` turns on the EXT gate (Part IV); `ext on` does the same |
 | `TRS80_MANFILE` | `support/manpages.txt` | where `man` reads its text |
-| `TRS80_KMHOLD` | `4` | how many `INKEY$` polls one keypress holds for |
+| `TRS80_KMHOLD` | `100` ms at a terminal, `4` polls in batch | how long one keypress holds its key on the keyboard matrix |
 | `TRS80_USR` | unset | `strict` makes a `USR` call raise `?FC` instead of returning its argument |
 | `TRS80_Z80` | a core beside the checkout, else none | command that runs the companion Z80 core; `USR` routines then execute (`PROTOCOL.md`). Unset, the launcher uses `../trs80_z80_core/core.py` when it exists; empty means no core |
 | `TRS80_Z80_TIMEOUT` | `5000` | milliseconds to wait for each reply from the core |
@@ -91,9 +91,13 @@ or unshifted.
 
 The arrow-key line editor, history, and TAB completion are of course
 **EXT** — 1978 gave you SHIFT-left-arrow and resignation. One tuning knob:
-a terminal sends no key-up events, so a keypress "holds" for `TRS80_KMHOLD`
-`INKEY$` polls (default 4) — raise or lower it if a period game reads your
-taps as too long or too short.
+a terminal sends no key-up events, so a keypress "holds" its key on the
+keyboard matrix (what `PEEK(14591)` and machine code read) for
+`TRS80_KMHOLD` milliseconds (default 100, about a real tap) — raise or
+lower it if a period game reads your taps as too long or too short. The
+pause between a tap and the key repeating is your terminal's own
+delay-until-repeat, which no setting here shortens. In batch mode, and
+under a gawk without the time extension, the hold is 4 matrix polls.
 
 ### Metacommands (EXT)
 

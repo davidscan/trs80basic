@@ -36,8 +36,14 @@ if [ -z "${TRS80_Z80+set}" ] && [ -f "$here/../trs80_z80_core/core.py" ] \
     export TRS80_Z80
 fi
 
+# gawk's time extension gives the keyboard matrix a wall clock (p30: a key
+# "held" for TRS80_KMHOLD milliseconds rather than a poll count).  Load it
+# when this gawk has it; without it the interpreter falls back to polls.
+tm=
+gawk -l time 'BEGIN { }' >/dev/null 2>&1 && tm="-l time"
+
 # -b: BASIC strings are byte strings.  Without it a UTF-8 locale turns
 # CHR$(200) into a two-byte character and mangles raw bytes read from files
 # (graphics, packed machine code); the interpreter builds its own UTF-8 for
 # the terminal glyphs, so the display does not need the locale.
-exec gawk -b -f "$here/trs80basic.awk" -- "$@"
+exec gawk -b $tm -f "$here/trs80basic.awk" -- "$@"

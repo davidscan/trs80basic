@@ -207,9 +207,19 @@ function kb_poll_wait(tries,   i, c) {
 #   row 3  X Y Z                         RIGHT SPACE
 #   row 7  SHIFT (bit 1)
 # Rows are synthesized from the terminal byte stream: each matrix PEEK
-# consumes at most one pending byte and "presses" its key for KMHOLD polls
-# (TRS80_KMHOLD, default 4).  A terminal sends no key-up events, so a tap
-# reads as a short press and a held key rides the terminal's auto-repeat.
+# consumes at most one pending byte and "presses" its key.  A terminal
+# sends no key-up events, so a tap reads as a short press and a held key
+# rides the terminal's auto-repeat.  HOW LONG a byte presses its key:
+#   at a terminal with a clock (the launcher loads gawk's time extension;
+#   km_now), TRS80_KMHOLD MILLISECONDS, default 100 -- about a real tap,
+#   whatever the program's poll rate.  Before 2026-09-16 it was 4 polls,
+#   which was 133 ms in a game polling once a frame but 17 ms in one
+#   polling eight times a frame (CATCH --scan 7), so the same tap moved a
+#   paddle four frames in one and half a frame in the other.
+#   in batch mode, or without the clock, TRS80_KMHOLD POLLS, default 4:
+#   deterministic, which the batch suites need; unchanged.
+# The pause a terminal shows between a tap and its auto-repeat is the OS's
+# delay-until-repeat and no setting here removes it.
 # Terminal lowercase = the unshifted (uppercase-labelled) key; terminal
 # uppercase/shifted symbols latch the SHIFT row too.  ESC [ A/B/C/D map to
 # the arrow keys, as do the Model I's own arrow bytes (91 10 8 9).  Ctrl-C
@@ -234,8 +244,24 @@ function km_init(   i) {
     KMR_[8]  = 6; KMB_[8]  = 32                   # left arrow
     KMR_[9]  = 6; KMB_[9]  = 64                   # right arrow
     KMR_[32] = 6; KMB_[32] = 128                  # SPACE
-    KMHOLD = (ENVIRON["TRS80_KMHOLD"] + 0 > 0) ? ENVIRON["TRS80_KMHOLD"] + 0 : 4
+    KMCLOCK = ("gettimeofday" in FUNCTAB) ? "gettimeofday" : ""
+    KMHOLD = (ENVIRON["TRS80_KMHOLD"] + 0 > 0) ? ENVIRON["TRS80_KMHOLD"] + 0 : (KMCLOCK != "" ? 100 : 4)
     KMR = -1; KMSH = 0
+}
+
+# seconds, sub-millisecond, from the time extension; -1 without it.  The
+# indirect call keeps the program loadable when the extension is absent
+# (a direct gettimeofday() would be a parse error there).
+function km_now(   f) {
+    if (KMCLOCK == "") return -1
+    f = KMCLOCK
+    return @f()
+}
+
+# a byte's key is still down: by the clock at a terminal, by polls otherwise
+function km_held() {
+    if (TTYIN && KMCLOCK != "") return (km_now() - KMT0) * 1000 < KMHOLD
+    return --KMTTL > 0
 }
 
 function km_row(s, row, sh, fb,   i, c) {
@@ -245,7 +271,7 @@ function km_row(s, row, sh, fb,   i, c) {
     }
 }
 
-function km_latch(r, b, sh) { KMR = r; KMB = b; KMSH = sh; KMTTL = KMHOLD }
+function km_latch(r, b, sh) { KMR = r; KMB = b; KMSH = sh; KMTTL = KMHOLD; KMT0 = km_now() }
 
 # next byte of an ESC sequence: already queued in pipe mode, short poll on tty
 function km_next(   i) {
@@ -262,7 +288,7 @@ function km_pump(   c) {
         if (!kb_pipe_fill()) { kbe_diag(); KMR = -1; return }
     }
     if (KH >= KT) {
-        if (KMR >= 0 && --KMTTL <= 0) { KMR = -1; KMSH = 0 }
+        if (KMR >= 0 && !km_held()) { KMR = -1; KMSH = 0 }
         return
     }
     c = KBQ[++KH]
