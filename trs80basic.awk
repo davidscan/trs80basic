@@ -646,6 +646,7 @@ function kb_init() {
 }
 
 function kb_restore() {
+    kp_pop()
     if (TTYIN && STTY0 != "") system("stty " STTY0 " < /dev/tty 2>/dev/null")
     else if (TTYIN) system("stty sane < /dev/tty 2>/dev/null")
 }
@@ -655,6 +656,110 @@ function kb_mode(m) {
     if (m == "line") system("stty raw -echo min 1 time 0 < /dev/tty")
     else             system("stty raw -echo min 0 time 0 < /dev/tty")
     KBMODE = m
+    if (m == "poll") kp_push(); else kp_pop()
+}
+
+# ==== key release: the kitty keyboard protocol (EXT, 2026-09-16) =============
+# A terminal sends no key-up events, which is why the matrix above has to
+# guess how long a key was held.  Terminals that implement the kitty
+# keyboard protocol (iTerm2, kitty, WezTerm, Ghostty, foot) can be asked to
+# report key repeat and release as separate sequences -- flag 2, "report
+# event types" -- while every PRESS still arrives as the byte it always
+# was: `a`, ESC [ C for an arrow, 3 for Ctrl-C.  So INKEY$, BREAK, Ctrl-S
+# and the line editor see nothing new, and the matrix gets what the
+# hardware had: a key is down from its press until its release, chords
+# included, and the OS's delay-until-repeat no longer shows as a gap.
+#   Entering poll mode sends CSI ? u (the query, once) and CSI > 2 u (push
+#   the flag); entering line mode and exiting send CSI < u (pop).  A
+#   terminal without the protocol ignores all three and never answers
+#   the query, so KBPROTO stays 0 and the timed latch above is used.
+#   The reply CSI ? <flags> u, and every event CSI <code> ; <mods> : <ev> u
+#   (or ... <ev> A-D for the arrows), is taken out of the byte stream in
+#   kb_fill_tty by kp_filter: ev 2 = repeat (keeps the key fresh), ev 3 =
+#   release.  The code is the unshifted key; the shift/ctrl bits are in
+#   mods-1.  Pressed keys that never see a release (the window lost focus
+#   mid-hold) are all released after KP_STUCK seconds with no event at
+#   all, since the OS repeats the last held key while any key is down.
+#   TRS80_KBPROTO: 0 = never; 1 = even in DUMB mode (the pty test); unset
+#   = on at a terminal unless DUMB (a logged session stays plain).
+# Why it cannot break a period program: presses are unchanged bytes; a
+# program that read the matrix now reads what the machine's matrix read.
+# One visible difference on such a terminal: INKEY$ no longer sees the
+# terminal's auto-repeat as a stream of bytes, because repeats are events
+# now -- which is what Level II did (no auto-repeat).
+function kp_on(   e) {
+    e = ENVIRON["TRS80_KBPROTO"]
+    return TTYIN && e != "0" && (e == "1" || !DUMB)
+}
+
+function kp_push() {
+    if (!kp_on()) return
+    if (!KPQUERIED) { printf "\033[?u"; KPQUERIED = 1 }
+    printf "\033[>2u"; fflush()
+    KPPUSHED = 1
+}
+
+function kp_pop() {
+    if (!KPPUSHED) return
+    printf "\033[<u"; fflush()
+    KPPUSHED = 0
+}
+
+# strip the protocol's replies and events from a record of tty bytes,
+# applying them to the matrix; return the plain key bytes
+function kp_filter(s,   out, i, n, j, body, fin) {
+    if (!KPQUERIED) return s
+    s = KPPART s; KPPART = ""
+    out = ""; n = length(s); i = 1
+    while (i <= n) {
+        if (substr(s, i, 2) != "\033[") { out = out substr(s, i, 1); i++; continue }
+        j = i + 2
+        while (j <= n && index("0123456789;:?", substr(s, j, 1))) j++
+        if (j > n) {
+            if (j > i + 2) { KPPART = substr(s, i); break }   # a sequence cut by the read
+            out = out substr(s, i); break                     # a bare ESC or ESC [: keys
+        }
+        body = substr(s, i + 2, j - i - 2); fin = substr(s, j, 1)
+        if (fin == "u" && body ~ /^\?[0-9]*$/) KBPROTO = 1     # the terminal answered: it speaks it
+        else if (index(body, ":") && (fin == "u" || fin ~ /^[A-D]$/)) kp_event(body, fin)
+        else out = out substr(s, i, j - i + 1)                # an ordinary press sequence
+        i = j + 1
+    }
+    return out
+}
+
+function kp_event(body, fin,   a, m, code, mods, ev, r, b) {
+    split(body, a, ";"); split(a[2], m, ":")
+    mods = m[1] + 0; ev = m[2] + 0
+    if (mods < 1) mods = 1
+    KPLAST = km_now()
+    if (fin == "u") {
+        code = a[1] + 0
+        if (and(mods - 1, 4) && code == 99) { r = 6; b = 4 }  # Ctrl-C: the BREAK key
+        else if (code in KMR_) { r = KMR_[code]; b = KMB_[code] }
+        else return
+    } else {                                                  # the arrows
+        r = 6
+        b = (fin == "A") ? 8 : (fin == "B") ? 16 : (fin == "C") ? 64 : 32
+    }
+    if (ev == 3) kp_release(r, b)
+    else if (ev == 1) kp_press(r, b, and(mods - 1, 1))
+}
+
+function kp_press(r, b, sh) {
+    if (!and(KPDOWN[r], b)) { KPDOWN[r] = or(KPDOWN[r], b); if (sh) { KPSH[r, b] = 1; KPSHIFT++ } }
+    KPLAST = km_now()
+}
+
+function kp_release(r, b) {
+    if (!and(KPDOWN[r], b)) return
+    KPDOWN[r] = and(KPDOWN[r], compl(b))
+    if ((r, b) in KPSH) { delete KPSH[r, b]; if (--KPSHIFT < 0) KPSHIFT = 0 }
+}
+
+function kp_release_all(   r) {
+    for (r = 0; r < 8; r++) KPDOWN[r] = 0
+    delete KPSH; KPSHIFT = 0
 }
 
 # read whatever is available from the tty into the queue (>=1 byte if "line").
@@ -687,7 +792,10 @@ function kb_fill_tty(   save, r, i, n, line) {
     r = (getline line < "/dev/tty")
     RS = save
     close("/dev/tty")
-    if (r <= 0) return 0
+    if (r <= 0) {
+        if (KPPART == "") return 0
+        line = KPPART; KPPART = ""          # a held partial that never completed: keys after all
+    } else if (KPQUERIED) line = kp_filter(line)
     n = length(line)
     for (i = 1; i <= n; i++) KBQ[++KT] = ORD[substr(line, i, 1)]
     return n
@@ -875,6 +983,9 @@ function km_init(   i) {
     KMCLOCK = ("gettimeofday" in FUNCTAB) ? "gettimeofday" : ""
     KMHOLD = (ENVIRON["TRS80_KMHOLD"] + 0 > 0) ? ENVIRON["TRS80_KMHOLD"] + 0 : (KMCLOCK != "" ? 100 : 4)
     KMR = -1; KMSH = 0
+    KBPROTO = 0; KPQUERIED = 0; KPPUSHED = 0; KPPART = ""; KPSHIFT = 0; KPLAST = 0
+    for (i = 0; i < 8; i++) KPDOWN[i] = 0
+    KP_STUCK = 2                                  # seconds without any event: release everything
 }
 
 # seconds, sub-millisecond, from the time extension; -1 without it.  The
@@ -908,12 +1019,20 @@ function km_next(   i) {
     return -1
 }
 
-# consume at most one pending byte into the latch; age the latch when idle
+# consume at most one pending byte into the latch; age the latch when idle.
+# Under the release protocol (KBPROTO) every pending press byte goes into
+# the down-set instead, and nothing ages: a key is up when its release
+# arrives (kp_filter), or when no event at all has come for KP_STUCK s.
 function km_pump(   c) {
     if (TTYIN) { kb_mode("poll"); if (KH >= KT) kb_fill() }
     else if (KH >= KT) {
         if (EOFQUIT || ++INKEYEOF > 200000) { kbe_diag(); PENDBRK = 1; KMR = -1; return }
         if (!kb_pipe_fill()) { kbe_diag(); KMR = -1; return }
+    }
+    if (KBPROTO) {
+        while (KH < KT) kp_byte(KBQ[++KH])
+        if (KPLAST > 0 && km_now() - KPLAST > KP_STUCK) { kp_release_all(); KPLAST = 0 }
+        return
     }
     if (KH >= KT) {
         if (KMR >= 0 && !km_held()) { KMR = -1; KMSH = 0 }
@@ -938,8 +1057,32 @@ function km_pump(   c) {
     else { KMR = -1; KMSH = 0 }                   # key with no matrix position
 }
 
-function kb_matrix(sel,   out) {
+# one press byte under the release protocol: the key goes down and stays
+function kp_byte(c,   n) {
+    if (c == 3) { if (brk_take()) { PENDBRK = 1; kb_flush() }; kp_press(6, 4, 0); return }
+    BRKFORCE = 0
+    if (c == 27) {
+        n = km_next()
+        if (n == 91 || n == 79) {
+            n = km_next()
+            if      (n == 65) kp_press(6, 8, 0)
+            else if (n == 66) kp_press(6, 16, 0)
+            else if (n == 67) kp_press(6, 64, 0)
+            else if (n == 68) kp_press(6, 32, 0)
+        }
+        return
+    }
+    if (c in KMR_) kp_press(KMR_[c], KMB_[c], KMS_[c] + 0)
+}
+
+function kb_matrix(sel,   out, r) {
     km_pump()
+    if (KBPROTO) {
+        out = 0
+        for (r = 0; r < 7; r++) if (KPDOWN[r] && and(sel, 2 ^ r)) out = or(out, KPDOWN[r])
+        if (KPSHIFT > 0 && and(sel, 128)) out = or(out, 1)
+        return out
+    }
     if (KMR < 0) return 0
     out = 0
     if (and(sel, 2 ^ KMR)) out = or(out, KMB)

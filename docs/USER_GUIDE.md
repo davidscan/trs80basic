@@ -99,6 +99,15 @@ pause between a tap and the key repeating is your terminal's own
 delay-until-repeat, which no setting here shortens. In batch mode, and
 under a gawk without the time extension, the hold is 4 matrix polls.
 
+Better than guessing: a terminal that implements the kitty keyboard
+protocol (iTerm2, kitty, WezTerm, Ghostty, foot) can report key release.
+The interpreter asks for it whenever a program polls the keyboard and
+gives it back at READY, and on such a terminal the matrix is the real
+thing — a key is down from press to release, two keys at once both
+register, and a held arrow moves from the first frame with no gap.
+`INKEY$` then sees one byte per press and no auto-repeat, which is what
+Level II did. `TRS80_KBPROTO=0` turns it off.
+
 ### Metacommands (EXT)
 
 A small set of immediate commands that are *not* BASIC keywords. They are
