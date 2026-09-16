@@ -12,7 +12,7 @@
 
 A TRS-80 Model I/III LEVEL II BASIC interpreter — the 1978 Radio Shack dialect,
 with its 64x16 screen and semigraphics, cassette (`CLOAD`/`CSAVE` as text
-files), Disk BASIC file I/O, and an `OLLAMA` channel for talking to a local
+files, `SYSTEM` for object files), Disk BASIC file I/O, and an `OLLAMA` channel for talking to a local
 LLM from BASIC. It runs `.bas` listings interactively at a `READY` prompt or
 non-interactively from a script. It is a single GNU awk script with no build
 step; it writes only the files your BASIC program tells it to.
@@ -36,6 +36,11 @@ Developed and tested on MacOS (iTerm2), untested but probably works fine under L
   carried as fake BASIC lines in a tokenized image. Video they write appears
   as they run, the keyboard is live, and their cassette-port sound plays
   (`sound on`) or records to a WAV file.
+- **Whole machine-language programs.** `SYSTEM` is the Level II monitor:
+  `*?` takes the name of a SYSTEM tape or a /CMD load module (a host file,
+  as `CLOAD` reads listings), `/` runs it at its entry address, `/nnnnn`
+  anywhere. The program owns the screen and keyboard until it returns or
+  jumps back to READY. The core's assembler writes both formats.
 - **A memory map programs can `PEEK` and `POKE`:** the tokenized program at
   42E9H, display memory, the system variables and pointers, the BREAK and
   driver vectors, and `VARPTR` string aliasing for the magazine

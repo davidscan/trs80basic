@@ -424,6 +424,25 @@ CLOAD? "name"   compare the file against memory instead of loading
   Example: CLOAD "PROG.BAS"
   Example: CLOAD? "PROG.BAS"        -> BAD if memory has changed
 
+:SYSTEM
+SYSTEM   the Level II monitor: load an object file and run it
+  Prompts *? and waits.  Type a name to load that object file: a Model I
+  SYSTEM tape (as a byte stream: what EDITOR/ASSEMBLER and TBUG wrote) or
+  a /CMD load module.  The name is a host file -- name, name.cas or
+  name.cmd -- the same way CLOAD reads a listing from a file.  Then *?
+  again.  Type / to run the program at the file's entry address, or
+  /nnnnn to run at decimal address nnnnn.  The program owns the screen
+  and keyboard until it returns, reaches 0A9AH, or jumps to the ROM's
+  READY entry (1A19H); then READY, or the next statement when a program
+  issued the SYSTEM.  BREAK at the prompt returns to BASIC.
+  A checksum error prints C and prompts again, as the manual says; a
+  name that is not a file, or not one of the two formats, is ?FD.
+  Needs the Z80 core (see: man USR); without it the run is the stub and
+  is reported the way an unexecuted USR is.
+  Disk BASIC's SYSTEM "command" ran a DOS command: not served, ?FC.
+  Example: SYSTEM          then  *? game     then  *? /
+  Example: SYSTEM          then  *? /32000   (run what is already in memory)
+
 :CSAVE
 CSAVE "name"   write the program out as a plain-text listing
   The "cassette" here is an ordinary host file, and what it holds is the

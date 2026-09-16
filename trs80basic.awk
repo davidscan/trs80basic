@@ -1744,6 +1744,131 @@ function st_cload(   f, verify) {
     if (!prog_load(f, verify)) { raise(22); return }
 }
 
+# SYSTEM: the Level II monitor (manual 2-6).  `*?` prompts; a name loads
+# that object file; `/` runs it at the file's entry, `/nnnnn` at decimal
+# nnnnn; BREAK returns to BASIC.  EXT ONLY IN WHERE THE TAPE COMES FROM,
+# exactly as CLOAD: the name is a host file (name, name.cas/.CAS, .cmd/.CMD)
+# holding a Model I SYSTEM tape as its byte stream (leader, A5H 55H, the
+# six-character name, 3CH blocks with a checksum, 78H entry) or a /CMD load
+# module (05H name, 01H load records, 02H entry).  Every byte lands through
+# poke_byte, so PEEK, the USR frame and the core see it (built 2026-09-16,
+# ruled the same day: the runner for machine-language programs is this
+# command, not a separate front end).  A checksum error prints C and
+# prompts again, as the manual says; a file that is not there, or is
+# neither format, is ?FD like a bad CLOAD.  `/` calls the address through
+# the USR frame (p77): the program owns the screen and keyboard until it
+# RETurns, reaches 0A9AH, or jumps to the ROM's READY (1A19H), which the
+# core serves as "back to BASIC"; then READY, or the next statement when
+# a program issued the SYSTEM.  Without a core the
+# call is the stub and is tallied as USR's is.  Disk BASIC's SYSTEM
+# "command" ran a DOS command: DOS is not served (ruled 2026-09-15), ?FC.
+# Why it cannot break a period program: every listing that reaches SYSTEM
+# stopped with ?SN before; the corpus holds seven, all waiting for a tape
+# or a DOS that is not there.
+function st_system(   line, a) {
+    if (TY[CK, CP] == "s") {
+        diag_err("SYSTEM \"" TK[CK, CP] "\": a DOS command; no DOS is served here (?FC)")
+        raise(5); return
+    }
+    if (!(TY[CK, CP] == "" || TY[CK, CP] == "e")) { raise(2); return }
+    if (SYSENTRY == "") SYSENTRY = -1
+    for (;;) {
+        s_puts("*? ")
+        line = rl_read()
+        if (RLCANCEL) { dobreak(); return }
+        if (EOFQUIT) { if (BATCH) batch_ineof(); STOPPED = 1; return }
+        gsub(/^[ \t]+|[ \t]+$/, "", line)
+        if (line == "") continue
+        # `/` or `/nnnnn` runs; anything else after a slash is a host path
+        # (an absolute path is never a valid address, so no listing loses)
+        a = substr(line, 2); gsub(/[ \t]/, "", a)
+        if (substr(line, 1, 1) == "/" && a ~ /^[0-9]*$/) {
+            if (a == "") a = SYSENTRY
+            else if (a + 0 > 65535) { raise(5); return }
+            if (a + 0 < 0) { raise(5); return }
+            sys_exec(a + 0)
+            return
+        }
+        a = sys_load(line)
+        if (a == "C") { s_puts("C"); s_nl() }
+        else if (a != 1) { raise(22); return }
+    }
+}
+
+# the host file behind a SYSTEM name, or "": the name as given, then the
+# four extensions, first readable wins (slurp_bytes leaves it in SLURPED)
+function sys_find(name,   i, f, ext) {
+    split("|.cas|.CAS|.cmd|.CMD", ext, "|")
+    for (i = 1; i <= 5; i++) {
+        f = name ext[i]
+        if (slurp_bytes(f) >= 0) return f
+    }
+    return ""
+}
+
+# load a SYSTEM tape or /CMD file: 1, "C" (checksum), "" (no file), "F" (neither format)
+function sys_load(name,   f, data, i, c) {
+    f = sys_find(name)
+    if (f == "") return ""
+    data = SLURPED; SLURPED = ""
+    i = index(data, CHR[165])                     # A5H: the tape's sync byte
+    if (i > 0 && substr(data, i + 1, 1) == CHR[85]) return sys_load_cas(data, i + 8)
+    c = ORD[substr(data, 1, 1)]
+    if (c == 1 || c == 2 || c == 5 || c == 7 || c == 31) return sys_load_cmd(data)
+    return "F"
+}
+
+function sys_load_cas(data, i,   n, c, cnt, a, sum, j, b, got) {
+    n = length(data); got = 0
+    while (i <= n) {
+        c = ORD[substr(data, i, 1)]
+        if (c == 60) {                            # 3CH: a data block
+            cnt = ORD[substr(data, i + 1, 1)]; if (cnt == 0) cnt = 256
+            if (i + 4 + cnt > n) return "C"
+            a = ORD[substr(data, i + 2, 1)] + 256 * ORD[substr(data, i + 3, 1)]
+            sum = ORD[substr(data, i + 2, 1)] + ORD[substr(data, i + 3, 1)]
+            for (j = 0; j < cnt; j++) {
+                b = ORD[substr(data, i + 4 + j, 1)]
+                sum += b; poke_byte((a + j) % 65536, b); got++
+            }
+            if (sum % 256 != ORD[substr(data, i + 4 + cnt, 1)]) return "C"
+            i += 5 + cnt
+        } else if (c == 120) {                    # 78H: the entry address
+            if (i + 2 > n) return "C"
+            SYSENTRY = ORD[substr(data, i + 1, 1)] + 256 * ORD[substr(data, i + 2, 1)]
+            return got ? 1 : "C"
+        } else return "C"
+    }
+    return got ? 1 : "C"
+}
+
+function sys_load_cmd(data,   n, i, t, ln, a, j, got) {
+    n = length(data); i = 1; got = 0
+    while (i + 1 <= n) {
+        t = ORD[substr(data, i, 1)]; ln = ORD[substr(data, i + 1, 1)]
+        if (t == 1 && ln <= 2) ln += 256
+        if (i + 1 + ln > n) return "F"
+        if (t == 1) {
+            a = ORD[substr(data, i + 2, 1)] + 256 * ORD[substr(data, i + 3, 1)]
+            for (j = 0; j < ln - 2; j++) { poke_byte((a + j) % 65536, ORD[substr(data, i + 4 + j, 1)]); got++ }
+        } else if (t == 2) {
+            if (ln < 2) return "F"
+            SYSENTRY = ORD[substr(data, i + 2, 1)] + 256 * ORD[substr(data, i + 3, 1)]
+            return got ? 1 : "F"
+        } else if (!(t == 5 || t == 7 || t == 16 || t == 26 || t == 31)) return "F"
+        i += 2 + ln
+    }
+    return got ? 1 : "F"
+}
+
+# run at addr through the USR call frame (p60 usr_resolve fills the frame's
+# globals as a USR call would; the address is the monitor's, not the vector's)
+function sys_exec(addr) {
+    usr_resolve("USR", 0)
+    USR_ENTRY = addr
+    z80_usr(0)
+}
+
 # Disk BASIC LOAD "file"[,R]: host-file CLOAD.  ,R = run after loading,
 # keeping open file channels (the manual's chaining device).  The flag is
 # only reachable after a QUOTED name -- an unquoted name runs to end of
@@ -2926,6 +3051,7 @@ function execstmt(   ty, tx) {
         if (tx == "AUTO")    { CP++; st_auto(); return }
         if (tx == "DELETE")  { CP++; st_delete(); return }
         if (tx == "CLOAD")   { CP++; st_cload(); return }
+        if (tx == "SYSTEM")  { CP++; st_system(); return }
         if (tx == "CSAVE")   { CP++; st_csave(); return }
         if (tx == "LOAD")    { CP++; st_load(); return }
         if (tx == "SAVE")    { CP++; st_save(); return }

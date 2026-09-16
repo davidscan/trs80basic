@@ -104,6 +104,7 @@ function execstmt(   ty, tx) {
         if (tx == "AUTO")    { CP++; st_auto(); return }
         if (tx == "DELETE")  { CP++; st_delete(); return }
         if (tx == "CLOAD")   { CP++; st_cload(); return }
+        if (tx == "SYSTEM")  { CP++; st_system(); return }
         if (tx == "CSAVE")   { CP++; st_csave(); return }
         if (tx == "LOAD")    { CP++; st_load(); return }
         if (tx == "SAVE")    { CP++; st_save(); return }

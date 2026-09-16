@@ -131,7 +131,10 @@ probe 74 W "disable LLIST: POKE 16422,103:POKE 16423,0 points the printer at a R
 probe 75 W "RND seed POKE 16554-6 = 5,10,15 gives 80 78 91 88 70 91 25 30" "" " 80  78  91  88  70  91  25  30 " "10 POKE 16554,5:POKE 16555,10:POKE 16556,15${nl}20 FOR I=1 TO 8:PRINT RND(100);:NEXT:PRINT"
 probe 76 W "TRON by POKE 16667,1 traces the next line" "" "<20>T" "10 POKE 16667,1${nl}20 PRINT \"T\""
 probe 77 W "TROFF by POKE 16667,0 stops the trace" "" "<20>T${nl}X" "10 POKE 16667,1${nl}20 POKE 16667,0:PRINT \"T\"${nl}30 PRINT \"X\""
-probe 78 E "recover after NEW: POKE 17130,1 : SYSTEM" "" "?SN ERROR IN 10" '10 POKE 17130,1:SYSTEM'
+# 78: the ROM trick re-links a NEWed program through the monitor and BREAK;
+# here SYSTEM exists (2026-09-16) and prompts, but the program store is not
+# the image, so nothing comes back -- harmless (was E, ?SN, before SYSTEM)
+probe 78 D "recover after NEW: POKE 17130,1 : SYSTEM (prompts; nothing to recover)" "" "*? ?BATCH: END OF INPUT AT LINE 10" '10 POKE 17130,1:SYSTEM'
 n78=$n; bad78=$bad; W78=$nW; K78=$nK; D78=$nD; X78=$nX; E78=$nE
 
 # ---- B: the page's BASIC sections (not in the 78) ----------------------------

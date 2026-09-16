@@ -146,7 +146,18 @@ detokenized form, exactly what `tools/detok.py` produces — and that is the
 appropriation that makes everything else pleasant: programs are editable in
 any editor and diffable in git. `SAVE` writes the same form; `LOAD` is the Disk BASIC spelling of
 the same reader — plain `LOAD` closes all file channels, `LOAD "f",R` runs
-the program after loading and *keeps* open channels. `RUN "file"` loads and
+the program after loading and *keeps* open channels.
+
+`SYSTEM` is the Level II monitor for *object* files, with the same
+appropriation: at its `*?` prompt a name is a host file holding a Model I
+SYSTEM tape as a byte stream or a /CMD load module (`name`, `name.cas`,
+`name.cmd`), `/` runs it at the file's entry, `/nnnnn` at a decimal
+address, BREAK returns to BASIC, and a checksum error prints `C` as the
+manual says. The program runs in the Z80 core until it returns, reaches
+0A9AH, or jumps to the ROM's READY entry; `man SYSTEM` has the rest.
+Disk BASIC's `SYSTEM "command"` ran a DOS command and is `?FC` here.
+
+`RUN "file"` loads and
 runs.
 Filenames may be unquoted (`CLOAD programs/demo.bas`), with case, `/` and
 `.` preserved; a `:`-statement cannot follow an unquoted name.
