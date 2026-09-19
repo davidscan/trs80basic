@@ -87,17 +87,29 @@ function pr_using(   sep, ty, tx, v, fmt) {
 # The line printer is a host stream: append to $TRS80_PRINTER, or discard
 # when unset.  Same value formatting and USING support as PRINT; own column
 # counter (LPCOL) for , zones and TAB; no @, no #, no screen wrap.
-function lp_puts(s) {
+# The column (409BH) is BASIC's, not the driver's: the ROM counts the
+# character at 03A0-03B7 -- CR, LF and FF zero the count, anything else
+# bumps the byte -- and only THEN calls the driver through the vector
+# (03BBH).  So it advances wherever the vector points; when it stood still
+# while routed, LPRINT TAB(n) never reached its column and hung.  The page
+# counter (4029H) is the driver's, so it moves only when the driver runs.
+function lp_puts(s,   i, n, c) {
+    n = length(s)
+    for (i = 1; i <= n; i++) {
+        c = ORD[substr(s, i, 1)]
+        if (c == 10 || c == 12 || c == 13) LPCOL = 0
+        else LPCOL = (LPCOL + 1) % 256
+    }
     if (LPTOVID) { s_puts(s); return }        # printer vector -> the ROM video driver
     if (LPOFF) return                         # printer vector -> a RET
-    LPCOL += length(s)
+    if (index(s, CHR[12])) LPLINES = 0        # a form feed starts the page over
     if (LPFILE != "") printf "%s", s >> LPFILE
 }
 
 function lp_nl() {
+    LPCOL = 0
     if (LPTOVID) { s_nl(); return }
     if (LPOFF) return
-    LPCOL = 0
     if (++LPLINES >= LPPAGE - 1) LPLINES = 0   # 4029H: lines on this page, a page is LPPAGE-1
     if (LPFILE != "") { print "" >> LPFILE; fflush(LPFILE) }
 }
@@ -115,7 +127,10 @@ function st_lprint(   sep, ty, tx, v, t) {
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
             sep = 1
-            lp_puts(substr("                ", 1, 16 - (LPCOL % 16)))
+            # past column 112 there is no zone left on the line: the ROM
+            # skips to the next one instead (211B-212B)
+            if (LPCOL >= 112) lp_nl()
+            else lp_puts(substr("                ", 1, 16 - (LPCOL % 16)))
             CP++
             continue
         }
@@ -129,6 +144,7 @@ function st_lprint(   sep, ty, tx, v, t) {
             CP++
             t = bfloor(num(v))
             if (t < 0 || t > 255) { raise(5); return }
+            t = t % 64                        # the ROM masks it, as PRINT's (213AH)
             while (LPCOL < t) lp_puts(" ")
             sep = 0
             continue

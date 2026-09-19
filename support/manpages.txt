@@ -1045,6 +1045,11 @@ LPRINT list   the same as PRINT, but to the printer
   Accepts everything PRINT does -- ; and , separators, TAB, and USING.
   It keeps its own column counter, so zones and TAB measure across the
   printed line rather than the screen.
+  That counter is PEEK(16539), and as on the machine it is BASIC's, not
+  the printer driver's: it advances even while the printer vector
+  (16422/16423) points at a RET or at the video driver, and CHR$(13),
+  CHR$(10) and CHR$(12) set it back to 0.  TAB(n) is taken modulo 64,
+  like PRINT's, and a comma past column 112 starts a new line.
   The printer here is a host stream: set TRS80_PRINTER to a path and
   printed output is appended to that file.  With it unset there is no
   printer attached and the output is discarded, silently -- so nothing

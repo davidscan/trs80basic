@@ -526,7 +526,9 @@ function fn_varptr(   name, key, tgt) {
 #   4029H (16425)         lines printed on this page (LPLINES): lp_nl counts,
 #                         wraps at LPPAGE-1.  POKE sets it (the "POKE
 #                         16425,1 after a form feed" idiom, 36 listings).
-#   409BH (16539)         printer column (LPCOL).  POKE sets it.
+#   409BH (16539)         printer column (LPCOL).  POKE sets it.  BASIC's
+#                         count, kept before the driver is called, so it
+#                         advances while the printer vector is routed too.
 #   4041-4046H (16449-54) SS MN HH YY DD MM from the host clock, as TIME$
 #                         reads it (documented deviation: Level II has no
 #                         clock interrupt, so on the machine these bytes
