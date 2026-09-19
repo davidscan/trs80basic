@@ -2720,8 +2720,8 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, r) {
     }
     if (name == "CINT") {
         x = numarg(a1, na); if (E) return "N0"
-        if (x > 32767.5 || x < -32768.5) { raise(6); return "N0" }
-        return "N" bfloor(x + 0.5)
+        x = to16(x); if (E) return "N0"           # rounds DOWN (p90 to16)
+        return "N" x
     }
     if (name == "CSNG" || name == "CDBL") { x = numarg(a1, na); if (E) return "N0"; return "N" x }
     if (name == "PEEK") { x = numarg(a1, na); if (E) return "N0"; return "N" dopeek(x) }
@@ -5819,8 +5819,7 @@ function fio_unesc(s,   out, i, n, c) {
 # 2-byte int, 4-byte single, 8-byte double, little-endian; float layout is
 # mantissa LSB..MSB (sign replaces the implied leading 1 bit), exponent+128
 function fio_mki(x,   v, u) {
-    if (x > 32767.5 || x < -32768.5) { raise(6); return "" }
-    v = bfloor(x + 0.5)
+    v = to16(x); if (E) return ""             # rounds DOWN, as CINT does
     u = (v < 0) ? v + 65536 : v
     return CHR[u % 256] CHR[int(u / 256)]
 }
@@ -6236,9 +6235,16 @@ function bfloor(x,   f) {
     return f
 }
 
-# ---- 16-bit logical operators (operands rounded, two's complement) ---------
+# ---- 16-bit logical operators (two's complement) ----------------------------
+# Level II converts to an integer by rounding DOWN, not to nearest: "the
+# largest integer not greater than the argument ... CINT(1.5) returns 1;
+# CINT(-1.5) returns -2" (Level II manual, CINT; limits -32768 <= x <
+# 32768).  AND, OR, NOT, CINT and MKI$ all take their operands this way, so
+# the period nibble idiom V/16 AND 15 yields the high hex digit and
+# CINT(D/256) the high byte.  Rounding to nearest (until 2026-09-19) made
+# both wrong for any fraction of .5 or more.
 function to16(x,   r) {
-    r = bfloor(x + 0.5)
+    r = bfloor(x)
     if (r > 32767 || r < -32768) { raise(6); return 0 }
     return r
 }

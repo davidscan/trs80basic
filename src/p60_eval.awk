@@ -318,8 +318,8 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, r) {
     }
     if (name == "CINT") {
         x = numarg(a1, na); if (E) return "N0"
-        if (x > 32767.5 || x < -32768.5) { raise(6); return "N0" }
-        return "N" bfloor(x + 0.5)
+        x = to16(x); if (E) return "N0"           # rounds DOWN (p90 to16)
+        return "N" x
     }
     if (name == "CSNG" || name == "CDBL") { x = numarg(a1, na); if (E) return "N0"; return "N" x }
     if (name == "PEEK") { x = numarg(a1, na); if (E) return "N0"; return "N" dopeek(x) }

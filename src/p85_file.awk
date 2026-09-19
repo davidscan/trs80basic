@@ -492,8 +492,7 @@ function fio_unesc(s,   out, i, n, c) {
 # 2-byte int, 4-byte single, 8-byte double, little-endian; float layout is
 # mantissa LSB..MSB (sign replaces the implied leading 1 bit), exponent+128
 function fio_mki(x,   v, u) {
-    if (x > 32767.5 || x < -32768.5) { raise(6); return "" }
-    v = bfloor(x + 0.5)
+    v = to16(x); if (E) return ""             # rounds DOWN, as CINT does
     u = (v < 0) ? v + 65536 : v
     return CHR[u % 256] CHR[int(u / 256)]
 }

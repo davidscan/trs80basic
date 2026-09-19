@@ -63,9 +63,16 @@ function bfloor(x,   f) {
     return f
 }
 
-# ---- 16-bit logical operators (operands rounded, two's complement) ---------
+# ---- 16-bit logical operators (two's complement) ----------------------------
+# Level II converts to an integer by rounding DOWN, not to nearest: "the
+# largest integer not greater than the argument ... CINT(1.5) returns 1;
+# CINT(-1.5) returns -2" (Level II manual, CINT; limits -32768 <= x <
+# 32768).  AND, OR, NOT, CINT and MKI$ all take their operands this way, so
+# the period nibble idiom V/16 AND 15 yields the high hex digit and
+# CINT(D/256) the high byte.  Rounding to nearest (until 2026-09-19) made
+# both wrong for any fraction of .5 or more.
 function to16(x,   r) {
-    r = bfloor(x + 0.5)
+    r = bfloor(x)
     if (r > 32767 || r < -32768) { raise(6); return 0 }
     return r
 }

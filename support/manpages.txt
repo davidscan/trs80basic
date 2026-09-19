@@ -841,12 +841,13 @@ RND(n)   a random number: n>0 gives an integer 1..n, RND(0) gives a
   Example: RANDOM: X=INT(RND(0)*100)       (0 to 99)
 
 :CINT
-CINT(x)   x rounded to the NEAREST whole number
-  Unlike INT (which floors) and FIX (which truncates), CINT rounds:
-  CINT(3.7) is 4, CINT(3.2) is 3, and CINT(-3.7) is -4.
-  On hardware the result must fit the integer range (-32768..32767) or
-  ?FC; here the range is not enforced.
-  Example: PRINT CINT(3.7);CINT(3.2);CINT(-3.7)   ->  4  3 -4
+CINT(x)   the largest integer not greater than x, as a 16-bit integer
+  Level II's CINT rounds DOWN, like INT -- it does not round to nearest:
+  CINT(1.5) is 1 and CINT(-1.5) is -2 (the manual's own examples).  The
+  difference from INT is the range: x must satisfy -32768 <= x < 32768,
+  or ?OV.  AND, OR and NOT convert their operands the same way, which is
+  why V/16 AND 15 gives the high hex digit of V.
+  Example: PRINT CINT(3.7);CINT(-3.7);CINT(32767.9)   ->  3 -4  32767
 
 :CSNG
 CSNG(x)   convert x to single precision
