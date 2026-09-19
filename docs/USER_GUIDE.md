@@ -631,6 +631,9 @@ PRINT [#n,] USING f$; items   format items through picture f$
 ```text
 IF cond THEN stmt|n [ELSE stmt|n]   run stmt (or jump to line n) when true
   Forms: IF e THEN n / IF e GOTO n / IF e THEN stmt / IF e THEN stmt ELSE stmt
+  THEN may be left out before a statement (IF A=1 PRINT "X"), and one
+  comma may follow the test, as the ROM allows and period listings use:
+    IF A=1,100      IF A=1,THEN 100      IF A=0,B=1
   Truth is numeric, not boolean: any non-zero value is true, 0 is false.
   IF A is a valid test meaning "A is not zero".  Comparisons return -1 for
   true and 0 for false, so they feed straight back into arithmetic.
@@ -1120,6 +1123,28 @@ CLOAD? "name"   compare the file against memory instead of loading
   The name is a full filename (see: man CSAVE).
   Example: CLOAD "PROG.BAS"
   Example: CLOAD? "PROG.BAS"        -> BAD if memory has changed
+```
+
+#### SYSTEM
+
+```text
+SYSTEM   the Level II monitor: load an object file and run it
+  Prompts *? and waits.  Type a name to load that object file: a Model I
+  SYSTEM tape (as a byte stream: what EDITOR/ASSEMBLER and TBUG wrote) or
+  a /CMD load module.  The name is a host file -- name, name.cas or
+  name.cmd -- the same way CLOAD reads a listing from a file.  Then *?
+  again.  Type / to run the program at the file's entry address, or
+  /nnnnn to run at decimal address nnnnn.  The program owns the screen
+  and keyboard until it returns, reaches 0A9AH, or jumps to the ROM's
+  READY entry (1A19H); then READY, or the next statement when a program
+  issued the SYSTEM.  BREAK at the prompt returns to BASIC.
+  A checksum error prints C and prompts again, as the manual says; a
+  name that is not a file, or not one of the two formats, is ?FD.
+  Needs the Z80 core (see: man USR); without it the run is the stub and
+  is reported the way an unexecuted USR is.
+  Disk BASIC's SYSTEM "command" ran a DOS command: not served, ?FC.
+  Example: SYSTEM          then  *? game     then  *? /
+  Example: SYSTEM          then  *? /32000   (run what is already in memory)
 ```
 
 #### CSAVE

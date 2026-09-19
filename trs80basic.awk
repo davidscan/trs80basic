@@ -3325,6 +3325,9 @@ function st_if(   v, truth, hadkw, d, p, ty, tx) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     truth = (num(v) != 0)
+    # one comma after the expression is skipped, as the ROM does (203C-203F):
+    # IF X=1,100   IF X=1,THEN 100   IF X=0,Y=1   are all Level II
+    if (TY[CK, CP] == "o" && TK[CK, CP] == ",") CP++
     hadkw = ""
     if (TY[CK, CP] == "i" && (TK[CK, CP] == "THEN" || TK[CK, CP] == "GOTO")) {
         hadkw = TK[CK, CP]; CP++

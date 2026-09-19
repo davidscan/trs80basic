@@ -73,6 +73,9 @@ PRINT [#n,] USING f$; items   format items through picture f$
 :IF
 IF cond THEN stmt|n [ELSE stmt|n]   run stmt (or jump to line n) when true
   Forms: IF e THEN n / IF e GOTO n / IF e THEN stmt / IF e THEN stmt ELSE stmt
+  THEN may be left out before a statement (IF A=1 PRINT "X"), and one
+  comma may follow the test, as the ROM allows and period listings use:
+    IF A=1,100      IF A=1,THEN 100      IF A=0,B=1
   Truth is numeric, not boolean: any non-zero value is true, 0 is false.
   IF A is a valid test meaning "A is not zero".  Comparisons return -1 for
   true and 0 for false, so they feed straight back into arithmetic.
