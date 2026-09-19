@@ -559,6 +559,9 @@ function fn_inkey(   c) {
     if (c == 3) { if (brk_take()) PENDBRK = 1; return "S" }   # the BREAK vector (p30)
     if (c < 0) return "S"
     BRKFORCE = 0
+    # at a terminal an arrow key is the Model I's one byte, not ESC [ A
+    # (p30 kb_escseq); piped input is a byte stream and stays as sent
+    if (c == 27 && TTYIN) { c = kb_escseq(); if (c < 0) return "S" }
     return "S" CHR[c]
 }
 

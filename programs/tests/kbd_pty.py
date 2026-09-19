@@ -8,11 +8,13 @@ reader (src/p30_kbd.awk kb_fill_tty, 2026-09-16) or the keyboard matrix
 at a terminal.  This drives ./basic inside a pty, which is what a
 terminal emulator gives it, and checks:
 
-  1. INKEY$ returns every byte typed, in order, a period and an arrow's
-     ESC [ A included, and Ctrl-C BREAKs the loop;
+  1. INKEY$ returns every byte typed, in order, a period included; an
+     arrow key arrives as the Model I's one byte (91 10 8 9, shifted 27
+     26 24 25), a lone ESC as 27, PgUp as nothing; Ctrl-C BREAKs the loop;
   2. one keypress holds its key on the matrix for TRS80_KMHOLD
      milliseconds when this gawk has the time extension (the launcher
-     loads it), else for 4 polls;
+     loads it), else for 4 polls; a shifted arrow presses the arrow and
+     SHIFT, and its parameter bytes press nothing;
   3. Ctrl-S pauses a printing program, a key resumes it, Ctrl-C breaks;
   4. INPUT takes a line with a period in it through the line editor,
      and the editor refuses the 241st character, as the ROM's does;
@@ -202,11 +204,14 @@ def main():
     # 1. INKEY$ bytes and BREAK
     b.send('10 A$=INKEY$:IF A$="" THEN 10\r20 PRINT ASC(A$);:GOTO 10\rRUN\r', 0.6)
     b.drain(0.3)
-    for k in (b'a', b'.', b'Z', b' ', b'\x1b[A', b'\r'):
+    # an arrow is the Model I's ONE byte (91 10 8 9; shifted 27 26 24 25), a
+    # lone ESC is 27, and a key the TRS-80 lacks (PgUp) is no key at all
+    for k in (b'a', b'.', b'Z', b' ', b'\x1b[A', b'\r', b'\x1b', b'\x1b[5~', b'\x1b[1;2D', b'\x1bOC', b'\x1b[B'):
         b.send(k, 0.15)
     b.send(b'\x03', 0.5)
     out = b.drain()
-    check('97 46 90 32 27 91 65 13' in flat(out), 'INKEY$ bytes in order (a . Z space up-arrow ENTER)', out)
+    check('97 46 90 32 91 13 27 24 9 10 ' in flat(out) + ' ' and ' 53 ' not in flat(out) and ' 126 ' not in flat(out),
+          'INKEY$ bytes in order (a . Z space up ENTER ESC PgUp shift-left right down)', out)
     check('BREAK IN 10' in out, 'Ctrl-C breaks the INKEY$ loop', out)
 
     # 2. the matrix hold: count the polls that see one keypress
@@ -228,6 +233,18 @@ def main():
               'with the time extension one keypress holds for ~100 ms, many polls', out)
     else:
         check(held == 4, 'without the time extension one keypress holds for 4 polls', out)
+
+    # 2b. a shifted arrow on the matrix: the arrow AND the shift key, and the
+    # sequence's parameter bytes (1 ; 2) never press keys of their own
+    b.send('NEW\r10 P=PEEK(14400):IF P=0 THEN 10\r20 PRINT "ROW6";P;"SH";PEEK(14464)\r'
+           '30 IF PEEK(14591)<>0 THEN 30\r'
+           '40 FOR I=1 TO 300:Q=PEEK(14591):IF Q<>0 THEN PRINT "JUNK";Q\r'
+           '50 NEXT:PRINT "CLEAN"\rRUN\r', 1.0)
+    b.drain(0.3)
+    b.send(b'\x1b[1;2D', 0.3)
+    out = b.drain(0.5, 6)
+    check('ROW6 32 SH 1' in flat(out), 'SHIFT + left arrow presses the arrow and the shift key', out)
+    check('CLEAN' in out and 'JUNK' not in out, 'the escape sequence presses no other key', out)
 
     # 3. Ctrl-S pause, resume, BREAK
     b.send('NEW\r10 FOR I=1 TO 200000:PRINT I;:NEXT\rRUN\r', 0.3)

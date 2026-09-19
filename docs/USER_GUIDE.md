@@ -2098,6 +2098,12 @@ INKEY$   the key being pressed right now, or "" if none
     10 K$=INKEY$:IF K$="" THEN 10
   To poll without stopping (so animation or a clock keeps running), test
   once per pass through the main loop and carry on when it is "".
+  The arrow keys return the Model I's codes, one character each: up is
+  CHR$(91), down CHR$(10), left CHR$(8), right CHR$(9); with SHIFT they
+  are CHR$(27), CHR$(26), CHR$(24) and CHR$(25).  ESC is CHR$(27) too
+  (SHIFT + up arrow on the machine).  Keys the TRS-80 does not have --
+  PgUp, the function keys -- return nothing.
+    IF K$=CHR$(8) THEN X=X-1          ' left arrow
   NEEDS THE INTERACTIVE MODE.  Batch mode (./basic prog.bas) turns the raw
   keyboard off, so INKEY$ there reads whole lines from stdin instead of
   single keypresses -- at a terminal your keys echo and the program never

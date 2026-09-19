@@ -982,6 +982,10 @@ function km_init(   i) {
     KMR_[10] = 6; KMB_[10] = 16                   # down arrow
     KMR_[8]  = 6; KMB_[8]  = 32                   # left arrow
     KMR_[9]  = 6; KMB_[9]  = 64                   # right arrow
+    KMR_[27] = 6; KMB_[27] = 8;  KMS_[27] = 1     # SHIFT + up    (M1 byte 1BH)
+    KMR_[26] = 6; KMB_[26] = 16; KMS_[26] = 1     # SHIFT + down
+    KMR_[24] = 6; KMB_[24] = 32; KMS_[24] = 1     # SHIFT + left
+    KMR_[25] = 6; KMB_[25] = 64; KMS_[25] = 1     # SHIFT + right
     KMR_[32] = 6; KMB_[32] = 128                  # SPACE
     KMCLOCK = ("gettimeofday" in FUNCTAB) ? "gettimeofday" : ""
     KMHOLD = (ENVIRON["TRS80_KMHOLD"] + 0 > 0) ? ENVIRON["TRS80_KMHOLD"] + 0 : (KMCLOCK != "" ? 100 : 4)
@@ -1022,6 +1026,33 @@ function km_next(   i) {
     return -1
 }
 
+# An ESC byte was just consumed: which TRS-80 key did the terminal mean?
+# A terminal sends an arrow as ESC [ A..D (ESC O A..D in application mode),
+# with SHIFT as ESC [ 1;2 A..D; the Model I sends ONE byte per arrow -- 91
+# 10 8 9, shifted 27 26 24 25 -- and that is what a period program tests
+# INKEY$ for.  Returns that byte; 27 for a lone ESC (SHIFT + up arrow is
+# what 27 means on the machine), the next key left in the queue; and -1
+# for any other sequence (PgUp, F-keys, a kitty event kp_filter let by):
+# a key the TRS-80 does not have.  INKEY$ at a terminal and the matrix
+# share it, so the two cannot disagree about an arrow again.  The line
+# editor has its own reading of these keys (rl_arrow: edit and recall).
+function kb_escseq(   c, n, par, a) {
+    c = km_next()
+    if (c != 91 && c != 79) { if (c >= 0) KH--; return 27 }
+    par = ""
+    for (n = 0; n < 16; n++) {
+        c = km_next()
+        if (c < 0 || (c >= 64 && c <= 126)) break
+        par = par CHR[c]
+    }
+    if (c < 0 && n == 0) { KH--; return 27 }      # ESC, then a typed [ or O
+    if (c < 65 || c > 68) return -1
+    split(par, a, ";")
+    if (a[2] + 0 > 0 && and(a[2] - 1, 1))         # the modifier field, 1 + bits: SHIFT is bit 0
+        return (c == 65) ? 27 : (c == 66) ? 26 : (c == 67) ? 25 : 24
+    return (c == 65) ? 91 : (c == 66) ? 10 : (c == 67) ? 9 : 8
+}
+
 # consume at most one pending byte into the latch; age the latch when idle.
 # Under the release protocol (KBPROTO) every pending press byte goes into
 # the down-set instead, and nothing ages: a key is up when its release
@@ -1044,37 +1075,16 @@ function km_pump(   c) {
     c = KBQ[++KH]
     if (c == 3) { if (brk_take()) { PENDBRK = 1; kb_flush() }; km_latch(6, 4, 0); return }
     BRKFORCE = 0
-    if (c == 27) {
-        c = km_next()
-        if (c == 91 || c == 79) {
-            c = km_next()
-            if      (c == 65) { km_latch(6, 8, 0);  return }   # up
-            else if (c == 66) { km_latch(6, 16, 0); return }   # down
-            else if (c == 67) { km_latch(6, 64, 0); return }   # right
-            else if (c == 68) { km_latch(6, 32, 0); return }   # left
-        }
-        KMR = -1; KMSH = 0                        # lone/unknown ESC: no key
-        return
-    }
+    if (c == 27) c = kb_escseq()                  # an arrow, or no TRS-80 key (-1)
     if (c in KMR_) km_latch(KMR_[c], KMB_[c], KMS_[c] + 0)
     else { KMR = -1; KMSH = 0 }                   # key with no matrix position
 }
 
 # one press byte under the release protocol: the key goes down and stays
-function kp_byte(c,   n) {
+function kp_byte(c) {
     if (c == 3) { if (brk_take()) { PENDBRK = 1; kb_flush() }; kp_press(6, 4, 0); return }
     BRKFORCE = 0
-    if (c == 27) {
-        n = km_next()
-        if (n == 91 || n == 79) {
-            n = km_next()
-            if      (n == 65) kp_press(6, 8, 0)
-            else if (n == 66) kp_press(6, 16, 0)
-            else if (n == 67) kp_press(6, 64, 0)
-            else if (n == 68) kp_press(6, 32, 0)
-        }
-        return
-    }
+    if (c == 27) c = kb_escseq()
     if (c in KMR_) kp_press(KMR_[c], KMB_[c], KMS_[c] + 0)
 }
 
@@ -2951,6 +2961,9 @@ function fn_inkey(   c) {
     if (c == 3) { if (brk_take()) PENDBRK = 1; return "S" }   # the BREAK vector (p30)
     if (c < 0) return "S"
     BRKFORCE = 0
+    # at a terminal an arrow key is the Model I's one byte, not ESC [ A
+    # (p30 kb_escseq); piped input is a byte stream and stays as sent
+    if (c == 27 && TTYIN) { c = kb_escseq(); if (c < 0) return "S" }
     return "S" CHR[c]
 }
 
