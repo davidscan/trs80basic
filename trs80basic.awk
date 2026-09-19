@@ -4744,18 +4744,17 @@ function lp_using(   sep, ty, tx, v, fmt) {
 # 403DH, which sets the cursor step, is CHR$(23)'s and CLS's to change
 # (s_setwide, p20).  Bits 0-2 stay silent by ruling (sound is machine code
 # only; the core's port_out sees the same latch during a USR call), and
-# every other port is open bus, as INP reads it.  The value wraps to a byte
-# like POKE's.
+# every other port is open bus, as INP reads it.  Port and value are each a
+# byte by the ROM's rule (byteconv): outside 0-255 is ?FC, as POKE's value.
 function st_out(   v, p) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    p = bfloor(num(v))
+    p = byteconv(num(v)); if (E) return
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    v = bfloor(num(v)) % 256
-    if (v < 0) v += 256
+    v = byteconv(num(v)); if (E) return
     if (p == 255) s_setwide(int(v / 8) % 2)
 }
 
@@ -5146,6 +5145,20 @@ function st_dim(   name, nd, i, v, sz) {
 # first is RAMTOP (p10 init_tables).  They agree today, which is why dopeek's
 # `a > RAMTOP` test is unreachable; if a 16K/32K machine is ever modelled,
 # both have to change together.
+# A byte argument, the way the ROM takes one (2B1C-2B22: the value of
+# POKE, both arguments of OUT): convert to an integer, rounding down --
+# ?OV outside -32768..32767 -- then ?FC unless the high byte is zero.
+# POKE A,256 and POKE A,-1 store NOTHING on the machine.  Wrapping them to
+# a byte, as this did until 2026-09-19, let a loader reading a damaged
+# DATA item poke a wrong byte and carry on, where the machine stops at
+# the bad line.
+function byteconv(x) {
+    x = bfloor(x)
+    if (x < -32768 || x > 32767) { raise(6); return -1 }
+    if (x < 0 || x > 255) { raise(5); return -1 }
+    return x
+}
+
 function addrconv(x) {
     x = bfloor(x)
     if (x < 0) x += 65536
@@ -5199,8 +5212,7 @@ function st_poke(   v, a, b) {
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    b = bfloor(num(v)) % 256
-    if (b < 0) b += 256
+    b = byteconv(num(v)); if (E) return
     poke_byte(a, b)
 }
 

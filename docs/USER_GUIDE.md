@@ -963,7 +963,11 @@ POKE addr,byte   store a single byte (0-255) into memory
   15360,191 lights a whole cell.
   Writing the screen this way is much faster than PRINT and is the usual
   period technique for animation.
-  A byte outside 0-255, or a missing value, is ?FC.
+  A byte outside 0-255, or a missing value, is ?FC and nothing is
+  stored -- POKE A,256 and POKE A,-1 alike, as on the machine.  A program
+  that makes a high byte signed (IF H>127 THEN H=H-256) and then POKEs it
+  fails this way wherever memory reaches past 32767; it ran on a 16K
+  machine only.
   Example: POKE 15360,191               (fill the top-left cell)
   Example: POKE 15360+R*64+C,191        (row R, column C)
 ```
@@ -1004,6 +1008,7 @@ LLIST [n][-[m]]   list program lines to the PRINTER
 
 ```text
 OUT p,v   write value v to Z80 port p
+  Port and value must each be 0-255, or ?FC.
   Port 255 is the Model I's output latch, and bit 3 of the value selects
   32 characters per line -- the same switch CHR$(23) throws.  OUT 255,8
   gives 32 columns, OUT 255,0 returns to 64, and CLS also returns to 64;
