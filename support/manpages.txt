@@ -309,6 +309,12 @@ CLEAR [n]   reset all variables; optionally set string space to n bytes
   or long strings raise it (CLEAR 1000) to avoid running out; this
   interpreter does not impose the ROM's string-space limit, so the
   number is accepted and harmless.
+  Like RUN, it also resets the DEFINT/DEFSTR letter types, the DATA
+  pointer (as RESTORE does), the ON ERROR GOTO target and the FOR and
+  GOSUB stacks -- the ROM's CLEAR joins RUN's initializer.  So CLEAR
+  comes FIRST, then DEFSTR and ON ERROR GOTO, as period programs have it:
+  DEFSTR A:CLEAR 500:A="X" is ?TM, and a CLEAR inside a subroutine makes
+  its RETURN ?RG.
   CLEAR does not touch the program itself -- that is NEW.
   Example: CLEAR
   Example: CLEAR 1000

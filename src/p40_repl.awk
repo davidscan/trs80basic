@@ -225,16 +225,18 @@ function st_new(   x) {
 
 # keepfiles=1 (LOAD/RUN "file",R) skips the channel close; every existing
 # caller omits it, so plain clear_vars() still closes everything
-function clear_vars(keepfiles, keeptypes) {
+function clear_vars(keepfiles) {
     if (!keepfiles) fio_closeall()
     delete NV; delete SV; delete VA; delete ADIM; delete ASZ
     # DEF FN definitions live in variable space (MS BASIC): RUN/NEW/CLEAR
     # all wipe them and the program re-executes its DEFs
     delete FNPAR; delete FNPARM; delete FNKEY; delete FNPOS
     FNDEPTH = 0
-    # DEF-type table survives the CLEAR statement (DEFSTR A: CLEAR 500: A="X"
-    # stays typed) but resets on RUN/NEW/program load
-    if (!keeptypes) delete DEFS
+    # the DEF-type table goes back to single precision on RUN, NEW, a
+    # program load AND the CLEAR statement: the ROM's CLEAR joins RUN's
+    # initializer (1E7A/1EA0 -> 1B61-1B6C), so DEFSTR A:CLEAR 500:A="X" is
+    # ?TM on the machine -- period programs CLEAR first, then DEFSTR
+    delete DEFS
     sp_reset()                      # VARPTR string space empties with the vars
     FSN = 0; GSN = 0
 }

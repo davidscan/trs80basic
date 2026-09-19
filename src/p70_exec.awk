@@ -515,7 +515,13 @@ function st_clear(   v, ty, tx) {
         v = e_or(); if (E) return
         if (!isN(v)) { raise(13); return }
     }
-    clear_vars(0, 1)
+    # CLEAR is RUN's initializer without the jump (ROM 1B61-1B83): the
+    # variables, the type table, the FOR/GOSUB stacks, the ON ERROR target
+    # and the RESUME flag, CONT, and RESTORE.  ERR and ERL are not touched.
+    clear_vars(0)
+    DP = 1
+    EHANDLER = 0; INHANDLER = 0
+    CONTOK = 0
 }
 
 # RESTORE [n]: reset the DATA pointer -- to the first item at or after line

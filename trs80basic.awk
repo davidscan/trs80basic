@@ -1517,16 +1517,18 @@ function st_new(   x) {
 
 # keepfiles=1 (LOAD/RUN "file",R) skips the channel close; every existing
 # caller omits it, so plain clear_vars() still closes everything
-function clear_vars(keepfiles, keeptypes) {
+function clear_vars(keepfiles) {
     if (!keepfiles) fio_closeall()
     delete NV; delete SV; delete VA; delete ADIM; delete ASZ
     # DEF FN definitions live in variable space (MS BASIC): RUN/NEW/CLEAR
     # all wipe them and the program re-executes its DEFs
     delete FNPAR; delete FNPARM; delete FNKEY; delete FNPOS
     FNDEPTH = 0
-    # DEF-type table survives the CLEAR statement (DEFSTR A: CLEAR 500: A="X"
-    # stays typed) but resets on RUN/NEW/program load
-    if (!keeptypes) delete DEFS
+    # the DEF-type table goes back to single precision on RUN, NEW, a
+    # program load AND the CLEAR statement: the ROM's CLEAR joins RUN's
+    # initializer (1E7A/1EA0 -> 1B61-1B6C), so DEFSTR A:CLEAR 500:A="X" is
+    # ?TM on the machine -- period programs CLEAR first, then DEFSTR
+    delete DEFS
     sp_reset()                      # VARPTR string space empties with the vars
     FSN = 0; GSN = 0
 }
@@ -3485,7 +3487,13 @@ function st_clear(   v, ty, tx) {
         v = e_or(); if (E) return
         if (!isN(v)) { raise(13); return }
     }
-    clear_vars(0, 1)
+    # CLEAR is RUN's initializer without the jump (ROM 1B61-1B83): the
+    # variables, the type table, the FOR/GOSUB stacks, the ON ERROR target
+    # and the RESUME flag, CONT, and RESTORE.  ERR and ERL are not touched.
+    clear_vars(0)
+    DP = 1
+    EHANDLER = 0; INHANDLER = 0
+    CONTOK = 0
 }
 
 # RESTORE [n]: reset the DATA pointer -- to the first item at or after line
