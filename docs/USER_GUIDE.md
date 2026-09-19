@@ -779,6 +779,10 @@ INPUT ["prompt";] var[,var...]   read values typed at the keyboard
   It CAN be interrupted by BREAK, and it strips leading spaces from
   numbers.  Use LINE INPUT to take a whole line, commas included.
   The prompt may be any string expression, not just a literal.
+  A typed line holds 240 characters, as the ROM's keyboard routine does:
+  the 241st key is refused (that goes for program lines and commands
+  too).  Piped input has no cursor to stop, so a longer line is cut at
+  240 and one line on stderr says so.  LOAD of a file has no such limit.
   EXT (needs `ext on` / TRS80_EXT=1): INPUT with no variable at all --
   INPUT"PRESS ENTER"; -- prompts, waits for ENTER and discards the line.
   Example: INPUT "NAME";N$

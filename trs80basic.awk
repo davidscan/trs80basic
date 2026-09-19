@@ -630,6 +630,9 @@ function s_dump(   r, c, s) {
 
 function kb_init() {
     KH = 0; KT = 0; KBMODE = ""
+    # the ROM's line input (0361H) takes 240 characters (LD B,0F0H at 036FH)
+    # and then stops accepting keys; 255 is the STRING limit, not this one
+    RLMAX = 240
     km_init()                   # keyboard-matrix tables: every input mode
     # batch mode always reads the program's input from stdin, never the
     # keyboard -- so don't probe (or disturb) the invoking terminal
@@ -1103,7 +1106,12 @@ function rl_read(repl,   c, r, s, oldl, oldp) {
         r = (getline s < "/dev/stdin")
         if (r <= 0) { EOFQUIT = 1; RLWAIT = 0; return "" }
         sub(/\r$/, "", s)
-        if (length(s) > 255) s = substr(s, 1, 255)
+        # no cursor stops a piped line at the limit, so the cut is said out
+        # loud, once: a transcript's long line must not lose its tail silently
+        if (length(s) > RLMAX) {
+            s = substr(s, 1, RLMAX)
+            if (!RLCUTSAID++) diag_err("INPUT LINE CUT AT " RLMAX " CHARACTERS (the Level II keyboard limit)")
+        }
         s_puts(s); s_nl()
         RLWAIT = 0
         return s
@@ -1139,7 +1147,7 @@ function rl_read(repl,   c, r, s, oldl, oldp) {
         if (c == 6) { pgr_page(1); continue }                                         # Ctrl-F: page down
         if (c == 9 && repl) { rl_complete(); continue }                               # TAB
         if (c == 27) { rl_arrow(repl); continue }
-        if (c >= 32 && c < 127 && oldl < 255) {
+        if (c >= 32 && c < 127 && oldl < RLMAX) {
             RLS = substr(RLS, 1, RLP) CHR[c] substr(RLS, RLP + 1)
             RLP++
             rl_draw(oldl, oldp)
@@ -1149,7 +1157,7 @@ function rl_read(repl,   c, r, s, oldl, oldp) {
 
 # repaint the input line after an edit.  Grid mode: repaint from the RLSTART
 # anchor (tracking any scroll it causes).  Fullscreen tty mode: plain
-# backspace/overprint -- fine up to the terminal width (255-char lines that
+# backspace/overprint -- fine up to the terminal width (240-char lines that
 # wrap are a documented cosmetic limitation there).
 function rl_draw(oldl, oldp,   i, nn, pre, top) {
     nn = length(RLS)
@@ -1260,7 +1268,7 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
     # it, so it must be quoted for sh (a name with a ' ran as a command)
     if (nm == 1 && system("test -d " shq(mt[1])) == 0) add = add "/"
     if (add != "") {
-        if (oldl + length(add) > 255) return
+        if (oldl + length(add) > RLMAX) return
         RLS = substr(RLS, 1, RLP) add substr(RLS, RLP + 1)
         RLP += length(add)
         rl_draw(oldl, oldp)

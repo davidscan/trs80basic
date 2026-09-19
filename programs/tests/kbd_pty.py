@@ -14,7 +14,8 @@ terminal emulator gives it, and checks:
      milliseconds when this gawk has the time extension (the launcher
      loads it), else for 4 polls;
   3. Ctrl-S pauses a printing program, a key resumes it, Ctrl-C breaks;
-  4. INPUT takes a line with a period in it through the line editor;
+  4. INPUT takes a line with a period in it through the line editor,
+     and the editor refuses the 241st character, as the ROM's does;
   5. BYE exits;
   6. in a second session, the kitty keyboard protocol (TRS80_KBPROTO=1,
      the pty playing a terminal that answers the query): a key is down
@@ -248,6 +249,15 @@ def main():
     b.send('A.B\r', 0.5)
     out = b.drain()
     check('[A.B]' in out, 'INPUT returns a line with a period', out)
+
+    # 4b. the line editor refuses the 241st character (the ROM's 0361H limit)
+    b.send('NEW\r10 INPUT A$:PRINT "LEN";LEN(A$)\rRUN\r', 0.6)
+    b.drain(0.3)
+    for i in range(5):
+        b.send('Z' * 50, 0.15)                         # 250 keys, 240 taken
+    b.send('\r', 0.6)
+    out = b.drain()
+    check('LEN 240' in flat(out), 'the line editor stops at 240 characters', out)
 
     # 5. BYE
     b.send('BYE\r', 0.5)
