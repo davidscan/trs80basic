@@ -140,11 +140,23 @@ function rnd_poke(i, b,   lo, mid, hi) {
 # the name and refuse names containing a double quote (illegal on Windows).
 
 # can we create/append f?  probed before awk output redirects, whose open
-# failures are fatal in gawk (that is why this stays a shell-out)
+# failures are fatal in gawk (that is why this stays a shell-out).  touch
+# alone is not the probe: it succeeds on a directory, and on a read-only
+# file the owner may still set times -- both then killed gawk at the
+# redirect, losing the program in memory (the 2026-09-19 audit, C-1).  So: not a
+# directory, creatable, and writable once it exists.
 function host_writable(f) {
     if (WINNATIVE)
         return f !~ /"/ && system("type nul >> \"" f "\" 2>nul") == 0
-    return system("touch -- '" f "' 2>/dev/null") == 0
+    return system("test ! -d " shq(f) " && touch -- " shq(f) " 2>/dev/null && test -w " shq(f)) == 0
+}
+
+# s as one single-quoted sh word: each ' becomes '\'' (close the quote,
+# an escaped quote, reopen).  For names the shell must never parse, such
+# as file names read back from ls (p30 rl_complete, the 2026-09-19 audit, C-2).
+function shq(s) {
+    gsub(/'/, "'\\''", s)
+    return "'" s "'"
 }
 
 function host_exists(f) {

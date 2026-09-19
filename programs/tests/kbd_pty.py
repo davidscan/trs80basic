@@ -21,7 +21,10 @@ terminal emulator gives it, and checks:
      from its press byte until its release event, chords OR together,
      a held key never drops out between press and repeat, an abandoned
      key releases itself after KP_STUCK seconds, repeats never reach
-     INKEY$, and the mode is pushed at RUN and popped at READY and BYE.
+     INKEY$, and the mode is pushed at RUN and popped at READY and BYE;
+  7. TAB file-name completion: a unique directory gains "/", and a
+     matched name with a quote in it is completed but never parsed by the
+     shell (the directory test once ran it as a command, the 2026-09-19 audit, C-2).
 
 Standard library only; run by run_all.sh when python3 is present (so CI
 exercises the tty reader on Linux, where it was not measured by hand).
@@ -32,6 +35,7 @@ import re
 import select
 import subprocess
 import sys
+import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -40,10 +44,10 @@ SLOW = 3 if os.environ.get('CI') else 1      # CI runners are slower and noisier
 
 
 class Basic:
-    def __init__(self, env=()):
+    def __init__(self, env=(), cwd=None):
         self.pid, self.fd = pty.fork()
         if self.pid == 0:
-            os.chdir(ROOT)
+            os.chdir(cwd or ROOT)
             os.environ['TRS80_DUMB'] = '1'
             os.environ['TRS80_Z80'] = ''
             os.environ.update(dict(env))
@@ -152,6 +156,32 @@ def protocol(check):
           whole[-200:])
 
 
+def completion(check):
+    """Scenario 7: TAB completion in a directory holding a hostile name."""
+    with tempfile.TemporaryDirectory() as d:
+        os.mkdir(os.path.join(d, 'zdir'))
+        open(os.path.join(d, "zq';touch INJECTED;'x"), 'w').close()
+        b = Basic(cwd=d)
+        b.drain()
+        b.send('\r')                                   # MEMORY SIZE?
+        b.drain()
+        b.send('LOAD "zd\t', 0.5)
+        out = b.drain(0.3)
+        check('zdir/' in out, 'TAB completes a unique directory and appends /', out)
+        b.send('\x15', 0.3)                            # Ctrl-U: drop the line
+        b.drain(0.2)
+        b.send('LOAD "zq\t', 0.5)
+        out = b.drain(0.3)
+        check('touch INJECTED' in out, 'TAB completes a name with a quote in it', out)
+        check(not os.path.exists(os.path.join(d, 'INJECTED')),
+              'the completed name is never run by the shell', out)
+        b.send('\x15', 0.3)
+        b.drain(0.2)
+        b.send('BYE\r', 0.5)
+        b.drain(0.3, 2)
+        b.close()
+
+
 def has_clock():
     return subprocess.run(['gawk', '-l', 'time', 'BEGIN { }'], capture_output=True).returncode == 0
 
@@ -226,6 +256,9 @@ def main():
 
     # 6. the release protocol
     protocol(check)
+
+    # 7. TAB file-name completion
+    completion(check)
 
     if fails:
         print('kbd_pty.py: %d check(s) failed' % len(fails))

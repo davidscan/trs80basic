@@ -619,7 +619,7 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
         }
         word = substr(RLS, i + 1, RLP - i)
         if (word == "" || index(word, "\"") || word ~ /'/) continue
-        cmd = "ls -1d -- '" word "'* 2>/dev/null"
+        cmd = "ls -1d -- " shq(word) "* 2>/dev/null"
         while ((cmd | getline line) > 0) { if (nm < 100) mt[++nm] = line }
         close(cmd)
     }
@@ -628,7 +628,9 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
     for (j = 2; j <= nm; j++)
         while (lcp != "" && substr(mt[j], 1, length(lcp)) != lcp) lcp = substr(lcp, 1, length(lcp) - 1)
     add = substr(lcp, length(word) + 1)
-    if (nm == 1 && system("test -d '" mt[1] "'") == 0) add = add "/"
+    # mt[1] is ls output, not typed text: the quote test above never saw
+    # it, so it must be quoted for sh (a name with a ' ran as a command)
+    if (nm == 1 && system("test -d " shq(mt[1])) == 0) add = add "/"
     if (add != "") {
         if (oldl + length(add) > 255) return
         RLS = substr(RLS, 1, RLP) add substr(RLS, RLP + 1)

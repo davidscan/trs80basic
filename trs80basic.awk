@@ -1247,7 +1247,7 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
         }
         word = substr(RLS, i + 1, RLP - i)
         if (word == "" || index(word, "\"") || word ~ /'/) continue
-        cmd = "ls -1d -- '" word "'* 2>/dev/null"
+        cmd = "ls -1d -- " shq(word) "* 2>/dev/null"
         while ((cmd | getline line) > 0) { if (nm < 100) mt[++nm] = line }
         close(cmd)
     }
@@ -1256,7 +1256,9 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
     for (j = 2; j <= nm; j++)
         while (lcp != "" && substr(mt[j], 1, length(lcp)) != lcp) lcp = substr(lcp, 1, length(lcp) - 1)
     add = substr(lcp, length(word) + 1)
-    if (nm == 1 && system("test -d '" mt[1] "'") == 0) add = add "/"
+    # mt[1] is ls output, not typed text: the quote test above never saw
+    # it, so it must be quoted for sh (a name with a ' ran as a command)
+    if (nm == 1 && system("test -d " shq(mt[1])) == 0) add = add "/"
     if (add != "") {
         if (oldl + length(add) > 255) return
         RLS = substr(RLS, 1, RLP) add substr(RLS, RLP + 1)
@@ -5879,6 +5881,10 @@ function ai_open(n, f,   np, parts, model, thread, i, tf, l, role) {
     }
     if (model == "") model = ENVIRON["TRS80_OLLAMA_MODEL"]
     if (model == "") { raise(21); return }
+    # the transcript is appended to after every exchange (ai_log), and a
+    # failed awk redirect is fatal: probe it now, before any channel state
+    # (a directory or read-only <thread>.ollama killed gawk -- the 2026-09-19 audit, C-1)
+    if (thread != "" && !host_writable(thread ".ollama")) { raise(22); return }
     FH_LOC[n] = 0; FH_EOF[n] = 0
     FH_PEND[n] = ""; FH_PENDHAS[n] = 0
     FH_OPEND[n] = ""; FH_OPENDHAS[n] = 0
@@ -6265,11 +6271,23 @@ function rnd_poke(i, b,   lo, mid, hi) {
 # the name and refuse names containing a double quote (illegal on Windows).
 
 # can we create/append f?  probed before awk output redirects, whose open
-# failures are fatal in gawk (that is why this stays a shell-out)
+# failures are fatal in gawk (that is why this stays a shell-out).  touch
+# alone is not the probe: it succeeds on a directory, and on a read-only
+# file the owner may still set times -- both then killed gawk at the
+# redirect, losing the program in memory (the 2026-09-19 audit, C-1).  So: not a
+# directory, creatable, and writable once it exists.
 function host_writable(f) {
     if (WINNATIVE)
         return f !~ /"/ && system("type nul >> \"" f "\" 2>nul") == 0
-    return system("touch -- '" f "' 2>/dev/null") == 0
+    return system("test ! -d " shq(f) " && touch -- " shq(f) " 2>/dev/null && test -w " shq(f)) == 0
+}
+
+# s as one single-quoted sh word: each ' becomes '\'' (close the quote,
+# an escaped quote, reopen).  For names the shell must never parse, such
+# as file names read back from ls (p30 rl_complete, the 2026-09-19 audit, C-2).
+function shq(s) {
+    gsub(/'/, "'\\''", s)
+    return "'" s "'"
 }
 
 function host_exists(f) {

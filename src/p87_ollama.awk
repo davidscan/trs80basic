@@ -54,6 +54,10 @@ function ai_open(n, f,   np, parts, model, thread, i, tf, l, role) {
     }
     if (model == "") model = ENVIRON["TRS80_OLLAMA_MODEL"]
     if (model == "") { raise(21); return }
+    # the transcript is appended to after every exchange (ai_log), and a
+    # failed awk redirect is fatal: probe it now, before any channel state
+    # (a directory or read-only <thread>.ollama killed gawk -- the 2026-09-19 audit, C-1)
+    if (thread != "" && !host_writable(thread ".ollama")) { raise(22); return }
     FH_LOC[n] = 0; FH_EOF[n] = 0
     FH_PEND[n] = ""; FH_PENDHAS[n] = 0
     FH_OPEND[n] = ""; FH_OPENDHAS[n] = 0
