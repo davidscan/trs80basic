@@ -120,6 +120,11 @@ GOSUB n   call the subroutine beginning at line n
   Execution jumps to line n and continues until a RETURN sends it back
   to the statement just after the GOSUB.  Calls may nest; each GOSUB
   pushes a return address that its RETURN pops.
+  A subroutine cannot see its caller's FOR loops (the ROM's scan of the
+  stack stops at the GOSUB).  FOR I inside it opens a NEW loop even while
+  the caller is in its own FOR I -- the variable I is still shared, the
+  loop is not -- and a NEXT there for a loop opened before the GOSUB is
+  ?NF.  RETURN discards any loop the subroutine left open.
   A subroutine is an ordinary range of lines -- nothing marks its start,
   so reaching line n by falling through or by GOTO enters the same code
   without a return address, and its RETURN then raises ?RG ERROR.

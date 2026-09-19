@@ -3274,8 +3274,8 @@ function st_return() {
     if (GSN == 0) { raise(3); return }
     CK = GS_K[GSN]; CLI = GS_LI[GSN]; CP = GS_P[GSN]
     # discard FOR frames opened since the GOSUB (early RETURN out of a loop
-    # is legal MS BASIC) -- truncate only, never restore: the subroutine may
-    # legitimately have NEXT'd a loop opened before the call to completion
+    # is legal MS BASIC).  The subroutine cannot have touched a loop opened
+    # before the call: FOR and NEXT stop their scan at this frame (for_floor)
     if (FSN > GS_F[GSN]) FSN = GS_F[GSN]
     GSN--
     CLN = (CK == "I") ? 0 : CK + 0
@@ -3304,7 +3304,7 @@ function st_for(   name, v0, v1, stp, j, v) {
         stp = num(v)
     }
     NV[name] = v0
-    for (j = FSN; j >= 1; j--)
+    for (j = FSN; j > for_floor(); j--)
         if (FS_V[j] == name) { FSN = j - 1; break }
     FSN++
     FS_V[FSN] = name; FS_L[FSN] = v1; FS_S[FSN] = stp
@@ -3322,13 +3322,22 @@ function st_next(   name, looped) {
     }
 }
 
-function do_next(name,   j, v) {
-    if (FSN == 0) { raise(1); return 0 }
+# The ROM's scan of the stack for a FOR entry (1936H) gives up at the first
+# entry that is not one -- the GOSUB frame.  So inside a subroutine the
+# caller's loops do not exist: FOR I there opens a NEW loop and leaves the
+# caller's FOR I alone (the delay-subroutine idiom), and a NEXT that names
+# a loop opened before the GOSUB is ?NF.  The floor is the FOR depth the
+# current GOSUB recorded.
+function for_floor() { return (GSN > 0) ? GS_F[GSN] : 0 }
+
+function do_next(name,   j, v, fl) {
+    fl = for_floor()
+    if (FSN <= fl) { raise(1); return 0 }
     if (name == "") j = FSN
     else {
-        for (j = FSN; j >= 1; j--)
+        for (j = FSN; j > fl; j--)
             if (FS_V[j] == name) break
-        if (j < 1) { raise(1); return 0 }
+        if (j <= fl) { raise(1); return 0 }
     }
     FSN = j
     v = NV[FS_V[j]] + FS_S[j]
