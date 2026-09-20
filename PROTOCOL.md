@@ -30,6 +30,10 @@ when there is no core.
     the rest of the session, raises `?FC` at the `USR` call, and later
     calls use the stub.  A core that runs a long routine keeps the
     interpreter alive with `T` ticks.
+*   A core that has exited is met the same way, whether the interpreter
+    finds out on a read or on a write (a core that died between calls is
+    found on the next `CALL`): dead for the rest of the session, `?FC` at
+    that `USR` call, the stub afterwards.
 
 ## Session
 
@@ -171,8 +175,8 @@ proceeds normally.
 The interpreter uses the stub -- `USRn(x)` returns `x`, and one stderr line
 at the end of the run tallies the calls not executed -- whenever: `TRS80_Z80`
 is unset; the command cannot be started or does not answer `HELLO`; the
-`Z80` line carries another `proto`; a call timed out earlier in the
-session.  Each of those prints one `USR CORE:` notice the first time.
+`Z80` line carries another `proto`; a call timed out, or the core exited,
+earlier in the session.  Each of those prints one `USR CORE:` notice the first time.
 `TRS80_USR=strict` turns stub calls into `?FC`.
 
 ## Conformance

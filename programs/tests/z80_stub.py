@@ -26,12 +26,16 @@ Entries (hex):
   anything else: an immediate RET (hl=0, result=0, no writes)
 
 Z80_STUB_PROTO=<n> makes the stub claim another protocol version.
+Z80_STUB_DIE_AFTER=<n> makes it exit right after its n-th RET: a core that
+dies BETWEEN calls, which the interpreter meets on its next write.
 """
 import os
 import sys
 import time
 
 PROTO = os.environ.get("Z80_STUB_PROTO", "1")
+DIE_AFTER = int(os.environ.get("Z80_STUB_DIE_AFTER", "0"))
+rets = 0
 mem = {}
 gen = 0
 
@@ -64,6 +68,10 @@ def ret(hl=0, result=0, cycles=100, brk=0, writes=()):
          % (hl & 0xFFFF, result, cycles, brk, len(writes)))
     for w in writes:
         send("W " + w)
+    global rets
+    rets += 1
+    if rets == DIE_AFTER:
+        sys.exit(0)
 
 
 def tick(cycles=1000):

@@ -4474,7 +4474,26 @@ function z80_recv(   r) {
     return 1
 }
 
-function z80_send(s) { print s |& Z80CMD; fflush(Z80CMD) }
+# Every write to the core ends here.  A core that died BETWEEN calls is met
+# on a write, and a failed write to a coprocess is a gawk fatal (the session,
+# the unsaved program and the tty's cooked mode all go with it) unless the
+# pipe is marked NONFATAL (z80_start).  With the mark the failure lands in
+# ERRNO or in fflush's result; Z80WERR records it for the caller.
+function z80_send(s) {
+    ERRNO = ""
+    print s |& Z80CMD
+    if (fflush(Z80CMD) != 0 || ERRNO != "") Z80WERR = 1
+}
+
+# the core went away under us: same ending as a timeout (PROTOCOL.md)
+# The write end goes FIRST: the line that failed is still in gawk's buffer,
+# and every flush-everything after it (diag_err's, system()'s own) would
+# print a gawk warning into the program's error channel.
+function z80_gone() {
+    close(Z80CMD, "to")
+    z80_notice("the core has exited; it is dead for this session, USR is the stub")
+    z80_close(); raise(5)
+}
 
 # value of key=... in Z80LINE ("" if absent)
 function z80_field(key,   s) {
@@ -4502,6 +4521,8 @@ function z80_start() {
     if (Z80STATE != "cold") return
     Z80STATE = "dead"                             # until the handshake succeeds
     PROCINFO[Z80CMD, "READ_TIMEOUT"] = Z80TO
+    PROCINFO[Z80CMD, "NONFATAL"] = 1              # a dead core is ours to report (z80_send)
+    Z80WERR = 0
     z80_send("HELLO proto=" Z80PROTO " mhz=" (THROTTLE_MHZ + 0) " ramtop=" RAMTOP)
     if (!z80_recv()) {
         z80_notice("cannot start '" Z80NAMED "'; USR is the stub for this session")
@@ -4549,6 +4570,7 @@ function z80_usr(x,   full, res) {
     for (;;) {
         fr_build(full)
         z80_sendframe()
+        if (Z80WERR) { z80_gone(); return 0 }
         res = z80_run(x)
         if (Z80STATE == "need") {                 # the core lost its RAM: once more, full
             Z80STATE = "up"; fr_reset(); full = 1
@@ -4559,9 +4581,11 @@ function z80_usr(x,   full, res) {
 }
 
 function z80_sendframe(   i) {
+    ERRNO = ""
     print "CALL gen=" FRGEN " full=" FRFULL " slot=" USR_SLOT " entry=" USR_ENTRY \
           " arg=" USR_ARG " sp=" SSP " himem=" HIMEM " ramtop=" RAMTOP " runs=" FRN |& Z80CMD
     for (i = 1; i <= FRN; i++) print "M " FRRUN[i] |& Z80CMD
+    if (ERRNO != "") Z80WERR = 1
     z80_send("GO")
 }
 
@@ -4570,6 +4594,7 @@ function z80_run(x,   hl, res, k, brk, i, vid) {
     vid = 0
     for (;;) {
         if (!z80_recv()) {
+            if (Z80WERR) { z80_gone(); return 0 }
             z80_notice("no reply within " Z80TO " ms; the core is dead for this session, USR is the stub")
             z80_close(); raise(5); return 0
         }

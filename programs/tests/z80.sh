@@ -87,6 +87,23 @@ want='USR CORE: no reply within 300 ms; the core is dead for this session, USR i
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead'
 [ "$rc" = "0" ] && [ "$out" = "$want" ] || fail "stub after timeout: rc=$rc" "$out"
 
+# --- a core that EXITS between calls is met on the next write.  That write
+# used to be a gawk fatal (exit 2, the program lost, a terminal left raw);
+# it is the timeout's ending now: one notice, ?FC at the call, the stub
+# afterwards, and nothing from gawk itself on stderr.  Always the reference
+# stub: dying on request is its feature, not a real core's.
+stub="python3 $here/programs/tests/z80_stub.py"
+printf '10 ON ERROR GOTO 40\n20 DEFUSR=&H7003:PRINT USR(4)\n30 FOR I=1 TO 300:NEXT:PRINT USR(5)\n40 PRINT "HANDLER";ERR/2+1;ERL;USR(6)\n' > "$tmp"
+out=$(TRS80_Z80="$stub" Z80_STUB_DIE_AFTER=1 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+want=' 8 
+USR CORE: the core has exited; it is dead for this session, USR is the stub
+HANDLER 5  30  6 
+USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead'
+[ "$rc" = "0" ] && [ "$out" = "$want" ] || fail "core exited between calls: rc=$rc" "$out"
+printf '10 DEFUSR=&H7003:PRINT USR(4)\n20 FOR I=1 TO 300:NEXT\n' > "$tmp"
+out=$(TRS80_Z80="$stub" Z80_STUB_DIE_AFTER=1 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+[ "$rc" = "0" ] && [ "$out" = " 8 " ] || fail "BYE to a core that has exited: rc=$rc" "$out"
+
 # --- fallbacks: a command that will not start, and a protocol mismatch
 printf '10 DEFUSR=&H7003:PRINT USR(4)\n' > "$tmp"
 out=$(TRS80_Z80="/nonexistent/z80core" "$here/basic" "$tmp" 2>&1 </dev/null | grep -v 'not found\|No such file'); rc=$?
