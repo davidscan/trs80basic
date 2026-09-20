@@ -53,9 +53,12 @@ function z80_init() {
 
 function z80_notice(msg) { diag_err("USR CORE: " msg) }
 
-# one line from the core into Z80LINE; 0 on timeout or EOF
+# one line from the core into Z80LINE; 0 on timeout or EOF.  Z80EOF tells
+# the two apart: getline is 0 at end of file (the core has exited) and -1
+# when READ_TIMEOUT ran out (it is there and silent).
 function z80_recv(   r) {
     r = (Z80CMD |& getline Z80LINE)
+    Z80EOF = (r == 0)
     if (r <= 0) { Z80LINE = ""; return 0 }
     sub(/\r$/, "", Z80LINE)
     return 1
@@ -181,7 +184,10 @@ function z80_run(x,   hl, res, k, brk, i, vid) {
     vid = 0
     for (;;) {
         if (!z80_recv()) {
-            if (Z80WERR) { z80_gone(); return 0 }
+            # a core that exited between calls is met on the write or on
+            # this read, whichever the host's pipe notices first (macOS: the
+            # write; Linux: usually the read) -- one ending for both
+            if (Z80WERR || Z80EOF) { z80_gone(); return 0 }
             z80_notice("no reply within " Z80TO " ms; the core is dead for this session, USR is the stub")
             z80_close(); raise(5); return 0
         }

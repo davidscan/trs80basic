@@ -100,6 +100,12 @@ USR CORE: the core has exited; it is dead for this session, USR is the stub
 HANDLER 5  30  6 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead'
 [ "$rc" = "0" ] && [ "$out" = "$want" ] || fail "core exited between calls: rc=$rc" "$out"
+# the same death met on the READ (the write got through, the answer is an end
+# of file): which of the two a host gives depends on its pipes, so both are
+# pinned, with the same ending -- never "no reply within N ms", the core is
+# not slow, it is gone
+out=$(TRS80_Z80="$stub" Z80_STUB_DIE_ON_CALL=2 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+[ "$rc" = "0" ] && [ "$out" = "$want" ] || fail "core exited, met on the read: rc=$rc" "$out"
 printf '10 DEFUSR=&H7003:PRINT USR(4)\n20 FOR I=1 TO 300:NEXT\n' > "$tmp"
 out=$(TRS80_Z80="$stub" Z80_STUB_DIE_AFTER=1 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = " 8 " ] || fail "BYE to a core that has exited: rc=$rc" "$out"

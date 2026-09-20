@@ -28,6 +28,9 @@ Entries (hex):
 Z80_STUB_PROTO=<n> makes the stub claim another protocol version.
 Z80_STUB_DIE_AFTER=<n> makes it exit right after its n-th RET: a core that
 dies BETWEEN calls, which the interpreter meets on its next write.
+Z80_STUB_DIE_ON_CALL=<n> makes it exit when it has READ its n-th CALL frame,
+without answering: the interpreter's write succeeds and its read meets the
+end of file (the order a Linux pipe usually gives the case above).
 """
 import os
 import sys
@@ -35,7 +38,9 @@ import time
 
 PROTO = os.environ.get("Z80_STUB_PROTO", "1")
 DIE_AFTER = int(os.environ.get("Z80_STUB_DIE_AFTER", "0"))
+DIE_ON_CALL = int(os.environ.get("Z80_STUB_DIE_ON_CALL", "0"))
 rets = 0
+calls = 0
 mem = {}
 gen = 0
 
@@ -101,6 +106,10 @@ def main():
                 break
             if l.startswith("M "):
                 runs.append(l[2:])
+        global calls
+        calls += 1
+        if calls == DIE_ON_CALL:
+            sys.exit(0)
         g = int(h["gen"])
         full = h["full"] == "1"
         if not full and g != gen + 1:
