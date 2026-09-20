@@ -486,12 +486,25 @@ function st_cat(args,   cmd, outline, out) {
 }
 
 # --- cassette-as-text-file commands ----------------------------------------
-# quoted string token -> as-is.  Anything else: the filename is the RAW
-# source text from here to end of line (case preserved, "/" and "." intact;
-# no ":"-statement may follow an unquoted name -- documented).
+# The name is a STRING EXPRESSION, as in Disk BASIC (the ROM evaluates it:
+# 2BF8H, 2C32H): "GAME", F$, "PART"+N$, MID$(A$,2).  It is taken as one
+# when it starts with a string literal or with a name ending in $ -- a
+# string variable or function; until 2026-09-20 only a lone literal was,
+# so SAVE F$ wrote a file named F$ and RUN F$ re-ran the program in
+# memory.  EXT: anything else is a RAW name, the source text from here to
+# the end of the line (case preserved, "/" and "." intact; no ":"-statement
+# may follow it -- documented), so LOAD mygame.bas needs no quotes.  The
+# cost: an unquoted file name that starts with a $-name cannot be given raw.
+function fname_is_expr() {
+    return TY[CK, CP] == "s" || (TY[CK, CP] == "i" && TK[CK, CP] ~ /\$$/)
+}
 function parse_fname(   t, f) {
     t = TY[CK, CP]
-    if (t == "s") { f = TK[CK, CP]; CP++; return f }
+    if (fname_is_expr()) {
+        f = e_or(); if (E) return ""
+        if (isN(f)) { raise(13); return "" }
+        return vstr(f)
+    }
     if (t == "" || t == "e") return ""
     f = substr(TSRC[CK], TPO[CK, CP])
     gsub(/^[ \t]+|[ \t]+$/, "", f)
@@ -500,7 +513,7 @@ function parse_fname(   t, f) {
 }
 
 function st_csave(   f) {
-    f = parse_fname()
+    f = parse_fname(); if (E) return
     if (f == "") { raise(21); return }
     save_prog(f)
 }
@@ -515,7 +528,7 @@ function save_prog(f,   i, ln) {
 function st_cload(   f, verify) {
     verify = 0
     if (TY[CK, CP] == "o" && TK[CK, CP] == "?") { verify = 1; CP++ }
-    f = parse_fname()
+    f = parse_fname(); if (E) return
     if (f == "") { raise(21); return }
     if (!prog_load(f, verify)) { raise(22); return }
     to_ready()
@@ -651,7 +664,7 @@ function sys_exec(addr) {
 # only reachable after a QUOTED name -- an unquoted name runs to end of
 # line, same as CLOAD.
 function st_load(   f, keep) {
-    f = parse_fname()
+    f = parse_fname(); if (E) return
     if (f == "") { raise(21); return }
     keep = 0
     if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
@@ -670,7 +683,7 @@ function st_load(   f, keep) {
 # TRSDOS behavior), so a MERGE issued by a running program stops it --
 # which also sidesteps executing from a shifted line table.
 function st_merge(   f) {
-    f = parse_fname()
+    f = parse_fname(); if (E) return
     if (f == "") { raise(21); return }
     if (!prog_load(f, 0, 0, 1)) { raise(22); return }
     HALT = 1
@@ -679,7 +692,7 @@ function st_merge(   f) {
 # Disk BASIC SAVE "file"[,V]: host-file CSAVE.  ,V (verify) is accepted and
 # ignored -- host writes don't need a cassette verify pass.
 function st_save(   f) {
-    f = parse_fname()
+    f = parse_fname(); if (E) return
     if (f == "") { raise(21); return }
     if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
         CP++

@@ -482,8 +482,8 @@ function st_cont() {
 }
 
 function st_run(   n, f, keep) {
-    if (TY[CK, CP] == "s") {            # Disk BASIC RUN "file"[,R]
-        f = TK[CK, CP]; CP++
+    if (fname_is_expr()) {              # Disk BASIC RUN "file"[,R]; the name is an expression (p40)
+        f = parse_fname(); if (E) return
         keep = 0
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
             CP++

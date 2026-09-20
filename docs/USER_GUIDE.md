@@ -1231,7 +1231,13 @@ LOAD "name"   replace the program in memory with one from a file
   listing may end in LF, in CR LF, or in CR alone -- the form a TRS-80
   itself wrote with SAVE "name",A.  In a CR file a line feed belongs to
   its line: it is the one the down arrow puts inside a REM or a string.
+  The name is a string expression, here and in SAVE, RUN, MERGE, CLOAD
+  and CSAVE: LOAD F$ and RUN "PART"+N$+".BAS" work as in Disk BASIC.
+  EXT: a name with no quotes is taken as typed, to the end of the line
+  (LOAD game.bas) -- unless it starts with a name ending in $, which is
+  read as a string variable or function.
   Example: LOAD "GAME.BAS"
+  Example: F$="PART2.BAS": LOAD F$
 ```
 
 #### MERGE
