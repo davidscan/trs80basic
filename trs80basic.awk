@@ -6493,10 +6493,17 @@ function report_err(   c, msg) {
 # LEVEL II-style number formatting: leading space or -, trailing space,
 # 6 significant digits, no leading zero on fractions, E notation for extremes.
 # (Deviation: exact integers are printed in full up to 15 digits.)
-function fmtnum(x,   s, ax) {
+# The sixth digit is rounded HALF UP on the magnitude: the ROM scales the
+# value to six integer digits, adds .5 and truncates (12EA-12F0).  sprintf
+# rounds an exact tie to even (100000.5 -> 100000, 1/512 -> .00195312), so
+# a seventh digit of 5 is rounded here, on the decimal digits.
+function fmtnum(x,   s, ax, t) {
     ax = (x < 0) ? -x : x
     if (x == int(x) && ax < 1e15) s = sprintf("%.0f", x)
     else {
+        t = sprintf("%.16e", ax)                 # d.dddddddddddddddde+xx
+        if (substr(t, 8, 1) == "5")
+            x = (x < 0 ? -1 : 1) * (((substr(t, 1, 1) substr(t, 3, 5)) + 1) "e" (substr(t, 20) - 5))
         s = sprintf("%.6g", x)
         sub(/e/, "E", s)
         sub(/^0\./, ".", s)
