@@ -20,8 +20,10 @@
 PRINT [items]   display values on the screen
   Separators control spacing:
     ;        no gap -- the next item starts immediately
-    ,        skip to the next 16-column zone (4 zones per 64-col line;
-             a 5th comma wraps to the next line)
+    ,        print spaces up to the next 16-column zone (4 zones per
+             64-col line).  They are real spaces: they overwrite what
+             was on the screen.  From column 48 on there is no zone
+             left and the comma starts a new line instead
     @n       print at screen position n (0-1023; row = INT(n/64),
              col = n-64*INT(n/64))
     TAB(n)   pad with spaces out to column n

@@ -23,9 +23,14 @@ function st_print(   sep, ty, tx, v, tgt, col, t) {
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
             sep = 1
+            # the ROM PRINTS its way to the next zone (2123-2135 -> 215A-
+            # 2162: blanks through the output routine), it does not move
+            # the cursor: the gap overwrites what was there, reaches the
+            # printer when video is routed to it, and is in the text stream.
+            # From column 48 on there is no zone left: a carriage return.
             col = CUR % 64
-            if (int(col / 16) >= 3) s_nl()
-            else CUR += 16 - (col % 16)
+            if (col >= 48) s_nl()
+            else for (t = 16 - (col % 16); t > 0; t--) s_putc(32)
             CP++
             continue
         }
