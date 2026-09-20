@@ -4492,6 +4492,12 @@ function fr_build(full,   a, e, n, run, last, lo, hi) {
     for (a in FRSET) {
         a = a + 0
         if (a > RAMTOP) continue
+        # never the keyboard: a POKE (or a routine's store) at 3800-38FFH
+        # sits in MEM[], but READING the address is the live matrix, which
+        # takes a keystroke from the queue -- in batch a whole line of
+        # stdin, and at its end a BREAK.  The core does not want the bytes
+        # anyway: it asks for the matrix with K (PROTOCOL.md).
+        if (a >= 14336 && a <= 14591) continue
         if (a != last + 1) { if (run != "") FRRUN[++FRN] = run; run = a ":" dopeek(a) }
         else run = run "," dopeek(a)
         last = a; n++

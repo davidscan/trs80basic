@@ -89,6 +89,8 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     byte is what a BASIC `PEEK` would return -- the address-resolution
     contract in `src/p75_mem.awk` -- so the core reproduces nothing; it
     just applies the runs.  Addresses NOT in any frame read 255.
+    The keyboard, 3800-38FFH, is never in a frame, even after a store
+    there: reading it is the live matrix, which is what `K` is for.
 *   `slot` is the USR slot digit (0-9).  `entry` is the resolved routine
     address (DEF USRn wins; slot 0 falls back to the 408EH POKE vector).
     An undefined entry never reaches the core: the interpreter raises

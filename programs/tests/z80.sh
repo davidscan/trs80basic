@@ -116,6 +116,16 @@ printf '10 DEFUSR=&H7003:PRINT USR(4)\n20 FOR I=1 TO 300:NEXT\n' > "$tmp"
 out=$(TRS80_Z80="$stub" Z80_STUB_DIE_AFTER=1 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = " 8 " ] || fail "BYE to a core that has exited: rc=$rc" "$out"
 
+# --- building the frame never reads the keyboard: a byte POKEd at 3800-38FFH
+# sits in MEM[], and reading that address back for the frame took a line of
+# stdin (at a terminal, a keystroke) away from the program.  The core asks
+# for the matrix with K; the frame does not carry it.
+printf '10 POKE 14400,1:DEFUSR=&H7003:X=USR(4):LINE INPUT A$:PRINT X;"GOT ";A$\n' > "$tmp"
+out=$(printf 'HELLO\n' | TRS80_Z80="$stub" "$here/basic" "$tmp" 2>&1)
+want="HELLO
+ 8 GOT HELLO"
+[ "$out" = "$want" ] || fail "the frame read the keyboard" "$out"
+
 # --- fallbacks: a command that will not start, and a protocol mismatch
 printf '10 DEFUSR=&H7003:PRINT USR(4)\n' > "$tmp"
 out=$(TRS80_Z80="/nonexistent/z80core" "$here/basic" "$tmp" 2>&1 </dev/null | grep -v 'not found\|No such file'); rc=$?
