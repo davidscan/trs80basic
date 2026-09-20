@@ -114,14 +114,32 @@ function storeline(ln, text) {
     LASTLN = ln
     inval_cache(ln)
     rebuild()
-    DATADIRTY = 1; CONTOK = 0
+    DATADIRTY = 1
+    run_reset()
 }
 
 function delline(ln) {
     delete prog[ln]; delete ESC[ln]
     inval_cache(ln)
     rebuild()
-    DATADIRTY = 1; CONTOK = 0
+    DATADIRTY = 1
+    run_reset()
+}
+
+# A program line entered, replaced or deleted ends at the ROM's 1B5DH
+# (called from 1AEFH), which is RUN's initializer without the jump: the
+# variables and DEF FNs go, the type table is single again, the FOR/GOSUB
+# stacks, ON ERROR, the RESUME flag and CONT are reset, DATA is RESTOREd
+# and (Disk BASIC) the files are closed.  The famous cost of fixing a line
+# on a Model I -- and what keeps a RETURN, a NEXT, an FN call or a RESUME
+# from running on indexes into a program that has since changed.  DELETE
+# ends the same way.  ERR and ERL are not touched.  CLEAR is the same
+# routine (st_clear, p70).
+function run_reset() {
+    clear_vars(0)
+    DP = 1
+    EHANDLER = 0; INHANDLER = 0
+    CONTOK = 0
 }
 
 # every path that stores, replaces or drops a program line comes through
@@ -203,6 +221,7 @@ function st_delete(   i, ln, n, hits) {
     for (i = 1; i <= n; i++) { delete prog[hits[i]]; delete ESC[hits[i]]; inval_cache(hits[i]) }
     rebuild()
     DATADIRTY = 1
+    run_reset()                     # the ROM's DELETE leaves through 1B5DH too
     to_ready()
 }
 

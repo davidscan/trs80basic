@@ -1118,8 +1118,11 @@ CONT   resume a program stopped by STOP or BREAK
   Picks up at the statement after the one that stopped, with all
   variables intact -- which is what makes STOP useful for inspecting a
   program mid-run and then carrying on.
-  Editing any program line invalidates the resume point, so CONT after
-  an edit raises ?CN ERROR; RUN is then the only way forward.
+  Entering, changing or deleting any program line ends that: as on the
+  Model I it clears every variable and DEF FN, closes the files and
+  resets the stacks, ON ERROR and the DATA pointer, just as CLEAR does,
+  so CONT after an edit raises ?CN ERROR and RUN is the only way
+  forward.  Look at the variables BEFORE fixing the line.
   Example: CONT
 ```
 
@@ -1148,6 +1151,7 @@ DELETE n | n-m | -m | .   remove program lines
   DELETE are all ?FC -- a typo cannot take the program with it; erasing
   everything is NEW.
   Like LIST, DELETE ends at READY: used inside a program it stops it.
+  Like any change to a program line, it clears the variables (man CONT).
   A single line can also be removed by typing its number alone.
   Example: DELETE 100-200
 ```
