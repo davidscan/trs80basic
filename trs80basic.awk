@@ -612,7 +612,9 @@ function s_putc(b,   n, r) {
     if (b == 25) { if (CUR < 1023) CUR++; return }
     if (b == 26) { if (CUR < 960) CUR += 64; else { s_scroll(); } return }
     if (b == 27) { if (CUR >= 64) CUR -= 64; return }
-    if (b == 28) { CUR = 0; return }
+    # home also returns to 64 characters per line, as CLS does (CLS is 28
+    # then 31): the ROM clears bit 3 of 403DH and writes the latch (04C0-04CD)
+    if (b == 28) { CUR = 0; poke_byte(16445, and(MEM[16445], 247)); s_setwide(0); return }
     if (b == 29) { CUR = int(CUR / 64) * 64; return }
     if (b == 30) { r = int(CUR / 64) * 64 + 63; for (n = CUR; n <= r; n++) setcell(n, 32); return }
     if (b == 31) { for (n = CUR; n < 1024; n++) setcell(n, 32); return }
