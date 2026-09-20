@@ -2107,7 +2107,7 @@ function name_rewrite(text, oldln, map,   t, ty, tx, out, last, o, len, val, lis
 # (MERGE) keeps the current program: file lines overwrite/interleave instead
 # of replacing it.  Returns 0 if the file can't be opened; sets LOADBAD=1 if
 # any line was rejected.
-function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen, ok, pln, rpt, ra, ri, nn, data) {
+function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen, ok, pln, rpt, ra, ri, nn, data, fl, nfl) {
     LOADBAD = 0
     # R1 (2026-09-12): a TOKENIZED image -- the 0xFF-headed cassette/disk
     # form every archived TRS-80 program is in -- loads directly.  The file
@@ -2130,17 +2130,36 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
         }
         if (tok_header(SLURPED)) { data = SLURPED; SLURPED = ""; return prog_load_tok(data, verify, keepfiles, merge) }
     }
-    SLURPED = ""
-    r = (getline l < f); pln = 1
-    if (r < 0) return 0
+    # A text listing ends its lines with LF, CR LF or CR alone.  CR alone is
+    # the TRS-80's own ASCII save format (SAVE "F",A), and a record reader
+    # that knows only LF took such a file for ONE line and stored it under
+    # its first line number.  So the lines are cut from the bytes already
+    # read.  In a CR file -- no CR LF pair anywhere, and more CRs than LFs
+    # -- an LF is NOT a line end: it is the line feed the down arrow puts
+    # INSIDE a line (a REM or a PRINT string that continues on the next
+    # screen row), and it stays in the line.  Any other file is cut at LF
+    # with one CR before it dropped, as before.  tools/tok.py cuts the
+    # same way.  A sector-padded file ends in a run of 00H (or a
+    # 1AH end mark): that is not a line.
+    data = SLURPED; SLURPED = ""
+    sub(/[\000\032]+$/, "", data)
+    if (data !~ /\r\n/ && gsub(/\r/, "\r", data) > gsub(/\n/, "\n", data)) {
+        sub(/\r$/, "", data)
+        nfl = (data == "") ? 0 : split(data, fl, "\r")
+    } else {
+        sub(/\n$/, "", data)
+        nfl = (data == "") ? 0 : split(data, fl, "\n")
+        for (x = 1; x <= nfl; x++) sub(/\r$/, "", fl[x])
+    }
+    data = ""
     if (!verify) {
         if (!merge) { for (x in prog) { inval_cache(x); delete prog[x] }; delete ESC }
         clear_vars(keepfiles)
         NDATA = 0; DP = 1; CONTOK = 0
     }
     ok = 1; nseen = 0
-    while (r > 0) {
-        sub(/\r$/, "", l)
+    for (pln = 1; pln <= nfl; pln++) {
+        l = fl[pln]
         sub(/^[ \t]+/, "", l)
         if (l != "") {
             if (l ~ /^[0-9]+/) {
@@ -2156,9 +2175,7 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
                 } else { prog[ln] = rest; delete ESC[ln]; inval_cache(ln); LASTLN = ln }
             } else { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " pln " (NO LINE NUMBER)\n" }
         }
-        r = (getline l < f); pln++
     }
-    close(f)
     LOADBAD = (bad ? 1 : 0)
     if (verify) {
         for (x in prog) nseen--

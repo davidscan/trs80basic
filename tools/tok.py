@@ -133,7 +133,16 @@ def crunch(text, index):
 def split_lines(data):
     """(number, body) per listing line, in file order."""
     lines = []
-    for raw in data.replace(b"\r\n", b"\n").replace(b"\r", b"\n").split(b"\n"):
+    # The interpreter's loader (prog_load) cuts a listing the same way.  A
+    # sector-padded file ends in a run of 00H or a 1AH end mark.  In a CR
+    # file -- the TRS-80's own ASCII save: no CR LF pair, more CRs than LFs
+    # -- an LF is the in-line line feed and belongs to its line.
+    data = data.rstrip(b"\x00\x1a")
+    if b"\r\n" not in data and data.count(b"\r") > data.count(b"\n"):
+        raws = data.split(b"\r")
+    else:
+        raws = [r[:-1] if r.endswith(b"\r") else r for r in data.split(b"\n")]
+    for raw in raws:
         if not raw.strip():
             continue
         j = 0

@@ -500,7 +500,10 @@ CSAVE "name"   write the program out as a plain-text listing
 LOAD "name"   replace the program in memory with one from a file
   Clears the current program and variables first, so anything unsaved is
   lost -- LOAD is not a merge (see: man MERGE).
-  Reads the plain-text form written by SAVE.
+  Reads the plain-text form written by SAVE.  The lines of a text
+  listing may end in LF, in CR LF, or in CR alone -- the form a TRS-80
+  itself wrote with SAVE "name",A.  In a CR file a line feed belongs to
+  its line: it is the one the down arrow puts inside a REM or a string.
   Example: LOAD "GAME.BAS"
 
 :MERGE
