@@ -467,7 +467,8 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x) {
                     gsub(/^[ \t]+|[ \t]+$/, "", x)
                     if (x == "") x = "0"
                     if (!strictnum(x)) { ok = 0; break }
-                    assignv(LV_N[idx], LV_K[idx], "N" numconv(x))
+                    x = numconv(x); if (E) return           # ?OV, not ?REDO
+                    assignv(LV_N[idx], LV_K[idx], "N" x)
                 }
                 idx++
             }
@@ -560,7 +561,8 @@ function st_read(   name, key, x) {
                 ERR_AT = DLINE[DP]; ERLV = DLINE[DP]
                 return
             }
-            assignv(name, key, "N" numconv(x))
+            x = numconv(x); if (E) return
+            assignv(name, key, "N" x)
         }
         DP++
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }

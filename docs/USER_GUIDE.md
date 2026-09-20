@@ -1999,6 +1999,9 @@ VAL(a$)   the number at the front of a$, or 0 if there is none
   A string that does not begin with a number gives 0 rather than an
   error, so VAL cannot by itself tell "0" from "OFF" -- test the string
   first if that difference matters.
+  A number too large to hold is ?OV, as it is in a program line:
+  VAL("1E39").  The same goes for a number typed at INPUT, read from
+  DATA or read by INPUT#, and the variable keeps the value it had.
   STR$ is the inverse.
   Example: PRINT VAL("12.5X")   -> 12.5
   Example: PRINT VAL("ABC")     ->  0

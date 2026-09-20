@@ -2869,7 +2869,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, r) {
         s = substr(s, 1, 1)
         return "N" ((s in ORD) ? ORD[s] : 63)
     }
-    if (name == "VAL") { s = strarg(a1, na); if (E) return "N0"; return "N" valnum(s) }
+    if (name == "VAL") { s = strarg(a1, na); if (E) return "N0"; x = valnum(s); if (E) return "N0"; return "N" x }
     if (name == "CHR$") {
         x = numarg(a1, na); if (E) return "N0"
         x = bfloor(x)
@@ -5202,7 +5202,8 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x) {
                     gsub(/^[ \t]+|[ \t]+$/, "", x)
                     if (x == "") x = "0"
                     if (!strictnum(x)) { ok = 0; break }
-                    assignv(LV_N[idx], LV_K[idx], "N" numconv(x))
+                    x = numconv(x); if (E) return           # ?OV, not ?REDO
+                    assignv(LV_N[idx], LV_K[idx], "N" x)
                 }
                 idx++
             }
@@ -5295,7 +5296,8 @@ function st_read(   name, key, x) {
                 ERR_AT = DLINE[DP]; ERLV = DLINE[DP]
                 return
             }
-            assignv(name, key, "N" numconv(x))
+            x = numconv(x); if (E) return
+            assignv(name, key, "N" x)
         }
         DP++
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
@@ -5767,7 +5769,7 @@ function fio_next_item(n, isnum,   l, i, len, j, c, item) {
     return 1
 }
 
-function st_input_file(   n, nlv, name, key, i) {
+function st_input_file(   n, nlv, name, key, i, x) {
     n = fio_chan(0); if (E) return
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
@@ -5789,7 +5791,8 @@ function st_input_file(   n, nlv, name, key, i) {
         else {
             # the item is evaluated "by a routine just like the BASIC VAL
             # function" (Disk manual, INPUT#): A12 is 0, 5X is 5, never ?TM
-            assignv(LV_N[i], LV_K[i], "N" valnum(FIO_IT))
+            x = valnum(FIO_IT); if (E) return       # ?OV: nothing stored
+            assignv(LV_N[i], LV_K[i], "N" x)
         }
         if (E) return
     }
@@ -6085,6 +6088,7 @@ function fio_mkf(x, nb,   sgn, e, i, b, out) {
     }
     sgn = 0
     if (x < 0) { sgn = 128; x = -x }
+    if (x > 1.7e38) { raise(6); return "" }     # an infinity would never leave the loop
     e = 0
     while (x >= 1) { x /= 2; e++ }
     while (x < 0.5) { x *= 2; e-- }
@@ -6476,10 +6480,16 @@ function strictnum(s) {
 }
 
 # string -> number honoring the D (double-precision) exponent marker, which
-# awk's own conversion would stop at ("1D3" + 0 == 1)
-function numconv(s) {
+# awk's own conversion would stop at ("1D3" + 0 == 1).
+# The ROM's ASCII-to-binary routine (0E6CH) is the one reader behind VAL,
+# INPUT, READ and INPUT#, and it leaves through 07B2H, ?OV, when the
+# exponent overflows; the limit is the one a literal in a line has (p60).
+# Every caller checks E before it stores: nothing is assigned.
+function numconv(s,   x) {
     sub(/[Dd]/, "E", s)
-    return s + 0
+    x = s + 0
+    if (x > 1.7e38 || x < -1.7e38) { raise(6); return 0 }
+    return x
 }
 
 # BASIC INT(): floor

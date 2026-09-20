@@ -208,7 +208,7 @@ function fio_next_item(n, isnum,   l, i, len, j, c, item) {
     return 1
 }
 
-function st_input_file(   n, nlv, name, key, i) {
+function st_input_file(   n, nlv, name, key, i, x) {
     n = fio_chan(0); if (E) return
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
@@ -230,7 +230,8 @@ function st_input_file(   n, nlv, name, key, i) {
         else {
             # the item is evaluated "by a routine just like the BASIC VAL
             # function" (Disk manual, INPUT#): A12 is 0, 5X is 5, never ?TM
-            assignv(LV_N[i], LV_K[i], "N" valnum(FIO_IT))
+            x = valnum(FIO_IT); if (E) return       # ?OV: nothing stored
+            assignv(LV_N[i], LV_K[i], "N" x)
         }
         if (E) return
     }
@@ -526,6 +527,7 @@ function fio_mkf(x, nb,   sgn, e, i, b, out) {
     }
     sgn = 0
     if (x < 0) { sgn = 128; x = -x }
+    if (x > 1.7e38) { raise(6); return "" }     # an infinity would never leave the loop
     e = 0
     while (x >= 1) { x /= 2; e++ }
     while (x < 0.5) { x *= 2; e-- }

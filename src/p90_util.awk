@@ -50,10 +50,16 @@ function strictnum(s) {
 }
 
 # string -> number honoring the D (double-precision) exponent marker, which
-# awk's own conversion would stop at ("1D3" + 0 == 1)
-function numconv(s) {
+# awk's own conversion would stop at ("1D3" + 0 == 1).
+# The ROM's ASCII-to-binary routine (0E6CH) is the one reader behind VAL,
+# INPUT, READ and INPUT#, and it leaves through 07B2H, ?OV, when the
+# exponent overflows; the limit is the one a literal in a line has (p60).
+# Every caller checks E before it stores: nothing is assigned.
+function numconv(s,   x) {
     sub(/[Dd]/, "E", s)
-    return s + 0
+    x = s + 0
+    if (x > 1.7e38 || x < -1.7e38) { raise(6); return 0 }
+    return x
 }
 
 # BASIC INT(): floor
