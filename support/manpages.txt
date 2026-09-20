@@ -776,8 +776,9 @@ GET [#]n [,rec]   read a record from a random file into the buffer
   Loads record number rec (the first is 1); with rec omitted, reads the
   record after the last one touched.  Every FIELD variable on that
   channel updates at once -- there is no separate assignment step.
-  Reading past the end gives a record of spaces rather than an error, so
-  check LOF before trusting what comes back.
+  Reading past the end gives a record of zero bytes, CHR$(0), rather than
+  an error (as the Disk manual says), so check LOF first; EOF(n) is true
+  after such a GET.
   Example: GET 1, 5
   Example: FOR R=1 TO LOF(1): GET 1,R: PRINT N$: NEXT R
 

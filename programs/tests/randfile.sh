@@ -84,5 +84,27 @@ cat > "$dir/s.bas" <<'BAS'
 BAS
 out=$(cd "$dir" && TRS80_Z80= "$here/basic" s.bas 2>&1)
 [ "$out" = "[ab   ]" ] || fail "LSET after the variable's file was closed" "$out"
+
+# GET past the last record is no error: the buffer comes back as zero
+# bytes (Disk manual, GET and LOF).  It was ?IE, against the manual and
+# against `man GET` (the 2026-09-19 audit, M-27).  The file is not grown by
+# looking, the record after it is the next one, and record 0 is still ?RN.
+cat > "$dir/g.bas" <<'BAS'
+10 ON ERROR GOTO 90
+20 OPEN "R",1,"NEW.DAT",6:FIELD 1,2 AS I$,4 AS A$
+30 GET 1,5:PRINT LEN(A$);ASC(A$);ASC(RIGHT$(A$,1));CVI(I$);EOF(1);LOF(1)
+40 LSET A$="SIX":PUT 1:PRINT LOF(1)
+50 GET 1,1:PRINT "[";I$;A$;"]";EOF(1)
+60 GET 1,0
+70 PRINT "NOT REACHED"
+80 CLOSE:END
+90 PRINT "ERROR";ERR/2+1;"IN";STR$(ERL):RESUME 80
+BAS
+out=$(cd "$dir" && TRS80_Z80= "$here/basic" g.bas 2>&1)
+want=' 4  0  0  0 -1  3 
+ 6 
+[ONE   ] 0 
+ERROR 30 IN 60'
+[ "$out" = "$want" ] || fail "GET past the last record" "$out"
 rm -rf "$dir"
 echo "RANDFILE OK"

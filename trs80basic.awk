@@ -6173,8 +6173,13 @@ function st_get(   n, rec, v) {
         rec = bfloor(num(v))
     }
     if (rec < 1 || rec > 65535) { raise(30); return }
-    if (rec > FH_NREC[n]) { raise(27); return }
-    FH_BUF[n] = fio_pad(FH_REC[n, rec], FH_RLEN[n])
+    # past the last record: "BASIC simply fills the buffer with hexadecimal
+    # zeros, and no error is generated" (Disk manual, GET and LOF; the error
+    # it speaks of is for variable-length records, which are not served).
+    # This was ?IE while `man GET` promised spaces (the 2026-09-19 audit,
+    # M-27).  EOF(n) is true afterwards, and LOF(n) is the test beforehand.
+    if (rec > FH_NREC[n]) { FH_BUF[n] = ""; while (length(FH_BUF[n]) < FH_RLEN[n]) FH_BUF[n] = FH_BUF[n] CHR[0] }
+    else FH_BUF[n] = fio_pad(FH_REC[n, rec], FH_RLEN[n])
     FH_LOC[n] = rec
     fld_sync(n)
 }
