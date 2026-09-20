@@ -7,8 +7,8 @@
 # the 2026-09-19 audit's M-9 all of it survived an edit, and the saved
 # indexes pointed into a program that had changed: RETURN resumed at the
 # wrong line, FNA(3) evaluated tokens of whatever line now sat there.
-# (An FN that is not defined reads as 0 here rather than ?UF: that is a
-# separate, older divergence, and the 0 below only shows the DEF is gone.)
+# (An FN that is not defined reads as 0 here -- what Disk BASIC does with
+# one is not in the references -- so the 0 below only shows the DEF is gone.)
 # Self-checking: exits 1 on any mismatch.
 # Run from the repo root:  sh programs/tests/lineedit.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
