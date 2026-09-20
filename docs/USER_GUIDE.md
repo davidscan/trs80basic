@@ -369,7 +369,9 @@ How it works:
 - **PRINT# accumulates, INPUT# sends.** The first `INPUT#`/`LINE INPUT#`
   after a `PRINT#` transmits the accumulated prompt, blocks until the model
   answers, and the reply becomes pending input, read line by line;
-  `EOF(n)` goes -1 when it is consumed. `INPUT #n` splits on commas — tell
+  `EOF(n)` goes -1 when it is consumed. A new `PRINT#` drops whatever is
+  left unread of the last reply, so reading only the first line of each
+  answer is safe. `INPUT #n` splits on commas — tell
   the model to answer CSV and parse straight into variables.
 - **Naming**: `OLLAMA[:model[:thread]]`. With 3+ colon parts the *last* is
   the thread, the middle parts are the model, so tagged models work
@@ -1735,6 +1737,8 @@ CVI(s$) CVS(s$) CVD(s$)   unpack 2, 4 or 8 packed bytes into a number
 OPEN m$,n,"OLLAMA[:model[:thread]]"   chat with a local LLM
   PRINT #n builds the prompt; the next LINE INPUT #n sends it
   (blocking) and reads the reply line by line until EOF(n).
+  A new PRINT #n drops whatever is left unread of the last reply: the
+  next read always sends the new prompt and starts the new answer.
   Named threads persist to <thread>.ollama and reload as context;
   KILL that file to reset.  LOC(n)=messages.  Env: TRS80_OLLAMA_MODEL.
   Directive lines (PRINT #n "@...") steer the channel, never the model:

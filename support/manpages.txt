@@ -659,6 +659,8 @@ OPEN mode$, [#]n, name$ [,reclen]   open a file on channel n (1-15)
 OPEN m$,n,"OLLAMA[:model[:thread]]"   chat with a local LLM
   PRINT #n builds the prompt; the next LINE INPUT #n sends it
   (blocking) and reads the reply line by line until EOF(n).
+  A new PRINT #n drops whatever is left unread of the last reply: the
+  next read always sends the new prompt and starts the new answer.
   Named threads persist to <thread>.ollama and reload as context;
   KILL that file to reset.  LOC(n)=messages.  Env: TRS80_OLLAMA_MODEL.
   Directive lines (PRINT #n "@...") steer the channel, never the model:

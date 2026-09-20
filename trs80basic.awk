@@ -6172,8 +6172,15 @@ function ai_log(n, role, msg) {
 }
 
 # mode-"A" analog of fio_fill: pop the next reply line into FH_PEND,
-# sending the accumulated prompt first if the reply buffer is empty
+# sending the accumulated prompt first.  A prompt that is waiting ALWAYS
+# goes out at the next read ("the next LINE INPUT #n sends it"): whatever
+# is left unread of the previous reply is dropped, or a program that reads
+# only the first line of each answer -- the @TOKENS pattern -- would be
+# handed line 2 of the old reply as the answer to its new question.
 function ai_fill(n,   p) {
+    if (FH_OPENDHAS[n] || AI_PROMPT[n] != "") {
+        FH_PENDHAS[n] = 0; AI_REPLY[n] = ""; AI_RHAS[n] = 0
+    }
     if (FH_PENDHAS[n]) return 1
     if (!AI_RHAS[n]) {
         if (!FH_OPENDHAS[n] && AI_PROMPT[n] == "") return 0
