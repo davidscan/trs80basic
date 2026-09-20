@@ -21,7 +21,8 @@ cd "$here" || exit 2
 tmp=$(mktemp) || exit 2
 bad=$(mktemp) || exit 2
 a5=$(mktemp) || exit 2
-trap 'rm -f "$tmp" "$tmp.err" "$bad" "$bad.cas" "$a5" "$a5.cmd"' EXIT
+ne=$(mktemp) || exit 2
+trap 'rm -f "$tmp" "$tmp.err" "$bad" "$bad.cas" "$a5" "$a5.cmd" "$ne" "$ne.cas" "$ne.cmd"' EXIT
 fail() { echo "SYSTEM FAILED: $1"; [ -n "$2" ] && printf '%s\n' "$2"; exit 1; }
 run() { TRS80_DUMB=1 gawk -b -f trs80basic.awk >"$tmp" 2>"$tmp.err"; }
 
@@ -89,6 +90,31 @@ grep -q "E 33  165  85  201" "$tmp" || fail "a .cmd holding A5H 55H in its code 
 grep -q "F 33  165  85  201" "$tmp" || fail "a load module with no extension is known by its first byte" "$(cat "$tmp")"
 grep -q "^C$" "$tmp" && fail "a load module holding A5H 55H was read as a tape" "$(cat "$tmp")"
 [ "$(grep -c "(7F00H x1)" "$tmp.err")" -eq 2 ] || fail "the load module's entry was not taken" "$(cat "$tmp.err")"
+
+# A file that ends with no entry record (the 2026-09-19 audit, M-7): `/`
+# runs at its first block's load address, the core loader's rule -- not at
+# the entry of whatever was loaded before it.  The tape is syshi.cas less
+# its 78H record, loaded after sysrdy (entry 7E00H); the load module is
+# the one above less its 02H record, loaded after that tape (7D00H).
+size=$(wc -c < programs/tests/syshi.cas)
+head -c $((size - 3)) programs/tests/syshi.cas > "$ne.cas"
+head -c 21 "$a5.cmd" > "$ne.cmd"
+TRS80_Z80= run <<EOF
+
+SYSTEM
+programs/tests/sysrdy
+$ne.cas
+/
+SYSTEM
+$ne.cmd
+/
+EOF
+grep -q "^C$" "$tmp" && fail "a file with no entry record still loads" "$(cat "$tmp")"
+grep -q "?F[CD] ERROR" "$tmp" && fail "a file with no entry record still loads" "$(cat "$tmp")"
+[ "$(grep -c "USR STUB: 1 CALL" "$tmp.err")" -eq 2 ] || fail "two / runs" "$(cat "$tmp.err")"
+grep -q "(7E00H x1)" "$tmp.err" && fail "/ ran the PREVIOUS file's entry" "$(cat "$tmp.err")"
+grep -q "(7D00H x1)" "$tmp.err" || fail "a tape with no 78H record runs at its first block" "$(cat "$tmp.err")"
+grep -q "(7F00H x1)" "$tmp.err" || fail "a load module with no 02H record runs at its first block" "$(cat "$tmp.err")"
 
 # ---- part 2: the runs, with the real core ----------------------------------
 core=${TRS80_Z80:-"python3 $here/../trs80_z80_core/core.py"}

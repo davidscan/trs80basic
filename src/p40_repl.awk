@@ -617,7 +617,15 @@ function sys_load(name,   f, data, i, c, ext) {
     return "F"
 }
 
-function sys_load_cas(data, i,   n, c, cnt, a, sum, j, b, got) {
+# A file that ends with no entry record (78H on a tape, 02H in a load
+# module) is a host-file case: on the machine the tape loader never comes
+# back without its 78H (it waits at 0235H for the next byte), so there is
+# no ROM behavior to follow.  EXT: the entry is then the first block's load
+# address, the core loader's rule, so both tools run the same file the same
+# way.  Keeping the entry of the file loaded BEFORE had `/` run the previous
+# program's code (the 2026-09-19 audit, M-7).  A load that FAILS keeps it,
+# as 40DFH is only written at 02ACH, once the 78H record has been read.
+function sys_load_cas(data, i,   n, c, cnt, a, sum, j, b, got, first) {
     n = length(data); got = 0
     while (i <= n) {
         c = ORD[substr(data, i, 1)]
@@ -625,6 +633,7 @@ function sys_load_cas(data, i,   n, c, cnt, a, sum, j, b, got) {
             cnt = ORD[substr(data, i + 1, 1)]; if (cnt == 0) cnt = 256
             if (i + 4 + cnt > n) return "C"
             a = ORD[substr(data, i + 2, 1)] + 256 * ORD[substr(data, i + 3, 1)]
+            if (!got) first = a
             sum = ORD[substr(data, i + 2, 1)] + ORD[substr(data, i + 3, 1)]
             for (j = 0; j < cnt; j++) {
                 b = ORD[substr(data, i + 4 + j, 1)]
@@ -638,10 +647,12 @@ function sys_load_cas(data, i,   n, c, cnt, a, sum, j, b, got) {
             return got ? 1 : "C"
         } else return "C"
     }
-    return got ? 1 : "C"
+    if (!got) return "C"
+    SYSENTRY = first
+    return 1
 }
 
-function sys_load_cmd(data,   n, i, t, ln, a, j, got) {
+function sys_load_cmd(data,   n, i, t, ln, a, j, got, first) {
     n = length(data); i = 1; got = 0
     while (i + 1 <= n) {
         t = ORD[substr(data, i, 1)]; ln = ORD[substr(data, i + 1, 1)]
@@ -649,6 +660,7 @@ function sys_load_cmd(data,   n, i, t, ln, a, j, got) {
         if (i + 1 + ln > n) return "F"
         if (t == 1) {
             a = ORD[substr(data, i + 2, 1)] + 256 * ORD[substr(data, i + 3, 1)]
+            if (!got) first = a
             for (j = 0; j < ln - 2; j++) { poke_byte((a + j) % 65536, ORD[substr(data, i + 4 + j, 1)]); got++ }
         } else if (t == 2) {
             if (ln < 2) return "F"
@@ -657,7 +669,9 @@ function sys_load_cmd(data,   n, i, t, ln, a, j, got) {
         } else if (!(t == 5 || t == 7 || t == 16 || t == 26 || t == 31)) return "F"
         i += 2 + ln
     }
-    return got ? 1 : "F"
+    if (!got) return "F"
+    SYSENTRY = first
+    return 1
 }
 
 # run at addr through the USR call frame (p60 usr_resolve fills the frame's

@@ -1193,8 +1193,9 @@ SYSTEM   the Level II monitor: load an object file and run it
   SYSTEM tape (as a byte stream: what EDITOR/ASSEMBLER and TBUG wrote) or
   a /CMD load module.  The name is a host file -- name, name.cas or
   name.cmd -- the same way CLOAD reads a listing from a file.  Then *?
-  again.  Type / to run the program at the file's entry address, or
-  /nnnnn to run at decimal address nnnnn.  The program owns the screen
+  again.  Type / to run the program at the file's entry address (a file
+  with no entry record: where its first block loaded), or /nnnnn to run
+  at decimal address nnnnn.  The program owns the screen
   and keyboard until it returns, reaches 0A9AH, or jumps to the ROM's
   READY entry (1A19H); then READY, or the next statement when a program
   issued the SYSTEM.  BREAK at the prompt returns to BASIC.
