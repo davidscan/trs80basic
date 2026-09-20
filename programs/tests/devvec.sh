@@ -25,7 +25,8 @@ out=$(run); p=$(lpget)
 BACK" ] && [ "$p" = "TO PRINTER
 MORE" ] || fail "PRINT to printer" "$out" "$p"
 # the printer silenced (tip 74), then restored
-printf '10 POKE 16422,103:POKE 16423,0:LLIST:LPRINT "X":POKE 16422,141:POKE 16423,5:LPRINT "Y"\n' > "$tmp"
+# (LLIST comes last: like LIST it ends the program at READY, as on the machine)
+printf '10 POKE 16422,103:POKE 16423,0:LPRINT "X":POKE 16422,141:POKE 16423,5:LPRINT "Y":POKE 16422,103:POKE 16423,0:LLIST\n' > "$tmp"
 out=$(run); p=$(lpget)
 [ "$out" = "" ] && [ "$p" = "Y" ] || fail "printer silenced" "$out" "$p"
 # the printer column (409BH) is BASIC's count, kept BEFORE the driver is

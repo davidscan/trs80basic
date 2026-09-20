@@ -127,7 +127,7 @@ probe 70 W "start AUTO by POKE 16609,1: flag reads back, AUTO fires at the next 
 probe 71 W "AUTO increment by POKE 16612/3 reads back" "" " 7 " '10 POKE 16612,7:POKE 16613,0:PRINT PEEK(16612)+256*PEEK(16613)'
 probe 72 D "disable LIST method 1 (16863: 145,25,26)" "" "20 LIST 20" "10 POKE 16863,145:POKE 16864,25:POKE 16865,26${nl}20 LIST 20"
 probe 73 D "disable LIST method 2 (16863: 195,114,0)" "" "20 LIST 20" "10 POKE 16863,195:POKE 16864,114:POKE 16865,0${nl}20 LIST 20"
-probe 74 W "disable LLIST: POKE 16422,103:POKE 16423,0 points the printer at a RET" "" "OK" '10 POKE 16422,103:POKE 16423,0:LLIST 10:LPRINT "X":PRINT "OK"'
+probe 74 W "disable LLIST: POKE 16422,103:POKE 16423,0 points the printer at a RET" "" "OK" '10 POKE 16422,103:POKE 16423,0:LPRINT "X":PRINT "OK":LLIST 10'
 probe 75 W "RND seed POKE 16554-6 = 5,10,15 gives 80 78 91 88 70 91 25 30" "" " 80  78  91  88  70  91  25  30 " "10 POKE 16554,5:POKE 16555,10:POKE 16556,15${nl}20 FOR I=1 TO 8:PRINT RND(100);:NEXT:PRINT"
 probe 76 W "TRON by POKE 16667,1 traces the next line" "" "<20>T" "10 POKE 16667,1${nl}20 PRINT \"T\""
 probe 77 W "TROFF by POKE 16667,0 stops the trace" "" "<20>T${nl}X" "10 POKE 16667,1${nl}20 POKE 16667,0:PRINT \"T\"${nl}30 PRINT \"X\""

@@ -147,6 +147,15 @@ function parse_range(   any) {
     return any
 }
 
+# LIST, LLIST, DELETE, AUTO, CLOAD and LOAD (without ,R) all END AT READY on
+# the machine, whether typed or met inside a program (ROM: LIST 2B2E-2B54,
+# DELETE 2BD9, AUTO 2036, CLOAD 2C7A).  to_ready() is that ending.  Without
+# it a program that ran one of them carried on at its old line INDEX in a
+# line table that had just been rebuilt under it -- 10 PRINT "A":20 DELETE
+# 10:30 PRINT "B" skipped line 30 -- and a CLOADed second part started
+# somewhere past its first lines (the 2026-09-19 audit, H-8).
+function to_ready() { HALT = 1; CONTOK = 0 }
+
 function st_list(   i, ln) {
     parse_range()
     for (i = 1; i <= NL; i++) {
@@ -156,6 +165,7 @@ function st_list(   i, ln) {
         s_puts(ln " " prog[ln]); s_nl()
         if (pollbrk()) break
     }
+    to_ready()
 }
 
 # LLIST: LIST to the printer stream (all the same range forms)
@@ -167,19 +177,30 @@ function st_llist(   i, ln) {
         if (ln > RB) break
         lp_puts(ln " " prog[ln]); lp_nl()
     }
+    to_ready()
 }
 
+# DELETE n | n-m | -m | .   The ROM (2BC6-2BD6) takes the range, then
+# REFUSES with ?FC, deleting nothing, unless the UPPER line exists ("the
+# upper line number to be deleted must be a currently used number", the
+# manual) and the first line to go is not past it.  So DELETE 10-25 with no
+# line 25 is ?FC, and so are DELETE - and DELETE 10- (the default upper
+# line can never exist) and a bare DELETE: a typo cannot take the program
+# with it.  The whole statement is parsed first (1B25H: ?SN if anything
+# follows the range), so DELETE 10,20 deletes nothing either.
 function st_delete(   i, ln, n, hits) {
-    if (!parse_range()) { raise(2); return }
+    parse_range()
+    if (!at_stmt_end()) { raise(2); return }
+    if (!(RB in prog) || RA > RB) { raise(5); return }
     n = 0
     for (i = 1; i <= NL; i++) {
         ln = LNS[i]
         if (ln >= RA && ln <= RB) { hits[++n] = ln }
     }
-    if (n == 0) { raise(8); return }
     for (i = 1; i <= n; i++) { delete prog[hits[i]]; delete ESC[hits[i]]; inval_cache(hits[i]) }
     rebuild()
-    DATADIRTY = 1; CONTOK = 0
+    DATADIRTY = 1
+    to_ready()
 }
 
 function st_auto(   start, inc, line, k) {
@@ -193,6 +214,7 @@ function st_auto(   start, inc, line, k) {
     }
     if (inc < 1) inc = 10
     auto_run(start, inc)
+    to_ready()
 }
 
 # the AUTO prompt loop; its state is PEEKable through the system variable
@@ -472,6 +494,7 @@ function st_cload(   f, verify) {
     f = parse_fname()
     if (f == "") { raise(21); return }
     if (!prog_load(f, verify)) { raise(22); return }
+    to_ready()
 }
 
 # SYSTEM: the Level II monitor (manual 2-6).  `*?` prompts; a name loads
@@ -614,6 +637,7 @@ function st_load(   f, keep) {
     }
     if (!prog_load(f, 0, keep)) { raise(22); return }
     if (keep) run_start(0, 1)
+    else to_ready()
 }
 
 # Disk BASIC MERGE "file": read a listing into the CURRENT program -- no

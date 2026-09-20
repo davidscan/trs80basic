@@ -395,6 +395,9 @@ RUN "name"   load that file and run it (Disk BASIC)
 
 :LIST
 LIST [n][-[m]]   display program lines on the screen
+  LIST ends at READY, as on the machine: inside a program it lists and
+  then STOPS the program (so do LLIST, DELETE, AUTO, CLOAD and LOAD
+  without ,R -- a program that CLOADs its next part must be RUN again).
   With no argument, lists the whole program.  A single number lists that
   one line; a range lists the span, and either end may be left off:
     LIST 100        just line 100
@@ -433,12 +436,15 @@ AUTO [n[,i]]   number lines automatically as you type them
   Example: AUTO 100,5
 
 :DELETE
-DELETE n[-[m]]   remove program lines
-  Takes the same range forms as LIST: DELETE 100 removes one line,
-  DELETE 100-200 removes a span, DELETE 100- removes to the end.
-  Unlike LIST, the range is required -- bare DELETE does not erase the
-  program (that is NEW).
-  Deleting a line that does not exist raises ?FC.
+DELETE n | n-m | -m | .   remove program lines
+  DELETE 100 removes one line, DELETE 100-200 a span, DELETE -200
+  everything up to and including 200, DELETE . the line last entered.
+  The UPPER line must be a line that exists, or the command is ?FC and
+  nothing is deleted: DELETE 100-250 with no line 250 is refused (the
+  lower line need not exist).  So DELETE 100- , DELETE - and a bare
+  DELETE are all ?FC -- a typo cannot take the program with it; erasing
+  everything is NEW.
+  Like LIST, DELETE ends at READY: used inside a program it stops it.
   A single line can also be removed by typing its number alone.
   Example: DELETE 100-200
 
