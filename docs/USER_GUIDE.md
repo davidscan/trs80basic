@@ -578,6 +578,10 @@ PRINT [items]   display values on the screen
   gives " 1  2 ", not "12".  A leading 0 is dropped: -0.5 prints as -.5.
   A trailing ; or , at the end of the line suppresses the newline, so the
   next PRINT continues on the same line.
+  The newline that ends a PRINT also BLANKS the screen line it moves to,
+  as the ROM's carriage return does.  That is what lets a program home
+  the cursor and reprint shorter lines without CLS -- and why a PRINT on
+  the line above a PRINT@ status line wipes it unless it ends in ;
   ? is shorthand for PRINT.  See also: man USING, man PRINT#
   Example: PRINT "SUM=";A+B          -> SUM= 12
   Example: PRINT "X","Y"             -> X at col 1, Y at col 17

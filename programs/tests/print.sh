@@ -1,10 +1,13 @@
 #!/bin/sh
-# print.sh -- what the ROM's PRINT does to the screen that a cursor move
-# does not (the 2026-09-19 audit, H-4):
+# print.sh -- two things the ROM's PRINT does to the screen that a cursor
+# move does not (the 2026-09-19 audit, H-4 and H-3):
 #   a comma PRINTS blanks to the next 16-column zone (2123-2135 -> 215A):
 #     they are in the text stream, they overwrite what was on the screen,
 #     and they reach the printer when video is routed to it; from column
-#     48 on, a carriage return.
+#     48 on, a carriage return;
+#   a carriage return BLANKS the line it lands on (video driver, 0564-058B)
+#     -- the redraw-without-CLS idiom depends on it -- while running off the
+#     end of a line is not a carriage return and erases nothing.
 # Self-checking: exits 1 on any mismatch.  Run from the repo root:
 #   sh programs/tests/print.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
@@ -33,6 +36,16 @@ out=$(run | tail -1 | sed "s/.*\[/[/")
 printf '10 POKE 16414,141:POKE 16415,5:PRINT "A","B":POKE 16414,88:POKE 16415,4\n' > "$tmp"
 out=$(run); p=$(cat "$lp" 2>/dev/null)
 [ "$p" = "A                B" ] || fail "commas routed to the printer" "$p"
+
+# a carriage return blanks the line it lands on (the audit's repro)
+printf '10 CLS\n20 PRINT CHR$(28);"LINE A"\n30 PRINT "LONGER TEXT HERE"\n40 PRINT CHR$(28);"LINE A"\n50 PRINT "SHORT";\n60 S$="":FOR I=15424 TO 15424+19:S$=S$+CHR$(PEEK(I)):NEXT:PRINT@192,"[";S$;"]"\n' > "$tmp"
+out=$(run | tail -1 | sed "s/.*\[/[/")
+[ "$out" = "[SHORT               ]" ] || fail "a carriage return left stale text on the next line" "$out"
+
+# running off the end of a line is NOT a carriage return: row 1 keeps its tail
+printf '10 CLS:PRINT@74,"KEEPME";:PRINT@0,STRING$(70,"X");\n20 S$="":FOR I=15424 TO 15424+15:S$=S$+CHR$(PEEK(I)):NEXT:PRINT@192,"[";S$;"]"\n' > "$tmp"
+out=$(run | tail -1 | sed "s/.*\[/[/")
+[ "$out" = "[XXXXXX    KEEPME]" ] || fail "a line wrap erased the next line" "$out"
 
 rm -f "$tmp" "$lp"
 echo "PRINT OK"

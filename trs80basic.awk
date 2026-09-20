@@ -547,13 +547,21 @@ function s_scroll(   i) {
     redraw_all()
 }
 
-function s_nl() {
+function s_nl(   i) {
     if (VIDTOLP) { lp_nl(); return }
     # On a real tty we hold the line in `stty raw` for our own key handling,
     # so LF alone won't return the carriage -- emit CR+LF when streaming.
     if (DUMB) printf (TTYIN ? "\r\n" : "\n")
     CUR = int(CUR / 64) * 64 + 64
-    if (CUR > 1023) { s_scroll(); CUR = 960 }
+    if (CUR > 1023) { s_scroll(); CUR = 960; return }   # the line scrolled in is blank
+    # The ROM's carriage return does not just move down: it falls into the
+    # erase-line loop and BLANKS the line it lands on (0564-058BH).  A
+    # program that homes the cursor and reprints shorter lines -- the
+    # redraw-without-CLS idiom -- relies on it; without it the old text
+    # stays on the screen, in PEEK and in the USR frame.  (Running off the
+    # end of a line is not a CR and erases nothing: s_putc just steps on.)
+    for (i = CUR; i < CUR + 64; i++)
+        if (SCR[i] != 32 || (i in CCOL)) setcell(i, 32)
 }
 
 # output one byte with LEVEL II display-control semantics
