@@ -104,7 +104,9 @@ QUERY, PUSH, POP = '\x1b[?u', '\x1b[>2u', '\x1b[<u'
 
 def protocol(check):
     """Scenario 6: the release protocol against a pty that speaks it."""
-    b = Basic([('TRS80_KBPROTO', '1')])
+    # the stuck-key timer is wall-clock seconds; on CI every wait below is
+    # stretched by SLOW, so stretch it too or it fires between two steps
+    b = Basic([('TRS80_KBPROTO', '1'), ('TRS80_KPSTUCK', str(2 * SLOW))])
     b.drain()
     b.send('\r')
     b.drain()

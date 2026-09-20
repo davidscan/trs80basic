@@ -1012,7 +1012,9 @@ function km_init(   i) {
     KMR = -1; KMSH = 0
     KBPROTO = 0; KPQUERIED = 0; KPPUSHED = 0; KPPART = ""; KPSHIFT = 0; KPLAST = 0
     for (i = 0; i < 8; i++) KPDOWN[i] = 0
-    KP_STUCK = 2                                  # seconds without any event: release everything
+    # seconds without any event: release everything.  TRS80_KPSTUCK moves it
+    # (the pty test does, on a slow CI runner whose own waits are stretched)
+    KP_STUCK = (ENVIRON["TRS80_KPSTUCK"] + 0 > 0) ? ENVIRON["TRS80_KPSTUCK"] + 0 : 2
     KPSLACK = (KMCLOCK != "") ? 0 : 1
 }
 
