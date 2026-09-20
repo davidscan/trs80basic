@@ -6,7 +6,8 @@
 # manual's own advice for numbers work -- "just remember to separate the
 # items with semi-colons" -- since PRINT#1,A;B;C writes blanks and nothing
 # else between them.  A string item still runs to the comma, blanks and all.
-# Self-checking: exits 1 on any mismatch.
+# And the item is evaluated like VAL, so text where a number was wanted
+# is 0, not ?TM.  Self-checking: exits 1 on any mismatch.
 # Run from the repo root:  sh programs/tests/inputnum.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
 dir=$(mktemp -d) || exit 2
@@ -34,6 +35,14 @@ cat >> "$dir/t.bas" <<'BAS'
 230 INPUT#1,A,B,C:PRINT "EMPTY ITEM IS 0";A;B;C;"."
 240 PRINT "EOF";EOF(1);".":CLOSE 1
 BAS
+# a numeric item is evaluated like VAL: text that is no number is 0, and a
+# number followed by text is the number (the manual's A12 example)
+printf '34 A12,5X\nNONE\n' > "$dir/VAL.DAT"
+cat >> "$dir/t.bas" <<'BAS'
+300 OPEN "I",1,"VAL.DAT"
+310 INPUT#1,A,B,C,D:PRINT "LIKE VAL";A;B;C;D;"."
+320 CLOSE 1
+BAS
 out=$(cd "$dir" && TRS80_Z80= "$here/basic" t.bas 2>&1)
 want="SEMICOLONS 1 -2.5  3 .
 NUMBER THEN STRING 5 [HELLO]
@@ -43,7 +52,8 @@ EOF-1 .
 MANUAL 1.234 -33  27 .
 BLANKS AND COMMAS 4  5  6 .
 EMPTY ITEM IS 0 12  0  13 .
-EOF-1 ."
+EOF-1 .
+LIKE VAL 34  0  5  0 ."
 [ "$out" = "$want" ] || fail "numeric items ended by blanks" "$out"
 rm -rf "$dir"
 echo "INPUTNUM OK"

@@ -711,6 +711,8 @@ INPUT #n, vars   read items from a file opened "I"
   A number ends at a blank as well as at a comma, and leading blanks are
   skipped, so numbers written with semicolons read straight back:
   PRINT #1, A;B;C  then  INPUT #1, A,B,C.
+  The number is read the way VAL reads it: text that is no number gives
+  0 and "5X" gives 5 -- a file never raises ?TM.
   A line with fewer items than variables carries on into the next line.
   Reading past the end raises ?IE -- test EOF first.
   Use LINE INPUT #n instead to take a whole line, commas included.

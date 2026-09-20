@@ -5668,7 +5668,7 @@ function fio_next_item(n, isnum,   l, i, len, j, c, item) {
     return 1
 }
 
-function st_input_file(   n, nlv, name, key, i, x) {
+function st_input_file(   n, nlv, name, key, i) {
     n = fio_chan(0); if (E) return
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
@@ -5688,11 +5688,9 @@ function st_input_file(   n, nlv, name, key, i, x) {
         if (!fio_next_item(n, !strname(LV_N[i]))) { raise(27); return }
         if (strname(LV_N[i])) assignv(LV_N[i], LV_K[i], "S" FIO_IT)
         else {
-            x = FIO_IT
-            gsub(/^[ \t]+|[ \t]+$/, "", x)
-            if (x == "") x = "0"
-            if (!strictnum(x)) { raise(13); return }
-            assignv(LV_N[i], LV_K[i], "N" numconv(x))
+            # the item is evaluated "by a routine just like the BASIC VAL
+            # function" (Disk manual, INPUT#): A12 is 0, 5X is 5, never ?TM
+            assignv(LV_N[i], LV_K[i], "N" valnum(FIO_IT))
         }
         if (E) return
     }
