@@ -140,10 +140,14 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
 
 ### The return
 
-*   `hl` is HL at the sentinel, 0-65535.  `result=1` means the routine
-    called 0A9AH (HL to result), so the value of the `USR` expression is
-    HL as a signed 16-bit integer; `result=0` means the value is the
-    argument unchanged, as on hardware.
+*   `result=1` means the routine went through 0A9AH (HL to result): `hl`
+    is the HL it handed over there, 0-65535 (the last one, if it did so
+    more than once), and the value of the `USR` expression is that, as a
+    signed 16-bit integer.  0A9AH returns to its caller, as the ROM
+    routine does: the usual `JP 0A9AH` ends the call because the return
+    pops the sentinel, and a routine that `CALL`s it runs on.
+    `result=0` means the value is the argument unchanged, as on hardware;
+    `hl` is then HL at the sentinel.
 *   `cycles` is the total T-states for the call (diagnostic).
 *   `break=1` means the call was cut short by BREAK; the interpreter
     reports `BREAK` at the current line after applying the write-set.
