@@ -33,5 +33,25 @@ BLANKS ARE A VALUE 0
 SPEED? 3
 TYPED 3 "
 [ "$out" = "$want" ] || fail "empty INPUT lines" "$out"
+# each target is resolved when its value is stored, after the assignments
+# before it: INPUT I,A(I) answered 3,77 stores into A(3), as READ I,A(I)
+# does.  INPUT# takes its targets the same way.
+dir=$(mktemp -d) || exit 2
+cat > "$tmp" <<'BAS'
+10 DIM A(5),B(5)
+20 INPUT I,A(I):PRINT "INPUT";I;A(0);A(3)
+30 INPUT X$,A(LEN(X$)):PRINT "BY A STRING";A(2)
+40 OPEN "O",1,"T.DAT":PRINT#1,2;88:CLOSE
+50 OPEN "I",1,"T.DAT":INPUT#1,J,B(J):CLOSE
+60 PRINT "INPUT#";J;B(0);B(2)
+BAS
+out=$(cd "$dir" && printf '3,77\nHI,9\n' | TRS80_Z80= "$here/basic" "$tmp" 2>&1)
+rm -rf "$dir"
+want="? 3,77
+INPUT 3  0  77 
+? HI,9
+BY A STRING 9 
+INPUT# 2  0  88 "
+[ "$out" = "$want" ] || fail "a subscript uses the value just read" "$out"
 rm -f "$tmp"
 echo "INPUT OK"

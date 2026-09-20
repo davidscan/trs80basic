@@ -214,26 +214,24 @@ function st_input_file(   n, nlv, name, key, i, x) {
     CP++
     if (!fio_isopen(n)) { raise(25); return }
     if (FH_MODE[n] != "I" && FH_MODE[n] != "A") { raise(28); return }
-    nlv = 0
+    # each target is resolved when its item is stored, after the
+    # assignments before it (INPUT#1,I,A(I)), as INPUT and READ do
     for (;;) {
         if (TY[CK, CP] != "i") { raise(2); return }
         name = TK[CK, CP]; CP++
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
-        nlv++; LV_N[nlv] = name; LV_K[nlv] = key
-        if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
-        break
-    }
-    for (i = 1; i <= nlv; i++) {
-        if (!fio_next_item(n, !strname(LV_N[i]))) { raise(27); return }
-        if (strname(LV_N[i])) assignv(LV_N[i], LV_K[i], "S" FIO_IT)
+        if (!fio_next_item(n, !strname(name))) { raise(27); return }
+        if (strname(name)) assignv(name, key, "S" FIO_IT)
         else {
             # the item is evaluated "by a routine just like the BASIC VAL
             # function" (Disk manual, INPUT#): A12 is 0, 5X is 5, never ?TM
             x = valnum(FIO_IT); if (E) return       # ?OV: nothing stored
-            assignv(LV_N[i], LV_K[i], "N" x)
+            assignv(name, key, "N" x)
         }
         if (E) return
+        if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
+        break
     }
 }
 

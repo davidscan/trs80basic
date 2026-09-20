@@ -5201,7 +5201,7 @@ function pu_ovf(x,   t) {
 }
 
 # ---- INPUT -----------------------------------------------------------------
-function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x) {
+function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, endp) {
     # INPUT #n is legal in immediate mode, so check before the ID guard
     if (TY[CK, CP] == "o" && TK[CK, CP] == "#") { CP++; st_input_file(); return }
     if (CK == "I") { raise(12); return }
@@ -5230,16 +5230,28 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x) {
         if (EOFQUIT) { if (BATCH) batch_ineof(); STOPPED = 1; return }
         return
     }
+    # The targets are only LOCATED here.  Each one is resolved -- its
+    # subscripts evaluated -- when its value is about to be stored, after
+    # the assignments before it, as the ROM does and as READ does here:
+    # INPUT I,A(I) answered 3,77 stores into A(3).  (Until 2026-09-20 every
+    # subscript was evaluated before the prompt, so that went to A(0).)
     nlv = 0
     for (;;) {
         if (TY[CK, CP] != "i") { raise(2); return }
-        name = TK[CK, CP]; CP++
-        key = ""
-        if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
-        nlv++; LV_N[nlv] = name; LV_K[nlv] = key
+        nlv++; LV_P[nlv] = CP; CP++
+        if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
+            d = 0
+            do {
+                if (TY[CK, CP] == "" || TY[CK, CP] == "e") { raise(2); return }
+                if (TY[CK, CP] == "o" && TK[CK, CP] == "(") d++
+                else if (TY[CK, CP] == "o" && TK[CK, CP] == ")") d--
+                CP++
+            } while (d > 0)
+        }
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
         break
     }
+    endp = CP
     for (;;) {                              # REDO loop
         if (prompt != "") s_puts(prompt)
         if (pq != 2) s_puts("? ")
@@ -5259,14 +5271,17 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x) {
             if (line == "") return
             nib = parse_items(line, nib)
             while (idx <= nlv && idx <= nib) {
-                if (strname(LV_N[idx])) assignv(LV_N[idx], LV_K[idx], "S" IB[idx])
+                CP = LV_P[idx]; name = TK[CK, CP]; CP++; key = ""
+                if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
+                CP = endp
+                if (strname(name)) assignv(name, key, "S" IB[idx])
                 else {
                     x = IB[idx]
                     gsub(/^[ \t]+|[ \t]+$/, "", x)
                     if (x == "") x = "0"
                     if (!strictnum(x)) { ok = 0; break }
                     x = numconv(x); if (E) return           # ?OV, not ?REDO
-                    assignv(LV_N[idx], LV_K[idx], "N" x)
+                    assignv(name, key, "N" x)
                 }
                 idx++
             }
@@ -5838,26 +5853,24 @@ function st_input_file(   n, nlv, name, key, i, x) {
     CP++
     if (!fio_isopen(n)) { raise(25); return }
     if (FH_MODE[n] != "I" && FH_MODE[n] != "A") { raise(28); return }
-    nlv = 0
+    # each target is resolved when its item is stored, after the
+    # assignments before it (INPUT#1,I,A(I)), as INPUT and READ do
     for (;;) {
         if (TY[CK, CP] != "i") { raise(2); return }
         name = TK[CK, CP]; CP++
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
-        nlv++; LV_N[nlv] = name; LV_K[nlv] = key
-        if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
-        break
-    }
-    for (i = 1; i <= nlv; i++) {
-        if (!fio_next_item(n, !strname(LV_N[i]))) { raise(27); return }
-        if (strname(LV_N[i])) assignv(LV_N[i], LV_K[i], "S" FIO_IT)
+        if (!fio_next_item(n, !strname(name))) { raise(27); return }
+        if (strname(name)) assignv(name, key, "S" FIO_IT)
         else {
             # the item is evaluated "by a routine just like the BASIC VAL
             # function" (Disk manual, INPUT#): A12 is 0, 5X is 5, never ?TM
             x = valnum(FIO_IT); if (E) return       # ?OV: nothing stored
-            assignv(LV_N[i], LV_K[i], "N" x)
+            assignv(name, key, "N" x)
         }
         if (E) return
+        if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
+        break
     }
 }
 
