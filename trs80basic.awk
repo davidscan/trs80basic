@@ -5579,7 +5579,12 @@ function fio_close1(n,   f, r) {
         if (FH_OPENDHAS[n]) print FH_OPEND[n] >> f
         close(f)
     } else if (FH_MODE[n] == "I") close(f)
-    else if (FH_MODE[n] == "R") fio_flushR(n)
+    else if (FH_MODE[n] == "R") {
+        # only a PUT makes the file worth writing: a file opened to GET from
+        # is left byte for byte as it was (the rewrite re-pads every record
+        # to this OPEN's length and re-escapes it)
+        if (FH_DIRTY[n]) fio_flushR(n)
+    }
     else ai_close(n)                        # "A": unsent prompt is discarded
     for (r = 1; r <= FH_NREC[n]; r++) delete FH_REC[n, r]
     for (r = 1; r <= FLDN[n]; r++) {

@@ -333,7 +333,8 @@ Simulation notes, honestly labeled:
 
 - A random file holds one record per line, space-padded to the record
   length, with non-printable bytes escaped `\xNN` on disk; records live in
-  memory between OPEN "R" and CLOSE, and CLOSE rewrites the file.
+  memory between OPEN "R" and CLOSE, and CLOSE rewrites the file if a
+  `PUT` changed it (a file that was only read is left untouched).
 - `RUN`/`NEW`/`CLEAR`/`CLOAD`/`END`/`BYE` close and flush all channels —
   `STOP` does not, so BREAK + `CONT` keeps files open.
 - `,` in PRINT# writes **no** zone padding (zone spaces would corrupt
