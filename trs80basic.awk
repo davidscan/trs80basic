@@ -54,6 +54,7 @@ BEGIN {
     if (!TTYIN && !OPT_SCREEN) DUMB = 1     # no tty: stream plainly (--screen keeps the grid)
     t_init()
     if (BATCH) {
+        if (OPT_MEMSIZE) { HIMEM = OPT_MEMSIZE; SSP = HIMEM }
         RC = batch_main()
         fio_closeall()
         t_done()
@@ -61,7 +62,8 @@ BEGIN {
     }
     s_cls()
     s_puts("MEMORY SIZE? "); sync_cursor()
-    BOOTMS = rl_read()
+    if (OPT_MEMSIZE) { BOOTMS = OPT_MEMSIZE ""; s_puts(BOOTMS) }   # --memsize answered it
+    else BOOTMS = rl_read()
     # honored since 2026-08-14 (p75): a numeric answer becomes HIMEM -- the
     # fence string space allocates below, NOT the top of RAM.  Memory above
     # it stays present, readable and writable, which is the entire point of
@@ -2222,11 +2224,11 @@ function prog_load_tok(data, verify, keepfiles, merge,   n, pos, nxt, ln, z, bod
 #               2 bad arguments, unreadable file, or unloadable source
 
 # parse ARGV; returns 0 on a usage error.  Sets BATCH/BATCHFILE, OPT_SCREEN,
-# SEEDED/OPT_SEED, OPT_HELP.  gawk never reads the operands itself: the whole
+# SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_HELP.  gawk never reads the operands itself: the whole
 # interpreter lives in BEGIN and exits there.
 function parse_args(   i, a, nofl) {
     BATCH = 0; BATCHFILE = ""; OPT_SCREEN = 0; OPT_HELP = 0
-    SEEDED = 0; OPT_SEED = 0; nofl = 0
+    SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; nofl = 0
     for (i = 1; i < ARGC; i++) {
         a = ARGV[i]
         if (!nofl && a == "--") { nofl = 1; continue }
@@ -2242,6 +2244,21 @@ function parse_args(   i, a, nofl) {
             a = substr(a, 8)
             if (a !~ /^-?[0-9]+$/) { ARGMSG = "--seed needs an integer"; return 0 }
             OPT_SEED = a + 0; SEEDED = 1
+            continue
+        }
+        # --memsize N: the answer to MEMORY SIZE?, for a run that has no
+        # prompt to answer.  Batch mode otherwise sees all 64K, and a period
+        # program written on a 16K machine can depend on a smaller one: it
+        # makes an address byte signed (IF H>127 THEN H=H-256) and POKEs it,
+        # which is ?FC wherever string space sits above 32767.
+        if (!nofl && (a == "--memsize" || a ~ /^--memsize=/)) {
+            if (a == "--memsize") a = (++i < ARGC) ? ARGV[i] : ""
+            else a = substr(a, 11)
+            if (a !~ /^[0-9]+$/ || a + 0 < 17280 || a + 0 > 65535) {
+                ARGMSG = "--memsize needs an address from 17280 to 65535"
+                return 0
+            }
+            OPT_MEMSIZE = a + 0
             continue
         }
         if (!nofl && a == "--screen") { OPT_SCREEN = 1; continue }
@@ -2261,6 +2278,8 @@ function usage(dest,   t) {
         "With no file, start the interactive READY prompt.\n" \
         "\n" \
         "  --seed N     seed RND for repeatable runs (RANDOM re-applies N)\n" \
+        "  --memsize N  answer MEMORY SIZE? with N (17280-65535); 32767 is a\n" \
+        "               16K machine, for programs that only ran on one\n" \
         "  --screen     keep the TRS-80 screen/cursor control codes\n" \
         "               (output is plain text by default without a tty)\n" \
         "  -h, --help   show this message\n" \

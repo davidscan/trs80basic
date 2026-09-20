@@ -54,6 +54,7 @@ BEGIN {
     if (!TTYIN && !OPT_SCREEN) DUMB = 1     # no tty: stream plainly (--screen keeps the grid)
     t_init()
     if (BATCH) {
+        if (OPT_MEMSIZE) { HIMEM = OPT_MEMSIZE; SSP = HIMEM }
         RC = batch_main()
         fio_closeall()
         t_done()
@@ -61,7 +62,8 @@ BEGIN {
     }
     s_cls()
     s_puts("MEMORY SIZE? "); sync_cursor()
-    BOOTMS = rl_read()
+    if (OPT_MEMSIZE) { BOOTMS = OPT_MEMSIZE ""; s_puts(BOOTMS) }   # --memsize answered it
+    else BOOTMS = rl_read()
     # honored since 2026-08-14 (p75): a numeric answer becomes HIMEM -- the
     # fence string space allocates below, NOT the top of RAM.  Memory above
     # it stays present, readable and writable, which is the entire point of
