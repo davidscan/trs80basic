@@ -2665,6 +2665,12 @@ function e_prim(   t, s, v, key) {
     }
     if (t == "i") {
         s = TK[CK, CP]
+        # NOT where an operand is expected (5+NOT 0, -NOT 0, 2*NOT X): the
+        # ROM meets the token in its operand reader and evaluates what
+        # follows at NOT's own precedence (5AH: above AND and OR, below the
+        # relationals and the arithmetic), so 5+NOT 0+1 is 5+(NOT 1).
+        # It is never a variable named NOT.
+        if (s == "NOT")    return e_not()
         if (s == "ERR")    { CP++; return "N" ERRV }
         if (s == "ERL")    { CP++; return "N" ERLV }
         if (s == "MEM")    { CP++; return "N" 15572 }
@@ -3509,7 +3515,11 @@ function st_on(   v, n, mode, cnt, lst, retp) {
         CP++
         if (TY[CK, CP] != "n") { raise(2); return }
         EHANDLER = TK[CK, CP] + 0; CP++
-        if (EHANDLER == 0) INHANDLER = 0
+        # ON ERROR GOTO 0 inside the handler: "BASIC will handle the
+        # current error normally" -- the ROM reloads the error's code and
+        # joins the error routine past the point where it notes the line
+        # (1F89-1F92 -> 19ABH), so the message names the line that failed
+        if (EHANDLER == 0 && INHANDLER) { INHANDLER = 0; E = ERRV / 2 + 1; ERR_AT = ERLV }
         return
     }
     v = e_or(); if (E) return

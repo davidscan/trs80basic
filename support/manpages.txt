@@ -341,6 +341,10 @@ ON e GOSUB n1[,n2...]   call the e-th line in the list
   error, and it is the normal way to handle "none of the above".
   A negative e is ?FC ERROR.
   ON ERROR GOTO n installs an error handler (see: man ERROR, man RESUME).
+  ON ERROR GOTO 0 removes it.  Inside the handler it does more: BASIC
+  handles the current error normally -- the message names the line that
+  failed and the program stops.  That is how a handler passes on an
+  error it does not expect.
   Example: ON X GOTO 100,200,300
   Example: ON MENU GOSUB 1000,2000,3000
            PRINT "BAD CHOICE"     (reached when MENU is 0 or > 3)

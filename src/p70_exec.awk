@@ -423,7 +423,11 @@ function st_on(   v, n, mode, cnt, lst, retp) {
         CP++
         if (TY[CK, CP] != "n") { raise(2); return }
         EHANDLER = TK[CK, CP] + 0; CP++
-        if (EHANDLER == 0) INHANDLER = 0
+        # ON ERROR GOTO 0 inside the handler: "BASIC will handle the
+        # current error normally" -- the ROM reloads the error's code and
+        # joins the error routine past the point where it notes the line
+        # (1F89-1F92 -> 19ABH), so the message names the line that failed
+        if (EHANDLER == 0 && INHANDLER) { INHANDLER = 0; E = ERRV / 2 + 1; ERR_AT = ERLV }
         return
     }
     v = e_or(); if (E) return

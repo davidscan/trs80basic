@@ -147,6 +147,12 @@ function e_prim(   t, s, v, key) {
     }
     if (t == "i") {
         s = TK[CK, CP]
+        # NOT where an operand is expected (5+NOT 0, -NOT 0, 2*NOT X): the
+        # ROM meets the token in its operand reader and evaluates what
+        # follows at NOT's own precedence (5AH: above AND and OR, below the
+        # relationals and the arithmetic), so 5+NOT 0+1 is 5+(NOT 1).
+        # It is never a variable named NOT.
+        if (s == "NOT")    return e_not()
         if (s == "ERR")    { CP++; return "N" ERRV }
         if (s == "ERL")    { CP++; return "N" ERLV }
         if (s == "MEM")    { CP++; return "N" 15572 }
