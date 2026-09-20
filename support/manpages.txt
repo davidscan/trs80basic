@@ -761,7 +761,8 @@ LINE INPUT #n, v$             read one whole line from a file
 :FIELD
 FIELD [#]n, w AS v$ [, w AS v$...]   name slices of a random record
   Divides the record buffer of an "R" file into fixed-width string
-  variables.  The widths must not exceed the record length, or ?FO.
+  variables (array elements too: 16 AS C$(1)).  The widths must not
+  exceed the record length, or ?FO.
   These variables are windows onto the buffer, not ordinary strings:
   GET refills them, and only LSET/RSET store into them.  Assigning with
   = detaches the name from the buffer and the link is lost.

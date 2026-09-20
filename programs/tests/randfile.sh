@@ -55,5 +55,34 @@ out=$(cd "$dir" && TRS80_Z80= "$here/basic" m.bas 2>&1)
 want='[ABC*|U123YZ]
 [ABC*U123YZ]'
 [ "$out" = "$want" ] || fail "MID\$= on a FIELD variable reaches the record" "$out"
+
+# FIELD takes array elements: the Disk manual's own example is
+# FIELD 1,16 AS CLIENT$(1).  It was ?SN (the 2026-09-19 audit, M-29).  GET
+# refills them, LSET, RSET and MID$= store through them, and a simple
+# variable of the same name is a different variable.
+cat > "$dir/a.bas" <<'BAS'
+10 DIM C$(3,2):N=2
+20 OPEN "R",1,"ARR.DAT",12
+30 FIELD 1,4 AS C$(1,0),4 AS C$(N,N),4 AS C$
+40 LSET C$(1,0)="ONE":RSET C$(2,2)="TWO":LSET C$="SIMP":MID$(C$(1,0),4)="!"
+50 PUT 1,1:LSET C$(1,0)="x":LSET C$(2,2)="y":PUT 1,2
+60 GET 1,1:PRINT "[";C$(1,0);"|";C$(N,2);"|";C$;"]";LEN(C$(3,2))
+70 CLOSE 1:OPEN "R",1,"ARR.DAT",12:FIELD 1,12 AS R$:GET 1,1:PRINT "[";R$;"]":CLOSE
+BAS
+out=$(cd "$dir" && TRS80_Z80= "$here/basic" a.bas 2>&1)
+want='[ONE!| TWO|SIMP] 0 
+[ONE! TWOSIMP]'
+[ "$out" = "$want" ] || fail "FIELD on array elements" "$out"
+
+# a variable FIELDed onto a second file, which is then closed, is an
+# ordinary string again: a GET on the first file used to re-create its
+# mapping as an empty one, and the next LSET was ?NO
+cat > "$dir/s.bas" <<'BAS'
+10 OPEN "R",1,"DATA.TXT",5:OPEN "R",2,"NEW.DAT",5
+20 FIELD 1,5 AS A$:FIELD 2,5 AS A$:CLOSE 2
+30 GET 1,1:LSET A$="ab":PRINT "[";A$;"]"
+BAS
+out=$(cd "$dir" && TRS80_Z80= "$here/basic" s.bas 2>&1)
+[ "$out" = "[ab   ]" ] || fail "LSET after the variable's file was closed" "$out"
 rm -rf "$dir"
 echo "RANDFILE OK"

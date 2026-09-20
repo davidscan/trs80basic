@@ -12,8 +12,14 @@
 #   FH_EOF[n]   input stream exhausted
 #   FH_OPEND[n]/FH_OPENDHAS[n] partial output line (PRINT# ended in ; or ,)
 #   FH_RLEN[n]/FH_BUF[n]/FH_NREC[n]/FH_REC[n,r]/FH_DIRTY[n]  random access
-# Field maps: FLDN[n], FLD_V/O/W[n,i] (channel order) and FVCH/FVOF/FVW[name]
-# (per-variable; a re-FIELD of a name moves it, last fielding wins).
+# Field maps: FLDN[n], FLD_V/O/W[n,i] (channel order) and FVCH/FVOF/FVW[tgt]
+# (per-variable; a re-FIELD of a variable moves it, last fielding wins).
+# A variable is named here by its TARGET, p75's form: "V" name for a simple
+# variable, "A" key for an array element -- the Disk manual's own example
+# is FIELD 1,16 AS CLIENT$(1) (the 2026-09-19 audit, M-29).  Membership is
+# always asked with `in`: a bare FVCH[tgt] creates the key, and a created
+# key made LSET on a variable fielded away raise ?NO.
+function fld_tgt(name, key) { return (key != "") ? "A" key : "V" name }
 
 function fio_isopen(n) { return FH_MODE[n] != "" }
 
@@ -123,7 +129,7 @@ function fio_close1(n,   f, r) {
     else ai_close(n)                        # "A": unsent prompt is discarded
     for (r = 1; r <= FH_NREC[n]; r++) delete FH_REC[n, r]
     for (r = 1; r <= FLDN[n]; r++) {
-        if (FVCH[FLD_V[n, r]] == n) {
+        if ((FLD_V[n, r] in FVCH) && FVCH[FLD_V[n, r]] == n) {
             delete FVCH[FLD_V[n, r]]; delete FVOF[FLD_V[n, r]]; delete FVW[FLD_V[n, r]]
         }
         delete FLD_V[n, r]; delete FLD_O[n, r]; delete FLD_W[n, r]
@@ -379,7 +385,7 @@ function fio_pr_out(n, s, sep) {
 }
 
 # ---- random access ---------------------------------------------------------
-function st_field(   n, off, w, v, name, i, found) {
+function st_field(   n, off, w, v, name, key, tgt, i, found) {
     n = fio_chan(1); if (E) return
     if (!fio_isopen(n)) { raise(25); return }
     if (FH_MODE[n] != "R") { raise(28); return }
@@ -395,15 +401,18 @@ function st_field(   n, off, w, v, name, i, found) {
         CP++
         if (TY[CK, CP] != "i") { raise(2); return }
         name = TK[CK, CP]; CP++
+        key = ""
+        if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
         if (!strname(name)) { raise(13); return }
         if (off + w > FH_RLEN[n]) { raise(31); return }
+        tgt = fld_tgt(name, key)
         found = 0
         for (i = 1; i <= FLDN[n]; i++)
-            if (FLD_V[n, i] == name) { found = i; break }
-        if (!found) { FLDN[n]++; found = FLDN[n]; FLD_V[n, found] = name }
+            if (FLD_V[n, i] == tgt) { found = i; break }
+        if (!found) { FLDN[n]++; found = FLDN[n]; FLD_V[n, found] = tgt }
         FLD_O[n, found] = off; FLD_W[n, found] = w
-        FVCH[name] = n; FVOF[name] = off; FVW[name] = w
-        SV[name] = substr(FH_BUF[n], off + 1, w)
+        FVCH[tgt] = n; FVOF[tgt] = off; FVW[tgt] = w
+        sp_sets(tgt, substr(FH_BUF[n], off + 1, w))
         off += w
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) break
     }
@@ -413,23 +422,22 @@ function st_field(   n, off, w, v, name, i, found) {
 function fld_sync(n,   i, v) {
     for (i = 1; i <= FLDN[n]; i++) {
         v = FLD_V[n, i]
-        if (FVCH[v] == n) SV[v] = substr(FH_BUF[n], FLD_O[n, i] + 1, FLD_W[n, i])
+        if ((v in FVCH) && FVCH[v] == n) sp_sets(v, substr(FH_BUF[n], FLD_O[n, i] + 1, FLD_W[n, i]))
     }
 }
 
-# is name a FIELD variable that s (a whole new value) fits?  `in`, not a
-# bare FVCH[name]: a reference would create the key
-function fld_is(name, s) {
-    return (name in FVCH) && length(s) == FVW[name]
+# is tgt a FIELD variable that s (a whole new value) fits?
+function fld_is(tgt, s) {
+    return (tgt in FVCH) && length(s) == FVW[tgt]
 }
 
 # store s, FVW[name] long, as a FIELD variable's slice of its record buffer.
 # Every in-place string store reaches the buffer through here: LSET, RSET
 # and MID$= (which wrote the variable only, so PUT wrote the old record:
 # the 2026-09-19 audit, M-25).
-function fld_put(name, s,   n) {
-    n = FVCH[name]
-    FH_BUF[n] = substr(FH_BUF[n], 1, FVOF[name]) s substr(FH_BUF[n], FVOF[name] + FVW[name] + 1)
+function fld_put(tgt, s,   n) {
+    n = FVCH[tgt]
+    FH_BUF[n] = substr(FH_BUF[n], 1, FVOF[tgt]) s substr(FH_BUF[n], FVOF[tgt] + FVW[tgt] + 1)
     fld_sync(n)
 }
 
@@ -441,7 +449,7 @@ function fio_just(s, w, left) {
 
 # LSET (left=1) / RSET (left=0): justify into a fielded var's buffer slice;
 # on a non-fielded string var, justify within its current length
-function st_lset(left,   name, key, v, s, n, w, cur) {
+function st_lset(left,   name, key, v, s, tgt, cur) {
     if (TY[CK, CP] != "i") { raise(2); return }
     name = TK[CK, CP]; CP++
     key = ""
@@ -451,10 +459,9 @@ function st_lset(left,   name, key, v, s, n, w, cur) {
     v = e_or(); if (E) return
     if (!strname(name) || isN(v)) { raise(13); return }
     s = vstr(v)
-    if (key == "" && (name in FVCH)) {
-        n = FVCH[name]
-        if (FH_MODE[n] != "R") { raise(25); return }
-        fld_put(name, fio_just(s, FVW[name], left))
+    tgt = fld_tgt(name, key)
+    if (tgt in FVCH) {
+        fld_put(tgt, fio_just(s, FVW[tgt], left))
         return
     }
     cur = al_cur(name, key); if (E) return
