@@ -166,9 +166,14 @@ function fio_fill(n,   r, l) {
     return 1
 }
 
-# extract one comma-delimited item (quotes respected) into FIO_IT, leaving
-# the unconsumed remainder pending so one line can feed several INPUT#s
-function fio_next_item(n,   l, i, len, j, item) {
+# extract one item (quotes respected) into FIO_IT, leaving the unconsumed
+# remainder pending so one line can feed several INPUT#s.  A string item
+# ends at a comma or the end of the line; a NUMERIC item (isnum) ends at a
+# blank as well, and the blanks after it and one comma go with the
+# terminator (Disk manual, INPUT#: the image " 1.234 -33 27" read by
+# INPUT#1,A,B,C gives 1.234, -33 and 27) -- which is what lets the
+# manual's own PRINT#1,A;B;C be read back.
+function fio_next_item(n, isnum,   l, i, len, j, c, item) {
     if (!fio_fill(n)) return 0
     l = FH_PEND[n]
     i = 1; len = length(l)
@@ -177,6 +182,12 @@ function fio_next_item(n,   l, i, len, j, item) {
         j = index(substr(l, i + 1), "\"")
         if (j == 0) { item = substr(l, i + 1); i = len + 1 }
         else { item = substr(l, i + 1, j - 1); i = i + j + 1 }
+        while (i <= len && substr(l, i, 1) == " ") i++
+    } else if (isnum) {
+        j = i
+        while (j <= len && (c = substr(l, j, 1)) != "," && c != " ") j++
+        item = substr(l, i, j - i)
+        i = j
         while (i <= len && substr(l, i, 1) == " ") i++
     } else {
         j = i
@@ -209,7 +220,7 @@ function st_input_file(   n, nlv, name, key, i, x) {
         break
     }
     for (i = 1; i <= nlv; i++) {
-        if (!fio_next_item(n)) { raise(27); return }
+        if (!fio_next_item(n, !strname(LV_N[i]))) { raise(27); return }
         if (strname(LV_N[i])) assignv(LV_N[i], LV_K[i], "S" FIO_IT)
         else {
             x = FIO_IT

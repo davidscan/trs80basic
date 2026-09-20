@@ -318,8 +318,8 @@ current directory* — the interpreter never changes directory), and the
 files are plain text you can read in an editor.
 
 Sequential: `OPEN "I"/"O"/"E"` (input / truncate / append) on channels
-1–15, `PRINT #n` (USING honoured), `INPUT #n` (comma-splitting, quotes
-respected), `LINE INPUT #n` (whole line), `EOF(n)` with true look-ahead so
+1–15, `PRINT #n` (USING honoured), `INPUT #n` (items end at a comma, a number at a
+blank too, so `PRINT #1,A;B;C` reads back; quotes respected), `LINE INPUT #n` (whole line), `EOF(n)` with true look-ahead so
 `IF EOF(1)`-guarded loops work, `LOC(n)` = lines read/written, `CLOSE`
 (no args = all), `KILL name$`.
 
@@ -1570,12 +1570,13 @@ PRINT #n, items   write text to a sequential file opened "O" or "E"
 #### INPUT#
 
 ```text
-INPUT #n, vars   read comma-separated items from a file opened "I"
-  Splits on commas the way INPUT does at the keyboard, so it undoes a
-  PRINT# that wrote commas between items.  Quotes are respected, and a
-  quoted item may contain commas.
-  Leading spaces are skipped for numbers, so the space PRINT# leaves in
-  front of a number is harmless on the way back.
+INPUT #n, vars   read items from a file opened "I"
+  A string item runs to the next comma or the end of the line, so it
+  undoes a PRINT# that wrote commas between items.  Quotes are respected,
+  and a quoted item may contain commas.
+  A number ends at a blank as well as at a comma, and leading blanks are
+  skipped, so numbers written with semicolons read straight back:
+  PRINT #1, A;B;C  then  INPUT #1, A,B,C.
   A line with fewer items than variables carries on into the next line.
   Reading past the end raises ?IE -- test EOF first.
   Use LINE INPUT #n instead to take a whole line, commas included.
