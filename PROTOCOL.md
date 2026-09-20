@@ -145,7 +145,10 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     more than once), and the value of the `USR` expression is that, as a
     signed 16-bit integer.  0A9AH returns to its caller, as the ROM
     routine does: the usual `JP 0A9AH` ends the call because the return
-    pops the sentinel, and a routine that `CALL`s it runs on.
+    pops the sentinel, and a routine that `CALL`s it runs on.  A core
+    that executes the routine also makes the ROM routine's own stores
+    (HL to 4121H, the integer type flag 2 to 40AFH; A comes back 2), and
+    they arrive in the write-set like any other store.
     `result=0` means the value is the argument unchanged, as on hardware;
     `hl` is then HL at the sentinel.
 *   `cycles` is the total T-states for the call (diagnostic).
