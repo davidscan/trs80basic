@@ -12,7 +12,8 @@
 #
 # The "--" is what makes flags work: without it gawk tries to parse --seed
 # and friends as its own long options.  exec passes the interpreter's exit
-# status straight through to the caller.
+# status straight through to the caller; at a terminal the launcher stays
+# instead, to give the terminal back if gawk dies (see the end).
 
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) || exit 2
 
@@ -56,4 +57,26 @@ done
 # CHR$(200) into a two-byte character and mangles raw bytes read from files
 # (graphics, packed machine code); the interpreter builds its own UTF-8 for
 # the terminal glyphs, so the display does not need the locale.
+#
+# At a terminal the interpreter runs the tty raw, and only its own exit path
+# puts it back.  A gawk fatal or a kill skips that path and leaves the shell
+# with a terminal that does not echo.  So with a terminal on stdin the
+# launcher stays behind gawk and, on an exit status of 2 or more (gawk's
+# fatal is 2, a signal is 128+n), restores the modes it found, the cursor,
+# the main screen and the keyboard protocol.  Repeating that after a clean
+# exit 2 changes nothing.  Without a terminal on stdin it execs as before:
+# a caller's timeout or alarm must land on gawk itself, not on a shell
+# that would die and leave gawk running.
+if [ -t 0 ] && tty0=$(stty -g 2>/dev/null) && [ -n "$tty0" ]; then
+    gawk -b $tm -f "$here/trs80basic.awk" -- "$@"
+    rc=$?
+    if [ "$rc" -ge 2 ]; then
+        stty "$tty0" 2>/dev/null || stty sane 2>/dev/null
+        if [ -z "$TRS80_DUMB" ] && [ -t 1 ]; then
+            [ "$TRS80_KBPROTO" = 0 ] || printf '\033[<u'
+            printf '\033[?1049l\033[0m\033[?25h'
+        fi
+    fi
+    exit "$rc"
+fi
 exec gawk -b $tm -f "$here/trs80basic.awk" -- "$@"

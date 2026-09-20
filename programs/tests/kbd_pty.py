@@ -30,6 +30,10 @@ terminal emulator gives it, and checks:
      matched name with a quote in it is completed but never parsed by the
      shell (the directory test once ran it as a command, the 2026-09-19 audit, C-2).
 
+  8. a gawk that dies without its exit path (killed here; a gawk fatal
+     ends the same way) does not leave the terminal raw: the launcher
+     puts the modes back as it found them (the 2026-09-19 audit, M-31).
+
 Standard library only; run by run_all.sh when python3 is present (so CI
 exercises the tty reader on Linux, where it was not measured by hand).
 """
@@ -189,6 +193,57 @@ def completion(check):
         b.close()
 
 
+def crash(check):
+    """Scenario 8: the launcher gives the terminal back after gawk dies."""
+    import termios
+    # Our own pty pair, with a session leader that OUTLIVES the launcher:
+    # when a session leader exits the tty is revoked (macOS), and the modes
+    # could no longer be read from it.
+    master, slave = os.openpty()
+    mask = termios.ECHO | termios.ICANON
+    before = termios.tcgetattr(slave)[3] & mask    # as the launcher finds it
+    pid = os.fork()
+    if pid == 0:
+        import fcntl
+        os.setsid()
+        fcntl.ioctl(slave, termios.TIOCSCTTY, 0)
+        for fd in (0, 1, 2):
+            os.dup2(slave, fd)
+        os.close(master)
+        os.chdir(ROOT)
+        os.environ['TRS80_DUMB'] = '1'
+        os.environ['TRS80_Z80'] = ''
+        subprocess.call([os.path.join(ROOT, 'basic')])
+        time.sleep(30 * SLOW)                      # hold the session until close() kills us
+        os._exit(0)
+    b = Basic.__new__(Basic)
+    b.pid, b.fd = pid, master
+    b.drain()
+    b.send('\r')                                   # MEMORY SIZE?
+    b.drain()
+    b.send('10 A$=INKEY$:GOTO 10\rRUN\r', 0.8)     # poll mode: the tty is raw
+    b.drain(0.3)
+    raw = termios.tcgetattr(slave)[3] & mask
+    check(raw == 0, 'a running program has the tty raw', str(raw))
+    def kids(p):
+        return subprocess.run(['pgrep', '-P', str(p)], capture_output=True, text=True).stdout.split()
+    launcher = int(kids(pid)[0])
+    k = kids(launcher)
+    victim = int(k[0]) if k else launcher          # a launcher that exec'd IS gawk
+    os.kill(victim, 9)
+    time.sleep(0.8 * SLOW)
+    after = termios.tcgetattr(slave)[3] & mask
+    check(after == before and before != 0,
+          'the launcher restores the tty modes after gawk is killed', '%s -> %s' % (before, after))
+    os.kill(pid, 9)                                # the session holder
+    for _ in range(100):                           # a dying session leader waits for its tty
+        b.drain(0.05, 0.2)                         # to drain, so keep reading the master
+        if os.waitpid(pid, os.WNOHANG)[0]:
+            break
+    os.close(slave)
+    os.close(master)
+
+
 def has_clock():
     # as the launcher decides it: an extension that loads, and loads SILENTLY
     # (gawk 5.3 warns that `time` is obsolete; the launcher then does without)
@@ -320,6 +375,9 @@ def main():
 
     # 7. TAB file-name completion
     completion(check)
+
+    # 8. the terminal comes back after a crash
+    crash(check)
 
     if fails:
         print('kbd_pty.py: %d check(s) failed' % len(fails))
