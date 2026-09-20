@@ -74,6 +74,12 @@ printf '10 ON ERROR GOTO 30\n20 DEFUSR=&H7006:X=USR(0)\n30 DEFUSR=&H7003:PRINT U
 out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>/dev/null </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = " 8 " ] || fail "core still up after ERR: rc=$rc" "$out"
 
+# --- the stores a routine made before its ERR arrive ahead of it: BASIC's
+# PEEK and the core's own memory (read back by 7005H) agree afterwards
+printf '10 ON ERROR GOTO 30\n20 DEFUSR=&H700E:X=USR(30000)\n30 RESUME 40\n40 DEFUSR=&H7005:PRINT PEEK(30000);USR(30000)\n' > "$tmp"
+out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>/dev/null </dev/null); rc=$?
+[ "$rc" = "0" ] && [ "$out" = " 42  42 " ] || fail "stores before an ERR: rc=$rc" "$out"
+
 # --- timeout: the core is dead for the session, later calls are the stub
 printf '10 DEFUSR=&H7004:X=USR(0)\n' > "$tmp"
 out=$(TRS80_Z80="$core" TRS80_Z80_TIMEOUT=300 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?

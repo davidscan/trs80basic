@@ -23,6 +23,8 @@ Entries (hex):
   700C  OUT (FFH) bit 3 clear: 64-column mode (MODE 0)
   700D  32-column, then CLS (CALL 01C9H) restores 64-column and clears
         bit 3 of 403DH (16445), the ROM's print flag, in the write-set
+  700E  store 42 at address ARG, then call into ROM space: the store is
+        sent as a W line AHEAD of the ERR rom, and stays in the stub's memory
   anything else: an immediate RET (hl=0, result=0, no writes)
 
 Z80_STUB_PROTO=<n> makes the stub claim another protocol version.
@@ -171,6 +173,10 @@ def main():
             send("MODE 1")            # 32-column, then CLS restores 64-column
             send("MODE 0")            # and clears bit 3 of the ROM's port image
             ret(writes=["16445:%d" % (mem.get(16445, 0) & 0xF7)])
+        elif entry == 0x700E:
+            mem[arg & 0xFFFF] = 42    # the routine's store happened on this side
+            send("W %d:42" % (arg & 0xFFFF))
+            send("ERR rom called 0000H, no ROM here")
         else:
             ret()
 

@@ -170,6 +170,17 @@ never ran), `halt` (the routine executed HALT), `bad` (the core could not
 parse a message).  After an `ERR` the core is still up and the next call
 proceeds normally.
 
+An `ERR` that ends a routine already running is preceded by the stores the
+routine made up to that point: `W` lines in the write-set's form (last
+write wins per address, ascending, the video range omitted), with no
+count -- the `ERR` line ends them.  The interpreter applies them through
+`poke_byte` as it applies a write-set, then raises the `?FC`.  The core
+keeps those stores in its own RAM and later frames are deltas of what the
+interpreter changed, so a store that stayed behind would never be
+corrected: a routine that read the address on a later call would see a
+byte BASIC's `PEEK` does not.  `W` anywhere else before `RET` is a
+protocol error.
+
 ## Fallback
 
 The interpreter uses the stub -- `USRn(x)` returns `x`, and one stderr line
@@ -188,4 +199,4 @@ core is conformant when `TRS80_Z80="python3 /path/to/core" sh
 programs/tests/z80.sh` passes with the stub's canned entry addresses
 implemented as real machine code (the routines are trivial: paint two
 bytes, read the keyboard, store three bytes, double HL, return a byte,
-push a word, call 01C9H).
+push a word, call 01C9H, store a byte and call 0000H).

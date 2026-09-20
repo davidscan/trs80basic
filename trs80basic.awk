@@ -4669,8 +4669,8 @@ function z80_sendframe(   i) {
 }
 
 # the message loop for one call
-function z80_run(x,   hl, res, k, brk, i, vid) {
-    vid = 0
+function z80_run(x,   hl, res, k, brk, i, vid, early) {
+    vid = 0; early = 0
     for (;;) {
         if (!z80_recv()) {
             # a core that exited between calls is met on the write or on
@@ -4687,7 +4687,13 @@ function z80_run(x,   hl, res, k, brk, i, vid) {
         }
         if (Z80LINE ~ /^MODE /) { s_setwide(substr(Z80LINE, 6) + 0); continue }
         if (Z80LINE ~ /^NEED /) { Z80STATE = "need"; return 0 }
-        if (Z80LINE ~ /^RET /) {
+        # W ahead of an ERR: the stores the routine made before it failed.
+        # The core keeps them, and the next frame is a delta of what THIS
+        # side changed, so they are applied like a write-set or the two
+        # memories disagree from here on (PROTOCOL.md, Errors).  W ahead of
+        # a RET is not the protocol: it falls to "unexpected" below.
+        if (Z80LINE ~ /^W /) { z80_apply(substr(Z80LINE, 3), 0); early = 1; continue }
+        if (Z80LINE ~ /^RET / && !early) {
             hl = z80_field("hl") + 0; res = z80_field("result") + 0
             brk = z80_field("break") + 0; k = z80_field("writes") + 0
             for (i = 1; i <= k; i++) {
