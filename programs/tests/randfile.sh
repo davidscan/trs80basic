@@ -38,5 +38,22 @@ want='ONE   |
 THREE |'
 got=$(sed 's/$/|/' "$dir/NEW.DAT")
 [ "$got" = "$want" ] || fail "the file a PUT wrote" "$got"
+
+# MID$= on a FIELD variable stores into the record buffer, as LSET does:
+# the variable's characters ARE the buffer's.  It used to change the
+# variable alone, so PUT wrote the old record (the 2026-09-19 audit, M-25).
+cat > "$dir/m.bas" <<'BAS'
+10 OPEN "R",1,"MID.DAT",10
+20 FIELD 1,4 AS A$,6 AS B$
+30 LSET A$="ABCD":LSET B$="UVWXYZ"
+40 MID$(B$,2,3)="123456":MID$(A$,4)="*"
+50 PRINT "[";A$;"|";B$;"]":PUT 1,1:CLOSE 1
+60 OPEN "R",1,"MID.DAT",10:FIELD 1,10 AS R$
+70 GET 1,1:PRINT "[";R$;"]":CLOSE 1
+BAS
+out=$(cd "$dir" && TRS80_Z80= "$here/basic" m.bas 2>&1)
+want='[ABC*|U123YZ]
+[ABC*U123YZ]'
+[ "$out" = "$want" ] || fail "MID\$= on a FIELD variable reaches the record" "$out"
 rm -rf "$dir"
 echo "RANDFILE OK"

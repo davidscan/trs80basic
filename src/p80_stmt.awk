@@ -264,8 +264,12 @@ function st_midset(   name, key, n, m, v, s, r, cnt) {
     cnt = length(r)
     if (m >= 0 && m < cnt) cnt = m
     if (cnt > length(s) - n + 1) cnt = length(s) - n + 1
+    s = substr(s, 1, n - 1) substr(r, 1, cnt) substr(s, n + cnt)
+    # a FIELD variable's characters ARE the record buffer's (its descriptor
+    # points into it), so the store lands there and PUT writes it (p85)
+    if (key == "" && fld_is(name, s)) { fld_put(name, s); return }
     # in place: the target keeps its length and its descriptor (p75 finding 7)
-    al_setinplace(name, key, substr(s, 1, n - 1) substr(r, 1, cnt) substr(s, n + cnt))
+    al_setinplace(name, key, s)
 }
 
 # ---- PRINT USING formatter -------------------------------------------------

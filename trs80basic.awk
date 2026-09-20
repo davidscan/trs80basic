@@ -5097,8 +5097,12 @@ function st_midset(   name, key, n, m, v, s, r, cnt) {
     cnt = length(r)
     if (m >= 0 && m < cnt) cnt = m
     if (cnt > length(s) - n + 1) cnt = length(s) - n + 1
+    s = substr(s, 1, n - 1) substr(r, 1, cnt) substr(s, n + cnt)
+    # a FIELD variable's characters ARE the record buffer's (its descriptor
+    # points into it), so the store lands there and PUT writes it (p85)
+    if (key == "" && fld_is(name, s)) { fld_put(name, s); return }
     # in place: the target keeps its length and its descriptor (p75 finding 7)
-    al_setinplace(name, key, substr(s, 1, n - 1) substr(r, 1, cnt) substr(s, n + cnt))
+    al_setinplace(name, key, s)
 }
 
 # ---- PRINT USING formatter -------------------------------------------------
@@ -6105,6 +6109,22 @@ function fld_sync(n,   i, v) {
     }
 }
 
+# is name a FIELD variable that s (a whole new value) fits?  `in`, not a
+# bare FVCH[name]: a reference would create the key
+function fld_is(name, s) {
+    return (name in FVCH) && length(s) == FVW[name]
+}
+
+# store s, FVW[name] long, as a FIELD variable's slice of its record buffer.
+# Every in-place string store reaches the buffer through here: LSET, RSET
+# and MID$= (which wrote the variable only, so PUT wrote the old record:
+# the 2026-09-19 audit, M-25).
+function fld_put(name, s,   n) {
+    n = FVCH[name]
+    FH_BUF[n] = substr(FH_BUF[n], 1, FVOF[name]) s substr(FH_BUF[n], FVOF[name] + FVW[name] + 1)
+    fld_sync(n)
+}
+
 function fio_just(s, w, left) {
     if (length(s) >= w) return substr(s, 1, w)
     if (left) return s fio_pad("", w - length(s))
@@ -6126,10 +6146,7 @@ function st_lset(left,   name, key, v, s, n, w, cur) {
     if (key == "" && (name in FVCH)) {
         n = FVCH[name]
         if (FH_MODE[n] != "R") { raise(25); return }
-        w = FVW[name]
-        s = fio_just(s, w, left)
-        FH_BUF[n] = substr(FH_BUF[n], 1, FVOF[name]) s substr(FH_BUF[n], FVOF[name] + w + 1)
-        fld_sync(n)
+        fld_put(name, fio_just(s, FVW[name], left))
         return
     }
     cur = al_cur(name, key); if (E) return
