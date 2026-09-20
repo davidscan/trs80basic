@@ -202,11 +202,12 @@ function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok,
     if (AI_KEEP[n] != "") body = body ",\"keep_alive\":\"" ai_jesc(AI_KEEP[n]) "\""
     if (AI_TOKENS[n] != "") body = body ",\"format\":" ai_schema(AI_TOKENS[n])
     body = body "}"
-    bf = host_tmpdir() "/trs80_ollama_" PROCINFO["pid"] ".json"
+    bf = host_mktemp("trs80_ollama")
+    if (bf == "") { ai_unsend(n); raise(22); return }
     printf "%s", body > bf
     close(bf)
     if (ENVIRON["TRS80_OLLAMA_CURL"] != "")
-        cmd = ENVIRON["TRS80_OLLAMA_CURL"] (WINNATIVE ? " \"" bf "\"" : " '" bf "'")
+        cmd = ENVIRON["TRS80_OLLAMA_CURL"] (WINNATIVE ? " \"" bf "\"" : " " shq(bf))
     else {
         host = ENVIRON["TRS80_OLLAMA_HOST"]
         if (host == "") host = "localhost:11434"
@@ -217,7 +218,7 @@ function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok,
         if (WINNATIVE)
             cmd = "curl -s --max-time " tmo " -X POST http://" host "/api/chat -d @\"" bf "\""
         else
-            cmd = "curl -s --max-time " tmo " -X POST 'http://" host "/api/chat' -d @'" bf "'"
+            cmd = "curl -s --max-time " tmo " -X POST 'http://" host "/api/chat' -d @" shq(bf)
     }
     resp = ""
     while ((cmd | getline line) > 0) resp = resp line "\n"

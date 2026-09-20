@@ -29,5 +29,49 @@ Q4 TOKEN -> NO
 Q4 REPLY -> Msgs=7 T=- K=-
 EOF-1 .'
 [ "$out" = "$want" ] || fail "a waiting prompt is sent at the next read" "$out"
+
+# The request body's scratch file (the 2026-09-19 audit, M-5).  Its name
+# must not be guessable from the pid -- on a shared /tmp a planted symlink
+# under a known name has the body written over any file the user can
+# write -- it is private (0600), it is gone after the request, a temp
+# directory with a quote and a blank in its name is one shell word, and a
+# temp directory that cannot be written is a BASIC error, not a gawk fatal.
+cat > "$dir/spy.sh" <<SPY
+#!/bin/sh
+for a; do f=\$a; done
+printf '%s\n' "\$f" > "$dir/spy.name"
+ls -l "\$f" | cut -c1-10 > "$dir/spy.mode"
+exec sh "$here/programs/tests/ollama_stub.sh" "\$@"
+SPY
+cat > "$dir/u.bas" <<'BAS'
+10 ON ERROR GOTO 90
+20 OPEN "O",1,"OLLAMA:stub"
+30 PRINT#1,"Q1":LINE INPUT#1,A$:PRINT "Q1 -> ";A$
+40 PRINT "SURVIVED":END
+90 PRINT "ERROR";ERR/2+1;"IN";STR$(ERL):RESUME 40
+BAS
+mkdir "$dir/t m'p" || exit 2
+out=$(cd "$dir" && TMPDIR="$dir/t m'p" TRS80_Z80= TRS80_OLLAMA_CURL="sh $dir/spy.sh" \
+      "$here/basic" u.bas 2>&1)
+want='Q1 -> Msgs=1 T=- K=-, hello
+SURVIVED'
+[ "$out" = "$want" ] || fail "a temp directory with a quote and a blank in its name" "$out"
+name=$(cat "$dir/spy.name")
+case $name in
+"$dir/t m'p/"*) ;;
+*) fail "the request file is made in TMPDIR" "$name" ;;
+esac
+case ${name##*/} in
+*_[0-9]*.json|"") fail "the request file's name is not built from the pid" "$name" ;;
+esac
+[ "$(cat "$dir/spy.mode")" = "-rw-------" ] || fail "the request file is private" "$(cat "$dir/spy.mode")"
+[ ! -e "$name" ] || fail "the request file is removed after the request" "$name"
+[ -z "$(ls -A "$dir/t m'p")" ] || fail "nothing is left in TMPDIR" "$(ls -A "$dir/t m'p")"
+
+out=$(cd "$dir" && TMPDIR="$dir/nowhere" TRS80_Z80= TRS80_OLLAMA_CURL="sh $dir/spy.sh" \
+      "$here/basic" u.bas 2>&1)
+want='ERROR 22 IN 30
+SURVIVED'
+[ "$out" = "$want" ] || fail "a temp directory that cannot be written is an error, not a fatal" "$out"
 rm -rf "$dir"
 echo "OLLAMA OK"

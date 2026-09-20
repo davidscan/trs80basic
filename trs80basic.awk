@@ -6434,11 +6434,12 @@ function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok,
     if (AI_KEEP[n] != "") body = body ",\"keep_alive\":\"" ai_jesc(AI_KEEP[n]) "\""
     if (AI_TOKENS[n] != "") body = body ",\"format\":" ai_schema(AI_TOKENS[n])
     body = body "}"
-    bf = host_tmpdir() "/trs80_ollama_" PROCINFO["pid"] ".json"
+    bf = host_mktemp("trs80_ollama")
+    if (bf == "") { ai_unsend(n); raise(22); return }
     printf "%s", body > bf
     close(bf)
     if (ENVIRON["TRS80_OLLAMA_CURL"] != "")
-        cmd = ENVIRON["TRS80_OLLAMA_CURL"] (WINNATIVE ? " \"" bf "\"" : " '" bf "'")
+        cmd = ENVIRON["TRS80_OLLAMA_CURL"] (WINNATIVE ? " \"" bf "\"" : " " shq(bf))
     else {
         host = ENVIRON["TRS80_OLLAMA_HOST"]
         if (host == "") host = "localhost:11434"
@@ -6449,7 +6450,7 @@ function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok,
         if (WINNATIVE)
             cmd = "curl -s --max-time " tmo " -X POST http://" host "/api/chat -d @\"" bf "\""
         else
-            cmd = "curl -s --max-time " tmo " -X POST 'http://" host "/api/chat' -d @'" bf "'"
+            cmd = "curl -s --max-time " tmo " -X POST 'http://" host "/api/chat' -d @" shq(bf)
     }
     resp = ""
     while ((cmd | getline line) > 0) resp = resp line "\n"
@@ -6746,15 +6747,36 @@ function host_exists(f) {
     if (host_special(f)) return 0
     if (WINNATIVE)
         return f !~ /"/ && system("if exist \"" f "\" (exit 0) else (exit 1)") == 0
-    return system("test -f '" f "'") == 0
+    return system("test -f " shq(f)) == 0
 }
 
 function host_delete(f) {
     if (WINNATIVE) { if (f !~ /"/) system("del /f /q \"" f "\" 2>nul"); return }
-    system("rm -f -- '" f "'")
+    system("rm -f -- " shq(f))
 }
 
 function host_tmpdir() {
     if (WINNATIVE) return ENVIRON["TEMP"] != "" ? ENVIRON["TEMP"] : "."
     return ENVIRON["TMPDIR"] != "" ? ENVIRON["TMPDIR"] : "/tmp"
+}
+
+# a fresh, empty scratch file, or "" when none can be made.  A name built
+# from the pid is predictable, and an awk redirect writes through whatever
+# is already there: on a shared /tmp another local user could plant a
+# symlink under that name and have our output land on any file we can
+# write (the 2026-09-19 audit, M-5).  mktemp picks the name and creates
+# the file exclusively, mode 0600, so what the redirect then opens is ours;
+# a temp directory that cannot be written is "" here instead of a gawk
+# fatal at the redirect.  %TEMP% on Windows is per user and cmd.exe has no
+# mktemp, so that arm keeps the pid name.
+function host_mktemp(stem,   cmd, f) {
+    if (WINNATIVE) {
+        f = host_tmpdir() "/" stem "_" PROCINFO["pid"] ".tmp"
+        return host_writable(f) ? f : ""
+    }
+    cmd = "mktemp " shq(host_tmpdir() "/" stem ".XXXXXX") " 2>/dev/null"
+    f = ""
+    cmd | getline f
+    close(cmd)
+    return f
 }
