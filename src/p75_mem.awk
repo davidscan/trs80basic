@@ -40,7 +40,10 @@
 #     it and BOTH regions read and write through to the live value, so
 #     locate-a-literal / POKE-semigraphics / PRINT-the-variable works.  For
 #     a numeric, VARPTR returns the address of the value's 4 Microsoft-
-#     single bytes (fio_mkf/fio_cvf), also live in both directions.
+#     single bytes (fio_mkf/fio_cvf), also live in both directions.  The
+#     bytes a POKE (or a Z80 store) made are kept (NRAW, sp_nbytes) while
+#     they still decode to the value, so a number written a byte at a
+#     time into a variable holding 0 arrives whole.
 #     Allocation grows down from HIMEM like real string space; CLEAR/RUN/
 #     NEW reset it (sp_reset from clear_vars).  VARPTR IS STABLE: the
 #     descriptor (or a numeric's 4 bytes) is allocated ONCE per variable per
@@ -384,6 +387,7 @@ function sp_reset(   a) {
     if (FRTRACK) for (a in SPK) FRDIRTY[a] = 1   # the frame resends what these read as now
     delete SPK; delete SPT; delete SPV; delete VPDESC; delete VPDATA; delete VPCAP
     delete ALIAS; ALN = 0
+    delete NRAW
     SSP = HIMEM
 }
 
@@ -462,12 +466,30 @@ function sp_setn(tgt, x,   key) {
     else NV[key] = x
 }
 
+# The four MBF bytes of a numeric variable.  A variable here is a VALUE, not
+# bytes, so they are normally encoded from it on demand.  That alone cannot
+# hold a number being written one byte at a time: while the exponent byte
+# (V+3) is still 0 the value is 0, and every mantissa byte stored before it
+# was re-derived from that 0 and lost -- which broke the Level II MKS$/CVS
+# substitute (copy four PEEKed bytes into a fresh variable) and any Z80
+# routine storing a float through VARPTR, whose write-set arrives in
+# ascending order, exponent last (the 2026-09-19 audit, H-11).  So a POKE
+# keeps the bytes it made in NRAW, and they stay the truth for as long as
+# they still decode to the variable's value; an assignment that changes
+# the value outdates them, and the next read encodes afresh.
+function sp_nbytes(tgt,   x) {
+    x = sp_getn(tgt)
+    if ((tgt in NRAW) && fio_cvf(NRAW[tgt], 4) == x) return NRAW[tgt]
+    delete NRAW[tgt]
+    return fio_mkf(x, 4)
+}
+
 function sp_peek(a,   t, tgt, v) {
     t = SPT[a]; tgt = SPK[a]
     if (t == "L") return length(sp_gets(tgt)) % 256
     if (t == "C") return SPV[a]
     if (substr(t, 1, 1) == "N") {
-        v = fio_mkf(sp_getn(tgt), 4)
+        v = sp_nbytes(tgt)
         return ORD[substr(v, substr(t, 2) + 1, 1)]
     }
     v = sp_gets(tgt)                              # string byte, live
@@ -484,8 +506,9 @@ function sp_poke(a, b,   t, tgt, v, j) {
         return
     }
     if (substr(t, 1, 1) == "N") {
-        v = fio_mkf(sp_getn(tgt), 4); j = substr(t, 2) + 1
+        v = sp_nbytes(tgt); j = substr(t, 2) + 1
         v = substr(v, 1, j - 1) CHR[b] substr(v, j + 1)
+        NRAW[tgt] = v
         sp_setn(tgt, fio_cvf(v, 4))
         return
     }

@@ -42,6 +42,14 @@ cat > "$tmp" <<'EOF2'
 257 DATA 205,127,10,41,41,41,41,195,154,10
 258 DEFUSR4=16446:IF USR4(3)<>48 THEN PRINT "FAIL routine across the clock cells";USR4(3):F=1
 260 REM --- a routine that changes HIMEM by storing to 40B1H comes back through poke_byte
+261 REM --- a float stored through VARPTR while the target holds 0: LD HL,src / LD DE,dst / LD BC,4 / LDIR / RET.
+262 REM     the write-set arrives ascending, exponent LAST; the mantissa bytes must not be lost on the way
+263 Q=-123.456:Z=0:S=VARPTR(Q):T=VARPTR(Z)
+264 FOR I=0 TO 11:READ B:POKE 32300+I,B:NEXT
+265 DATA 33,0,0,17,0,0,1,4,0,237,176,201
+266 POKE 32301,S-256*INT(S/256):POKE 32302,INT(S/256):POKE 32304,T-256*INT(T/256):POKE 32305,INT(T/256)
+267 DEFUSR5=32300:X=USR5(0)
+268 IF STR$(Z)<>STR$(Q) THEN PRINT "FAIL float through VARPTR";Z:F=1
 270 IF F THEN PRINT "Z80 CORE FIXTURE FAILED":END
 280 PRINT "Z80 CORE FIXTURE OK"
 EOF2
