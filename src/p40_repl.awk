@@ -597,14 +597,23 @@ function sys_find(name,   i, f, ext) {
 }
 
 # load a SYSTEM tape or /CMD file: 1, "C" (checksum), "" (no file), "F" (neither format)
-function sys_load(name,   f, data, i, c) {
+# Which format: the file's extension when it has one of ours, as the core's
+# loader goes by; otherwise the first byte.  A load module opens with a
+# record type (01H, 05H, ...), a tape with its leader of zeros or with A5H
+# itself, so that byte tells them apart.  Looking for A5H 55H anywhere came
+# first once, and took a load module for a tape whenever its CODE held
+# those two bytes -- ordinary Z80 (LD HL,55A5H) -- printing C and loading
+# nothing (the 2026-09-19 audit, M-6).
+function sys_load(name,   f, data, i, c, ext) {
     f = sys_find(name)
     if (f == "") return ""
     data = SLURPED; SLURPED = ""
+    ext = tolower(substr(f, length(f) - 3))
+    c = ORD[substr(data, 1, 1)]
+    if (ext == ".cmd" || (ext != ".cas" && (c == 1 || c == 2 || c == 5 || c == 7 || c == 31)))
+        return sys_load_cmd(data)
     i = index(data, CHR[165])                     # A5H: the tape's sync byte
     if (i > 0 && substr(data, i + 1, 1) == CHR[85]) return sys_load_cas(data, i + 8)
-    c = ORD[substr(data, 1, 1)]
-    if (c == 1 || c == 2 || c == 5 || c == 7 || c == 31) return sys_load_cmd(data)
     return "F"
 }
 

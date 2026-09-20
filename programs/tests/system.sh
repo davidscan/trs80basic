@@ -20,7 +20,8 @@ here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
 cd "$here" || exit 2
 tmp=$(mktemp) || exit 2
 bad=$(mktemp) || exit 2
-trap 'rm -f "$tmp" "$tmp.err" "$bad" "$bad.cas"' EXIT
+a5=$(mktemp) || exit 2
+trap 'rm -f "$tmp" "$tmp.err" "$bad" "$bad.cas" "$a5" "$a5.cmd"' EXIT
 fail() { echo "SYSTEM FAILED: $1"; [ -n "$2" ] && printf '%s\n' "$2"; exit 1; }
 run() { TRS80_DUMB=1 gawk -b -f trs80basic.awk >"$tmp" 2>"$tmp.err"; }
 
@@ -65,6 +66,30 @@ grep -q "^PASSC" "$tmp" || fail "the program did not go on after the bad tape" "
 grep -q "(7D00H x1)" "$tmp.err" && grep -q "(7E00H x1)" "$tmp.err" \
     || fail "the tally must name the entry addresses" "$(cat "$tmp.err")"
 
+# A load module whose CODE holds A5H 55H is still a load module (the
+# 2026-09-19 audit, M-6): LD HL,55A5H / LD A,5 / LD (7F40H),A / RET at
+# 7F00H.  Looking for the tape's sync pair anywhere in the file took it for
+# a tape, printed C and loaded nothing.  Once by extension, once by its
+# first byte (no extension).
+printf '\005\006SYSA5 \001\013\000\177\041\245\125\076\005\062\100\177\311\002\002\000\177' > "$a5.cmd"
+cp "$a5.cmd" "$a5"
+TRS80_Z80= run <<EOF
+
+SYSTEM
+$a5.cmd
+/
+PRINT "E";PEEK(32512);PEEK(32513);PEEK(32514);PEEK(32520)
+POKE 32513,0
+SYSTEM
+$a5
+/
+PRINT "F";PEEK(32512);PEEK(32513);PEEK(32514);PEEK(32520)
+EOF
+grep -q "E 33  165  85  201" "$tmp" || fail "a .cmd holding A5H 55H in its code is a load module" "$(cat "$tmp")"
+grep -q "F 33  165  85  201" "$tmp" || fail "a load module with no extension is known by its first byte" "$(cat "$tmp")"
+grep -q "^C$" "$tmp" && fail "a load module holding A5H 55H was read as a tape" "$(cat "$tmp")"
+[ "$(grep -c "(7F00H x1)" "$tmp.err")" -eq 2 ] || fail "the load module's entry was not taken" "$(cat "$tmp.err")"
+
 # ---- part 2: the runs, with the real core ----------------------------------
 core=${TRS80_Z80:-"python3 $here/../trs80_z80_core/core.py"}
 set -- $core
@@ -96,5 +121,13 @@ grep -q "B 9" "$tmp" || fail "the load module did not run to JP 1A19H" "$(cat "$
 grep -q "C 7" "$tmp" || fail "/32000 did not run what was in memory" "$(cat "$tmp"; cat "$tmp.err")"
 grep -q "D 9" "$tmp" || fail "a program's SYSTEM did not go on to its next statement" "$(cat "$tmp"; cat "$tmp.err")"
 grep -q "USR STUB" "$tmp.err" && fail "the core was not used" "$(cat "$tmp.err")"
+TRS80_Z80="$core" run <<EOF
+
+SYSTEM
+$a5.cmd
+/
+PRINT "G";PEEK(32576)
+EOF
+grep -q "G 5" "$tmp" || fail "the load module holding A5H 55H did not run" "$(cat "$tmp"; cat "$tmp.err")"
 echo "SYSTEM: loads and runs OK"
 exit 0
