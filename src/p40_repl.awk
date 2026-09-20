@@ -124,7 +124,10 @@ function delline(ln) {
     DATADIRTY = 1; CONTOK = 0
 }
 
-function inval_cache(ln) { inval_cache_key(ln "") }
+# every path that stores, replaces or drops a program line comes through
+# here; PMTOUCH tells pm_build (p75) the line's image bytes are new, so
+# nothing POKEd into the old ones survives
+function inval_cache(ln) { inval_cache_key(ln ""); PMTOUCH[ln + 0] = 1 }
 
 function rebuild(   l) {
     delete LNS; delete LIDX

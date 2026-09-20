@@ -697,6 +697,10 @@ function poke_byte(a, b) {
     else if (a in SPK) sp_poke(a, b)              # VARPTR write-through (p75)
     else if (a > RAMTOP) { }                      # absent RAM: discarded
     else {
+        # a store into a STALE image would be judged by the next build as one
+        # made before the program changed, and dropped: bring the image up to
+        # date first, so the byte belongs to the line it lands in (p75 pm_build)
+        if (PROGDIRTY && a >= 17129) pm_sync()
         MEM[a] = b; if (FRTRACK) FRDIRTY[a] = 1
         if (a >= 16414 && a <= 16423) dv_update()   # the device vectors (side effect only)
         if (a == 16445) WIDE = int(b / 8) % 2       # 403DH: the ROM's 32-column print flag (side effect only)

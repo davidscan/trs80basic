@@ -97,6 +97,12 @@
 #      editor, at 6B9BH) reads back what it wrote.  RUN and LIST are never
 #      affected: they work from prog[] (the source text), not PMEM, so a POKE
 #      here cannot corrupt the running program the way it does on hardware.
+#      A stored byte BELONGS TO THE LINE it landed in (pm_build, since
+#      2026-09-20): a rebuild carries it to the line's new address, and
+#      drops it when that line was re-entered, deleted or replaced by NEW
+#      or a LOAD.  So after the program changes this rule still answers
+#      from MEM[a], but MEM[] over the image has been re-keyed; the core
+#      needs nothing new, because a rebuilt image is resent whole.
 #      The bound is RAMTOP, not HIMEM.  a > RAMTOP -> 255 (unreachable today).
 #   6. otherwise -> MEM[a] if it was ever written, else 255.
 #
@@ -131,7 +137,10 @@
 #      line number ignores writes (documented)
 #   4. a in SPK                 -> sp_poke(), VARPTR string-space write-through
 #   5. a > RAMTOP               -> DISCARDED (absent RAM)
-#   6. otherwise                -> MEM[a] = b.  Five cells there have a SIDE
+#   6. otherwise                -> MEM[a] = b, after pm_sync() when the
+#      program image is stale and a >= 17129: the store must be made against
+#      the CURRENT image, because the next build decides by line what stays
+#      (read rule 5).  Five cells there have a SIDE
 #      EFFECT on write: 401E/401FH and 4026/4027H, the video and printer
 #      driver vectors (dv_update, p80) -- the ROM's two driver addresses
 #      re-route output, 0067H silences the printer; and 403DH (16445), the
@@ -313,8 +322,33 @@ function pm_crunch(text,   i, n, c, ins, ind, lit, j, w, matched) {
 # the USR frame), so a program that reads past its own cut is told, not
 # fooled.  Until 2026-09-11 the next pointer wrapped modulo 65536 and PMEM
 # went on being written above the address space, unreachable by any PEEK.
-function pm_build(   i, ln, addr, nb, j, nxt) {
+#
+# WHAT A POKE INTO THE IMAGE BELONGS TO (the 2026-09-19 audit, M-8).  Read
+# rule 5 serves MEM[a] over the crunched byte, and MEM[] is keyed by
+# address, but on the machine a byte POKEd into a line is part of that
+# LINE: it moves when an earlier line grows or goes, and it is gone when the
+# line itself is re-entered, deleted, or replaced by NEW or a LOAD.  So each
+# build lifts the stored bytes out of the old image, per line and offset
+# (PMLA/PMLL, the old line table), and puts back only those whose line was
+# not touched since (PMTOUCH, set by inval_cache in p40), at the line's new
+# address.  Everything else stored inside the old or the new image range is
+# dropped: the code-in-a-REM idiom keeps its bytes while the loader lines
+# after it are deleted, and a payload loaded later is never read through
+# the last program's POKEs.  poke_byte syncs the image before it stores
+# into it, so a store is always judged against the image it was made in.
+function pm_build(   i, ln, addr, nb, j, nxt, a, e, ov, novl, k, p) {
     if (!TOKIDX) pm_init_index()
+    novl = 0
+    for (ln in PMLA) {
+        e = PMLA[ln] + PMLL[ln]
+        for (a = PMLA[ln]; a < e; a++) if (a in MEM) {
+            if (!(ln in PMTOUCH)) ov[++novl] = ln SUBSEP (a - PMLA[ln]) SUBSEP MEM[a]
+            delete MEM[a]
+        }
+    }
+    if (PMEND > 0) for (a = PMEND - 2; a < PMEND; a++) delete MEM[a]   # the old terminator
+    e = PMEND
+    delete PMLA; delete PMLL; delete PMTOUCH
     delete PMEM
     addr = 17129
     PMTRUNC = 0; PMTRUNCLN = 0; PMNOTED = 0
@@ -327,10 +361,16 @@ function pm_build(   i, ln, addr, nb, j, nxt) {
         PMEM[addr + 2] = ln % 256; PMEM[addr + 3] = int(ln / 256)
         for (j = 1; j <= nb; j++) PMEM[addr + 4 + j - 1] = PMB[j]
         PMEM[addr + 4 + nb] = 0
+        PMLA[ln] = addr; PMLL[ln] = 4 + nb + 1
         addr += 4 + nb + 1
     }
     PMEM[addr] = 0; PMEM[addr + 1] = 0
     PMEND = addr + 2
+    for (a = (e > 17129 ? e : 17129); a < PMEND; a++) delete MEM[a]   # RAM the program grew over
+    for (k = 1; k <= novl; k++) {
+        split(ov[k], p, SUBSEP)
+        if (p[1] in PMLA) MEM[PMLA[p[1]] + p[2]] = p[3] + 0
+    }
     PROGDIRTY = 0
     FRPMDIRTY = 1                                 # the USR frame resends the image
 }
