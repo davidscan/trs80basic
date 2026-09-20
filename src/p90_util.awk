@@ -6,6 +6,10 @@ function raise(c) {
     ERR_AT = CLN
     ERRV = (c - 1) * 2
     ERLV = CLN
+    # "." becomes the line with the error, trapped or not: the ROM notes it
+    # with ERL, before it looks for an ON ERROR handler (19A5-19A8), so
+    # LIST . and EDIT . go to the line that failed
+    if (CLN > 0) LASTLN = CLN
 }
 
 function report_err(   c, msg) {

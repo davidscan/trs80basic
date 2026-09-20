@@ -1103,6 +1103,9 @@ LIST [n][-[m]]   display program lines on the screen
     LIST 100-200    that range
     LIST 100-       from 100 to the end
     LIST -200       from the start to 200
+    LIST .          the current line: the last one entered, listed, or
+                    in which an error occurred -- after ?SN ERROR IN 120,
+                    LIST . shows line 120
   Listing shows the program as stored, so it is the way to check what a
   line really contains after an edit.
   Example: LIST 100-200
@@ -1152,7 +1155,8 @@ AUTO [n[,i]]   number lines automatically as you type them
 ```text
 DELETE n | n-m | -m | .   remove program lines
   DELETE 100 removes one line, DELETE 100-200 a span, DELETE -200
-  everything up to and including 200, DELETE . the line last entered.
+  everything up to and including 200, DELETE . the current line (the
+  last one entered, listed, or in which an error occurred).
   The UPPER line must be a line that exists, or the command is ?FC and
   nothing is deleted: DELETE 100-250 with no line 250 is refused (the
   lower line need not exist).  So DELETE 100- , DELETE - and a bare

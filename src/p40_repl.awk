@@ -183,6 +183,7 @@ function st_list(   i, ln) {
         ln = LNS[i]
         if (ln < RA) continue
         if (ln > RB) break
+        LASTLN = ln                         # "." is the line just listed (ROM 2B5BH)
         s_puts(ln " " prog[ln]); s_nl()
         if (pollbrk()) break
     }
@@ -196,6 +197,7 @@ function st_llist(   i, ln) {
         ln = LNS[i]
         if (ln < RA) continue
         if (ln > RB) break
+        LASTLN = ln
         lp_puts(ln " " prog[ln]); lp_nl()
     }
     to_ready()

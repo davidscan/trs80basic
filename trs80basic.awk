@@ -1508,6 +1508,7 @@ function st_list(   i, ln) {
         ln = LNS[i]
         if (ln < RA) continue
         if (ln > RB) break
+        LASTLN = ln                         # "." is the line just listed (ROM 2B5BH)
         s_puts(ln " " prog[ln]); s_nl()
         if (pollbrk()) break
     }
@@ -1521,6 +1522,7 @@ function st_llist(   i, ln) {
         ln = LNS[i]
         if (ln < RA) continue
         if (ln > RB) break
+        LASTLN = ln
         lp_puts(ln " " prog[ln]); lp_nl()
     }
     to_ready()
@@ -6534,6 +6536,10 @@ function raise(c) {
     ERR_AT = CLN
     ERRV = (c - 1) * 2
     ERLV = CLN
+    # "." becomes the line with the error, trapped or not: the ROM notes it
+    # with ERL, before it looks for an ON ERROR handler (19A5-19A8), so
+    # LIST . and EDIT . go to the line that failed
+    if (CLN > 0) LASTLN = CLN
 }
 
 function report_err(   c, msg) {
