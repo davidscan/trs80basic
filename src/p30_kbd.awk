@@ -107,7 +107,7 @@ function kp_event(body, fin,   a, m, code, mods, ev, r, b) {
     split(body, a, ";"); split(a[2], m, ":")
     mods = m[1] + 0; ev = m[2] + 0
     if (mods < 1) mods = 1
-    KPLAST = km_now()
+    KPLAST = kp_now()
     if (fin == "u") {
         code = a[1] + 0
         if (and(mods - 1, 4) && code == 99) { r = 6; b = 4 }  # Ctrl-C: the BREAK key
@@ -123,7 +123,7 @@ function kp_event(body, fin,   a, m, code, mods, ev, r, b) {
 
 function kp_press(r, b, sh) {
     if (!and(KPDOWN[r], b)) { KPDOWN[r] = or(KPDOWN[r], b); if (sh) { KPSH[r, b] = 1; KPSHIFT++ } }
-    KPLAST = km_now()
+    KPLAST = kp_now()
 }
 
 function kp_release(r, b) {
@@ -375,6 +375,7 @@ function km_init(   i) {
     KBPROTO = 0; KPQUERIED = 0; KPPUSHED = 0; KPPART = ""; KPSHIFT = 0; KPLAST = 0
     for (i = 0; i < 8; i++) KPDOWN[i] = 0
     KP_STUCK = 2                                  # seconds without any event: release everything
+    KPSLACK = (KMCLOCK != "") ? 0 : 1
 }
 
 # seconds, sub-millisecond, from the time extension; -1 without it.  The
@@ -385,6 +386,14 @@ function km_now(   f) {
     f = KMCLOCK
     return @f()
 }
+
+# The stuck-key timer's clock.  It counts whole seconds of silence, so it
+# does not need the time extension: without one (a gawk whose `time` only
+# loads with a warning, see the launcher) systime() serves, and KPSLACK
+# adds the second its one-second grain can lose -- an abandoned key then
+# lets go after 2-4 s instead of 2.  With no clock at all here, a key whose
+# release never came stayed down for the rest of the run.
+function kp_now() { return (KMCLOCK != "") ? km_now() : systime() }
 
 # a byte's key is still down: by the clock at a terminal, by polls otherwise
 function km_held() {
@@ -447,7 +456,7 @@ function km_pump(   c) {
     }
     if (KBPROTO) {
         while (KH < KT) kp_byte(KBQ[++KH])
-        if (KPLAST > 0 && km_now() - KPLAST > KP_STUCK) { kp_release_all(); KPLAST = 0 }
+        if (KPLAST > 0 && kp_now() - KPLAST > KP_STUCK + KPSLACK) { kp_release_all(); KPLAST = 0 }
         return
     }
     if (KH >= KT) {

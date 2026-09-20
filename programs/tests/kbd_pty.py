@@ -138,7 +138,8 @@ def protocol(check):
     step(b'A', ['3'], 'a shifted key sets the SHIFT row too')
     step(b'\x1b[97;2:3u', ['0'], 'its release (the unshifted code, shift in mods) clears both')
     step(b'a', ['2'], 'press a and abandon it')
-    step(b'', ['0'], 'no event for KP_STUCK seconds: released by itself', 2.6)
+    # without the time extension the timer runs on whole seconds: 2-4 s, not 2
+    step(b'', ['0'], 'no event for KP_STUCK seconds: released by itself', 2.6 if has_clock() else 4.3)
     b.send(b'\x03', 0.5)
     out = b.drain()
     log.append(out)
@@ -187,7 +188,13 @@ def completion(check):
 
 
 def has_clock():
-    return subprocess.run(['gawk', '-l', 'time', 'BEGIN { }'], capture_output=True).returncode == 0
+    # as the launcher decides it: an extension that loads, and loads SILENTLY
+    # (gawk 5.3 warns that `time` is obsolete; the launcher then does without)
+    for ext in ('time', 'timex'):
+        r = subprocess.run(['gawk', '-l', ext, 'BEGIN { }'], capture_output=True)
+        if r.returncode == 0 and not r.stdout and not r.stderr:
+            return True
+    return False
 
 
 def main():

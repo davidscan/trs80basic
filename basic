@@ -39,8 +39,18 @@ fi
 # gawk's time extension gives the keyboard matrix a wall clock (p30: a key
 # "held" for TRS80_KMHOLD milliseconds rather than a poll count).  Load it
 # when this gawk has it; without it the interpreter falls back to polls.
+# It must load SILENTLY: newer gawks (5.3, Ubuntu 24.04's) still ship it but
+# print "The time extension is obsolete. Use the timex extension from
+# gawkextlib instead." on stderr at every start, and stderr here is the
+# BASIC program's error channel -- one stray line fails every caller that
+# reads it.  gawkextlib's timex has the same gettimeofday() and is taken
+# when it is installed; with neither, the matrix holds a key for a poll
+# count instead of a time, which is only the held-key feel at a terminal
+# without the kitty protocol.
 tm=
-gawk -l time 'BEGIN { }' >/dev/null 2>&1 && tm="-l time"
+for ext in time timex; do
+    if out=$(gawk -l "$ext" 'BEGIN { }' 2>&1) && [ -z "$out" ]; then tm="-l $ext"; break; fi
+done
 
 # -b: BASIC strings are byte strings.  Without it a UTF-8 locale turns
 # CHR$(200) into a two-byte character and mangles raw bytes read from files
