@@ -447,8 +447,9 @@ function sp_map_data(tgt, base, len,   j) {
 # materialize var (locator tgt, string flag isstr) and return its VARPTR.
 # Idempotent: a second call returns the first call's address.  A string's
 # bytes are re-homed only when the live value is longer than the cells
-# mapped for it; shrinking never moves anything (sp_peek pads with 32 past
-# the live length).
+# mapped for it -- which the assignment that grew it does at once (sp_grown)
+# -- and shrinking never moves anything (sp_peek pads with 32 past the live
+# length).
 function sp_materialize(tgt, isstr,   len, need, base, j, dbase) {
     if (SSP == 0) SSP = HIMEM                     # first use this run
     if (!isstr) {
@@ -482,6 +483,18 @@ function sp_materialize(tgt, isstr,   len, need, base, j, dbase) {
     SPK[dbase + 2] = tgt; SPT[dbase + 2] = "C"; SPV[dbase + 2] = int(base / 256)
     VPDESC[tgt] = dbase
     return dbase
+}
+
+# An assignment gave a VARPTRed string a value longer than the cells mapped
+# for it.  On the machine the assignment itself allocates the new string and
+# rewrites the descriptor, so a program that kept V=VARPTR(A$) reads the new
+# address at V+1/V+2 straight away.  Re-home NOW, not at the next VARPTR
+# call: until 2026-09-20 the descriptor went on naming the old cells, a
+# PEEK past them read the descriptor's own bytes (it sits just above), and
+# a POKE there rewrote the length (the 2026-09-19 audit, M-13).
+function sp_grown(name, key,   tgt) {
+    tgt = (key != "") ? "A" key : "V" name
+    if (tgt in VPDATA) sp_materialize(tgt, 1)
 }
 
 # live value read/write through the locator

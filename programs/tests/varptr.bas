@@ -29,5 +29,9 @@
 290 REM the USR vector poked through two VARPTR calls must point at the string
 300 POKE 16526,PEEK(VARPTR(B$)+1):POKE 16527,PEEK(VARPTR(B$)+2)
 310 IF PEEK(PEEK(16526)+256*PEEK(16527))<>66 THEN PRINT "FAIL vector via two-call":F=1
+312 REM a kept VARPTR follows a string that GROWS by assignment: the descriptor names the new bytes at once
+314 G$="AB":V=VARPTR(G$):G$="ABCDEFGHIJ":D=PEEK(V+1)+256*PEEK(V+2)
+316 IF PEEK(V)<>10 OR PEEK(D)<>65 OR PEEK(D+9)<>74 THEN PRINT "FAIL grown string through a kept VARPTR";PEEK(V);PEEK(D);PEEK(D+9):F=1
+318 POKE D+9,90:IF G$<>"ABCDEFGHIZ" OR VARPTR(G$)<>V THEN PRINT "FAIL POKE into the grown string: ";G$:F=1
 320 IF F THEN PRINT "VARPTR FIXTURE FAILED":Z(9)=0
 330 PRINT "VARPTR FIXTURE OK"

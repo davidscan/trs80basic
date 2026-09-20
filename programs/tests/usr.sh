@@ -69,7 +69,11 @@ chk '^gen=1 65528:72,69,76,76,79,5,248,255$'   # HELLO, then its descriptor
 chk '^USR FRAME gen=2 full=0 '
 chk '^gen=2 30001:8$'; nochk '^gen=2 30000:'; nochk '^gen=2 17129:'   # delta: only the new POKE
 chk '^gen=2 65528:72,69,76,76,79,5,248,255$'   # the string, always
-chk '^gen=3 65528:87,79,82,76,68,6,248,255$'   # live value, same cells
+# WORLDS outgrew HELLO's five cells: the assignment re-homed it below (FFF2H),
+# the old cells are unmapped and the descriptor names the new address
+chk '^USR FRAME gen=3 full=0 slot=0 entry=-1 arg=3 sp=65521 '
+chk '^gen=3 65522:87,79,82,76,68,83,255,255,255,255,255,6,242,255$'
 chk '^USR FRAME gen=4 full=0 slot=0 entry=-1 arg=4 sp=65535 '   # CLEAR: SP back at HIMEM
-chk '^gen=4 65528:255,255,255,255,255,255,255,255$'              # the unmapped cells read 255
+chk '^gen=4 65522:255,255,255,255,255,255$'                      # the unmapped cells read 255
+chk '^gen=4 65533:255,255,255$'                                  # and the descriptor's
 echo "USR FRAME FIXTURE OK"

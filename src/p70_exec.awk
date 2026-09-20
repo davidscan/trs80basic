@@ -278,6 +278,7 @@ function assignv(name, key, v) {
         if (isN(v)) { raise(13); return }
         if (ALN) al_clear(name, key)            # the descriptor moves (p75, finding 7)
         if (key != "") VA[key] = v; else SV[name] = vstr(v)
+        if (length(VPDATA)) sp_grown(name, key)  # a VARPTRed string that outgrew its cells (p75)
     } else {
         if (!isN(v)) { raise(13); return }
         if (key != "") VA[key] = "N" num(v); else NV[name] = num(v)
