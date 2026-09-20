@@ -34,7 +34,8 @@
 # directive can one day join the REM META whitelist without a file ever
 # naming a shell command.  A switch, like a changed `speed`, takes effect
 # through z80_recycle(): BYE now, a fresh core with a full frame at the next
-# USR call.  BASIC's own OUT 255 stays silent, by ruling.
+# USR call; a WAV capture is carried across it (TRS80_SOUND_WAV_APPEND,
+# z80_start).  BASIC's own OUT 255 stays silent, by ruling.
 
 function z80_init() {
     if (Z80INIT) return
@@ -106,10 +107,18 @@ function z80_close() {
 }
 
 # HELLO / Z80 handshake, once per session
-function z80_start() {
+function z80_start(   w) {
     z80_init()
     if (Z80STATE != "cold") return
     Z80STATE = "dead"                             # until the handshake succeeds
+    # A WAV capture belongs to the session, not to one core.  The core opens
+    # its file when it starts, and z80_recycle() starts a new one for every
+    # changed `speed` or `sound` switch: a core that has already recorded
+    # into this file is followed by one told to carry it on, not to start
+    # it over (its z80/sound.py; `sound wav <path>` begins a new capture).
+    w = ENVIRON["TRS80_SOUND_WAV"]
+    if (w != "" && w == Z80WAVGOING) ENVIRON["TRS80_SOUND_WAV_APPEND"] = "1"
+    else delete ENVIRON["TRS80_SOUND_WAV_APPEND"]
     PROCINFO[Z80CMD, "READ_TIMEOUT"] = Z80TO
     PROCINFO[Z80CMD, "NONFATAL"] = 1              # a dead core is ours to report (z80_send)
     Z80WERR = 0
@@ -125,6 +134,7 @@ function z80_start() {
     }
     Z80NAME = z80_field("name"); Z80PID = z80_field("pid") + 0
     Z80STATE = "up"
+    Z80WAVGOING = w
     fr_reset()                                    # the first frame is full
 }
 

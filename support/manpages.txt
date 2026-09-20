@@ -1416,7 +1416,9 @@ sound                  report the current state
   BASIC's own OUT 255 stays silent: its pitch would follow the
   interpreter's pace, not the machine's.
   A change takes effect at the next USR call, which starts a fresh core;
-  nothing in memory is lost.  Without the core there is no sound.
+  nothing in memory is lost, and a WAV capture carries on in its file
+  (`sound wav <path>` is what begins a new one, the same path included).
+  Without the core there is no sound.
   Metacommand: lowercase only.
   Example: sound on
   Example: sound wav demon.wav

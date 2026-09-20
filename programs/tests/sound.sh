@@ -14,16 +14,18 @@ set -- $core
 [ -f "$2" ] || { echo "SOUND FIXTURE SKIPPED: no core at $2"; exit 0; }
 tmp=$(mktemp) || exit 2
 fail() { echo "SOUND FIXTURE FAILED: $1"; [ -n "$2" ] && printf '%s\n' "$2"; rm -f "$tmp" "$tmp".*; exit 1; }
-pitch() {   # Hz from the zero crossings of a 16-bit mono WAV
-python3 - "$1" <<'PY'
+pitch() {   # Hz from the zero crossings of a 16-bit mono WAV; $2 $3: from/to sample
+python3 - "$@" <<'PY'
 import sys, wave, array
 w = wave.open(sys.argv[1], 'rb'); rate = w.getframerate()
 a = array.array('h', w.readframes(w.getnframes()))
 if sys.byteorder == 'big': a.byteswap()
+if len(sys.argv) > 2: a = a[int(sys.argv[2]):len(a) if sys.argv[3] == 'end' else int(sys.argv[3])]
 ups = [i for i in range(1, len(a)) if a[i - 1] < 0 <= a[i]]
 print('%.1f' % ((len(ups) - 1) / ((ups[-1] - ups[0]) / rate)) if len(ups) > 2 else '0')
 PY
 }
+frames() { python3 -c 'import sys, wave; print(wave.open(sys.argv[1], "rb").getnframes())' "$1"; }
 near() { python3 -c 'import sys; sys.exit(0 if abs(float(sys.argv[1]) / float(sys.argv[2]) - 1) <= 0.005 else 1)' "$1" "$2"; }
 count() { grep -c "$1" "$2"; }
 TONE='22,100,14,255,33,1,2,62,1,30,0,237,97,66,16,254,237,105,66,16,254,29,32,243,61,32,240,201'
@@ -80,8 +82,9 @@ TRS80_SOUND="echo start >> $tmp.log; cat >> $tmp.pcm" TRS80_DUMB=1 TRS80_Z80="$c
 p=$(pitch "$tmp.3.wav")
 near "$p" 672.5 || fail "sound wav through the metacommand: got $p Hz, want 672.5"
 
-# --- 3. `speed` typed after the first call reaches the core: the WAV of the
-# restarted core carries the tone at 1.5 MHz
+# --- 3. `speed` typed after the first call reaches the core, and the restart
+# does not start the capture over: the WAV holds the first run's tone at the
+# Model I clock (as long as case 1's file) and then the second's at 1.5 MHz
 cat > "$tmp.t" <<EOF
 
 sound wav $tmp.4.wav
@@ -96,8 +99,27 @@ EOF
 TRS80_DUMB=1 TRS80_Z80="$core" "$here/basic" < "$tmp.t" > "$tmp.out" 2>"$tmp.err"; rc=$?
 [ "$rc" = "0" ] && [ ! -s "$tmp.err" ] || fail "speed transcript rc=$rc" "$(cat "$tmp.out" "$tmp.err")"
 [ "$(count '^TONE DONE' "$tmp.out")" = "2" ] || fail "two runs" "$(cat "$tmp.out")"
-p=$(pitch "$tmp.4.wav")
+n1=$(frames "$tmp.1.wav"); n4=$(frames "$tmp.4.wav")
+[ "$n4" -gt "$((n1 * 2))" ] || fail "the restart for speed started the WAV over: $n4 frames, the first run alone made $n1"
+p=$(pitch "$tmp.4.wav" 0 "$n1")
+near "$p" 672.5 || fail "the first run's tone is gone from the WAV: got $p Hz, want 672.5"
+p=$(pitch "$tmp.4.wav" "$n1" end)
 near "$p" 568.6 || fail "speed 1.5 after the first call: got $p Hz, want 568.6 (the core was not restarted?)"
+# ... and naming the file again begins a new capture in it
+cat > "$tmp.t" <<EOF
+
+sound wav $tmp.5.wav
+10 FOR I=0 TO 27:READ B:POKE 32000+I,B:NEXT
+20 DATA $TONE
+30 DEFUSR=32000:X=USR(0):PRINT "TONE DONE"
+RUN
+sound wav $tmp.5.wav
+RUN
+BYE
+EOF
+TRS80_DUMB=1 TRS80_Z80="$core" "$here/basic" < "$tmp.t" > "$tmp.out" 2>"$tmp.err"; rc=$?
+[ "$rc" = "0" ] && [ ! -s "$tmp.err" ] || fail "sound wav twice rc=$rc" "$(cat "$tmp.out" "$tmp.err")"
+[ "$(frames "$tmp.5.wav")" = "$n1" ] || fail "sound wav <the same path> should begin a new capture: $(frames "$tmp.5.wav") frames, want $n1"
 
 # --- 4. no core: the state report says so
 printf '\nsound\nBYE\n' | TRS80_DUMB=1 TRS80_Z80= "$here/basic" > "$tmp.out" 2>&1

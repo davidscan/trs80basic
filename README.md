@@ -168,7 +168,7 @@ Environment variables the interpreter reads:
 | `TRS80_Z80` | a core beside this checkout, else none | the command that runs the companion Z80 core; `USR` routines then execute (see `PROTOCOL.md`). Unset, the launcher uses `../trs80_z80_core/core.py` when it exists; empty (`TRS80_Z80=`) means no core | running listings with embedded machine code, or keeping them off |
 | `TRS80_Z80_TIMEOUT` | `5000` | milliseconds to wait for each reply from the core before giving up on it | a slow machine, or debugging the core |
 | `TRS80_SOUND` | unset | player command for the machine-code sound a `USR` routine makes on port 255, fed raw 16-bit mono PCM by the core; `auto` picks the first installed player: ffplay, then ffmpeg on macOS, aplay, pw-play; also `sound on` | hearing a sound routine as the machine played it |
-| `TRS80_SOUND_WAV` | unset | file the core writes that audio to, emulated time only; also `sound wav <path>` | keeping a recording, or checking pitch without speakers |
+| `TRS80_SOUND_WAV` | unset | file the core writes that audio to, emulated time only; also `sound wav <path>`. The file starts over with each session and each `sound wav`, and carries on across the core restarts inside one (`speed`, `sound on`) | keeping a recording, or checking pitch without speakers |
 | `TRS80_SOUND_RATE` | `22050` | the sample rate for both | `44100` for a finer file |
 
 (A couple of development-only variables are deliberately undocumented here.)

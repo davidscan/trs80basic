@@ -449,6 +449,7 @@ function st_sound(arg,   rest) {
     if (arg ~ /^wav[ \t]+[^ \t]/) {
         rest = substr(arg, 4); sub(/^[ \t]+/, "", rest)
         SNDWAV = (rest == "off" || rest == "0") ? "" : rest
+        Z80WAVGOING = ""                # naming a file begins a new capture in it
         snd_apply(); t_man(snd_msg()); return
     }
     t_man("USAGE: sound on|off   sound wav <path>|off   (bare: show state)")
