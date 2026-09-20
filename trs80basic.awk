@@ -639,7 +639,7 @@ function s_dump(   r, c, s) {
 # ============ keyboard: raw tty (gawk polls it; dd/od blocks), or piped stdin =
 
 function kb_init() {
-    KH = 0; KT = 0; KBMODE = ""
+    KH = 0; KT = 0; KSCAN = 0; KBMODE = ""
     # the ROM's line input (0361H) takes 240 characters (LD B,0F0H at 036FH)
     # and then stops accepting keys; 255 is the STRING limit, not this one
     RLMAX = 240
@@ -902,12 +902,21 @@ function brk_take() {
 # 0.007 ms since 2026-09-16 (kb_fill_tty).  Until then a tick's poll forked
 # dd|od, ~3 ms of a paced core's 5 ms tick, and p77 read the tty on every
 # fourth tick only (the nofill argument, gone with the fork).
+# The tty is read on EVERY poll, not only when the queue is empty: a key
+# the program never reads (a second ENTER after RUN, a stray letter) stays
+# queued for the rest of the run, and while the read waited for an empty
+# queue that one byte meant the tty was never read again -- no Ctrl-C, no
+# Ctrl-S, the 4096-byte guard below unreachable, and a runaway program
+# killable only from another shell (the 2026-09-19 audit, H-14).  KSCAN
+# marks how far the queue has been searched for 3 and 19, so type-ahead
+# that sits there is looked at once, not on every poll.
 function pollbrk(   i, c, j) {
     if (PENDBRK) { PENDBRK = 0; kb_flush(); return 1 }
     if (!TTYIN) return 0
     kb_mode("poll")
-    if (KH >= KT) kb_fill()
-    for (i = KH + 1; i <= KT; i++) {
+    kb_fill()
+    if (KSCAN < KH) KSCAN = KH
+    for (i = KSCAN + 1; i <= KT; i++) {
         if (KBQ[i] == 3) {
             if (brk_take()) { kb_flush(); return 1 }
             for (j = i; j < KT; j++) KBQ[j] = KBQ[j + 1]   # swallowed: drop it from the queue
@@ -920,11 +929,12 @@ function pollbrk(   i, c, j) {
             return 0
         }
     }
+    KSCAN = KT
     if (KT - KH > 4096) kb_flush()
     return 0
 }
 
-function kb_flush() { KH = 0; KT = 0 }
+function kb_flush() { KH = 0; KT = 0; KSCAN = 0 }
 
 # swallow the remainder of an ESC sequence (arrow keys etc.)
 function kb_esc(   c, i) {

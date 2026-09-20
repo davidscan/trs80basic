@@ -15,7 +15,8 @@ terminal emulator gives it, and checks:
      milliseconds when this gawk has the time extension (the launcher
      loads it), else for 4 polls; a shifted arrow presses the arrow and
      SHIFT, and its parameter bytes press nothing;
-  3. Ctrl-S pauses a printing program, a key resumes it, Ctrl-C breaks;
+  3. Ctrl-S pauses a printing program, a key resumes it, Ctrl-C breaks --
+     and both still work after a keystroke the program never read;
   4. INPUT takes a line with a period in it through the line editor,
      and the editor refuses the 241st character, as the ROM's does;
   5. BYE exits;
@@ -259,6 +260,30 @@ def main():
     check('BREAK IN 10' in after, 'Ctrl-C breaks the printing loop', after)
     check(paused.endswith(' ') or paused.endswith('\r\n') or len(paused) > 0,
           'Ctrl-S paused the output (something printed before the pause)', paused)
+
+    # 3b. a key the program never reads must not switch BREAK off: the poll
+    # reads the tty every time, not only when its queue is empty
+    b.send('NEW\r10 GOTO 10\rRUN\r', 0.5)
+    b.send('\rx', 0.4)                                # a second ENTER and a stray letter
+    b.drain(0.2)
+    b.send(b'\x03', 0.6)
+    out = b.drain(0.5, 3)
+    check('BREAK IN 10' in out, 'Ctrl-C breaks a loop after an unread keystroke', out)
+    if 'BREAK IN 10' not in out:                       # do not leave the loop running under the rest
+        b.close(); print('kbd_pty.py: %d check(s) failed' % len(fails))
+        for f in fails: print('  ' + f)
+        return 1
+    b.send('NEW\r10 FOR I=1 TO 200000:PRINT I;:NEXT\rRUN\r', 0.3)
+    b.send('q', 0.2)                                   # unread, then the pause key
+    b.drain(0.05, 0.3)
+    b.send(b'\x13', 0.1)
+    b.drain(0.6, 2)
+    quiet = b.drain(0.4, 0.6)
+    b.send(b'x', 0.1)
+    b.send(b'\x03', 0.5)
+    after = b.drain(0.5, 3)
+    check(quiet == '', 'Ctrl-S pauses after an unread keystroke', quiet)
+    check('BREAK IN 10' in after, 'and Ctrl-C breaks after the pause', after)
 
     # 4. INPUT with a period, through the line editor
     b.send('NEW\r10 INPUT "NAME";A$:PRINT "["A$"]"\rRUN\r', 0.6)
