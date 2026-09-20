@@ -4809,7 +4809,15 @@ function st_print(   sep, ty, tx, v, tgt, col, t) {
             continue
         }
         v = e_or(); if (E) return
-        if (isN(v)) s_puts(fmtnum(num(v)))
+        if (isN(v)) {
+            # a number is never split across two lines: the ROM adds its
+            # length (sign and digits, not the blank that follows) to the
+            # cursor's column and sends a carriage return first when that
+            # reaches the line size (20DD-20E6 -> 20FEH).  Strings wrap.
+            t = fmtnum(num(v))
+            if (CUR % 64 + length(t) - 1 >= 64) s_nl()
+            s_puts(t)
+        }
         else s_puts(vstr(v))
         sep = 0
     }
@@ -4913,7 +4921,13 @@ function st_lprint(   sep, ty, tx, v, t) {
             continue
         }
         v = e_or(); if (E) return
-        if (isN(v)) lp_puts(fmtnum(num(v)))
+        if (isN(v)) {
+            # the printer's twin of PRINT's rule, against 132 columns
+            # (20D5-20DB: column + length >= 84H)
+            v = fmtnum(num(v))
+            if (LPCOL + length(v) - 1 >= 132) lp_nl()
+            lp_puts(v)
+        }
         else lp_puts(vstr(v))
         sep = 0
     }

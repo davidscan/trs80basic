@@ -581,6 +581,8 @@ PRINT [items]   display values on the screen
   Numbers carry their own spacing: a leading space for positive values
   (a '-' for negative) and always one trailing space.  So PRINT 1;2
   gives " 1  2 ", not "12".  A leading 0 is dropped: -0.5 prints as -.5.
+  A number is never split at the right edge: if it would not fit on the
+  line it starts the next one (a string simply wraps).
   A trailing ; or , at the end of the line suppresses the newline, so the
   next PRINT continues on the same line.
   The newline that ends a PRINT also BLANKS the screen line it moves to,

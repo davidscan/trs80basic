@@ -47,5 +47,23 @@ printf '10 CLS:PRINT@74,"KEEPME";:PRINT@0,STRING$(70,"X");\n20 S$="":FOR I=15424
 out=$(run | tail -1 | sed "s/.*\[/[/")
 [ "$out" = "[XXXXXX    KEEPME]" ] || fail "a line wrap erased the next line" "$out"
 
+# a number is never split across two lines: when the column plus its length
+# (sign and digits, not the blank after it) reaches 64 the ROM sends a
+# carriage return first (20DD-20E6); a string just wraps.  LPRINT has the
+# same rule against 132 columns (20D5-20DB).
+printf '10 PRINT STRING$(59,"X");1234\n20 PRINT STRING$(60,"X");1234\n30 PRINT STRING$(60,"X");"ABCDEFGH"\n40 FOR I=1001 TO 1012:PRINT I;:NEXT:PRINT\n50 FOR I=1001 TO 1024:LPRINT I;:NEXT:LPRINT\n' > "$tmp"
+out=$(run); p=$(cat "$lp" 2>/dev/null)
+want="XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+ 1234 
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+ 1234 
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXABCDEFGH
+ 1001  1002  1003  1004  1005  1006  1007  1008  1009  1010 
+ 1011  1012 "
+[ "$out" = "$want" ] || fail "a number that does not fit goes to the next line" "$out"
+want=" 1001  1002  1003  1004  1005  1006  1007  1008  1009  1010  1011  1012  1013  1014  1015  1016  1017  1018  1019  1020  1021  1022 
+ 1023  1024 "
+[ "$p" = "$want" ] || fail "LPRINT: a number that does not fit goes to the next line" "$p"
+
 rm -f "$tmp" "$lp"
 echo "PRINT OK"
