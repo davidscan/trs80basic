@@ -3412,6 +3412,7 @@ function assignv(name, key, v) {
     if (strname(name)) {
         if (isN(v)) { raise(13); return }
         if (ALN) al_clear(name, key)            # the descriptor moves (p75, finding 7)
+        if (FLDANY) fld_detach(name, key)       # ... and out of a FIELD's buffer (p85)
         if (key != "") VA[key] = v; else SV[name] = vstr(v)
         if (length(VPDATA)) sp_grown(name, key)  # a VARPTRed string that outgrew its cells (p75)
     } else {
@@ -6104,6 +6105,7 @@ function st_field(   n, off, w, v, name, key, tgt, i, found) {
         if (!found) { FLDN[n]++; found = FLDN[n]; FLD_V[n, found] = tgt }
         FLD_O[n, found] = off; FLD_W[n, found] = w
         FVCH[tgt] = n; FVOF[tgt] = off; FVW[tgt] = w
+        FLDANY = 1                          # assignv (p70) now looks for field variables
         sp_sets(tgt, substr(FH_BUF[n], off + 1, w))
         off += w
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) break
@@ -6131,6 +6133,18 @@ function fld_put(tgt, s,   n) {
     n = FVCH[tgt]
     FH_BUF[n] = substr(FH_BUF[n], 1, FVOF[tgt]) s substr(FH_BUF[n], FVOF[tgt] + FVW[tgt] + 1)
     fld_sync(n)
+}
+
+# An ordinary assignment (LET, INPUT, READ: assignv, p70) gives the variable
+# a new descriptor in string space, so it "will no longer point to the
+# buffer field" (Disk manual, "More on field names": A$=B$ nullifies the
+# FIELD).  GET no longer refills it and LSET works within its own length,
+# until a FIELD names it again.  The channel's FLD_V list keeps the entry;
+# fld_sync skips what is not in FVCH.  assignv asks only once a FIELD has
+# run (FLDANY): it is the hottest store in the interpreter.
+function fld_detach(name, key,   tgt) {
+    tgt = fld_tgt(name, key)
+    if (tgt in FVCH) { delete FVCH[tgt]; delete FVOF[tgt]; delete FVW[tgt] }
 }
 
 function fio_just(s, w, left) {

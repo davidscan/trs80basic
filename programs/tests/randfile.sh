@@ -106,5 +106,26 @@ want=' 4  0  0  0 -1  3
 [ONE   ] 0 
 ERROR 30 IN 60'
 [ "$out" = "$want" ] || fail "GET past the last record" "$out"
+
+# An ordinary assignment takes a FIELD variable out of the buffer (Disk
+# manual, "More on field names"; `man FIELD` always said so): GET no longer
+# refills it, LSET works within its own length and leaves the record
+# alone, and a new FIELD brings it back.
+printf 'HELLO\nWORLD\n' > "$dir/LET.TXT"
+cat > "$dir/l.bas" <<'BAS'
+5 Q$="A STRING ASSIGNED BEFORE ANY FIELD"
+10 OPEN "R",1,"LET.TXT",5:FIELD 1,5 AS A$,0 AS Z$
+20 GET 1,1:PRINT "[";A$;"]"
+30 A$="XY":GET 1,2:PRINT "[";A$;"]"
+40 LSET A$="Q":PRINT "[";A$;"]":PUT 1,1
+50 FIELD 1,5 AS A$:PRINT "[";A$;"]":GET 1,1:PRINT "[";A$;"]":CLOSE
+BAS
+out=$(cd "$dir" && TRS80_Z80= "$here/basic" l.bas 2>&1)
+want='[HELLO]
+[XY]
+[Q ]
+[WORLD]
+[WORLD]'
+[ "$out" = "$want" ] || fail "an assignment detaches a FIELD variable" "$out"
 rm -rf "$dir"
 echo "RANDFILE OK"

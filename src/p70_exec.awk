@@ -277,6 +277,7 @@ function assignv(name, key, v) {
     if (strname(name)) {
         if (isN(v)) { raise(13); return }
         if (ALN) al_clear(name, key)            # the descriptor moves (p75, finding 7)
+        if (FLDANY) fld_detach(name, key)       # ... and out of a FIELD's buffer (p85)
         if (key != "") VA[key] = v; else SV[name] = vstr(v)
         if (length(VPDATA)) sp_grown(name, key)  # a VARPTRed string that outgrew its cells (p75)
     } else {
