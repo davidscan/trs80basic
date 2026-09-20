@@ -69,6 +69,24 @@ out=$(run "$net"); rc=$?
 [ $rc -eq 2 ] || fail "a socket as the batch program (rc=$rc)" "$out"
 out=$(printf '10 PRINT "FROM STDIN"\n' | TRS80_Z80= "$here/basic" /dev/stdin 2>&1); rc=$?
 [ $rc -eq 2 ] || fail "/dev/stdin as the batch program (rc=$rc)" "$out"
+# ... and the message says why: the file is there, the NAME is refused
+# (the 2026-09-19 audit, M-23)
+case $out in *"not taken for a program"*) ;; *) fail "/dev/stdin: the message must say why" "$out" ;; esac
+case $out in *"FROM STDIN"*) fail "/dev/stdin ran as the batch program" "$out" ;; esac
+# a FIFO is an ordinary name and can be read only ONCE: the loader used to
+# open the file twice (header sniff, then the text lines), which ran an
+# empty program or hung
+if mkfifo "$d/ff" 2>/dev/null; then
+    (printf '10 PRINT "FROM FIFO"\n' > "$d/ff" &)
+    TRS80_DUMB=1 TRS80_Z80= "$here/basic" "$d/ff" > "$d/ff.out" 2>&1 </dev/null &
+    bp=$!
+    (sleep 20; kill "$bp" 2>/dev/null) &
+    wp=$!
+    wait "$bp"; rc=$?
+    kill "$wp" 2>/dev/null; wait "$wp" 2>/dev/null
+    out=$(cat "$d/ff.out")
+    [ $rc -eq 0 ] && [ "$out" = "FROM FIFO" ] || fail "a FIFO as the batch program (rc=$rc)" "$out"
+fi
 
 # nothing connected
 [ -s "$d/hits" ] && fail "the listener saw $(wc -l < "$d/hits") connection(s)" ""

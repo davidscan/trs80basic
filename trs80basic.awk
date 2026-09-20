@@ -2431,7 +2431,12 @@ function usage(dest,   t) {
 function batch_main() {
     BATCHERR = 0
     if (!prog_load(BATCHFILE, 0)) {
-        diag_err("basic: cannot read '" BATCHFILE "'")
+        # /dev/stdin and the shell's <(...) (/dev/fd/N) are refused by name
+        # (host_special, p90), and "cannot read" alone sent the user looking
+        # for a missing file (the 2026-09-19 audit, M-23)
+        if (host_special(BATCHFILE))
+            diag_err("basic: cannot read '" BATCHFILE "': a device, descriptor or socket name is not taken for a program; give a file (stdin feeds the program's INPUT)")
+        else diag_err("basic: cannot read '" BATCHFILE "'")
         return 2
     }
     if (LOADBAD) return 2                   # ?FD lines already on stderr
