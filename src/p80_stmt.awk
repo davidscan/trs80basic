@@ -451,6 +451,14 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x) {
             line = rl_read()
             if (RLCANCEL) { dobreak(); return }
             if (EOFQUIT) { if (BATCH) batch_ineof(); STOPPED = 1; return }
+            # ENTER alone ends the statement and assigns NOTHING: the ROM
+            # tests the first byte of the buffer and skips to the end of
+            # the INPUT (21E8H; the same at a ?? prompt, 2229H), so "the
+            # variables will have the value they were previously assigned"
+            # (manual p.3-9) -- the press-ENTER-to-keep-the-value prompt.
+            # Values already taken from an earlier line of this INPUT stay.
+            # A line of blanks is not empty: it still reads as 0 or "".
+            if (line == "") return
             nib = parse_items(line, nib)
             while (idx <= nlv && idx <= nib) {
                 if (strname(LV_N[idx])) assignv(LV_N[idx], LV_K[idx], "S" IB[idx])

@@ -199,6 +199,10 @@ INPUT ["prompt";] var[,var...]   read values typed at the keyboard
   values with commas.  Too few values re-prompts with ?? ; a value of
   the wrong type gives ?REDO FROM START and asks again -- neither is a
   fatal error, so INPUT cannot crash on bad typing.
+  ENTER alone assigns nothing: every variable keeps the value it had
+  ("PRESS ENTER TO KEEP 5" works), and at a ?? prompt the variables not
+  yet filled keep theirs.  A line of blanks is a value (0 or ""), not
+  an empty answer.
   It CAN be interrupted by BREAK, and it strips leading spaces from
   numbers.  Use LINE INPUT to take a whole line, commas included.
   The prompt may be any string expression, not just a literal.
