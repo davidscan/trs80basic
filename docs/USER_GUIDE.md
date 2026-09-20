@@ -337,9 +337,11 @@ Simulation notes, honestly labeled:
   `PUT` changed it (a file that was only read is left untouched).
 - `RUN`/`NEW`/`CLEAR`/`CLOAD`/`END`/`BYE` close and flush all channels —
   `STOP` does not, so BREAK + `CONT` keeps files open.
-- `,` in PRINT# writes **no** zone padding (zone spaces would corrupt
-  comma-delimited re-reading; print an explicit `","`, as the manuals
-  themselves recommend).
+- `,` in PRINT# writes PRINT's zone blanks into the file, as the Disk
+  manual says it does ("causes 10 extra spaces in the disk file"); the
+  16-column zones are counted in the file's own line, and no last zone is
+  assumed, so a comma never ends the line. Between strings print an
+  explicit `","`, as the manuals themselves recommend.
 - The cassette form `PRINT#-1` is not supported; channels are 1..15.
 - A fielded variable detaches from its buffer if you plainly assign to it —
   the same footgun as real hardware; the next GET re-attaches it.
@@ -1568,11 +1570,14 @@ PRINT #n, items   write text to a sequential file opened "O" or "E"
   Writes the same characters PRINT would put on the screen, so numbers
   carry PRINT's leading sign-space AND its trailing space: PRINT #1,10
   stores " 10 ", not "10".
-  Here ; and , are plain separators with no zone padding, because zone
-  spaces would corrupt comma-delimited data on the way back in.
-  Write the separators you want to read back -- usually a literal comma
-  between items -- and end each record with a newline by leaving the
-  last separator off.  A trailing ; holds the line open.
+  ; joins the items.  , writes blanks up to the next 16-column zone of
+  the file's line, as PRINT does on the screen: PRINT #1,2300,1.303
+  puts 10 extra blanks in the file.  Numbers still read back (INPUT#
+  ends a number at a blank), but it wastes the space; use ; for numbers.
+  Strings need a separator you can read back -- a literal comma between
+  items, since a zone's blanks become part of the string before them.
+  End each record with a newline by leaving the last separator off.  A
+  trailing ; or , holds the line open.
   Example: PRINT #1, A$; ","; B$
   Example: PRINT #1, N$;",";MID$(STR$(V),2)     (no stray spaces)
 ```

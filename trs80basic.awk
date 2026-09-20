@@ -5869,9 +5869,20 @@ function st_lineinput(   n, name, key, prompt, line, x) {
 }
 
 # ---- sequential output -----------------------------------------------------
-# PRINT #n, ... : ; and , are pure separators (no display zone padding --
-# zone spaces would corrupt comma-delimited re-reading); a trailing separator
-# holds the partial line in FH_OPEND until the next PRINT# or CLOSE
+# PRINT #n, ... : "a disk image similar to what a PRINT to display creates
+# on the screen" (Model III Disk manual, PRINT#).  ; joins; , writes blanks
+# up to the next 16-column zone of the FILE's line, the manual's own case:
+# PRINT#1,A,B with A=2300 "causes 10 extra spaces in the disk file".  The
+# ROM's comma code leaves through the Disk BASIC exit at 41D3H (2108H), so
+# the column is the file's, not the screen's.  The manual names no last
+# zone for a file, so none is assumed: no carriage return is ever written
+# for a comma.  A trailing separator holds the partial line in FH_OPEND
+# until the next PRINT# or CLOSE.
+function fio_col(s) {                       # the column the file's line is at
+    if (match(s, /.*[\r\n]/)) return length(s) - RLENGTH
+    return length(s)
+}
+
 function st_print_file(   n, s, sep, ty, tx, v, x) {
     n = fio_chan(0); if (E) return
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
@@ -5888,7 +5899,12 @@ function st_print_file(   n, s, sep, ty, tx, v, x) {
         if (ty == "o" && tx == ":") break
         if (ty == "i" && tx == "ELSE") break
         if (ty == "i" && tx == "USING") { CP++; fio_pr_using(n, s); return }
-        if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
+        if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
+        if (ty == "o" && tx == ",") {
+            s = s substr("                ", 1, 16 - (fio_col(s) % 16))
+            sep = 1; CP++
+            continue
+        }
         if (ty == "i" && tx == "TAB") {
             CP++
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return }

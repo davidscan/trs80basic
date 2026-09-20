@@ -206,10 +206,11 @@ Simulation notes and deviations:
   memory between OPEN "R" and CLOSE; CLOSE rewrites the whole file.
   RUN/NEW/CLEAR/CLOAD/END/BYE close (and flush) all channels — STOP does
   not, so BREAK + CONT keeps files open.
-- `,` in PRINT# writes no display-zone padding (zone spaces would corrupt
-  comma-delimited re-reading; print an explicit `","` between items, as the
-  manuals themselves recommend). A trailing `;`/`,` holds the partial line
-  until the next PRINT# or CLOSE.
+- `,` in PRINT# writes PRINT's zone blanks into the file, counted in the
+  file's own line, as the Disk manual describes (2026-09-20; before, it
+  wrote none). Between strings print an explicit `","`, as the manuals
+  themselves recommend. A trailing `;`/`,` holds the partial line until
+  the next PRINT# or CLOSE.
 - The cassette form `PRINT#-1` is not supported (channels are 1..15).
 - Fielded string variables are refreshed on GET/LSET/RSET; a plain
   `A$="X"` assignment detaches the variable from its buffer until the next

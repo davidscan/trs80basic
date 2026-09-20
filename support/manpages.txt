@@ -702,11 +702,14 @@ PRINT #n, items   write text to a sequential file opened "O" or "E"
   Writes the same characters PRINT would put on the screen, so numbers
   carry PRINT's leading sign-space AND its trailing space: PRINT #1,10
   stores " 10 ", not "10".
-  Here ; and , are plain separators with no zone padding, because zone
-  spaces would corrupt comma-delimited data on the way back in.
-  Write the separators you want to read back -- usually a literal comma
-  between items -- and end each record with a newline by leaving the
-  last separator off.  A trailing ; holds the line open.
+  ; joins the items.  , writes blanks up to the next 16-column zone of
+  the file's line, as PRINT does on the screen: PRINT #1,2300,1.303
+  puts 10 extra blanks in the file.  Numbers still read back (INPUT#
+  ends a number at a blank), but it wastes the space; use ; for numbers.
+  Strings need a separator you can read back -- a literal comma between
+  items, since a zone's blanks become part of the string before them.
+  End each record with a newline by leaving the last separator off.  A
+  trailing ; or , holds the line open.
   Example: PRINT #1, A$; ","; B$
   Example: PRINT #1, N$;",";MID$(STR$(V),2)     (no stray spaces)
 
