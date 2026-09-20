@@ -152,7 +152,23 @@ function rnd_poke(i, b,   lo, mid, hi) {
 # file the owner may still set times -- both then killed gawk at the
 # redirect, losing the program in memory (the 2026-09-19 audit, C-1).  So: not a
 # directory, creatable, and writable once it exists.
+# gawk does not treat every name as a file.  /inet/tcp/0/host/80 (and
+# /inet4, /inet6) is a SOCKET, /dev/fd/N and "-" are the interpreter's own
+# descriptors, and the rest of /dev/ is devices (/dev/zero never ends a
+# slurp).  A BASIC program chooses its file names -- OPEN takes an
+# expression -- so without this gate a listing could open a network
+# connection, carry out a file it had read in the host part of the name,
+# or LOAD and RUN whatever a server sent (the 2026-09-19 audit, H-1).  gawk
+# matches these names as literal prefixes, so that is the test.  EVERY path
+# that hands a BASIC-chosen name to getline or to a redirect asks here
+# first: OPEN, LOAD/RUN/MERGE/CLOAD and SYSTEM (slurp_bytes), SAVE/CSAVE
+# and the OLLAMA transcript (host_writable), KILL (host_exists).
+function host_special(f) {
+    return f == "-" || f ~ /^\/inet[46]?\// || f ~ /^\/dev\//
+}
+
 function host_writable(f) {
+    if (host_special(f)) return 0
     if (WINNATIVE)
         return f !~ /"/ && system("type nul >> \"" f "\" 2>nul") == 0
     return system("test ! -d " shq(f) " && touch -- " shq(f) " 2>/dev/null && test -w " shq(f)) == 0
@@ -167,6 +183,7 @@ function shq(s) {
 }
 
 function host_exists(f) {
+    if (host_special(f)) return 0
     if (WINNATIVE)
         return f !~ /"/ && system("if exist \"" f "\" (exit 0) else (exit 1)") == 0
     return system("test -f '" f "'") == 0

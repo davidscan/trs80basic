@@ -812,6 +812,7 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
 # included.  RS = "\0" is NOT an option: a line number below 256 has a 00 high
 # byte and would split the record inside the line header.
 function slurp_bytes(f,   save, r) {
+    if (host_special(f)) { SLURPED = ""; return -1 }   # a socket or a descriptor, not a file (p90)
     save = RS; RS = "^$"
     r = (getline SLURPED < f)
     RS = save

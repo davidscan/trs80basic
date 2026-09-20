@@ -64,6 +64,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt) {
     for (i = 1; i <= 15; i++)
         if (fio_isopen(i) && FH_NAME[i] == f) { raise(26); return }
     if (toupper(f) ~ /^OLLAMA(:|$)/) { ai_open(n, f); return }
+    if (host_special(f)) { raise(22); return }    # /inet/..., /dev/..., "-": not files (p90)
     if (mode != "I") {
         # probe writability now: a failed awk redirect later would be fatal
         if ((!WINNATIVE && f ~ /'/) || !host_writable(f)) { raise(22); return }

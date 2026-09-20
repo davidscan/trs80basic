@@ -629,6 +629,11 @@ OPEN mode$, [#]n, name$ [,reclen]   open a file on channel n (1-15)
   when adding to a log and "I" when only reading.
   name$ is a host file path.  reclen applies to "R" only (1-256,
   default 256) and must match what the file was written with.
+  Only FILES are opened.  A name that is not one to the host -- "-",
+  anything under /dev/, or gawk's network names /inet/..., /inet4/...,
+  /inet6/... -- is ?FD, here and in LOAD, RUN "f", MERGE, CLOAD, SAVE,
+  SYSTEM and KILL: a listing cannot open a socket or load a program from
+  one.
   A channel stays busy until CLOSE; re-opening a busy channel is ?FO.
   A name starting with OLLAMA opens an AI link (see: man OLLAMA).
   Example: OPEN "O",1,"DATA.TXT"
