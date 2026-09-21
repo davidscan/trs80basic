@@ -199,6 +199,26 @@ function shq(s) {
     return "'" s "'"
 }
 
+# the byte length of f, or -1 when it cannot be had.  This is a COMMAND
+# pipe, not `getline < f`, on purpose: LOF can be asked while the channel's
+# own read of the same name is part way through the file, and gawk keys a
+# file redirection by its name -- closing it to measure the file would
+# restart the read from the top (the 2026-09-19 audit, L-34).
+function host_size(f,   cmd, s, r) {
+    if (host_special(f)) return -1
+    if (WINNATIVE) {
+        if (f ~ /"/) return -1
+        cmd = "for %I in (\"" f "\") do @echo %~zI"
+    } else
+        cmd = "wc -c < " shq(f) " 2>/dev/null"
+    s = ""
+    r = (cmd | getline s)
+    close(cmd)
+    if (r <= 0) return -1
+    gsub(/[^0-9]/, "", s)
+    return (s == "") ? -1 : s + 0
+}
+
 function host_exists(f) {
     if (host_special(f)) return 0
     if (WINNATIVE)

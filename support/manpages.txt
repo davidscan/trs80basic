@@ -1269,11 +1269,15 @@ EOF(n)   -1 when channel n has reached the end of the data, else 0
            30 GOTO 10
 
 :LOF
-LOF(n)   the number of records in the random file on channel n
+LOF(n)   the number of records in the file on channel n
   Gives the size in records, so it is the right bound for a loop over
   the whole file, and the way to find the end before appending: the
   next free record is LOF(n)+1.
   A file just created with "R" reports 0 until the first PUT.
+  It serves a sequential file too ("I", "O" or "E"), as the Disk manual
+  says it does.  Such a file has no record length of its own, so its
+  records are the machine's 256-byte physical ones and LOF is the file's
+  length rounded up to whole records.  Asking does not move the read.
   Example: FOR R=1 TO LOF(1): GET 1,R: NEXT R
   Example: PUT 1, LOF(1)+1        (append one record)
 

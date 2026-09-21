@@ -282,7 +282,7 @@ function fn_user(name,   n, i, p, v, r, sk, sp, av, osn, osv) {
 }
 
 # ---- built-in functions ----------------------------------------------------
-function fncall(name,   v, a1, a2, a3, na, x, s, i, r) {
+function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     CP++
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "N0" }
     CP++
@@ -466,8 +466,19 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, r) {
     if (name == "LOF") {
         x = numarg(a1, na); if (E) return "N0"
         i = fio_fnchan(x); if (E) return "N0"
-        if (FH_MODE[i] != "R") { raise(28); return "N0" }
-        return "N" (FH_NREC[i] + 0)
+        if (FH_MODE[i] == "R") return "N" (FH_NREC[i] + 0)
+        # Disk manual, LOF: "the number of the last, i.e., highest numbered,
+        # record in a file.  It is useful for both sequential and random
+        # access."  A sequential file's records are the 256-byte physical
+        # ones (it has no logical record length of its own), so the answer
+        # is its length rounded up.  It used to be ?BM on anything but "R".
+        if (FH_MODE[i] == "I" || FH_MODE[i] == "O" || FH_MODE[i] == "E") {
+            if (FH_MODE[i] != "I") fflush(FH_NAME[i])    # our own writes first
+            j = host_size(FH_NAME[i])
+            if (j < 0) { raise(28); return "N0" }
+            return "N" int((j + 255) / 256)
+        }
+        raise(28); return "N0"                  # "A": the AI link has no records
     }
     if (name == "LOC") {
         x = numarg(a1, na); if (E) return "N0"
