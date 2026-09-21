@@ -778,6 +778,10 @@ LINE INPUT #n, v$             read one whole line from a file
   A string holds 255 characters, so LINE INPUT #n stops at the 255th and
   leaves the rest of the line for the next read; INPUT #n ends an item
   there too.
+  A CHR$(13) in the file ends a record wherever it falls, as it does on
+  the machine -- so a file written with PRINT #n,A$;CHR$(13);B$ reads
+  back as two records, and a data file whose lines end in CR alone is
+  read record by record.
   The result is always a string; convert with VAL if a number is wanted.
   Example: LINE INPUT "ADDRESS: ";A$
   Example: LINE INPUT #1, L$

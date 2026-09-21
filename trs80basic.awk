@@ -5880,7 +5880,7 @@ function fio_fnchan(x,   n) {
 function fio_pad(s, k) { return substr(s sprintf("%" k "s", ""), 1, k) }
 
 # ---- OPEN / CLOSE / KILL ---------------------------------------------------
-function st_open(   v, mode, n, f, rlen, r, l, i, cnt) {
+function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     v = e_or(); if (E) return
     if (isN(v)) { raise(13); return }
     mode = toupper(substr(vstr(v), 1, 1))
@@ -5918,11 +5918,18 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt) {
     }
     FH_LOC[n] = 0; FH_EOF[n] = 0
     FH_PEND[n] = ""; FH_PENDHAS[n] = 0
+    FH_RAW[n] = ""; FH_RAWHAS[n] = 0
     FH_OPEND[n] = ""; FH_OPENDHAS[n] = 0
     if (mode == "I") {
         r = (getline l < f)
         if (r < 0) { raise(29); return }
-        if (r > 0) { sub(/\r$/, "", l); FH_PEND[n] = l; FH_PENDHAS[n] = 1; FH_LOC[n] = 1 }
+        if (r > 0) {
+            sub(/\r$/, "", l)
+            # a 0DH inside the line is a record end, as in fio_fill below
+            p = index(l, CHR[13])
+            if (p > 0) { FH_RAW[n] = substr(l, p + 1); FH_RAWHAS[n] = 1; l = substr(l, 1, p - 1) }
+            FH_PEND[n] = l; FH_PENDHAS[n] = 1; FH_LOC[n] = 1
+        }
         else FH_EOF[n] = 1
     } else if (mode == "O") printf "" > f
     else if (mode == "E") printf "" >> f
@@ -5978,6 +5985,7 @@ function fio_close1(n,   f, r) {
     delete FLDN[n]
     delete FH_MODE[n]; delete FH_NAME[n]; delete FH_LOC[n]
     delete FH_PEND[n]; delete FH_PENDHAS[n]; delete FH_EOF[n]
+    delete FH_RAW[n]; delete FH_RAWHAS[n]
     delete FH_OPEND[n]; delete FH_OPENDHAS[n]
     delete FH_RLEN[n]; delete FH_BUF[n]; delete FH_NREC[n]; delete FH_DIRTY[n]
 }
@@ -6011,13 +6019,31 @@ function st_kill(   v, f, i) {
 
 # ---- sequential input ------------------------------------------------------
 # ensure FH_PEND holds a line; 0 at end of file
-function fio_fill(n,   r, l) {
+# A CARRIAGE RETURN ENDS A RECORD, wherever it falls.  The Disk manual puts
+# (ENTER) in every INPUT# terminator set, and LINE INPUT# reads up to "an
+# (ENTER) character" -- on the machine the file is a byte stream and 0DH is
+# what separates records, so a CHR$(13) a program PRINT#s is a record end
+# like any other.  Here the reader knew only gawk's own line split, so an
+# embedded 0DH stayed inside the item (the 2026-09-19 audit, L-35).  The text
+# after it is held in FH_RAW and served as the next line, so a file whose
+# records end in CR alone -- the machine's own form -- reads record by
+# record instead of arriving as one enormous line.  A trailing CR (a CR LF
+# pair) is still just the line end.
+function fio_fill(n,   r, l, p) {
     if (FH_MODE[n] == "A") return ai_fill(n)
     if (FH_PENDHAS[n]) return 1
-    if (FH_EOF[n]) return 0
-    r = (getline l < FH_NAME[n])
-    if (r <= 0) { FH_EOF[n] = 1; return 0 }
-    sub(/\r$/, "", l)
+    if (FH_RAWHAS[n]) { l = FH_RAW[n]; FH_RAW[n] = ""; FH_RAWHAS[n] = 0 }
+    else {
+        if (FH_EOF[n]) return 0
+        r = (getline l < FH_NAME[n])
+        if (r <= 0) { FH_EOF[n] = 1; return 0 }
+        sub(/\r$/, "", l)
+    }
+    p = index(l, CHR[13])
+    if (p > 0) {
+        FH_RAW[n] = substr(l, p + 1); FH_RAWHAS[n] = 1
+        l = substr(l, 1, p - 1)
+    }
     FH_PEND[n] = l; FH_PENDHAS[n] = 1; FH_LOC[n]++
     return 1
 }

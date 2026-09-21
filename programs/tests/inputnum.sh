@@ -98,5 +98,36 @@ want=' 255 A.
  46 ".'
 [ "$out" = "$want" ] || fail "an item and a line stop at 255 characters" "$out"
 
+# A CARRIAGE RETURN ENDS A RECORD wherever it falls.  The manual puts
+# (ENTER) in every INPUT# terminator set, and LINE INPUT# reads up to "an
+# (ENTER) character"; on the machine the file is a byte stream and 0DH is
+# what separates records, so a CHR$(13) a program PRINT#s is a record end.
+# The reader knew only gawk's own line split (the 2026-09-19 audit, L-35).
+cat > "$dir/cr.bas" <<'BAS'
+10 OPEN "O",1,"CR.TXT":PRINT#1,"ONE";CHR$(13);"TWO";CHR$(13);"THREE":CLOSE
+20 OPEN "I",1,"CR.TXT"
+30 LINE INPUT#1,A$:PRINT "[";A$;"]."
+40 LINE INPUT#1,A$:PRINT "[";A$;"]."
+50 LINE INPUT#1,A$:PRINT "[";A$;"]";EOF(1);".":CLOSE
+BAS
+out=$(cd "$dir" && TRS80_Z80= "$here/basic" cr.bas 2>&1)
+want='[ONE].
+[TWO].
+[THREE]-1 .'
+[ "$out" = "$want" ] || fail "a CHR\$(13) written by PRINT# ends the record" "$out"
+
+# ... so a data file whose records end in CR alone -- the machine's own
+# form -- reads record by record instead of arriving as one long line
+printf 'AA,1\rBB,2\rCC,3\r' > "$dir/CRONLY.TXT"
+cat > "$dir/cro.bas" <<'BAS'
+10 OPEN "I",1,"CRONLY.TXT"
+20 FOR I=1 TO 3:INPUT#1,A$,N:PRINT I;"[";A$;"]";N;".":NEXT:CLOSE
+BAS
+out=$(cd "$dir" && TRS80_Z80= "$here/basic" cro.bas 2>&1)
+want=' 1 [AA] 1 .
+ 2 [BB] 2 .
+ 3 [CC] 3 .'
+[ "$out" = "$want" ] || fail "a CR-only data file reads record by record" "$out"
+
 rm -rf "$dir"
 echo "INPUTNUM OK"
