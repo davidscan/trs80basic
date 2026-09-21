@@ -50,7 +50,7 @@ TRS80_Z80= TRS80_PRINTER="$lp" ./basic programs/tests/sysvar.bas >"$log" 2>&1 \
 rm -f "$lp"
 
 # 4. the shell suites (each pins its own core or stub; z80core/sound skip without one)
-for s in break devvec usr pmtrunc z80 z80core sound tokload system tips_probe hostwrite special linelen clear memsize print input ready inputnum printcomma onerror ollama randfile lof auto notty corepath imgpoke lineedit numov linecut dotline fname; do
+for s in break devvec usr pmtrunc z80 z80core sound tokload system tips_probe hostwrite special linelen clear memsize print input ready inputnum printcomma onerror ollama randfile lof auto notty corepath errline imgpoke lineedit numov linecut dotline fname; do
     sh "programs/tests/$s.sh" >"$log" 2>&1 || { bad "$s.sh"; show "$s.sh"; }
 done
 

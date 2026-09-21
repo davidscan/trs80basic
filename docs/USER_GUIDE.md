@@ -1461,6 +1461,10 @@ ERR   the last error's code, held as (code-1)*2
 ```text
 ERL   the line number on which the last error happened
   Meaningful inside an ON ERROR handler; 0 when no error has occurred.
+  After an error in a statement typed at the prompt it is 65535, the
+  marker the machine keeps in its current-line cell while it is waiting
+  for input -- which is how a real line 0 is told from no line at all.
+  An error in line 0 reports " IN 0" and leaves ERL as 0.
   Lets one handler treat failures differently by where they came from:
   IF ERL=250 THEN ...
   Note that RENUMBER/NAME cannot rewrite a number compared against ERL,

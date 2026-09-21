@@ -162,6 +162,10 @@ function init_tables(   i, c, m, n) {
     # value counted (the 2026-09-19 audit, L-6).  Unset and empty are both off.
     DUMB = ("TRS80_DUMB" in ENVIRON && ENVIRON["TRS80_DUMB"] != "" && ENVIRON["TRS80_DUMB"] != "0")
     # misc state
+    # the ROM marks the Input Phase in its current-line cell 40A2H with
+    # FFFFH (1A36), so a typed statement and a real line 0 are distinct
+    DIRECTLN = 65535
+    CLN = DIRECTLN
     CUR = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
     FSN = 0; GSN = 0; CONTOK = 0; TRACE = 0
     EHANDLER = 0; INHANDLER = 0; ERRV = 0; ERLV = 0
@@ -872,7 +876,7 @@ function kb_get(   tries) {
 # needs that distinction, so the note is opt-in.
 function kbe_diag() {
     if (KBEDIAG++ || ENVIRON["TRS80_REACH_DIAG"] == "") return
-    diag_err("BATCH: END OF INPUT AT KEY POLL, LINE " CLN)
+    diag_err("BATCH: END OF INPUT AT KEY POLL" (CLN == DIRECTLN ? "" : ", LINE " CLN))
 }
 
 # non-blocking single byte; -1 if none (used by INKEY$)
@@ -2484,7 +2488,7 @@ function diag_err(msg) {
 # stdin ran dry while an INPUT was waiting: the fixture under-fed the program
 function batch_ineof() {
     BATCHERR = 1
-    diag_err("?BATCH: END OF INPUT" (CLN > 0 ? " AT LINE " CLN : ""))
+    diag_err("?BATCH: END OF INPUT" (CLN == DIRECTLN ? "" : " AT LINE " CLN))
 }
 # ===================== tokenizer ============================================
 # Token types: n number, s string, i identifier/keyword (uppercase), o op,
@@ -3189,7 +3193,7 @@ function fn_inkey(   c) {
 
 function exec_immediate(line) {
     tokline("I", line)
-    CK = "I"; CLI = 0; CLN = 0; CP = 1
+    CK = "I"; CLI = 0; CLN = DIRECTLN; CP = 1
     E = 0; HALT = 0; STOPPED = 0
     usr_stub_reset()
     execloop()
@@ -3250,8 +3254,8 @@ function execloop(   ty, tx) {
 }
 
 function dobreak() {
-    if (BATCH) diag("BREAK IN " CLN)        # not program output: stderr
-    else { s_nl(); s_puts("BREAK IN " CLN); s_nl() }
+    if (BATCH) diag("BREAK" inln(CLN))      # not program output: stderr
+    else { s_nl(); s_puts("BREAK" inln(CLN)); s_nl() }
     CONT_K = SK; CONT_LI = SLI; CONT_P = SCP
     CONTOK = 1
     STOPPED = 1
@@ -3497,7 +3501,7 @@ function st_return() {
     # before the call: FOR and NEXT stop their scan at this frame (for_floor)
     if (FSN > GS_F[GSN]) FSN = GS_F[GSN]
     GSN--
-    CLN = (CK == "I") ? 0 : CK + 0
+    CLN = (CK == "I") ? DIRECTLN : CK + 0
 }
 
 function st_for(   name, v0, v1, stp, j, v) {
@@ -3563,7 +3567,7 @@ function do_next(name,   j, v, fl) {
     NV[FS_V[j]] = v
     if (FS_S[j] >= 0 ? v <= FS_L[j] : v >= FS_L[j]) {
         CK = FS_K[j]; CLI = FS_LI[j]; CP = FS_P[j]
-        CLN = (CK == "I") ? 0 : CK + 0
+        CLN = (CK == "I") ? DIRECTLN : CK + 0
         return 1
     }
     FSN = j - 1
@@ -3670,7 +3674,7 @@ function st_cont() {
     if (!CONTOK) { raise(17); return }
     CONTOK = 0
     CK = CONT_K; CLI = CONT_LI; CP = CONT_P
-    CLN = (CK == "I") ? 0 : CK + 0
+    CLN = (CK == "I") ? DIRECTLN : CK + 0
     if (CK != "I" && !(CK in TOKD)) tokline(CK, prog[CLN])
 }
 
@@ -3754,7 +3758,7 @@ function st_resume(   p, ty, tx) {
     if (TY[CK, CP] == "i" && TK[CK, CP] == "NEXT") {
         CP++
         CK = ERR_K; CLI = ERR_LI; CP = ERR_CP
-        CLN = (CK == "I") ? 0 : CK + 0
+        CLN = (CK == "I") ? DIRECTLN : CK + 0
         for (;;) {
             ty = TY[CK, CP]
             if (ty == "" || ty == "e") return
@@ -3768,14 +3772,14 @@ function st_resume(   p, ty, tx) {
         p = TK[CK, CP] + 0; CP++
         if (p == 0) {
             CK = ERR_K; CLI = ERR_LI; CP = ERR_CP
-            CLN = (CK == "I") ? 0 : CK + 0
+            CLN = (CK == "I") ? DIRECTLN : CK + 0
             return
         }
         jumpline(p)
         return
     }
     CK = ERR_K; CLI = ERR_LI; CP = ERR_CP
-    CLN = (CK == "I") ? 0 : CK + 0
+    CLN = (CK == "I") ? DIRECTLN : CK + 0
 }
 # ===================== program-memory mapping + VARPTR string space =========
 # Three related pieces of the real Level II memory model (STATUS roadmap:
@@ -4399,7 +4403,10 @@ function fn_varptr(   name, key, tgt) {
 #                         and the frame carried the wall clock in place of
 #                         six of its bytes -- 340 calls ran, the 341st
 #                         crashed when the seconds byte became an opcode.
-#   40A2/40A3H (16546/7)  the line number executing (CLN; 0 at READY).
+#   40A2/40A3H (16546/7)  the line number executing (CLN).  At READY, and
+#                         for a statement typed at the prompt, it is 65535
+#                         -- the ROM's Input Phase marker (1A36), which is
+#                         what tells "no line" from a real line 0.
 #                         POKEs ignored.
 #   40E1H (16609)         AUTO flag: 1 while AUTO is prompting.  POKE
 #                         non-zero REQUESTS AUTO: it starts at the next
@@ -6721,6 +6728,13 @@ function ai_junesc(s,   out, i, n, c, e) {
 }
 # ===================== errors and numeric utilities =========================
 
+# DIRECTLN is the line number of a statement typed at the prompt.  The ROM
+# keeps ONE cell for the line it is executing, 40A2H, and marks the Input
+# Phase by putting FFFFH there (1A36), so a real line 0 and "no line" are
+# told apart -- which a plain 0 cannot do (the 2026-09-19 audit, L-4).  ERL
+# reads it through 40EAH (19A5), so ERL is 65535 after a direct-mode error.
+function inln(n) { return (n == DIRECTLN) ? "" : " IN " n }
+
 function raise(c) {
     if (E) return
     E = c
@@ -6730,13 +6744,15 @@ function raise(c) {
     # "." becomes the line with the error, trapped or not: the ROM notes it
     # with ERL, before it looks for an ON ERROR handler (19A5-19A8), so
     # LIST . and EDIT . go to the line that failed
-    if (CLN > 0) LASTLN = CLN
+    if (CLN != DIRECTLN) LASTLN = CLN
 }
 
 function report_err(   c, msg) {
     c = E; E = 0
     if (c < 1 || c > NERRC) c = 20
-    msg = "?" ERRC[c] " ERROR" (ERR_AT > 0 ? " IN " ERR_AT : "")
+    # ROM 1A11-1A14 prints the line unless H AND L is FF, that is unless it
+    # is 65535 -- so an error in line 0 reports " IN 0"
+    msg = "?" ERRC[c] " ERROR" inln(ERR_AT)
     CONTOK = 0
     # only UNCAUGHT errors reach here (ON ERROR GOTO is handled in execloop),
     # so this is the one place batch mode needs for its exit-1 status

@@ -1,5 +1,12 @@
 # ===================== errors and numeric utilities =========================
 
+# DIRECTLN is the line number of a statement typed at the prompt.  The ROM
+# keeps ONE cell for the line it is executing, 40A2H, and marks the Input
+# Phase by putting FFFFH there (1A36), so a real line 0 and "no line" are
+# told apart -- which a plain 0 cannot do (the 2026-09-19 audit, L-4).  ERL
+# reads it through 40EAH (19A5), so ERL is 65535 after a direct-mode error.
+function inln(n) { return (n == DIRECTLN) ? "" : " IN " n }
+
 function raise(c) {
     if (E) return
     E = c
@@ -9,13 +16,15 @@ function raise(c) {
     # "." becomes the line with the error, trapped or not: the ROM notes it
     # with ERL, before it looks for an ON ERROR handler (19A5-19A8), so
     # LIST . and EDIT . go to the line that failed
-    if (CLN > 0) LASTLN = CLN
+    if (CLN != DIRECTLN) LASTLN = CLN
 }
 
 function report_err(   c, msg) {
     c = E; E = 0
     if (c < 1 || c > NERRC) c = 20
-    msg = "?" ERRC[c] " ERROR" (ERR_AT > 0 ? " IN " ERR_AT : "")
+    # ROM 1A11-1A14 prints the line unless H AND L is FF, that is unless it
+    # is 65535 -- so an error in line 0 reports " IN 0"
+    msg = "?" ERRC[c] " ERROR" inln(ERR_AT)
     CONTOK = 0
     # only UNCAUGHT errors reach here (ON ERROR GOTO is handled in execloop),
     # so this is the one place batch mode needs for its exit-1 status

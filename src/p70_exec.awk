@@ -2,7 +2,7 @@
 
 function exec_immediate(line) {
     tokline("I", line)
-    CK = "I"; CLI = 0; CLN = 0; CP = 1
+    CK = "I"; CLI = 0; CLN = DIRECTLN; CP = 1
     E = 0; HALT = 0; STOPPED = 0
     usr_stub_reset()
     execloop()
@@ -63,8 +63,8 @@ function execloop(   ty, tx) {
 }
 
 function dobreak() {
-    if (BATCH) diag("BREAK IN " CLN)        # not program output: stderr
-    else { s_nl(); s_puts("BREAK IN " CLN); s_nl() }
+    if (BATCH) diag("BREAK" inln(CLN))      # not program output: stderr
+    else { s_nl(); s_puts("BREAK" inln(CLN)); s_nl() }
     CONT_K = SK; CONT_LI = SLI; CONT_P = SCP
     CONTOK = 1
     STOPPED = 1
@@ -310,7 +310,7 @@ function st_return() {
     # before the call: FOR and NEXT stop their scan at this frame (for_floor)
     if (FSN > GS_F[GSN]) FSN = GS_F[GSN]
     GSN--
-    CLN = (CK == "I") ? 0 : CK + 0
+    CLN = (CK == "I") ? DIRECTLN : CK + 0
 }
 
 function st_for(   name, v0, v1, stp, j, v) {
@@ -376,7 +376,7 @@ function do_next(name,   j, v, fl) {
     NV[FS_V[j]] = v
     if (FS_S[j] >= 0 ? v <= FS_L[j] : v >= FS_L[j]) {
         CK = FS_K[j]; CLI = FS_LI[j]; CP = FS_P[j]
-        CLN = (CK == "I") ? 0 : CK + 0
+        CLN = (CK == "I") ? DIRECTLN : CK + 0
         return 1
     }
     FSN = j - 1
@@ -483,7 +483,7 @@ function st_cont() {
     if (!CONTOK) { raise(17); return }
     CONTOK = 0
     CK = CONT_K; CLI = CONT_LI; CP = CONT_P
-    CLN = (CK == "I") ? 0 : CK + 0
+    CLN = (CK == "I") ? DIRECTLN : CK + 0
     if (CK != "I" && !(CK in TOKD)) tokline(CK, prog[CLN])
 }
 
@@ -567,7 +567,7 @@ function st_resume(   p, ty, tx) {
     if (TY[CK, CP] == "i" && TK[CK, CP] == "NEXT") {
         CP++
         CK = ERR_K; CLI = ERR_LI; CP = ERR_CP
-        CLN = (CK == "I") ? 0 : CK + 0
+        CLN = (CK == "I") ? DIRECTLN : CK + 0
         for (;;) {
             ty = TY[CK, CP]
             if (ty == "" || ty == "e") return
@@ -581,12 +581,12 @@ function st_resume(   p, ty, tx) {
         p = TK[CK, CP] + 0; CP++
         if (p == 0) {
             CK = ERR_K; CLI = ERR_LI; CP = ERR_CP
-            CLN = (CK == "I") ? 0 : CK + 0
+            CLN = (CK == "I") ? DIRECTLN : CK + 0
             return
         }
         jumpline(p)
         return
     }
     CK = ERR_K; CLI = ERR_LI; CP = ERR_CP
-    CLN = (CK == "I") ? 0 : CK + 0
+    CLN = (CK == "I") ? DIRECTLN : CK + 0
 }

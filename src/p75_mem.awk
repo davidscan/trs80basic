@@ -620,7 +620,10 @@ function fn_varptr(   name, key, tgt) {
 #                         and the frame carried the wall clock in place of
 #                         six of its bytes -- 340 calls ran, the 341st
 #                         crashed when the seconds byte became an opcode.
-#   40A2/40A3H (16546/7)  the line number executing (CLN; 0 at READY).
+#   40A2/40A3H (16546/7)  the line number executing (CLN).  At READY, and
+#                         for a statement typed at the prompt, it is 65535
+#                         -- the ROM's Input Phase marker (1A36), which is
+#                         what tells "no line" from a real line 0.
 #                         POKEs ignored.
 #   40E1H (16609)         AUTO flag: 1 while AUTO is prompting.  POKE
 #                         non-zero REQUESTS AUTO: it starts at the next

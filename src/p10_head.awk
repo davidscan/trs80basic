@@ -162,6 +162,10 @@ function init_tables(   i, c, m, n) {
     # value counted (the 2026-09-19 audit, L-6).  Unset and empty are both off.
     DUMB = ("TRS80_DUMB" in ENVIRON && ENVIRON["TRS80_DUMB"] != "" && ENVIRON["TRS80_DUMB"] != "0")
     # misc state
+    # the ROM marks the Input Phase in its current-line cell 40A2H with
+    # FFFFH (1A36), so a typed statement and a real line 0 are distinct
+    DIRECTLN = 65535
+    CLN = DIRECTLN
     CUR = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
     FSN = 0; GSN = 0; CONTOK = 0; TRACE = 0
     EHANDLER = 0; INHANDLER = 0; ERRV = 0; ERLV = 0

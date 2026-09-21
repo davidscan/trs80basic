@@ -113,5 +113,5 @@ function diag_err(msg) {
 # stdin ran dry while an INPUT was waiting: the fixture under-fed the program
 function batch_ineof() {
     BATCHERR = 1
-    diag_err("?BATCH: END OF INPUT" (CLN > 0 ? " AT LINE " CLN : ""))
+    diag_err("?BATCH: END OF INPUT" (CLN == DIRECTLN ? "" : " AT LINE " CLN))
 }

@@ -220,7 +220,7 @@ function kb_get(   tries) {
 # needs that distinction, so the note is opt-in.
 function kbe_diag() {
     if (KBEDIAG++ || ENVIRON["TRS80_REACH_DIAG"] == "") return
-    diag_err("BATCH: END OF INPUT AT KEY POLL, LINE " CLN)
+    diag_err("BATCH: END OF INPUT AT KEY POLL" (CLN == DIRECTLN ? "" : ", LINE " CLN))
 }
 
 # non-blocking single byte; -1 if none (used by INKEY$)
