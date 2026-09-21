@@ -1798,11 +1798,6 @@ CVI(s$) CVS(s$) CVD(s$)   unpack 2, 4 or 8 packed bytes into a number
   A string shorter than the width raises ?FC.
   Example: GET 1,1: PRINT CVI(I$)
   Example: PRINT CVS(P$)      (a field packed with MKS$)
-
-# ============================== metacommands ===============================
-# Not Level II BASIC: host-side conveniences added by this interpreter.
-# All are recognized in LOWERCASE ONLY, so they can never collide with a
-# BASIC keyword or a variable name.
 ```
 
 ### The OLLAMA channel

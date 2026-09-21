@@ -78,6 +78,13 @@ def parse_manpages():
     """Return list of (header_keywords, body_lines) in file order."""
     entries, header, body = [], None, []
     for line in MANPAGES.read_text().split("\n"):
+        # a '#' line is a comment in the FILE, not body text.  The
+        # interpreter's own reader (init_man, src/p10_head.awk) skips them;
+        # this one did not, so the metacommands banner was tacked onto the
+        # end of whichever entry preceded it and turned up in the guide
+        # (the 2026-09-19 audit, L-20).  The two readers must agree.
+        if line.startswith("#"):
+            continue
         if line.startswith(":"):
             if header is not None:
                 entries.append((header, body))
