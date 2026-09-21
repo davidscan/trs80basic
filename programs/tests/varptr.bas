@@ -33,5 +33,10 @@
 314 G$="AB":V=VARPTR(G$):G$="ABCDEFGHIJ":D=PEEK(V+1)+256*PEEK(V+2)
 316 IF PEEK(V)<>10 OR PEEK(D)<>65 OR PEEK(D+9)<>74 THEN PRINT "FAIL grown string through a kept VARPTR";PEEK(V);PEEK(D);PEEK(D+9):F=1
 318 POKE D+9,90:IF G$<>"ABCDEFGHIZ" OR VARPTR(G$)<>V THEN PRINT "FAIL POKE into the grown string: ";G$:F=1
-320 IF F THEN PRINT "VARPTR FIXTURE FAILED":Z(9)=0
+319 REM past the live length a byte is RAM, not string (L-48): it reads back, LEN and the value stay, a grown length byte takes it in
+320 H$="ABCDEFGH":V=VARPTR(H$):D=PEEK(V+1)+256*PEEK(V+2):H$="AB":POKE D+5,88
+321 IF LEN(H$)<>2 OR H$<>"AB" THEN PRINT "FAIL a POKE past the live length grew the string:";LEN(H$);H$:F=1
+322 IF PEEK(D+5)<>88 OR PEEK(D+4)<>32 THEN PRINT "FAIL the byte past the live length";PEEK(D+5);PEEK(D+4):F=1
+323 POKE V,6:IF H$<>"AB   X" THEN PRINT "FAIL the length byte grown over it: [";H$;"]":F=1
+328 IF F THEN PRINT "VARPTR FIXTURE FAILED":Z(9)=0
 330 PRINT "VARPTR FIXTURE OK"

@@ -3931,7 +3931,13 @@ function st_resume(   p, ty, tx) {
 #     not the program line, so pack-then-SAVE captures nothing), the data
 #     region a string outgrew is unmapped rather than left as stale bytes,
 #     and POKEing the descriptor's address cells is ignored.  POKE of the
-#     length byte truncates or space-pads the live value.
+#     length byte truncates the live value, or grows it over the cells that
+#     follow -- whatever was stored there (SPX), a blank where nothing was.
+#     A BYTE STORED PAST THE LIVE LENGTH, inside the cells mapped for the
+#     string, is a byte of RAM and nothing more: it reads back, and the
+#     string's value and LEN do not change, because on the machine only the
+#     descriptor says how long a string is (the 2026-09-19 audit, L-48: it
+#     used to LENGTHEN the string, padding up to it with blanks).
 
 # ---- THE ADDRESS-RESOLUTION CONTRACT --------------------------------------
 # dopeek() (p80) resolves ONE byte per address from several stores.  The order
@@ -4011,6 +4017,8 @@ function st_resume(   p, ty, tx) {
 #      bytes, and Space Chase parks its routine across them); the current
 #      line number ignores writes (documented)
 #   4. a in SPK                 -> sp_poke(), VARPTR string-space write-through
+#      (a cell past the string's live length keeps the byte, in SPX, and
+#      the string does not grow: read rule 4 serves it back)
 #   5. a > RAMTOP               -> DISCARDED (absent RAM)
 #   6. otherwise                -> MEM[a] = b, after pm_sync() when the
 #      program image is stale and a >= 17129: the store must be made against
@@ -4342,7 +4350,7 @@ function sp_reset(   a) {
 function sp_free_data(tgt,   a, e) {
     if (!(tgt in VPDATA)) return
     e = VPDATA[tgt] + VPCAP[tgt] - 1
-    for (a = VPDATA[tgt]; a <= e; a++) { delete SPK[a]; delete SPT[a]; if (FRTRACK) FRDIRTY[a] = 1 }
+    for (a = VPDATA[tgt]; a <= e; a++) { delete SPK[a]; delete SPT[a]; delete SPX[a]; if (FRTRACK) FRDIRTY[a] = 1 }
 }
 
 # map len string cells for tgt at base
@@ -4453,15 +4461,20 @@ function sp_peek(a,   t, tgt, v) {
         return ORD[substr(v, substr(t, 2) + 1, 1)]
     }
     v = sp_gets(tgt)                              # string byte, live
-    return (t + 1 <= length(v)) ? ORD[substr(v, t + 1, 1)] : 32
+    if (t + 1 <= length(v)) return ORD[substr(v, t + 1, 1)]
+    return (a in SPX) ? SPX[a] : 32               # past the live length: RAM
 }
 
 function sp_poke(a, b,   t, tgt, v, j) {
     t = SPT[a]; tgt = SPK[a]
     if (t == "C") { al_repoint(a, b, tgt); return } # descriptor address cell (finding 7)
-    if (t == "L") {                               # truncate / space-pad
+    if (t == "L") {                               # truncate, or grow over the cells
         v = sp_gets(tgt)
-        while (length(v) < b) v = v " "
+        while (length(v) < b) {
+            j = (tgt in VPDATA && !(tgt in ALIAS) && length(v) < VPCAP[tgt]) ? VPDATA[tgt] + length(v) : -1
+            if (j in SPX) { v = v CHR[SPX[j]]; delete SPX[j] }
+            else v = v " "
+        }
         sp_sets(tgt, substr(v, 1, b))
         return
     }
@@ -4473,7 +4486,9 @@ function sp_poke(a, b,   t, tgt, v, j) {
         return
     }
     v = sp_gets(tgt); j = t + 1                   # string byte, write through
-    while (length(v) < j) v = v " "
+    # past the live length the cell is RAM, not string: the descriptor
+    # alone says how long the string is, so the value does not grow (L-48)
+    if (j > length(v)) { SPX[a] = b; return }
     sp_sets(tgt, substr(v, 1, j - 1) CHR[b] substr(v, j + 1))
 }
 
