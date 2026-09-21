@@ -565,7 +565,12 @@ function fio_unesc(s,   out, i, n, c) {
 # 2-byte int, 4-byte single, 8-byte double, little-endian; float layout is
 # mantissa LSB..MSB (sign replaces the implied leading 1 bit), exponent+128
 function fio_mki(x,   v, u) {
-    v = to16(x); if (E) return ""             # rounds DOWN, as CINT does
+    # Disk manual p.144: the argument "is evaluated as an integer, -32768
+    # <= n <= 32767; if it exceeds this range, an ILLEGAL FUNCTION CALL
+    # error" -- ?FC, where the plain integer conversion (to16, CINT's) says
+    # ?OV.  The fraction goes the way CINT drops it: down (H-5).
+    v = bfloor(x)
+    if (v < -32768 || v > 32767) { raise(5); return "" }
     u = (v < 0) ? v + 65536 : v
     return CHR[u % 256] CHR[int(u / 256)]
 }

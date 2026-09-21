@@ -1749,6 +1749,8 @@ MKI$(i) MKS$(x) MKD$(x)   pack a number into 2, 4 or 8 bytes
   A FIELD slice holds only characters, so numbers must be packed to a
   fixed width before LSET can store them.  MKI$ takes an integer
   (-32768..32767), MKS$ a single-precision value, MKD$ a double.
+  A value outside MKI$'s range is ?FC, the Disk manual's ILLEGAL
+  FUNCTION CALL; a fraction is dropped, downward, as CINT drops it.
   The result is binary, not readable digits: do not PRINT it or use LEN
   on it expecting a digit count.  Unpack with CVI/CVS/CVD.
   Choose the width you can afford: 2 bytes for a count, 8 only when the
