@@ -2545,6 +2545,20 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
                 i = j
                 continue
             }
+            # ROM 1C24-1C2A: while the cruncher is matching token 8DH --
+            # and ONLY that one -- it skips a blank in the input, so "GO TO"
+            # crunches to GOTO.  It was ?SN here (the 2026-09-19 audit,
+            # L-16).  GO SUB does NOT crunch: the ROM's skip is GOTO's alone.
+            # The ROM matches byte by byte, so on the machine "GO TOTAL=5"
+            # also becomes GOTO followed by TAL; this tokenizer reads a whole
+            # identifier first, so only a standalone TO is taken.
+            if (s == "GO") {
+                j = i
+                while (substr(text, j, 1) == " ") j++
+                if (toupper(substr(text, j, 2)) == "TO" && substr(text, j + 2, 1) !~ /[A-Za-z0-9$]/) {
+                    s = "GOTO"; i = j + 2
+                }
+            }
             k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0
             continue
         }
@@ -4075,6 +4089,19 @@ function pm_crunch(text,   i, n, c, ins, ind, lit, j, w, matched) {
         }
         if (c == "\"") { ins = 1; PMB[++PMBN] = 34; i++; continue }
         if (ind) { if (c == ":") ind = 0; PMB[++PMBN] = ORD[c]; i++; continue }
+        # ROM 1C24-1C2A: matching token 8DH, and only that one, skips a
+        # blank in the input, so GO TO crunches to GOTO.  The cruncher has
+        # to agree with the tokenizer (p50), or the image holds bytes the
+        # machine would never have -- and the core executes image bytes.
+        if (substr(text, i, 2) == "GO") {
+            j = i + 2
+            while (substr(text, j, 1) == " ") j++
+            if (substr(text, j, 2) == "TO" && substr(text, j + 2, 1) !~ /[A-Za-z0-9$]/) {
+                PMB[++PMBN] = 141                         # 8DH, GOTO
+                i = j + 2
+                continue
+            }
+        }
         matched = 0
         for (j = 1; j <= NTOKI; j++) {
             w = TIW[j]

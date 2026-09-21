@@ -120,6 +120,9 @@ GOTO n   jump to line n and continue from there
   Unlike GOSUB it leaves no return address, so there is no way back --
   use GOSUB when the code should come back.
   IF cond GOTO n is a shorthand for IF cond THEN n.
+  GO TO, written with a space, is the same keyword: the machine skips a
+  blank while it is recognising this one word.  GO SUB is not -- that
+  space belongs to GOTO alone, and GO SUB is ?SN.
   Example: GOTO 100
   Example: 90 IF K$="" THEN 90        (wait loop, same idea)
 

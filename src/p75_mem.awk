@@ -292,6 +292,19 @@ function pm_crunch(text,   i, n, c, ins, ind, lit, j, w, matched) {
         }
         if (c == "\"") { ins = 1; PMB[++PMBN] = 34; i++; continue }
         if (ind) { if (c == ":") ind = 0; PMB[++PMBN] = ORD[c]; i++; continue }
+        # ROM 1C24-1C2A: matching token 8DH, and only that one, skips a
+        # blank in the input, so GO TO crunches to GOTO.  The cruncher has
+        # to agree with the tokenizer (p50), or the image holds bytes the
+        # machine would never have -- and the core executes image bytes.
+        if (substr(text, i, 2) == "GO") {
+            j = i + 2
+            while (substr(text, j, 1) == " ") j++
+            if (substr(text, j, 2) == "TO" && substr(text, j + 2, 1) !~ /[A-Za-z0-9$]/) {
+                PMB[++PMBN] = 141                         # 8DH, GOTO
+                i = j + 2
+                continue
+            }
+        }
         matched = 0
         for (j = 1; j <= NTOKI; j++) {
             w = TIW[j]

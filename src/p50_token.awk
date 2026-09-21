@@ -53,6 +53,20 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
                 i = j
                 continue
             }
+            # ROM 1C24-1C2A: while the cruncher is matching token 8DH --
+            # and ONLY that one -- it skips a blank in the input, so "GO TO"
+            # crunches to GOTO.  It was ?SN here (the 2026-09-19 audit,
+            # L-16).  GO SUB does NOT crunch: the ROM's skip is GOTO's alone.
+            # The ROM matches byte by byte, so on the machine "GO TOTAL=5"
+            # also becomes GOTO followed by TAL; this tokenizer reads a whole
+            # identifier first, so only a standalone TO is taken.
+            if (s == "GO") {
+                j = i
+                while (substr(text, j, 1) == " ") j++
+                if (toupper(substr(text, j, 2)) == "TO" && substr(text, j + 2, 1) !~ /[A-Za-z0-9$]/) {
+                    s = "GOTO"; i = j + 2
+                }
+            }
             k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0
             continue
         }

@@ -109,6 +109,20 @@ def crunch(text, index):
             i += 1
             continue
 
+        # ROM 1C24-1C2A: matching token 8DH, and only that one, skips a
+        # blank in the input, so "GO TO" crunches to GOTO.  p50's tokenizer
+        # and p75's pm_crunch do the same; the three must agree or the same
+        # listing gives two different images (the 2026-09-19 audit, L-16).
+        if src.startswith(b"GO", i):
+            j = i + 2
+            while j < n and src[j:j + 1] == b" ":
+                j += 1
+            if src.startswith(b"TO", j) and not src[j + 2:j + 3].isalnum() \
+                    and src[j + 2:j + 3] != b"$":
+                out.append(0x8D)
+                i = j + 2
+                continue
+
         for value, word in index:
             if src.startswith(word, i):
                 # ' is stored as the three bytes :REM' -- detok collapses that
