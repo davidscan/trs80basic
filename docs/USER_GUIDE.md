@@ -1147,6 +1147,10 @@ AUTO [n[,i]]   number lines automatically as you type them
   Prompts with the next line number so a program can be entered without
   typing numbers.  n is where to start and i the step; both default
   to 10.
+  A trailing comma with nothing after it -- AUTO 500, -- keeps the step
+  the last AUTO used instead of going back to 10.
+  A step of 0 is ?FC.  Neither number may pass 65529, the highest line
+  there is; beyond that it is ?SN, where the number is read.
   Stop it with BREAK.  If the offered number already exists, the
   existing line is shown so it is not overwritten unnoticed.
   Example: AUTO

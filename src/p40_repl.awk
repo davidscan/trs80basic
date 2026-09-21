@@ -227,6 +227,14 @@ function st_delete(   i, ln, n, hits) {
     to_ready()
 }
 
+# ROM 2008-2036.  A bare AUTO is 10,10.  One parameter leaves the pushed
+# default in HL, so the increment is 10 (2012-2013).  A TRAILING COMMA with
+# nothing after it keeps the increment already in 40E4H -- what the last
+# AUTO left there (2019-201D) -- rather than going back to 10.  Anything
+# else after the comma is ?SN at 2022.  An increment of zero is ?FC at 2028.
+# Both numbers are converted by 1E5AH, which is ?SN as soon as the running
+# total passes 6552 (1E62-1E66): that is where the 65529 line limit comes
+# from, and it makes AUTO 65530 an error rather than a silent no-op.
 function st_auto(   start, inc, line, k) {
     start = 10; inc = 10
     if (TY[CK, CP] == "n") {
@@ -234,9 +242,12 @@ function st_auto(   start, inc, line, k) {
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
             CP++
             if (TY[CK, CP] == "n") { inc = int(TK[CK, CP] + 0); CP++ }
+            else if (at_stmt_end()) inc = AUTOINC       # 40E4H, the last one used
+            else { raise(2); return }
         }
     }
-    if (inc < 1) inc = 10
+    if (start > 65529 || inc > 65529) { raise(2); return }
+    if (inc < 1) { raise(5); return }
     auto_run(start, inc)
     to_ready()
 }
