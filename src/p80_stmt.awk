@@ -557,16 +557,26 @@ function datascan(   i, k, j) {
     DATADIRTY = 0
 }
 
-function data_items(txt, ln,   ci, cn, c, j, item, wasq) {
+# DBAD marks a quoted item with text between its closing quote and the
+# comma (DATA "AB"CD,EF): the ROM reads the string, looks for a comma or
+# the end of the statement, and finds neither (225A-2260).  That is ?SN
+# when READ REACHES the item, not before; until 2026-09-21 the rest of the
+# line was dropped silently and EF was never read.
+function data_items(txt, ln,   ci, cn, c, j, item, wasq, bad) {
     ci = 1; cn = length(txt)
     for (;;) {
-        while (ci <= cn && substr(txt, ci, 1) == " ") ci++
+        bad = 0
+        while (ci <= cn && substr(txt, ci, 1) ~ /^[ \t\n]$/) ci++    # RST 10H: blank, tab, line feed
         if (ci <= cn && substr(txt, ci, 1) == "\"") {
             j = index(substr(txt, ci + 1), "\"")
             if (j == 0) { item = substr(txt, ci + 1); ci = cn + 1 }
             else { item = substr(txt, ci + 1, j - 1); ci = ci + j + 1 }
             wasq = 1
-            while (ci <= cn && substr(txt, ci, 1) == " ") ci++
+            while (ci <= cn && substr(txt, ci, 1) ~ /^[ \t\n]$/) ci++
+            if (ci <= cn && substr(txt, ci, 1) != ",") {
+                bad = 1
+                while (ci <= cn && substr(txt, ci, 1) != ",") ci++
+            }
         } else {
             j = ci
             while (j <= cn && substr(txt, j, 1) != ",") j++
@@ -575,7 +585,7 @@ function data_items(txt, ln,   ci, cn, c, j, item, wasq) {
             ci = j
             wasq = 0
         }
-        NDATA++; DITEM[NDATA] = item; DQ[NDATA] = wasq; DLINE[NDATA] = ln
+        NDATA++; DITEM[NDATA] = item; DQ[NDATA] = wasq; DBAD[NDATA] = bad; DLINE[NDATA] = ln
         if (ci <= cn && substr(txt, ci, 1) == ",") { ci++; continue }
         break
     }
@@ -589,6 +599,14 @@ function st_read(   name, key, x) {
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
         if (DP > NDATA) { raise(4); return }
+        # text behind a closing quote, or a quoted item for a number (the
+        # ROM's reader takes nothing from "12" and the quote is no comma):
+        # ?SN in the DATA line, the pointer stays (225A-2260 -> 1991H)
+        if (DBAD[DP] || (DQ[DP] && !strname(name))) {
+            raise(2)
+            ERR_AT = DLINE[DP]; ERLV = DLINE[DP]
+            return
+        }
         if (strname(name)) assignv(name, key, "S" DITEM[DP])
         else {
             # the ROM's reader takes what it can (valnum, p90); anything

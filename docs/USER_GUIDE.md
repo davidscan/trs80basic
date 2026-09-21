@@ -822,7 +822,10 @@ READ var[,var...]   assign the next DATA item(s) to variables
   order, and it does not reset between READs -- each READ continues from
   where the last one stopped.  RESTORE moves it back.
   Reading a string item into a numeric variable raises ?SN ERROR, and
-  the error is reported at the DATA line, not the READ line.
+  the error is reported at the DATA line, not the READ line.  That goes
+  for a quoted "12" too, and for text between an item's closing quote
+  and its comma (DATA "AB"CD): ?SN when READ reaches the item, and the
+  pointer stays on it.
   Running out of items raises ?OD ERROR (out of data).
   Example: FOR I=1 TO 3:READ N$,P:PRINT N$;"=";P:NEXT I
            DATA WIDGET,5,GADGET,12,"BOLT, HEX",3
