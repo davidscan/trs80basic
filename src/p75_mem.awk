@@ -149,6 +149,8 @@
 #      (a cell past the string's live length keeps the byte, in SPX, and
 #      the string does not grow: read rule 4 serves it back)
 #   5. a > RAMTOP               -> DISCARDED (absent RAM)
+#      a < 3000H (12288)        -> DISCARDED (the ROM; the core drops the
+#      same stores, so neither side ever holds a byte there)
 #   6. otherwise                -> MEM[a] = b, after pm_sync() when the
 #      program image is stale and a >= 17129: the store must be made against
 #      the CURRENT image, because the next build decides by line what stays

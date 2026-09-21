@@ -108,6 +108,9 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     ends the call.  Any other jump or call into 0000-2FFFH is either a
     documented entry point the core serves as an HLE trap (01C9H CLS,
     0A7FH argument to HL, 0A9AH HL to result, ...) or an `ERR rom`.
+    A STORE into 0000-2FFFH changes nothing, as on the machine: the core
+    drops it (it is not in the write-set) and the interpreter's POKE
+    drops it too, so the range stays empty on both sides.
 *   `himem` is the MEMORY SIZE? fence; `ramtop` as in HELLO.
 
 ### During the call

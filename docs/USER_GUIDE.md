@@ -995,6 +995,8 @@ POKE addr,byte   store a single byte (0-255) into memory
   that makes a high byte signed (IF H>127 THEN H=H-256) and then POKEs it
   fails this way wherever memory reaches past 32767; it ran on a 16K
   machine only.
+  Addresses 0 to 12287 are the ROM: a POKE there is accepted and changes
+  nothing, as on the machine, and PEEK goes on returning what it did.
   Example: POKE 15360,191               (fill the top-left cell)
   Example: POKE 15360+R*64+C,191        (row R, column C)
 ```

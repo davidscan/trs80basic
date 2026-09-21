@@ -4020,6 +4020,8 @@ function st_resume(   p, ty, tx) {
 #      (a cell past the string's live length keeps the byte, in SPX, and
 #      the string does not grow: read rule 4 serves it back)
 #   5. a > RAMTOP               -> DISCARDED (absent RAM)
+#      a < 3000H (12288)        -> DISCARDED (the ROM; the core drops the
+#      same stores, so neither side ever holds a byte there)
 #   6. otherwise                -> MEM[a] = b, after pm_sync() when the
 #      program image is stale and a >= 17129: the store must be made against
 #      the CURRENT image, because the next build decides by line what stays
@@ -5799,6 +5801,11 @@ function poke_byte(a, b) {
     else if (a >= 16416 && a <= 16667 && (a in SVW)) sv_poke(a, b)   # system variable window (p75)
     else if (a in SPK) sp_poke(a, b)              # VARPTR write-through (p75)
     else if (a > RAMTOP) { }                      # absent RAM: discarded
+    # 0000-2FFFH is the ROM: a store there changes nothing on the machine,
+    # and PROTOCOL.md has the range holding no bytes on either side.  It
+    # used to land in MEM[] and read back, from POKE and from a Z80
+    # write-set alike (the 2026-09-19 audit, L-45).
+    else if (a < 12288) { }
     else {
         # a store into a STALE image would be judged by the next build as one
         # made before the program changed, and dropped: bring the image up to

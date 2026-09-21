@@ -735,6 +735,11 @@ function poke_byte(a, b) {
     else if (a >= 16416 && a <= 16667 && (a in SVW)) sv_poke(a, b)   # system variable window (p75)
     else if (a in SPK) sp_poke(a, b)              # VARPTR write-through (p75)
     else if (a > RAMTOP) { }                      # absent RAM: discarded
+    # 0000-2FFFH is the ROM: a store there changes nothing on the machine,
+    # and PROTOCOL.md has the range holding no bytes on either side.  It
+    # used to land in MEM[] and read back, from POKE and from a Z80
+    # write-set alike (the 2026-09-19 audit, L-45).
+    else if (a < 12288) { }
     else {
         # a store into a STALE image would be judged by the next build as one
         # made before the program changed, and dropped: bring the image up to
