@@ -46,5 +46,20 @@ want='10 PRINT "PART TWO RAN"
 20 SAVE A$+N$:PRINT "SAVED"
 PART TWO RAN'
 [ "$out" = "$want" ] || fail "raw name, MERGE by variable, quoted name with ,R" "$out"
+
+# An unquoted name is read from the raw source at the token's own position,
+# so every token needs its offset.  The string, REM, ' and DATA tokens had
+# none, and substr() starting at "" handed back the WHOLE line: `CSAVE DATA`
+# saved to a file called "CSAVE DATA" (the 2026-09-19 audit, L-15).
+printf '\n10 PRINT "X"\nCSAVE DATA\nCSAVE REM\nCSAVE DATA.BAS\nSAVE MY.BAS\n' \
+    | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" >/dev/null 2>&1
+for n in DATA REM DATA.BAS MY.BAS; do
+    [ -f "$n" ] || fail "an unquoted name starting with a keyword" "no file $n; got: $(ls)"
+done
+for n in "CSAVE DATA" "CSAVE REM" "CSAVE DATA.BAS" "SAVE MY.BAS"; do
+    [ -f "$n" ] && fail "the whole source line was used as the name" "$n exists"
+done
+rm -f DATA REM DATA.BAS MY.BAS
+
 cd / ; rm -rf "$dir"
 echo "FNAME OK"

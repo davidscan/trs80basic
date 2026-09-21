@@ -5,6 +5,12 @@
 function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
     if (key == "I") inval_cache_key("I")
     k = 0; i = 1; n = length(text)
+    # TSRC + TPO give parse_fname (p40) the raw source from a token's own
+    # position, so an unquoted file name is taken verbatim.  EVERY token
+    # needs its TPO: a missing one made substr() start at "" and hand back
+    # the WHOLE line, so `CSAVE DATA` saved to a file called "CSAVE DATA"
+    # (the 2026-09-19 audit, L-15).  The string, REM, ' and DATA tokens had
+    # none.
     TSRC[key] = text                        # raw source + per-token offsets
     while (i <= n) {                        # (parse_fname reads paths verbatim)
         c = substr(text, i, 1)
@@ -14,7 +20,7 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
             j = index(substr(text, i + 1), "\"")
             if (j == 0) { s = substr(text, i + 1); i = n + 1 }
             else { s = substr(text, i + 1, j - 1); i = i + j + 1 }
-            k++; TK[key, k] = s; TY[key, k] = "s"
+            k++; TK[key, k] = s; TY[key, k] = "s"; TPO[key, k] = t0
             continue
         }
         if (c ~ /[0-9]/ || (c == "." && substr(text, i + 1, 1) ~ /[0-9]/)) {
@@ -35,13 +41,13 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
             if (c == "!" || c == "%") i++
             else if (c == "#" && s != "PRINT" && s != "INPUT") i++
             if (s == "REM") {
-                k++; TK[key, k] = "REM"; TY[key, k] = "i"
-                k++; TK[key, k] = substr(text, i); TY[key, k] = "r"
+                k++; TK[key, k] = "REM"; TY[key, k] = "i"; TPO[key, k] = t0
+                k++; TK[key, k] = substr(text, i); TY[key, k] = "r"; TPO[key, k] = i
                 i = n + 1
                 continue
             }
             if (s == "DATA") {
-                k++; TK[key, k] = "DATA"; TY[key, k] = "i"
+                k++; TK[key, k] = "DATA"; TY[key, k] = "i"; TPO[key, k] = t0
                 q = 0; j = i
                 while (j <= n) {
                     c2 = substr(text, j, 1)
@@ -49,7 +55,7 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
                     else if (c2 == ":" && !q) break
                     j++
                 }
-                k++; TK[key, k] = substr(text, i, j - i); TY[key, k] = "d"
+                k++; TK[key, k] = substr(text, i, j - i); TY[key, k] = "d"; TPO[key, k] = i
                 i = j
                 continue
             }
@@ -71,8 +77,8 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
             continue
         }
         if (c == "'") {
-            k++; TK[key, k] = "REM"; TY[key, k] = "i"
-            k++; TK[key, k] = substr(text, i + 1); TY[key, k] = "r"
+            k++; TK[key, k] = "REM"; TY[key, k] = "i"; TPO[key, k] = t0
+            k++; TK[key, k] = substr(text, i + 1); TY[key, k] = "r"; TPO[key, k] = i + 1
             i = n + 1
             continue
         }
