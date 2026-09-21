@@ -1964,7 +1964,13 @@ function sys_load(name,   f, data, i, c, ext) {
     data = SLURPED; SLURPED = ""
     ext = tolower(substr(f, length(f) - 3))
     c = ORD[substr(data, 1, 1)]
-    if (ext == ".cmd" || (ext != ".cas" && (c == 1 || c == 2 || c == 5 || c == 7 || c == 31)))
+    # The sniff set must be the set sys_load_cmd ACCEPTS, which is also the
+    # core's (z80/load.py load_cmd): 01 load, 02 transfer, 05 name, and
+    # 07/10/1A/1F header, comment and DOS-only records.  10H and 1AH were
+    # missing here, so a load module that opens with one -- legal, and
+    # accepted mid-file by the very next function -- was taken for a tape
+    # and then failed (the 2026-09-19 audit, L-42).
+    if (ext == ".cmd" || (ext != ".cas" && (c == 1 || c == 2 || c == 5 || c == 7 || c == 16 || c == 26 || c == 31)))
         return sys_load_cmd(data)
     i = index(data, CHR[165])                     # A5H: the tape's sync byte
     if (i > 0 && substr(data, i + 1, 1) == CHR[85]) return sys_load_cas(data, i + 8)

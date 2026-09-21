@@ -91,6 +91,33 @@ grep -q "F 33  165  85  201" "$tmp" || fail "a load module with no extension is 
 grep -q "^C$" "$tmp" && fail "a load module holding A5H 55H was read as a tape" "$(cat "$tmp")"
 [ "$(grep -c "(7F00H x1)" "$tmp.err")" -eq 2 ] || fail "the load module's entry was not taken" "$(cat "$tmp.err")"
 
+# A load module may OPEN with a 10H or 1AH record -- a comment or a DOS-only
+# record.  sys_load_cmd has always accepted both mid-file, and so does the
+# core (z80/load.py load_cmd), but the format sniff in sys_load did not have
+# them in its first-byte set, so such a file with no .cmd extension was
+# taken for a tape and failed (the 2026-09-19 audit, L-42).
+# Each file: <type> 02 "AA", then 01 08 00 7F + LD A,7 / LD (7F40H),A / RET,
+# then 02 02 00 7F -- eight body bytes in the load record, entry 7F00H.
+r10=$(mktemp) || exit 2
+r1a=$(mktemp) || exit 2
+printf '\020\002AA\001\010\000\177\076\007\062\100\177\311\002\002\000\177' > "$r10"
+printf '\032\002AA\001\010\000\177\076\007\062\100\177\311\002\002\000\177' > "$r1a"
+for f in "$r10" "$r1a"; do
+    TRS80_Z80= run <<EOF
+
+SYSTEM
+$f
+/
+PRINT "R";PEEK(32512);PEEK(32517)
+EOF
+    grep -q "R 62  201" "$tmp" \
+        || fail "a load module opening with a 10H or 1AH record ($f)" "$(cat "$tmp"; cat "$tmp.err")"
+    grep -q "^C\$" "$tmp" && fail "that record type was read as a tape" "$(cat "$tmp")"
+    grep -q "(7F00H x1)" "$tmp.err" \
+        || fail "the transfer record's entry was not taken ($f)" "$(cat "$tmp.err")"
+done
+rm -f "$r10" "$r1a"
+
 # A file that ends with no entry record (the 2026-09-19 audit, M-7): `/`
 # runs at its first block's load address, the core loader's rule -- not at
 # the entry of whatever was loaded before it.  The tape is syshi.cas less
