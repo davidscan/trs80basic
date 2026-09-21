@@ -130,6 +130,19 @@ case $out in
   *) fail "NEED to a full frame" "$out" ;;
 esac
 
+# --- a routine that ends by jumping to READY (JP 1A19H) ends the PROGRAM:
+# `ready=1` on the RET line.  The statement after the call must not run, the
+# write-set is still applied, and it is not an error (the 2026-09-19 audit,
+# L-44: the call was taken for an ordinary return and the program went on).
+# Entry 7002 on purpose: its RET is followed by a write-set, and the field has
+# to be read before those W lines replace the RET line.
+printf '10 DEFUSR=&H7002:X=USR(30000):PRINT "SAME LINE"\n20 PRINT "AFTER"\n' > "$tmp"
+out=$(printf '\nLOAD "%s"\nRUN\nPRINT "B=";PEEK(30001)\n' "$tmp" | TRS80_DUMB=1 TRS80_Z80="$stub" Z80_STUB_READY=1 "$here/basic" 2>&1)
+case $out in *"SAME LINE"*|*AFTER*) fail "ready=1: the program ran on past the call" "$out" ;; esac
+case $out in *"B= 66"*) ;; *) fail "ready=1: the write-set was not applied" "$out" ;; esac
+out=$(TRS80_Z80="$stub" "$here/basic" "$tmp" 2>&1 </dev/null)
+case $out in *AFTER*) ;; *) fail "a plain RET: the program did not run on" "$out" ;; esac
+
 # --- building the frame never reads the keyboard: a byte POKEd at 3800-38FFH
 # sits in MEM[], and reading that address back for the frame took a line of
 # stdin (at a terminal, a keystroke) away from the program.  The core asks

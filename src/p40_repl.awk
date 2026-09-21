@@ -571,9 +571,11 @@ function st_cload(   f, verify) {
 # prompts again, as the manual says; a file that is not there, or is
 # neither format, is ?FD like a bad CLOAD.  `/` calls the address through
 # the USR frame (p77): the program owns the screen and keyboard until it
-# RETurns, reaches 0A9AH, or jumps to the ROM's READY (1A19H), which the
-# core serves as "back to BASIC"; then READY, or the next statement when
-# a program issued the SYSTEM.  Without a core the
+# RETurns, reaches 0A9AH, or jumps to the ROM's READY (1A19H).  After a
+# return it is READY, or the next statement when a program issued the
+# SYSTEM.  JP 1A19H is READY in both cases: the core reports it (`ready=1`,
+# PROTOCOL.md) and the program is over, as on the machine -- until the
+# 2026-09-19 audit's L-44 it was taken for a return.  Without a core the
 # call is the stub and is tallied as USR's is.  Disk BASIC's SYSTEM
 # "command" ran a DOS command: DOS is not served (ruled 2026-09-15), ?FC.
 # Why it cannot break a period program: every listing that reaches SYSTEM

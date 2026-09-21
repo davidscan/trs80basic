@@ -1932,9 +1932,11 @@ function st_cload(   f, verify) {
 # prompts again, as the manual says; a file that is not there, or is
 # neither format, is ?FD like a bad CLOAD.  `/` calls the address through
 # the USR frame (p77): the program owns the screen and keyboard until it
-# RETurns, reaches 0A9AH, or jumps to the ROM's READY (1A19H), which the
-# core serves as "back to BASIC"; then READY, or the next statement when
-# a program issued the SYSTEM.  Without a core the
+# RETurns, reaches 0A9AH, or jumps to the ROM's READY (1A19H).  After a
+# return it is READY, or the next statement when a program issued the
+# SYSTEM.  JP 1A19H is READY in both cases: the core reports it (`ready=1`,
+# PROTOCOL.md) and the program is over, as on the machine -- until the
+# 2026-09-19 audit's L-44 it was taken for a return.  Without a core the
 # call is the stub and is tallied as USR's is.  Disk BASIC's SYSTEM
 # "command" ran a DOS command: DOS is not served (ruled 2026-09-15), ?FC.
 # Why it cannot break a period program: every listing that reaches SYSTEM
@@ -4977,7 +4979,7 @@ function z80_sendframe(   i) {
 }
 
 # the message loop for one call
-function z80_run(x,   hl, res, k, brk, i, vid, early) {
+function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
     vid = 0; early = 0
     for (;;) {
         if (!z80_recv()) {
@@ -5004,6 +5006,7 @@ function z80_run(x,   hl, res, k, brk, i, vid, early) {
         if (Z80LINE ~ /^RET / && !early) {
             hl = z80_field("hl") + 0; res = z80_field("result") + 0
             brk = z80_field("break") + 0; k = z80_field("writes") + 0
+            rdy = z80_field("ready") + 0         # read now: the W lines replace Z80LINE
             for (i = 1; i <= k; i++) {
                 if (!z80_recv() || Z80LINE !~ /^W /) {
                     z80_notice("write-set cut short; the core is dead for this session, USR is the stub")
@@ -5013,6 +5016,12 @@ function z80_run(x,   hl, res, k, brk, i, vid, early) {
             }
             if (vid) sync_cursor()
             if (brk) dobreak()                    # BREAK IN n; CONT resumes the statement
+            # ready=1: the routine left through the ROM's READY entry
+            # (JP 1A19H), so the program is over -- the machine is at the
+            # prompt.  It used to carry on with the next statement, as
+            # after a RET (the 2026-09-19 audit, L-44).  Not END: READY
+            # closes no files, and there is nothing to CONT.
+            if (rdy) { HALT = 1; CONTOK = 0 }
             if (hl > 32767) hl -= 65536           # HL to result: signed 16-bit
             return res ? hl : x
         }

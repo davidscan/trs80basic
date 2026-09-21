@@ -9,8 +9,11 @@
 # form is ?FC, a missing name is ?FD, a bad checksum prints C and prompts
 # again, and `/` is tallied as an unexecuted USR call.  With the real core
 # beside the checkout the RUNS are checked too: the tape writes HI on the
-# screen and RETurns, the load module ends with JP 1A19H (READY) and the
-# next statement runs, `/32000` runs what is in memory.
+# screen and RETurns, the load module ends with JP 1A19H (READY), `/32000`
+# runs what is in memory.  Inside a PROGRAM the two endings differ: after a
+# RET the next statement runs, and JP 1A19H ends the program at READY, as
+# the machine does (the 2026-09-19 audit, L-44 -- until then this suite
+# pinned the next statement running after it, too).
 #
 # The fixtures were assembled by the core's `python3 -m z80.asm`:
 #   syshi.cas   ORG 7D00H: LD HL,3C00H / LD (HL),'H' / INC HL / LD (HL),'I'
@@ -187,17 +190,27 @@ SYSTEM
 /32000
 PRINT "C";PEEK(32064)
 10 SYSTEM
-20 PRINT "D";PEEK(32320)
+20 PRINT "RANON";PEEK(32320)
 POKE 32320,0
 RUN
 programs/tests/sysrdy
+/
+PRINT "D";PEEK(32320)
+NEW
+10 SYSTEM
+20 PRINT "E";PEEK(32064)
+POKE 32064,0
+RUN
+programs/tests/syshi
 /
 EOF
 grep -q "A 72  73  7" "$tmp" || fail "the tape did not run (HI on the screen, 7 in RAM)" "$(cat "$tmp"; cat "$tmp.err")"
 grep -q "B 9" "$tmp" || fail "the load module did not run to JP 1A19H" "$(cat "$tmp"; cat "$tmp.err")"
 # (RAM, not the screen: by now the READY prompts have scrolled the top line)
 grep -q "C 7" "$tmp" || fail "/32000 did not run what was in memory" "$(cat "$tmp"; cat "$tmp.err")"
-grep -q "D 9" "$tmp" || fail "a program's SYSTEM did not go on to its next statement" "$(cat "$tmp"; cat "$tmp.err")"
+grep -q "D 9" "$tmp" || fail "a program's SYSTEM did not run the load module" "$(cat "$tmp"; cat "$tmp.err")"
+if grep -q "^RANON" "$tmp"; then fail "JP 1A19H inside a program did not end it at READY" "$(cat "$tmp"; cat "$tmp.err")"; fi
+grep -q "E 7" "$tmp" || fail "after a RET, a program's SYSTEM did not go on to its next statement" "$(cat "$tmp"; cat "$tmp.err")"
 grep -q "USR STUB" "$tmp.err" && fail "the core was not used" "$(cat "$tmp.err")"
 TRS80_Z80="$core" run <<EOF
 

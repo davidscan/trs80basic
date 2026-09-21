@@ -1209,8 +1209,10 @@ SYSTEM   the Level II monitor: load an object file and run it
   with no entry record: where its first block loaded), or /nnnnn to run
   at decimal address nnnnn.  The program owns the screen
   and keyboard until it returns, reaches 0A9AH, or jumps to the ROM's
-  READY entry (1A19H); then READY, or the next statement when a program
-  issued the SYSTEM.  BREAK at the prompt returns to BASIC.
+  READY entry (1A19H).  After a return it is READY, or the next statement
+  when a program issued the SYSTEM; a jump to 1A19H is READY either way
+  and ends the program, as it does for a USR routine.  BREAK at the
+  prompt returns to BASIC.
   A checksum error prints C and prompts again, as the manual says; a
   name that is not a file, or not one of the two formats, is ?FD.
   Needs the Z80 core (see: man USR); without it the run is the stub and

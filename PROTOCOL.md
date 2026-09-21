@@ -159,6 +159,12 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
 *   `cycles` is the total T-states for the call (diagnostic).
 *   `break=1` means the call was cut short by BREAK; the interpreter
     reports `BREAK` at the current line after applying the write-set.
+*   `ready=1`, present only when it applies, means the routine ended by
+    jumping to the ROM's READY entry, 1A19H, instead of returning: it
+    handed the machine back to the prompt, so after applying the
+    write-set the interpreter ends the program there, as the machine
+    would, and does not run the statement after the call.  A `RET`
+    without the field is an ordinary return.
 *   `writes` counts the `W` lines that follow: every address the routine
     stored to, LAST WRITE WINS per address, ascending, the video range
     omitted (already sent as `V`).  The interpreter applies them in order

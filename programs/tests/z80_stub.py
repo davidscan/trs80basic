@@ -33,6 +33,9 @@ dies BETWEEN calls, which the interpreter meets on its next write.
 Z80_STUB_DIE_ON_CALL=<n> makes it exit when it has READ its n-th CALL frame,
 without answering: the interpreter's write succeeds and its read meets the
 end of file (the order a Linux pipe usually gives the case above).
+Z80_STUB_READY=1 ends every call with `ready=1` on its RET line: the
+routine jumped to the ROM's READY entry (1A19H) instead of returning, and
+the BASIC program that called it is over (the 2026-09-19 audit, L-44).
 Z80_STUB_ALWAYS_NEED=1 answers EVERY frame with NEED full, a full one
 included.  That is a protocol violation -- NEED means "I did not see frame
 gen-1", and a full frame IS gen 1 -- and it used to spin the interpreter
@@ -46,6 +49,7 @@ PROTO = os.environ.get("Z80_STUB_PROTO", "1")
 DIE_AFTER = int(os.environ.get("Z80_STUB_DIE_AFTER", "0"))
 DIE_ON_CALL = int(os.environ.get("Z80_STUB_DIE_ON_CALL", "0"))
 ALWAYS_NEED = os.environ.get("Z80_STUB_ALWAYS_NEED", "") not in ("", "0")
+READY = os.environ.get("Z80_STUB_READY", "") not in ("", "0")
 rets = 0
 calls = 0
 mem = {}
@@ -76,8 +80,9 @@ def apply_run(run):
 
 
 def ret(hl=0, result=0, cycles=100, brk=0, writes=()):
-    send("RET hl=%d result=%d cycles=%d break=%d writes=%d"
-         % (hl & 0xFFFF, result, cycles, brk, len(writes)))
+    send("RET hl=%d result=%d cycles=%d break=%d writes=%d%s"
+         % (hl & 0xFFFF, result, cycles, brk, len(writes),
+            " ready=1" if READY else ""))
     for w in writes:
         send("W " + w)
     global rets

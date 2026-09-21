@@ -66,5 +66,18 @@ err=$(cat "$tmp.err")
 $err"
 [ "$out" = "Z80 CORE FIXTURE OK" ] || fail "output" "$out"
 [ -z "$err" ] || fail "stderr" "$err"
+
+# A routine that ends with JP 1A19H hands the machine to READY: the program
+# is over, and the statement after the call does not run (the 2026-09-19
+# audit, L-44).  The byte it stored first still arrives.  Line 40 only runs
+# through the prompt, after the program has ended.
+cat > "$tmp" <<'EOF2'
+10 FOR I=0 TO 7:READ B:POKE 32000+I,B:NEXT
+20 DATA 62,9,50,64,125,195,25,26
+30 DEFUSR=32000:X=USR(0):PRINT "RAN ON"
+EOF2
+out=$(printf '\nLOAD "%s"\nRUN\nPRINT "B=";PEEK(32064)\n' "$tmp" | TRS80_DUMB=1 TRS80_Z80="$core" "$here/basic" 2>&1)
+case $out in *"RAN ON"*) fail "JP 1A19H: the program ran on past the call" "$out" ;; esac
+case $out in *"B= 9"*) ;; *) fail "JP 1A19H: the store before it was lost" "$out" ;; esac
 rm -f "$tmp" "$tmp.err"
 echo "Z80 CORE FIXTURE OK"
