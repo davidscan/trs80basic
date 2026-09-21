@@ -64,7 +64,12 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt) {
         v = e_or(); if (E) return
         if (!isN(v)) { raise(13); return }
         rlen = bfloor(num(v))
-        if (rlen < 1 || rlen > 256) { raise(5); return }
+        # Disk manual, OPEN: "record-length is a numeric expression from 0
+        # to 256 specifying the logical record length.  0 is the same as
+        # 256."  (TRSDOS keeps the LRL in one byte, +9 of the DCB, and
+        # moves the whole 256-byte physical record when it is zero.)
+        if (rlen < 0 || rlen > 256) { raise(5); return }
+        if (rlen == 0) rlen = 256
     }
     if (fio_isopen(n)) { raise(26); return }
     for (i = 1; i <= 15; i++)

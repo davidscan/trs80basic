@@ -127,5 +127,26 @@ want='[HELLO]
 [WORLD]
 [WORLD]'
 [ "$out" = "$want" ] || fail "an assignment detaches a FIELD variable" "$out"
+
+# Disk manual, OPEN: "record-length is a numeric expression from 0 to 256
+# ...  0 is the same as 256."  Zero used to be ?FC.  A length past 256, and
+# a negative one, still are.
+printf 'AB\n' > "$dir/ZERO.TXT"
+cat > "$dir/z.bas" <<'BAS'
+10 ON ERROR GOTO 100
+20 OPEN "R",1,"ZERO.TXT",0:FIELD 1,256 AS A$
+30 GET 1,1:PRINT "LEN=";LEN(A$);"[";LEFT$(A$,2);"]":CLOSE
+40 S=1:OPEN "R",2,"ZERO.TXT",257
+50 IF S<>2 THEN PRINT "257 WAS NOT ?FC"
+60 S=3:OPEN "R",2,"ZERO.TXT",-1
+70 IF S<>4 THEN PRINT "-1 WAS NOT ?FC"
+80 END
+100 IF ERR/2+1=5 THEN S=S+1:RESUME NEXT
+110 PRINT "UNEXPECTED ERROR";ERR/2+1;"IN";ERL:RESUME NEXT
+BAS
+out=$(cd "$dir" && TRS80_Z80= "$here/basic" z.bas 2>&1)
+want='LEN= 256 [AB]'
+[ "$out" = "$want" ] || fail "a record length of 0 is 256" "$out"
+
 rm -rf "$dir"
 echo "RANDFILE OK"

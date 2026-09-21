@@ -1548,8 +1548,10 @@ OPEN mode$, [#]n, name$ [,reclen]   open a file on channel n (1-15)
     "R"  random   -- fixed-length records, read and written by number
   "O" destroys the old contents the moment the file opens, so use "E"
   when adding to a log and "I" when only reading.
-  name$ is a host file path.  reclen applies to "R" only (1-256,
+  name$ is a host file path.  reclen applies to "R" only (0-256,
   default 256) and must match what the file was written with.
+  A reclen of 0 means 256, as it does on the machine, where the logical
+  record length is one byte of the file's control block.
   Only FILES are opened.  A name that is not one to the host -- "-",
   anything under /dev/, or gawk's network names /inet/..., /inet4/...,
   /inet6/... -- is ?FD, here and in LOAD, RUN "f", MERGE, CLOAD, SAVE,
