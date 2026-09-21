@@ -73,5 +73,37 @@ out=$(cd "$dir" && TMPDIR="$dir/nowhere" TRS80_Z80= TRS80_OLLAMA_CURL="sh $dir/s
 want='ERROR 22 IN 30
 SURVIVED'
 [ "$out" = "$want" ] || fail "a temp directory that cannot be written is an error, not a fatal" "$out"
+# The JSON string decoder: \b and \f are the backspace and form feed, not
+# the letters "b" and "f", and a SURROGATE PAIR is one code point -- the
+# pair D83D DE00 is U+1F600, four UTF-8 bytes, not two 3-byte halves
+# (CESU-8, which no reader accepts).  Both were wrong (the 2026-09-19
+# audit, L-36).  An UNPAIRED surrogate is still encoded as it stands;
+# strictly it should become U+FFFD, but that is beyond the finding.
+#
+# The stub emits its JSON with cat and a QUOTED heredoc, not printf:
+# macOS's printf interprets \uHHHH even in a %s argument, so a printf stub
+# would hand over the emoji as raw UTF-8 and never reach the decoder.
+cat > "$dir/esc.sh" <<'STUBEOF'
+#!/bin/sh
+# B is one backslash, built rather than written: every layer between here
+# and the file (printf, the editor, the heredoc) has its own opinion about
+# a literal backslash-u, and this way none of them gets to have one.
+B=$(printf '%s' '\')
+Q='"'
+cat <<JEOF
+{"message":{"role":"assistant","content":"A${B}bB${B}fC|${B}u00E9|${B}uD83D${B}uDE00|${B}uD83D|${B}${B}|${B}/|${B}${Q}q${B}${Q}"},"done":true}
+JEOF
+STUBEOF
+cat > "$dir/e.bas" <<'BAS'
+10 OPEN "O",1,"OLLAMA:stub"
+20 PRINT#1,"Q":LINE INPUT#1,A$
+30 FOR I=1 TO LEN(A$):PRINT ASC(MID$(A$,I,1)):NEXT:CLOSE
+BAS
+out=$(cd "$dir" && TRS80_Z80= TRS80_OLLAMA_CURL="sh $dir/esc.sh" \
+      "$here/basic" e.bas 2>&1 | tr -d ' ' | tr '\n' ',')
+#  A  \b  B  \f  C  |  U+00E9   |  U+1F600            |  lone D83D    |  \  |  /  |  "  q  "
+want='65,8,66,12,67,124,195,169,124,240,159,152,128,124,237,160,189,124,92,124,47,124,34,113,34,'
+[ "$out" = "$want" ] || fail "the JSON escapes b, f and a surrogate pair" "$out"
+
 rm -rf "$dir"
 echo "OLLAMA OK"

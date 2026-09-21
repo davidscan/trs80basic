@@ -6809,7 +6809,7 @@ function ai_jesc(s,   out, i, n, c, o) {
     return out
 }
 
-function ai_junesc(s,   out, i, n, c, e) {
+function ai_junesc(s,   out, i, n, c, e, u, v) {
     out = ""; i = 1; n = length(s)
     while (i <= n) {
         c = substr(s, i, 1)
@@ -6818,8 +6818,22 @@ function ai_junesc(s,   out, i, n, c, e) {
         if (e == "n") out = out "\n"
         else if (e == "t") out = out "\t"
         else if (e == "r") out = out "\r"
+        else if (e == "b") out = out CHR[8]     # the two JSON escapes that
+        else if (e == "f") out = out CHR[12]    # arrived as "b" and "f"
         else if (e == "u" && i + 5 <= n) {
-            out = out utf8(strtonum("0x" substr(s, i + 2, 4)))   # bytes (p10)
+            u = strtonum("0x" substr(s, i + 2, 4))
+            # A SURROGATE PAIR IS ONE CODE POINT.  \uD83D\uDE00 is U+1F600;
+            # encoding each half on its own gives CESU-8, a pair of 3-byte
+            # sequences no reader accepts (the 2026-09-19 audit, L-36).
+            if (u >= 0xD800 && u <= 0xDBFF && substr(s, i + 6, 2) == "\\u" && i + 11 <= n) {
+                v = strtonum("0x" substr(s, i + 8, 4))
+                if (v >= 0xDC00 && v <= 0xDFFF) {
+                    out = out utf8(0x10000 + (u - 0xD800) * 0x400 + (v - 0xDC00))
+                    i += 12
+                    continue
+                }
+            }
+            out = out utf8(u)                   # bytes (p10)
             i += 6
             continue
         }
