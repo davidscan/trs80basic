@@ -148,5 +148,33 @@ out=$(cd "$dir" && TRS80_Z80= "$here/basic" z.bas 2>&1)
 want='LEN= 256 [AB]'
 [ "$out" = "$want" ] || fail "a record length of 0 is 256" "$out"
 
+# the file error codes the man pages name are the ones the code raises.
+# They did not match: `man OPEN` and `man KILL` said ?FO where both raise
+# ?AO, `man KILL` said "?FE", which is not an error code at all, where it
+# raises ?FF, and `man RESUME`'s example compared ERR/2+1 against 53 -- a
+# Disk BASIC number (the manual's own table runs 51-70), not one of ours
+# (the 2026-09-19 audit, L-38).  `man ERR` now lists all 31.
+printf 'AAAA\n' > "$dir/C.TXT"
+cat > "$dir/e.bas" <<'BAS'
+10 ON ERROR GOTO 900
+20 OPEN "O",1,"OUT.TXT"
+30 S=1:OPEN "O",1,"OUT2.TXT"
+40 IF S<>26 THEN PRINT "REOPEN BUSY CHANNEL=";S
+50 S=1:KILL "OUT.TXT"
+60 IF S<>26 THEN PRINT "KILL AN OPEN FILE=";S
+70 CLOSE:S=1:KILL "NOSUCH.TXT"
+80 IF S<>29 THEN PRINT "KILL A MISSING FILE=";S
+90 OPEN "R",2,"C.TXT",4:S=1:FIELD 2,9 AS Z$
+100 IF S<>31 THEN PRINT "FIELD PAST THE RECORD=";S
+110 CLOSE:S=1:X=LOC(9)
+120 IF S<>25 THEN PRINT "A CHANNEL NOT OPEN=";S
+130 S=1:X=LOC(99)
+140 IF S<>24 THEN PRINT "A CHANNEL OUT OF RANGE=";S
+150 PRINT "CODES OK":END
+900 S=ERR/2+1:RESUME NEXT
+BAS
+out=$(cd "$dir" && TRS80_Z80= "$here/basic" e.bas 2>&1)
+[ "$out" = "CODES OK" ] || fail "the file error codes the docs name" "$out"
+
 rm -rf "$dir"
 echo "RANDFILE OK"

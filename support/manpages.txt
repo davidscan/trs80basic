@@ -651,7 +651,8 @@ RESUME [0 | NEXT | n]   carry on after an ON ERROR handler
   the safe default.
   RESUME outside a handler raises ?RW ERROR.
   Example: RESUME NEXT
-  Example: 900 IF ERR/2+1=53 THEN PRINT "NO FILE": RESUME 100
+  Example: 900 IF ERR/2+1=29 THEN PRINT "NO FILE": RESUME 100
+           (29 is ?FF, file not found -- see: man ERR for the codes)
 
 :DEFINT DEFSNG DEFDBL DEFSTR
 DEFINT a[-z]   declare that variables starting with those letters are
@@ -686,7 +687,7 @@ OPEN mode$, [#]n, name$ [,reclen]   open a file on channel n (1-15)
   /inet6/... -- is ?FD, here and in LOAD, RUN "f", MERGE, CLOAD, SAVE,
   SYSTEM and KILL: a listing cannot open a socket or load a program from
   one.
-  A channel stays busy until CLOSE; re-opening a busy channel is ?FO.
+  A channel stays busy until CLOSE; re-opening a busy channel is ?AO.
   A name starting with OLLAMA opens an AI link (see: man OLLAMA).
   Example: OPEN "O",1,"DATA.TXT"
   Example: OPEN "R",2,"REC.DAT",32
@@ -719,9 +720,9 @@ CLOSE [[#]n, ...]   close channels; with no arguments, closes them all
 
 :KILL
 KILL name$   delete a file from the host disk
-  The file must not be open -- CLOSE it first, or ?FO.  There is no
+  The file must not be open -- CLOSE it first, or ?AO.  There is no
   confirmation and no recovery.
-  Deleting a file that does not exist raises ?FE (file not found), so
+  Deleting a file that does not exist raises ?FF (file not found), so
   guard it when the file may legitimately be absent.
   A delete the host refuses -- a file in a directory you cannot write --
   is ?FD, and the file stays where it was.
@@ -1255,6 +1256,27 @@ ERR   the last error's code, held as (code-1)*2
   ERR/2+1: a division by zero (code 11) leaves ERR as 20.
   Test it inside an ON ERROR handler to tell one failure from another,
   and always convert before comparing.
+  The codes, 1-23 as the Level II manual's appendix B lists them:
+     1 NF NEXT without FOR      13 TM Type mismatch
+     2 SN Syntax error          14 OS Out of string space
+     3 RG RETURN without GOSUB  15 LS String too long
+     4 OD Out of data           16 ST String formula too complex
+     5 FC Illegal function call 17 CN Can't continue
+     6 OV Overflow              18 NR No RESUME
+     7 OM Out of memory         19 RW RESUME without error
+     8 UL Undefined line        20 UE Unprintable error
+     9 BS Subscript out of range 21 MO Missing operand
+    10 DD Redimensioned array   22 FD Bad file data
+    11 /0 Division by zero      23 L3 Disk BASIC only
+    12 ID Illegal direct
+  and the file codes, which continue the table here:
+    24 BN Bad file number       28 BM Bad file mode
+    25 NO File not open         29 FF File not found
+    26 AO File already open     30 BR Bad record number
+    27 IE Input past end        31 FO Field overflow
+  (Disk BASIC itself numbers those 51-70 on the machine.  These follow
+  the ROM's table instead, so a listing that compares ERR against a disk
+  number from the Disk manual will not match.)
   Example: PRINT ERR/2+1
   Example: IF ERR/2+1=11 THEN PRINT "DIVIDE BY ZERO": RESUME NEXT
 
