@@ -2106,7 +2106,9 @@ CHR$(n)   the one-character string whose character code is n
     22   select the special / Katakana character set
     23   switch to 32 characters per line (CLS or 28 returns to 64)
     24-31  cursor movement and erase functions; 28, home, also returns
-         to 64 characters per line
+         to 64 characters per line.  The arrows never leave the screen
+         and never scroll it: 24 (left) and 25 (right) wrap inside their
+         own line, 26 (down) and 27 (up) wrap bottom to top and back
   Codes 128-191 are the block graphics characters, which is how period
   programs draw without SET.
   Example: PRINT CHR$(65)                  -> A

@@ -330,11 +330,31 @@ function s_putc(b,   n, r) {
     # LEVEL II: 23 shifts to 32 characters per line (CLS returns to 64):
     # the ROM sets bit 3 of its 403DH image (WIDE follows, p80) and writes
     # the latch
-    if (b == 23) { poke_byte(16445, or(MEM[16445], 8)); s_setwide(1); return }
-    if (b == 24) { if (CUR > 0) CUR--; return }
-    if (b == 25) { if (CUR < 1023) CUR++; return }
-    if (b == 26) { if (CUR < 960) CUR += 64; else { s_scroll(); } return }
-    if (b == 27) { if (CUR >= 64) CUR -= 64; return }
+    # ... and then steps the cursor on one byte and makes it EVEN (0500-
+    # 0504: INC HL, AND 0FEH), so on an odd byte it moves up to the next
+    # cell, not back.  Every code leaves through 0480-0485, which folds the
+    # address back into 3C00-3FFFH: that is the % 1024 here and below.
+    if (b == 23) {
+        poke_byte(16445, or(MEM[16445], 8)); s_setwide(1)
+        CUR = (CUR + 1 - (CUR + 1) % 2) % 1024
+        return
+    }
+    # The four arrows NEVER LEAVE THE SCREEN AND NEVER SCROLL IT (the
+    # 2026-09-19 audit, L-1).  Left and right stay in their line: 04E2-04EB
+    # steps back and, from column 0, adds 64 -- the end of the SAME line;
+    # 04EC-04F5 steps on and, having reached the next line, takes 64 off.
+    # Left runs twice in 32-column mode (04DA-04DF tests bit 3 of 403DH);
+    # right does not.  Down and up add and subtract 64 (04E7, 04F1) and the
+    # fold at 0480 wraps them bottom to top and top to bottom.  Here left
+    # and right stopped at the ends of the SCREEN and crossed line ends, up
+    # stopped at the top, and down SCROLLED from the last line.
+    if (b == 24) {
+        for (n = (WIDE ? 2 : 1); n > 0; n--) CUR = (CUR % 64 == 0) ? CUR + 63 : CUR - 1
+        return
+    }
+    if (b == 25) { CUR++; if (CUR % 64 == 0) CUR -= 64; return }
+    if (b == 26) { CUR = (CUR + 64) % 1024; return }
+    if (b == 27) { CUR = (CUR + 960) % 1024; return }
     # home also returns to 64 characters per line, as CLS does (CLS is 28
     # then 31): the ROM clears bit 3 of 403DH and writes the latch (04C0-04CD)
     if (b == 28) { CUR = 0; poke_byte(16445, and(MEM[16445], 247)); s_setwide(0); return }
