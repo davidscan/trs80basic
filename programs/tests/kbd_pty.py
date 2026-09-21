@@ -351,15 +351,19 @@ def main():
     b.send('NEW\r10 FOR I=1 TO 200000:PRINT I;:NEXT\rRUN\r', 0.3)
     b.drain(0.05, 0.3)
     b.send(b'\x13', 0.1)
-    paused = b.drain(0.6, 2)
+    b.drain(0.6, 2)                                # whatever was in flight
+    # ... and now NOTHING more may arrive.  This used to read
+    # `paused.endswith(' ') or paused.endswith('\r\n') or len(paused) > 0`
+    # on that first drain, which any printing at all satisfies -- the check
+    # could not fail (the 2026-09-19 audit, L-11).  3b below had it right.
+    paused = b.drain(0.4, 0.6)
     b.send(b'x', 0.1)
     resumed = b.drain(0.05, 0.5)
     b.send(b'\x03', 0.5)
     after = b.drain(0.5, 3)
+    check(paused == '', 'Ctrl-S stops the output', paused)
     check(len(resumed) > 0, 'a key resumes after Ctrl-S', resumed)
     check('BREAK IN 10' in after, 'Ctrl-C breaks the printing loop', after)
-    check(paused.endswith(' ') or paused.endswith('\r\n') or len(paused) > 0,
-          'Ctrl-S paused the output (something printed before the pause)', paused)
 
     # 3b. a key the program never reads must not switch BREAK off: the poll
     # reads the tty every time, not only when its queue is empty
