@@ -601,7 +601,11 @@ PRINT [items]   display values on the screen
 PRINT [#n,] USING f$; items   format items through picture f$
   numeric fields: # digit  . decimal  , grouping  ** fill  $$ dollar
     **$ both  leading + / trailing + or - sign  ^^^^ exponent
-    too-wide numbers print as %number
+    too-wide numbers print as % and the number AS THE FIELD FORMATS
+    IT: ##.## of 123.456 is %123.46.  A lone 0 before the point gives
+    way first: #.## of -.5 is -.50
+    ^^^^ keeps one position for the sign unless the field has a leading
+    + or a trailing + or -: ##.##^^^^ of 234.56 is " 2.35E+02"
   string fields: ! first char   %spaces% n+2 chars
   other chars print literally; picture repeats while items remain
   USING need not lead the item list: it may follow anything PRINT

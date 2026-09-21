@@ -346,7 +346,9 @@ function pu_scan(fmt, i,   j, c, got) {
         if (PU_DP > 0) got = 1
     }
     if (!got) return 0
-    if (substr(fmt, j, 4) == "^^^^") { PU_EXP = 1; j += 4 }
+    # the machine's up-arrow is 5BH, which a period listing shows as "["
+    # (the ROM compares with 5BH, 2D81H); a terminal types "^"
+    if (substr(fmt, j, 4) == "^^^^" || substr(fmt, j, 4) == "[[[[") { PU_EXP = 1; j += 4 }
     c = substr(fmt, j, 1)
     if (c == "-" || c == "+") { PU_TS = c; j++ }
     return j - i
@@ -355,53 +357,81 @@ function pu_scan(fmt, i,   j, c, got) {
 # format one numeric value into the field pu_scan just described.
 # Digits come from an integer-scaled half-up round (the ROM rounds .5 up;
 # C's printf rounds it to even), built back into int/decimal parts.
-function pu_num(v,   x, ax, neg, digs, e2, es, ds, ist, dec, lead, core, w, fill, g, p, lim) {
+#
+# The ROM formats the number into its buffer FIRST -- the field's decimals,
+# its rounding, commas, $ and sign all in place -- and only then looks for
+# the start of the field (10CA-1108).  What it finds in front of the field:
+#   * a lone 0 before the point: dropped, the rest moves up (10EF-10FF).
+#     #.## of -.5 is -.50, never an overflow
+#   * anything else: a % goes in front of the FORMATTED number.  ##.## of
+#     123.456 is %123.46 (not the plain %123.456), and a trailing sign
+#     still follows
+#   * only a value of 1E16 or more is handed to the plain formatter behind
+#     its % (1110-1123)
+# The exponent form (11AA-11FE) keeps ONE position for the sign unless the
+# field says where the sign goes (a leading +, which is that position, or
+# a trailing + or -): ##.##^^^^ of 234.56 is " 2.35E+02", one digit before
+# the point, not two.  With no # before the point and no sign position the
+# kept place falls BEHIND the point: .####^^^^ of 1234.5 is .0123E+05.
+# The 0 the ROM writes before a bare point (1022-1023) shows when the field
+# has room: #.##^^^^ of 123 is 0.12E+03, of -123 is -.12E+03.
+# Microsoft's own examples for this code agree: " 2.35E+02",
+# ".8889E+06 " for .####^^^^- and "+.12E+03" for +.##^^^^.
+function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, core, w, fill, g, p) {
     if (!isN(v)) { raise(13); return "" }
     x = num(v)
     neg = (x < 0)
     ax = neg ? -x : x
     lead = PU_PLUS ? (neg ? "-" : "+") : ((neg && PU_TS == "") ? "-" : "")
+    w = PU_IP + (PU_PLUS ? 1 : 0) + (PU_DOT ? 1 + PU_DP : 0)
+    fill = " "
     if (PU_EXP) {
-        # significant digits fill every integer position (exponent adjusted);
-        # the sign, when shown on the left, takes one of them
-        digs = PU_IP - (lead != "" && !PU_PLUS ? 1 : 0)
-        if (digs < 1) return pu_ovf(x)
-        if (ax == 0) { e2 = 0; ds = "0" }
+        w += 4
+        id = PU_IP - ((PU_PLUS || PU_TS != "") ? 0 : 1)    # digits before the point
+        nd = id + PU_DP                                     # significant digits
+        if (nd < 1) return pu_ovf(x)
+        if (ax == 0) { k = id; p = 0 }
         else {
-            e2 = bfloor(log(ax) / log(10)) + 1 - digs
-            lim = 10 ^ (digs + PU_DP)
-            p = int(ax / (10 ^ e2) * (10 ^ PU_DP) + 0.5)
-            if (p >= lim) { e2++; p = int(ax / (10 ^ e2) * (10 ^ PU_DP) + 0.5) }
-            else if (p < lim / 10) { e2--; p = int(ax / (10 ^ e2) * (10 ^ PU_DP) + 0.5) }
-            ds = sprintf("%.0f", p)
+            k = bfloor(log(ax) / log(10)) + 1               # digits in the integer part
+            p = int(ax / (10 ^ (k - nd)) + 0.5)
+            if (p >= 10 ^ nd) { k++; p = int(ax / (10 ^ (k - nd)) + 0.5) }
+            else if (p < 10 ^ (nd - 1)) { k--; p = int(ax / (10 ^ (k - nd)) + 0.5) }
         }
-        while (length(ds) < PU_DP + 1) ds = "0" ds
-        ist = substr(ds, 1, length(ds) - PU_DP)
-        dec = substr(ds, length(ds) - PU_DP + 1)
+        ds = sprintf("%.0f", p)
+        while (length(ds) < nd) ds = "0" ds
+        if (id < 0) { ist = ""; dec = "0" ds }              # the sign's place, behind the point
+        else { ist = substr(ds, 1, id); dec = substr(ds, id + 1) }
+        e2 = k - id
         es = sprintf("E%s%02d", (e2 < 0 ? "-" : "+"), (e2 < 0 ? -e2 : e2))
-        core = lead ist (PU_DOT ? "." dec : "") es
-        w = PU_IP + (PU_PLUS ? 1 : 0) + (PU_DOT ? 1 + PU_DP : 0) + 4
-        while (length(core) < w) core = " " core
+        body = (PU_DOT ? "." dec : "") es
+        if (ist == "" && length(lead "0" body) <= w) ist = "0"
+        core = lead ist body
     } else {
+        if (ax >= 1e16) return pu_ovf(x) pu_tsign(neg)
         ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
         while (length(ds) < PU_DP + 1) ds = "0" ds
         ist = substr(ds, 1, length(ds) - PU_DP)
         dec = substr(ds, length(ds) - PU_DP + 1)
-        if (ist == "0" && PU_IP == 0) ist = ""      # ".##" style field
         if (PU_COMMA) {
             g = ""; p = length(ist)
             while (p > 3) { g = "," substr(ist, p - 2, 3) g; p -= 3 }
             ist = substr(ist, 1, p) g
         }
-        core = lead (PU_DOL ? "$" : "") ist (PU_DOT ? "." dec : "")
-        w = PU_IP + (PU_PLUS ? 1 : 0) + (PU_DOT ? 1 + PU_DP : 0)
-        if (length(core) > w) return pu_ovf(x)
-        fill = PU_AST ? "*" : " "
-        while (length(core) < w) core = fill core
+        body = (PU_DOT ? "." dec : "")
+        core = lead (PU_DOL ? "$" : "") ist body
+        if (length(core) > w && ist == "0" && PU_DP > 0)    # the lone 0 gives way
+            core = lead (PU_DOL ? "$" : "") body
+        if (PU_AST) fill = "*"
     }
-    if (PU_TS == "-") core = core (neg ? "-" : " ")
-    else if (PU_TS == "+") core = core (neg ? "-" : "+")
-    return core
+    if (length(core) > w) core = "%" core
+    while (length(core) < w) core = fill core
+    return core pu_tsign(neg)
+}
+
+function pu_tsign(neg) {
+    if (PU_TS == "-") return neg ? "-" : " "
+    if (PU_TS == "+") return neg ? "-" : "+"
+    return ""
 }
 
 # format one string value into a w-char field (truncate / pad right)
