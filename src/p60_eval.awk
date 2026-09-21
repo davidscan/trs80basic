@@ -321,11 +321,16 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         # is past the top of a single.  So the ceiling is 126*ln 2 =
         # 87.3365 -- the value itself is only 8.5E+37 there, half of what
         # a single holds, and EXP(88) IS ?OV on the machine (the audit's
-        # L-24 read the ceiling off the float range instead).  The floor is
-        # -128*ln 2 = -88.7228, where a result too small to matter is ?OV
-        # on the machine rather than 0.
+        # L-24 read the ceiling off the float range instead).  Both exits
+        # go to 0931H, which TESTS THE SIGN first (0931-093B: CALL 0955H,
+        # CPL, OR A, JP P,0778H) -- a negative argument leaves through
+        # 0778H with a result of zero, and only a positive one reaches the
+        # ?OV at 07B2H.  So below -128*ln 2 = -88.7228 the answer is a
+        # quiet 0.  (The L-24 fix made it ?OV for a day: it followed 144A
+        # to 0931H and did not read what 0931H does.)
         r = x / 0.6931471805599453
-        if (bfloor(r) >= 126 || r <= -128) { raise(6); return "N0" }
+        if (r <= -128) return "N0"
+        if (bfloor(r) >= 126) { raise(6); return "N0" }
         return "N" exp(x)
     }
     if (name == "RND") {

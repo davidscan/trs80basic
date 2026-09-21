@@ -923,8 +923,8 @@ EXP(x)   e raised to the power x -- the inverse of LOG
   The range is the ROM's, and it is narrower than the number format:
   x of 87.3365 or more is ?OV, though the answer there is only 8.5E+37,
   half of what a number can hold -- the routine scales its result by a
-  power of two and runs out of exponent first.  x of -88.7228 or less is
-  ?OV as well, not a quiet 0.
+  power of two and runs out of exponent first.  x of -88.7228 or less
+  gives 0: the ROM tests the sign before it reports the overflow.
   Example: PRINT EXP(0)         ->  1
   Example: PRINT EXP(0)         ->  1
   Example: PRINT EXP(1)         ->  2.71828
