@@ -91,6 +91,31 @@ grep -q "F 33  165  85  201" "$tmp" || fail "a load module with no extension is 
 grep -q "^C$" "$tmp" && fail "a load module holding A5H 55H was read as a tape" "$(cat "$tmp")"
 [ "$(grep -c "(7F00H x1)" "$tmp.err")" -eq 2 ] || fail "the load module's entry was not taken" "$(cat "$tmp.err")"
 
+# With TRS80_USR_TRACE the trace must name the address that will RUN.
+# sys_exec resolved the USR vector first and only then assigned the entry,
+# so the line printed the 408EH vector's entry -- "undefined" here, since
+# no DEFUSR has run -- for a call going somewhere else (the 2026-09-19
+# audit, L-50).
+TRS80_Z80= TRS80_USR_TRACE=1 gawk -b -f trs80basic.awk >"$tmp" 2>"$tmp.err" <<EOF
+
+SYSTEM
+programs/tests/syshi
+/32000
+EOF
+grep -q "USR slot=0 entry=32000 arg=0" "$tmp.err" \
+    || fail "the USR trace must name the address SYSTEM runs" "$(cat "$tmp.err")"
+grep -q "entry=undefined" "$tmp.err" \
+    && fail "the USR trace still names the vector" "$(cat "$tmp.err")"
+# ... and the tape's own entry, taken by a bare `/`, is traced too
+TRS80_Z80= TRS80_USR_TRACE=1 gawk -b -f trs80basic.awk >"$tmp" 2>"$tmp.err" <<EOF
+
+SYSTEM
+programs/tests/syshi
+/
+EOF
+grep -q "USR slot=0 entry=32000 arg=0" "$tmp.err" \
+    || fail "the USR trace for a bare /" "$(cat "$tmp.err")"
+
 # A load module may OPEN with a 10H or 1AH record -- a comment or a DOS-only
 # record.  sys_load_cmd has always accepted both mid-file, and so does the
 # core (z80/load.py load_cmd), but the format sniff in sys_load did not have

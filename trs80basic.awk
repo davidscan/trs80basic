@@ -2037,8 +2037,7 @@ function sys_load_cmd(data,   n, i, t, ln, a, j, got, first) {
 # run at addr through the USR call frame (p60 usr_resolve fills the frame's
 # globals as a USR call would; the address is the monitor's, not the vector's)
 function sys_exec(addr) {
-    usr_resolve("USR", 0)
-    USR_ENTRY = addr
+    usr_resolve("USR", 0, addr)
     z80_usr(0)
 }
 
@@ -3194,9 +3193,15 @@ function usr_entry(slot,   lo, hi) {
 # will send.  =2 also dumps the frame's memory image (p75 fr_build: full
 # the first time, deltas after).  Diagnostic only; programs/tests/usr.sh
 # asserts on both.
-function usr_resolve(name, arg) {
+# `entry`, when given, overrides the vector: SYSTEM's `/nnnnn` runs the
+# address the monitor was given, not a DEFUSR vector, and the trace has to
+# name what will actually run.  sys_exec used to resolve first and assign
+# USR_ENTRY afterwards, so the line printed the 408EH vector's entry -- or
+# "undefined" -- for a call that went somewhere else entirely (the
+# 2026-09-19 audit, L-50).
+function usr_resolve(name, arg, entry) {
     USR_SLOT = usr_slot(name); USR_ARG = arg
-    USR_ENTRY = usr_entry(USR_SLOT)
+    USR_ENTRY = (entry == "") ? usr_entry(USR_SLOT) : entry + 0
     if (USR_TRACE == "") {
         USR_TRACE = ("TRS80_USR_TRACE" in ENVIRON && ENVIRON["TRS80_USR_TRACE"] != "") ? ENVIRON["TRS80_USR_TRACE"] + 0 : 0
         USR_STRICT = (ENVIRON["TRS80_USR"] == "strict")
