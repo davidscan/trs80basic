@@ -3,6 +3,7 @@
 function repl(   line, iscmd) {
     for (;;) {
         if (EOFQUIT || QUITFLAG) return
+        s_fresh()                           # ROM 1A22H: PRINT "HI"; ends with READY on its own line
         s_puts("READY"); s_nl()
         for (;;) {
             if (AUTOREQ) {                  # POKE 16609,1: AUTO from the next prompt (p75)

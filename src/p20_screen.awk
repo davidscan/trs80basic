@@ -266,6 +266,13 @@ function s_scroll(   i) {
     redraw_all()
 }
 
+# ROM 20F9H: move to a new line unless the cursor already stands at the
+# start of one.  The ROM calls it before BREAK (1DD7H), before READY
+# (1A22H) and before an error message.
+function s_fresh() {
+    if (CUR % 64 != 0) s_nl()
+}
+
 function s_nl(   i) {
     if (VIDTOLP) { lp_nl(); return }
     # On a real tty we hold the line in `stty raw` for our own key handling,

@@ -559,6 +559,13 @@ function s_scroll(   i) {
     redraw_all()
 }
 
+# ROM 20F9H: move to a new line unless the cursor already stands at the
+# start of one.  The ROM calls it before BREAK (1DD7H), before READY
+# (1A22H) and before an error message.
+function s_fresh() {
+    if (CUR % 64 != 0) s_nl()
+}
+
 function s_nl(   i) {
     if (VIDTOLP) { lp_nl(); return }
     # On a real tty we hold the line in `stty raw` for our own key handling,
@@ -1364,6 +1371,7 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
 function repl(   line, iscmd) {
     for (;;) {
         if (EOFQUIT || QUITFLAG) return
+        s_fresh()                           # ROM 1A22H: PRINT "HI"; ends with READY on its own line
         s_puts("READY"); s_nl()
         for (;;) {
             if (AUTOREQ) {                  # POKE 16609,1: AUTO from the next prompt (p75)
@@ -3346,7 +3354,7 @@ function execloop(   ty, tx) {
 
 function dobreak() {
     if (BATCH) diag("BREAK" inln(CLN))      # not program output: stderr
-    else { s_nl(); s_puts("BREAK" inln(CLN)); s_nl() }
+    else { s_fresh(); s_puts("BREAK" inln(CLN)); s_nl() }   # ROM 1DD7H: no blank line from column 0
     CONT_K = SK; CONT_LI = SLI; CONT_P = SCP
     CONTOK = 1
     STOPPED = 1
@@ -3752,9 +3760,13 @@ function st_end() {
     HALT = 1
 }
 
+# ROM 1DD4-1DDE: a new line if the cursor is not at the start of one
+# (20F9H), then BREAK, then " IN n" unless the line is 65535 -- so a STOP
+# typed at the prompt prints a bare BREAK (until 2026-09-21: nothing).
 function st_stop() {
+    if (BATCH) diag_err("BREAK" inln(CLN))  # not program output: stderr
+    else { s_fresh(); s_puts("BREAK" inln(CLN)); s_nl() }
     if (CK != "I") {
-        diag("BREAK IN " CLN)
         CONT_K = CK; CONT_LI = CLI; CONT_P = CP
         CONTOK = 1
     }
