@@ -2876,7 +2876,18 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "LOG") { x = numarg(a1, na); if (E) return "N0"; if (x <= 0) { raise(5); return "N0" }; return "N" log(x) }
     if (name == "EXP") {
         x = numarg(a1, na); if (E) return "N0"
-        if (x > 87.3) { raise(6); return "N0" }
+        # ROM 1439-1454.  EXP works on t = x * 1/ln 2 and overflows twice
+        # over: at 144A when the exponent byte of that product has reached
+        # 88H, which is |t| >= 128; and at 1454 when INT(t) has reached
+        # 126, because the series is scaled by 2 ** (INT(t) + 1) and 2^127
+        # is past the top of a single.  So the ceiling is 126*ln 2 =
+        # 87.3365 -- the value itself is only 8.5E+37 there, half of what
+        # a single holds, and EXP(88) IS ?OV on the machine (the audit's
+        # L-24 read the ceiling off the float range instead).  The floor is
+        # -128*ln 2 = -88.7228, where a result too small to matter is ?OV
+        # on the machine rather than 0.
+        r = x / 0.6931471805599453
+        if (bfloor(r) >= 126 || r <= -128) { raise(6); return "N0" }
         return "N" exp(x)
     }
     if (name == "RND") {
