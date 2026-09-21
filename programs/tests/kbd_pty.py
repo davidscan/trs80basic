@@ -32,7 +32,10 @@ terminal emulator gives it, and checks:
 
   8. a gawk that dies without its exit path (killed here; a gawk fatal
      ends the same way) does not leave the terminal raw: the launcher
-     puts the modes back as it found them (the 2026-09-19 audit, M-31).
+     puts the modes back as it found them (the 2026-09-19 audit, M-31);
+  9. TRS80_DUMB=0 means OFF, as TRS80_EXT=0 and TRS80_KBPROTO=0 do --
+     it used to turn plain mode on, since any non-empty value counted
+     (the 2026-09-19 audit, L-6).
 
 Standard library only; run by run_all.sh when python3 is present (so CI
 exercises the tty reader on Linux, where it was not measured by hand).
@@ -254,6 +257,39 @@ def has_clock():
     return False
 
 
+def dumb_zero(check):
+    """Scenario 9: TRS80_DUMB=0 means OFF (the 2026-09-19 audit, L-6).
+
+    Any non-empty value used to count, so TRS80_DUMB=0 turned plain mode
+    ON -- the opposite of what it says.  Only a terminal can tell: DUMB
+    picks the streamed terminal output over the captive 64x16 grid, and
+    the grid is what enters the alternate screen.  TRS80_EXT and
+    TRS80_KBPROTO both read "0" as off already.
+    """
+    b = Basic([('TRS80_DUMB', '0')])
+    out = b.drain()
+    check('\x1b[?1049h' in out, 'TRS80_DUMB=0 keeps the 64x16 grid (alternate screen)', out)
+    b.send('\r')
+    b.drain()
+    b.send('fullscreen\r', 0.5)
+    out = b.drain(0.3)
+    check('FULLSCREEN OFF' in flat(CSI.sub(' ', out)),
+          'TRS80_DUMB=0 reports fullscreen OFF', out)
+    b.send('BYE\r', 0.5)
+    b.drain(0.3, 2)
+    b.close()
+
+    # ... while 1 and any other non-empty value still mean plain
+    b = Basic([('TRS80_DUMB', '1')])
+    out = b.drain()
+    check('\x1b[?1049h' not in out, 'TRS80_DUMB=1 is still plain', out)
+    b.send('\r')
+    b.drain()
+    b.send('BYE\r', 0.5)
+    b.drain(0.3, 2)
+    b.close()
+
+
 def main():
     fails = []
 
@@ -378,6 +414,9 @@ def main():
 
     # 8. the terminal comes back after a crash
     crash(check)
+
+    # 9. TRS80_DUMB=0 is off
+    dumb_zero(check)
 
     if fails:
         print('kbd_pty.py: %d check(s) failed' % len(fails))

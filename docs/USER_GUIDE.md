@@ -59,7 +59,7 @@ II):
 | variable | default | what it does |
 |---|---|---|
 | `TRS80_GFX` | Unicode sextants | `braille` or `ascii` semigraphics glyphs for fonts without the legacy block |
-| `TRS80_DUMB` | unset | `1` forces plain streamed output even on a terminal (logging, diffing) |
+| `TRS80_DUMB` | unset | `1` (or any value but `0`) forces plain streamed output even on a terminal (logging, diffing) |
 | `TRS80_MHZ` | full speed | throttle to a period clock; the `speed` metacommand does the same |
 | `TRS80_PRINTER` | unset (discard) | file that `LPRINT`/`LLIST` append to |
 | `TRS80_EXT` | `0` | `1` turns on the EXT gate (Part IV); `ext on` does the same |

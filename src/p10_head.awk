@@ -157,7 +157,10 @@ function init_tables(   i, c, m, n) {
     GLKANA[0] = utf8(0xa5)                           # C0 = Yen sign
     for (i = 1; i < 64; i++) GLKANA[i] = utf8(0xff60 + i)
     M3MODE = 0; M3KANA = 0; WIDE = 0; LATCH = 0
-    DUMB = (ENVIRON["TRS80_DUMB"] != "")
+    # "0" means off, as it does for TRS80_EXT above and TRS80_KBPROTO in
+    # p30: TRS80_DUMB=0 used to turn plain mode ON, because any non-empty
+    # value counted (the 2026-09-19 audit, L-6).  Unset and empty are both off.
+    DUMB = ("TRS80_DUMB" in ENVIRON && ENVIRON["TRS80_DUMB"] != "" && ENVIRON["TRS80_DUMB"] != "0")
     # misc state
     CUR = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
     FSN = 0; GSN = 0; CONTOK = 0; TRACE = 0

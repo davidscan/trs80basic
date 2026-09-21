@@ -151,7 +151,7 @@ Environment variables the interpreter reads:
 | variable | default | what it does | when you'd use it |
 |---|---|---|---|
 | `TRS80_GFX` | Unicode sextants | `braille` or `ascii` for the semigraphics glyphs | your terminal font lacks the "Symbols for Legacy Computing" block |
-| `TRS80_DUMB` | unset | `1` forces plain streamed output even on a terminal | logging a session, or a terminal that can't do the 64x16 grid |
+| `TRS80_DUMB` | unset | `1` (or any value but `0`) forces plain streamed output even on a terminal | logging a session, or a terminal that can't do the 64x16 grid |
 | `TRS80_MHZ` | full speed | throttle execution to a period-correct feel (also `speed` metacommand) | games that are unplayable at modern speed |
 | `TRS80_PRINTER` | unset (discard) | file that `LPRINT`/`LLIST` append to | you want the printer output |
 | `TRS80_EXT` | `0` | `1` accepts a few forms real Level II rejects (bare `INPUT`, `DIM` of a scalar) and lets a program's `REM META:speed`/`REM META:fullscreen` remarks fire; also `ext on` | running listings that use those idioms; leave off to keep strict `?SN` behavior |
