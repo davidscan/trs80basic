@@ -5569,6 +5569,7 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
                 CP = LV_P[idx]; name = TK[CK, CP]; CP++; key = ""
                 if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
                 CP = endp
+                if (IBBAD[idx] || (IBQ[idx] && !strname(name))) { ok = 0; break }
                 if (strname(name)) assignv(name, key, "S" IB[idx])
                 else {
                     # the ROM's reader takes what it can (valnum, p90);
@@ -5585,7 +5586,7 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
             s_puts("?? ")
         }
         if (ok) {
-            if (nib > nlv) { s_puts("?EXTRA IGNORED"); s_nl() }
+            if (nib > nlv || IBREST) { s_puts("?EXTRA IGNORED"); s_nl() }
             return
         }
         # ROM 2178: the message is the five bytes 3F 52 45 44 4F -- "?REDO"
@@ -5597,24 +5598,43 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
 }
 
 # parse comma-separated items (quotes respected) from line into IB[base+1..]
-function parse_items(line, base,   cnt, i, n, c, j, item) {
-    cnt = base; i = 1; n = length(line)
+# The ROM reads a typed line with READ's own item reader (21EBH stores a
+# comma in front of the buffer "to make READ think" it is in a DATA
+# statement), so a typed line ends where a DATA statement would:
+#   * an unquoted ":" ends the item AND the data (2869H stops a string at
+#     ":" or ","; RST 10H calls ":" an end of statement, 225B-225C).  What
+#     is behind it is never read: IBREST says so, and INPUT answers with
+#     ?EXTRA IGNORED, or with ?? when variables are still waiting
+#   * text between a closing quote and the comma ("AB"CD) is neither a
+#     comma nor an end: IBBAD, ?REDO when INPUT reaches the item
+#   * IBQ marks a quoted item; read into a number it is ?REDO (the reader
+#     takes nothing and is left on the quote)
+#   * the blanks skipped around an item are RST 10H's: blank, tab, line feed
+function parse_items(line, base,   cnt, i, n, c, j, item, q, bad) {
+    cnt = base; i = 1; n = length(line); IBREST = 0
     for (;;) {
-        while (i <= n && substr(line, i, 1) == " ") i++
+        q = 0; bad = 0
+        while (i <= n && substr(line, i, 1) ~ /^[ \t\n]$/) i++
         if (i <= n && substr(line, i, 1) == "\"") {
             j = index(substr(line, i + 1), "\"")
             if (j == 0) { item = substr(line, i + 1); i = n + 1 }
             else { item = substr(line, i + 1, j - 1); i = i + j + 1 }
-            while (i <= n && substr(line, i, 1) == " ") i++
+            q = 1
+            while (i <= n && substr(line, i, 1) ~ /^[ \t\n]$/) i++
+            if (i <= n && substr(line, i, 1) !~ /^[,:]$/) {
+                bad = 1
+                while (i <= n && substr(line, i, 1) !~ /^[,:]$/) i++
+            }
         } else {
             j = i
-            while (j <= n && substr(line, j, 1) != ",") j++
+            while (j <= n && substr(line, j, 1) !~ /^[,:]$/) j++
             item = substr(line, i, j - i)
             sub(/ +$/, "", item)
             i = j
         }
-        cnt++; IB[cnt] = item
+        cnt++; IB[cnt] = item; IBQ[cnt] = q; IBBAD[cnt] = bad
         if (i <= n && substr(line, i, 1) == ",") { i++; continue }
+        if (i <= n) IBREST = 1                  # stopped at a ":"
         break
     }
     return cnt

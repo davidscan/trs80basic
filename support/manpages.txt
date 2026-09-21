@@ -210,6 +210,10 @@ INPUT ["prompt";] var[,var...]   read values typed at the keyboard
   an empty answer.
   It CAN be interrupted by BREAK, and it strips leading spaces from
   numbers.  Use LINE INPUT to take a whole line, commas included.
+  A typed line ends where a DATA statement would: a colon outside quotes
+  ends the answer (12:30 is 12 and ?EXTRA IGNORED -- quote it, or use
+  LINE INPUT), text right behind a closing quote ("AB"CD) is ?REDO, and
+  so is a quoted "12" typed for a number.
   The prompt may be any string expression, not just a literal.
   A typed line holds 240 characters, as the ROM's keyboard routine does:
   the 241st key is refused (that goes for program lines and commands
