@@ -3680,8 +3680,15 @@ function st_restore(   n, i) {
 function st_error(   v, n) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    n = bfloor(num(v))
-    if (n < 1 || n > NERRC) { raise(20); return }
+    # ROM 1FF4-2005.  The code goes through the byte evaluator at 2B1CH --
+    # the same one POKE's value uses -- so anything outside 0-255 is ?FC
+    # (?OV outside the integer range, as byteconv has it since ruling 7);
+    # then 0 is ?FC at 1FF9, and a code past the table is ?UE at 2003.
+    # The ROM's table ends at 23 (2(n-1) < 45 at 1FFF); ours runs on to 31
+    # because Disk BASIC's codes are in it, and ERROR 24-31 still name them.
+    n = byteconv(num(v)); if (E) return
+    if (n == 0) { raise(5); return }
+    if (n > NERRC) { raise(20); return }
     raise(n)
 }
 

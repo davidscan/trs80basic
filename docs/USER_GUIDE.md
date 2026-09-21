@@ -1393,6 +1393,9 @@ ERROR n   raise error number n as though it had really happened
   message, so ERROR 1 reports ?NF ERROR.
   Inside a handler, ERR and ERL report the forced code and the line the
   ERROR statement was on.
+  n is a byte: 0 or anything outside 0-255 is ?FC, and outside the
+  integer range it is ?OV.  A code above the last one in the table
+  raises ?UE instead (ERROR 32 reports ?UE ERROR).
   Example: ERROR 6                (raises ?OV, overflow)
 ```
 
