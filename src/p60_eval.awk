@@ -118,14 +118,15 @@ function e_pow(   v, r, a, b, x) {
     return v
 }
 
-# right-hand side of ^: allows unary sign but not another ^ (left-assoc)
+# right-hand side of ^.  ^ itself is left-associative (2^3^2 is 64), but a
+# MINUS where the operand should be is the ROM's unary minus (2532H): it
+# evaluates what follows at precedence 7DH -- below ^ (7FH), above * and /
+# (7CH) -- and negates that.  So 2^-3^2 is 2^-(3^2), and 2^-3*2 is
+# (2^-3)*2.  e_un is that evaluation.  Until 2026-09-21 the minus bound
+# to the 3 alone and 2^-3^2 was (2^-3)^2.  A plus is only skipped (24B0H):
+# 2^+3^2 stays (2^3)^2.
 function e_powrhs(   v) {
-    if (TY[CK, CP] == "o" && TK[CK, CP] == "-") {
-        CP++
-        v = e_powrhs(); if (E) return v
-        if (!isN(v)) { raise(13); return v }
-        return "N" (-num(v))
-    }
+    if (TY[CK, CP] == "o" && TK[CK, CP] == "-") return e_un()
     if (TY[CK, CP] == "o" && TK[CK, CP] == "+") { CP++; return e_powrhs() }
     return e_prim()
 }

@@ -41,7 +41,7 @@ while [ $i -le 33 ]; do
 done
 
 # 3. the batch fixtures (the stub: a core beside the checkout must not matter)
-for b in varptr rawbytes alias inp out255 ifcomma intconv forstack pokerange mbfpoke round errcode cursor dataitem; do
+for b in varptr rawbytes alias inp out255 ifcomma intconv forstack pokerange mbfpoke round errcode cursor dataitem power; do
     TRS80_Z80= ./basic "programs/tests/$b.bas" >"$log" 2>&1 || { bad "$b.bas"; show "$b.bas"; }
 done
 lp=$(mktemp) || exit 2
