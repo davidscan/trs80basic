@@ -173,6 +173,16 @@ function z80_usr(x,   full, res) {
         if (Z80WERR) { z80_gone(); return 0 }
         res = z80_run(x)
         if (Z80STATE == "need") {                 # the core lost its RAM: once more, full
+            # ... but only once.  NEED answers "I did not see frame gen-1",
+            # and the reply to it is a full frame with gen=1 -- so a NEED to
+            # a frame that WAS full is a protocol violation, not a request.
+            # The loop took it as one and resent for ever (the 2026-09-19
+            # audit, L-47): a core stuck on NEED hung the interpreter with no
+            # message and no BREAK.  Now it ends like any other bad line.
+            if (full) {
+                z80_notice("'NEED' answered a full frame; the core is dead for this session, USR is the stub")
+                z80_close(); raise(5); return 0
+            }
             Z80STATE = "up"; fr_reset(); full = 1
             continue
         }

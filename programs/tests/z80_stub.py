@@ -33,6 +33,10 @@ dies BETWEEN calls, which the interpreter meets on its next write.
 Z80_STUB_DIE_ON_CALL=<n> makes it exit when it has READ its n-th CALL frame,
 without answering: the interpreter's write succeeds and its read meets the
 end of file (the order a Linux pipe usually gives the case above).
+Z80_STUB_ALWAYS_NEED=1 answers EVERY frame with NEED full, a full one
+included.  That is a protocol violation -- NEED means "I did not see frame
+gen-1", and a full frame IS gen 1 -- and it used to spin the interpreter
+for ever (the 2026-09-19 audit, L-47).
 """
 import os
 import sys
@@ -41,6 +45,7 @@ import time
 PROTO = os.environ.get("Z80_STUB_PROTO", "1")
 DIE_AFTER = int(os.environ.get("Z80_STUB_DIE_AFTER", "0"))
 DIE_ON_CALL = int(os.environ.get("Z80_STUB_DIE_ON_CALL", "0"))
+ALWAYS_NEED = os.environ.get("Z80_STUB_ALWAYS_NEED", "") not in ("", "0")
 rets = 0
 calls = 0
 mem = {}
@@ -114,6 +119,9 @@ def main():
             sys.exit(0)
         g = int(h["gen"])
         full = h["full"] == "1"
+        if ALWAYS_NEED:
+            send("NEED full")
+            continue
         if not full and g != gen + 1:
             send("NEED full")
             continue

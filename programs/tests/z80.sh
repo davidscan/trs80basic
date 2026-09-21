@@ -116,6 +116,20 @@ printf '10 DEFUSR=&H7003:PRINT USR(4)\n20 FOR I=1 TO 300:NEXT\n' > "$tmp"
 out=$(TRS80_Z80="$stub" Z80_STUB_DIE_AFTER=1 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = " 8 " ] || fail "BYE to a core that has exited: rc=$rc" "$out"
 
+# --- a core that answers NEED to a FULL frame is a protocol violation, not
+# a request: NEED means "I did not see frame gen-1", and a full frame IS
+# gen 1.  The retry loop took it as one and resent for ever, so a stuck
+# core hung the interpreter with no message and no way out (the 2026-09-19
+# audit, L-47).  It now ends like any other bad line.  `timeout` is the
+# check: before the fix this never returns.
+printf '10 DEFUSR=&H7000:PRINT "R=";USR(5)\n20 PRINT "AFTER"\n' > "$tmp"
+out=$(TRS80_Z80="$stub" Z80_STUB_ALWAYS_NEED=1 timeout 20 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+[ "$rc" != "124" ] || fail "a core stuck on NEED hung the interpreter" "(timed out)"
+case $out in
+  *"'NEED' answered a full frame"*"?FC ERROR IN 10"*) ;;
+  *) fail "NEED to a full frame" "$out" ;;
+esac
+
 # --- building the frame never reads the keyboard: a byte POKEd at 3800-38FFH
 # sits in MEM[], and reading that address back for the frame took a line of
 # stdin (at a terminal, a keystroke) away from the program.  The core asks
