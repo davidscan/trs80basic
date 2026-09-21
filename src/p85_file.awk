@@ -193,30 +193,42 @@ function fio_fill(n,   r, l) {
 # terminator (Disk manual, INPUT#: the image " 1.234 -33 27" read by
 # INPUT#1,A,B,C gives 1.234, -33 and 27) -- which is what lets the
 # manual's own PRINT#1,A;B;C be read back.
-function fio_next_item(n, isnum,   l, i, len, j, c, item) {
+function fio_next_item(n, isnum,   l, i, len, j, c, item, ist) {
     if (!fio_fill(n)) return 0
     l = FH_PEND[n]
     i = 1; len = length(l)
     while (i <= len && substr(l, i, 1) == " ") i++
     if (i <= len && substr(l, i, 1) == "\"") {
+        ist = i + 1                             # where this item's data starts
         j = index(substr(l, i + 1), "\"")
         if (j == 0) { item = substr(l, i + 1); i = len + 1 }
         else { item = substr(l, i + 1, j - 1); i = i + j + 1 }
         while (i <= len && substr(l, i, 1) == " ") i++
     } else if (isnum) {
+        ist = i
         j = i
         while (j <= len && (c = substr(l, j, 1)) != "," && c != " ") j++
         item = substr(l, i, j - i)
         i = j
         while (i <= len && substr(l, i, 1) == " ") i++
     } else {
+        ist = i
         j = i
         while (j <= len && substr(l, j, 1) != ",") j++
         item = substr(l, i, j - i)
         sub(/ +$/, "", item)
         i = j
     }
-    if (i <= len && substr(l, i, 1) == ",") i++
+    # Disk manual, INPUT#: EVERY one of the three terminator sets -- numeric,
+    # quoted string, unquoted string -- lists "255th data character
+    # encountered" beside the comma and the end of file.  An item longer
+    # than that was returned whole here (the 2026-09-19 audit, L-41).  The
+    # 255th character IS the terminator, so the next read resumes right
+    # after it -- no comma is consumed, because none was reached.
+    if (length(item) > 255) {
+        item = substr(item, 1, 255)
+        i = ist + 255
+    } else if (i <= len && substr(l, i, 1) == ",") i++
     if (i > len) FH_PENDHAS[n] = 0
     else FH_PEND[n] = substr(l, i)
     FIO_IT = item
@@ -267,8 +279,18 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
         if (!fio_fill(n)) { raise(27); return }
-        assignv(name, key, "S" FH_PEND[n])
-        FH_PENDHAS[n] = 0
+        # Disk manual, LINE INPUT#: it "reads everything from the first
+        # character up to: 1. an (ENTER) character ... 2. the end of file
+        # 3. the 255th data character (this 255 character is included in
+        # the string)".  There was no limit here, so a long line came back
+        # as a string longer than one can hold (the 2026-09-19 audit, L-41).
+        # What is left stays for the next read, as a terminator would leave it.
+        line = FH_PEND[n]
+        if (length(line) > 255) {
+            FH_PEND[n] = substr(line, 256)
+            line = substr(line, 1, 255)
+        } else FH_PENDHAS[n] = 0
+        assignv(name, key, "S" line)
         return
     }
     if (CK == "I") { raise(12); return }

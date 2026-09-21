@@ -55,5 +55,48 @@ EMPTY ITEM IS 0 12  0  13 .
 EOF-1 .
 LIKE VAL 34  0  5  0 ."
 [ "$out" = "$want" ] || fail "numeric items ended by blanks" "$out"
+
+# The Disk manual's terminator sets: every one of the three -- numeric,
+# quoted string, unquoted string -- lists "255th data character
+# encountered" beside the comma and the end of file, and LINE INPUT# reads
+# "up to ... the 255th data character (this 255 character is included in the
+# string)".  Neither stopped here, so a long line came back as a string
+# longer than one can hold (the 2026-09-19 audit, L-41).  The 255th
+# character IS the terminator, so what is left waits for the next read.
+python3 - "$dir" <<'PYEOF'
+import sys, os
+d = sys.argv[1]
+open(os.path.join(d, "LONG.TXT"), "w").write("A" * 300 + "\n" + "B" * 10 + "\n")
+open(os.path.join(d, "ITEM.TXT"), "w").write("X" * 300 + ",TAIL\n")
+open(os.path.join(d, "QUOT.TXT"), "w").write('"' + "Q" * 300 + '",Z\n')
+PYEOF
+cat > "$dir/len.bas" <<'BAS'
+10 OPEN "I",1,"LONG.TXT"
+20 LINE INPUT#1,A$:PRINT LEN(A$);LEFT$(A$,1);"."
+30 LINE INPUT#1,A$:PRINT LEN(A$);LEFT$(A$,1);"."
+40 LINE INPUT#1,A$:PRINT LEN(A$);LEFT$(A$,1);".":CLOSE
+50 OPEN "I",1,"ITEM.TXT"
+60 INPUT#1,B$:PRINT LEN(B$);"."
+70 INPUT#1,B$:PRINT LEN(B$);"."
+80 INPUT#1,B$:PRINT "[";B$;"]."
+90 CLOSE:OPEN "I",1,"QUOT.TXT"
+100 INPUT#1,C$:PRINT LEN(C$);LEFT$(C$,1);"."
+110 INPUT#1,C$:PRINT LEN(C$);RIGHT$(C$,1);".":CLOSE
+BAS
+out=$(cd "$dir" && TRS80_Z80= "$here/basic" len.bas 2>&1)
+# The quoted item reads back 46 the second time, not 45: after the cut the
+# remainder starts inside the string, so the next read takes it as an
+# UNQUOTED item, and the manual says a double quote met there "will be
+# included in the string" (p.127) -- the closing quote is its 46th character.
+want=' 255 A.
+ 45 A.
+ 10 B.
+ 255 .
+ 45 .
+[TAIL].
+ 255 Q.
+ 46 ".'
+[ "$out" = "$want" ] || fail "an item and a line stop at 255 characters" "$out"
+
 rm -rf "$dir"
 echo "INPUTNUM OK"
