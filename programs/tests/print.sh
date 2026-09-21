@@ -65,5 +65,29 @@ want=" 1001  1002  1003  1004  1005  1006  1007  1008  1009  1010  1011  1012  1
  1023  1024 "
 [ "$p" = "$want" ] || fail "LPRINT: a number that does not fit goes to the next line" "$p"
 
+# ROM 050E-0513: the video driver sends 0AH, 0BH, 0CH and 0DH all to the
+# carriage return at 0564H.  CHR$(11) and CHR$(12) were no-ops here (the
+# 2026-09-19 audit, L-2); a code below 0AH still is, 08H aside, and so is
+# 09H.  Each of the four also blanks the line it lands on, as H-3 has it.
+printf '10 PRINT "A";CHR$(10);"B";CHR$(11);"C";CHR$(12);"D";CHR$(13);"E"\n' > "$tmp"
+out=$(run)
+want="A
+B
+C
+D
+E"
+[ "$out" = "$want" ] || fail "CHR\$(10) to CHR\$(13) are all carriage returns" "$out"
+
+printf '10 PRINT "A";CHR$(0);CHR$(7);CHR$(9);CHR$(16);CHR$(20);"B"\n' > "$tmp"
+out=$(run)
+[ "$out" = "AB" ] || fail "the control codes that are ignored still are" "$out"
+
+# ... and each blanks the line it lands on, as a CHR$(13) does (H-3): read
+# the second screen row back rather than the text stream, which shows only
+# what was printed
+printf '10 CLS\n20 PRINT CHR$(28);"LINE A"\n30 PRINT "LONGER TEXT HERE"\n40 PRINT CHR$(28);"LINE A";CHR$(11);"SHORT";\n50 S$="":FOR I=15424 TO 15424+19:S$=S$+CHR$(PEEK(I)):NEXT:PRINT@192,"[";S$;"]"\n' > "$tmp"
+out=$(run | tail -1 | sed "s/.*\[/[/")
+[ "$out" = "[SHORT               ]" ] || fail "CHR\$(11) blanks the line it lands on" "$out"
+
 rm -f "$tmp" "$lp"
 echo "PRINT OK"

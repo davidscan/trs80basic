@@ -599,7 +599,11 @@ function s_putc(b,   n, r) {
         return
     }
     if (b >= 192) { for (n = b - 192; n > 0; n--) s_putc(32); return }
-    if (b == 13 || b == 10) { s_nl(); return }
+    # ROM 050E-0513: a control code below 0AH is ignored (08H excepted,
+    # just below), and 0AH through 0DH ALL go to the carriage return at
+    # 0564H -- so CHR$(11) and CHR$(12) are line feeds like CHR$(10) and
+    # CHR$(13), not the no-ops they were here (the 2026-09-19 audit, L-2).
+    if (b >= 10 && b <= 13) { s_nl(); return }
     if (b == 8) {
         if (DUMB && TTYIN) printf "\b \b"
         if (CUR > 0) { CUR -= (WIDE ? 2 : 1); if (CUR < 0) CUR = 0; setcell(CUR, 32) }
@@ -626,7 +630,7 @@ function s_putc(b,   n, r) {
     if (b == 29) { CUR = int(CUR / 64) * 64; return }
     if (b == 30) { r = int(CUR / 64) * 64 + 63; for (n = CUR; n <= r; n++) setcell(n, 32); return }
     if (b == 31) { for (n = CUR; n < 1024; n++) setcell(n, 32); return }
-    # 0-7, 9, 11, 12, 16-20: ignored
+    # 0-7, 9, 16-20: ignored (ROM 0510: RET C below 0AH; 0516-0563 for the rest)
 }
 
 function s_puts(s,   i, n, c) {
