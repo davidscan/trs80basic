@@ -166,7 +166,11 @@ function st_kill(   v, f, i) {
         if (fio_isopen(i) && FH_NAME[i] == f) { raise(26); return }
     if (!WINNATIVE && f ~ /'/) { raise(22); return }
     if (!host_exists(f)) { raise(29); return }
-    host_delete(f)
+    # a delete the host refuses -- a read-only directory, say -- used to be
+    # ignored: rm complained on the program's own error channel, the file
+    # stayed, and the program carried on as though it had gone.  ?FD is what
+    # every other host refusal here reports (the 2026-09-19 audit, L-5).
+    if (!host_delete(f)) { raise(22); return }
 }
 
 # ---- sequential input ------------------------------------------------------

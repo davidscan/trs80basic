@@ -59,5 +59,24 @@ if [ "$out" != SAVED ] || [ ! -s ok.bas ] || [ "$(cat new.dat)" != DATA ]; then
     bad "writable targets: $out"
 fi
 
+# KILL onto a file the host will not let go of: ?FD, the file stays, and
+# rm's own complaint never reaches the program's error channel.  It used to
+# be ignored outright -- the program carried on as though the file had gone
+# (the 2026-09-19 audit, L-5).  Only as an ordinary user: root deletes anyway.
+if [ "$(id -u)" != 0 ]; then
+    mkdir -p kdir && : > kdir/victim.txt && chmod 500 kdir
+    printf '10 ON ERROR GOTO 100\n20 KILL "kdir/victim.txt"\n30 PRINT "NO ERROR":END\n100 PRINT "ERR=";ERR/2+1\n' > k.bas
+    out=$(TRS80_Z80= "$here/basic" k.bas 2>&1)
+    [ "$out" = "ERR= 22 " ] || bad "KILL on a refused delete: $out"
+    [ -f kdir/victim.txt ] || bad "KILL removed the file it reported it could not"
+    chmod 700 kdir
+    # ... and a delete the host allows is still silent and still deletes
+    : > gone.txt
+    printf '10 KILL "gone.txt":PRINT "KILLED"\n' > k2.bas
+    out=$(TRS80_Z80= "$here/basic" k2.bas 2>&1)
+    [ "$out" = KILLED ] || bad "an ordinary KILL: $out"
+    [ -f gone.txt ] && bad "an ordinary KILL left the file"
+fi
+
 [ $fail = 0 ] && echo "HOSTWRITE OK"
 exit $fail

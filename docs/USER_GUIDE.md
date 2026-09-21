@@ -1588,6 +1588,8 @@ KILL name$   delete a file from the host disk
   confirmation and no recovery.
   Deleting a file that does not exist raises ?FE (file not found), so
   guard it when the file may legitimately be absent.
+  A delete the host refuses -- a file in a directory you cannot write --
+  is ?FD, and the file stays where it was.
   Example: KILL "DATA.TXT"
   Example: CLOSE 1: KILL "SCRATCH.TMP"
 ```

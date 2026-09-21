@@ -5933,7 +5933,11 @@ function st_kill(   v, f, i) {
         if (fio_isopen(i) && FH_NAME[i] == f) { raise(26); return }
     if (!WINNATIVE && f ~ /'/) { raise(22); return }
     if (!host_exists(f)) { raise(29); return }
-    host_delete(f)
+    # a delete the host refuses -- a read-only directory, say -- used to be
+    # ignored: rm complained on the program's own error channel, the file
+    # stayed, and the program carried on as though it had gone.  ?FD is what
+    # every other host refusal here reports (the 2026-09-19 audit, L-5).
+    if (!host_delete(f)) { raise(22); return }
 }
 
 # ---- sequential input ------------------------------------------------------
@@ -6935,9 +6939,17 @@ function host_exists(f) {
     return system("test -f " shq(f)) == 0
 }
 
+# 1 when f is gone afterwards.  rm's own complaint is swallowed: stderr is
+# the BASIC program's error channel, and a KILL that fails has an error code
+# of its own to report (the 2026-09-19 audit, L-5).  The OLLAMA request file
+# is removed with the same helper and ignores the answer -- a temp file left
+# behind is not the program's business.
 function host_delete(f) {
-    if (WINNATIVE) { if (f !~ /"/) system("del /f /q \"" f "\" 2>nul"); return }
-    system("rm -f -- " shq(f))
+    if (WINNATIVE) {
+        if (f ~ /"/) return 0
+        return system("del /f /q \"" f "\" 2>nul") == 0
+    }
+    return system("rm -f -- " shq(f) " 2>/dev/null") == 0
 }
 
 function host_tmpdir() {
