@@ -55,5 +55,32 @@ case $out in *"?SN ERROR"*"10 REM 20 REM 30 REM 40 REM READY"*) ;; *) fail "a re
 out=$(printf '\n10 REM\n20 REM\n30 REM\n40 REM\n50 REM\nDELETE 15-30\nLIST\nDELETE -10\nLIST\nDELETE .\nLIST\n' | repl | tr '\n' ' ')
 case $out in *"READY 10 REM 40 REM 50 REM READY READY 40 REM 50 REM READY READY 40 REM READY"*) ;; *) fail "legal DELETE forms" "$out" ;; esac
 
+
+# --- NEW and CLOAD are the same initializer (ROM 2C40: a CLOAD that is not
+# CLOAD? "call[s] NEW routine to initialize system variables"), so both turn
+# tracing off (1B50, NEW calls 1DF8H) and zero the ON ERROR address (1B74,
+# through the 1B5DH reset).  Both outlived them here: a TRON survived, and an
+# error after a load jumped into the OLD program's handler line (the
+# 2026-09-19 audit, L-14).  MERGE keeps the program, so it keeps the handler.
+out=$(printf '\nTRON\n10 PRINT "A"\nNEW\n10 PRINT "B"\nRUN\n' | repl | tr '\n' ' ')
+case $out in *"<10>"*) fail "NEW left tracing on" "$out" ;; esac
+case $out in *"B READY"*) ;; *) fail "NEW then RUN" "$out" ;; esac
+
+printf '10 PRINT "LOADED"\n' > part3.bas
+out=$(printf '\nTRON\n10 PRINT "A"\nCLOAD "part3.bas"\nRUN\n' | repl | tr '\n' ' ')
+case $out in *"<10>"*) fail "CLOAD left tracing on" "$out" ;; esac
+case $out in *"LOADED READY"*) ;; *) fail "CLOAD then RUN" "$out" ;; esac
+
+# the old program's ON ERROR target is gone after a load
+printf '10 X=1/0\n' > part4.bas
+out=$(printf '\n10 ON ERROR GOTO 900\n900 PRINT "OLD HANDLER":END\nLOAD "part4.bas"\nRUN\n' | repl | tr '\n' ' ')
+case $out in *"OLD HANDLER"*) fail "LOAD kept the old ON ERROR target" "$out" ;; esac
+case $out in *"?/0 ERROR IN 10"*) ;; *) fail "the error after a LOAD" "$out" ;; esac
+
+# ... while MERGE, which keeps the program, keeps the handler
+printf '20 PRINT "MERGED"\n' > part5.bas
+out=$(printf '\n10 ON ERROR GOTO 900\n15 X=1/0\n900 PRINT "HANDLER RAN":END\nMERGE "part5.bas"\nRUN\n' | repl | tr '\n' ' ')
+case $out in *"HANDLER RAN"*) ;; *) fail "MERGE dropped the ON ERROR target" "$out" ;; esac
+
 cd /; rm -rf "$d"
 echo "READY OK"

@@ -1618,6 +1618,7 @@ function st_new(   x) {
     clear_vars()
     FSN = 0; GSN = 0; NDATA = 0; DP = 1; DATADIRTY = 1
     CONTOK = 0; LASTLN = 0; EHANDLER = 0; INHANDLER = 0; ERRV = 0; ERLV = 0
+    TRACE = 0                       # ROM 1B50: NEW calls 1DF8H, "turn TRACE off"
     HALT = 1
 }
 
@@ -2224,6 +2225,13 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
         if (!merge) { for (x in prog) { inval_cache(x); delete prog[x] }; delete ESC }
         clear_vars(keepfiles)
         NDATA = 0; DP = 1; CONTOK = 0
+        # ROM 2C40: a CLOAD that is not CLOAD? "call[s] NEW routine to
+        # initialize system variables", so it turns tracing off (1B50) and
+        # zeroes the ON ERROR address (1B74, through the 1B5DH reset).  Both
+        # outlived a load here: a TRON survived, and an error after the load
+        # jumped into the OLD program's handler line (the 2026-09-19 audit,
+        # L-14).  MERGE keeps the program, so it keeps the handler too.
+        if (!merge) { EHANDLER = 0; INHANDLER = 0; TRACE = 0 }
     }
     ok = 1; nseen = 0
     for (pln = 1; pln <= nfl; pln++) {
@@ -2332,6 +2340,13 @@ function prog_load_tok(data, verify, keepfiles, merge,   n, pos, nxt, ln, z, bod
         if (!merge) { for (x in prog) { inval_cache(x); delete prog[x] }; delete ESC }
         clear_vars(keepfiles)
         NDATA = 0; DP = 1; CONTOK = 0
+        # ROM 2C40: a CLOAD that is not CLOAD? "call[s] NEW routine to
+        # initialize system variables", so it turns tracing off (1B50) and
+        # zeroes the ON ERROR address (1B74, through the 1B5DH reset).  Both
+        # outlived a load here: a TRON survived, and an error after the load
+        # jumped into the OLD program's handler line (the 2026-09-19 audit,
+        # L-14).  MERGE keeps the program, so it keeps the handler too.
+        if (!merge) { EHANDLER = 0; INHANDLER = 0; TRACE = 0 }
     }
     ok = 1; nseen = 0; rec = 0; bad = 0
     for (;;) {

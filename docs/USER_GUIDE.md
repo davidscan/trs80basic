@@ -1318,7 +1318,10 @@ TRON   turn on line-number tracing
 
 ```text
 TROFF   turn line-number tracing off again
-  Cancels TRON and returns to normal output.  Tracing also stops at NEW.
+  Cancels TRON and returns to normal output.  Tracing also stops at NEW,
+  and at a CLOAD or LOAD that replaces the program -- both are the same
+  initializer on the machine, which turns tracing off and forgets the
+  ON ERROR handler with it.  MERGE keeps the program, and keeps both.
   Leave it off in a finished program -- the trace goes to the same
   screen as the output and makes formatted displays unreadable.
   Example: TROFF
