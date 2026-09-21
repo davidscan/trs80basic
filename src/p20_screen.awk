@@ -75,11 +75,16 @@ function t_man(txt,   a, n, i) {
 function t_rows(   line, a) {
     if (TROWS > 0) return TROWS
     TROWS = 24; TCOLS = 80
-    if (("stty size < /dev/tty 2>/dev/null" | getline line) > 0 && split(line, a, " ") >= 2) {
+    # 2>/dev/null comes FIRST: a shell applies redirections left to right,
+    # so with it last the shell's own "/dev/tty: Device not configured" for
+    # the failed open still went to the real stderr.  `./basic --screen`
+    # off a terminal printed it (the 2026-09-19 audit, L-12).  Both strings
+    # must stay identical: the command text is close()'s key.
+    if (("stty size 2>/dev/null < /dev/tty" | getline line) > 0 && split(line, a, " ") >= 2) {
         if (a[1] + 0 >= 20) TROWS = a[1] + 0
         if (a[2] + 0 >= 40) TCOLS = a[2] + 0
     }
-    close("stty size < /dev/tty 2>/dev/null")
+    close("stty size 2>/dev/null < /dev/tty")
     return TROWS
 }
 
