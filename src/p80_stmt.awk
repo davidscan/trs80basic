@@ -496,11 +496,12 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
                 CP = endp
                 if (strname(name)) assignv(name, key, "S" IB[idx])
                 else {
+                    # the ROM's reader takes what it can (valnum, p90);
+                    # anything but blanks left over is ?REDO (225A-2260)
                     x = IB[idx]
-                    gsub(/^[ \t]+|[ \t]+$/, "", x)
-                    if (x == "") x = "0"
-                    if (!strictnum(x)) { ok = 0; break }
-                    x = numconv(x); if (E) return           # ?OV, not ?REDO
+                    sub(/^[ \t\n]+/, "", x)
+                    x = valnum(x, 0); if (E) return   # ?OV, or ?SN for a bad %: not ?REDO
+                    if (!numrest()) { ok = 0; break }
                     assignv(name, key, "N" x)
                 }
                 idx++
@@ -590,15 +591,18 @@ function st_read(   name, key, x) {
         if (DP > NDATA) { raise(4); return }
         if (strname(name)) assignv(name, key, "S" DITEM[DP])
         else {
+            # the ROM's reader takes what it can (valnum, p90); anything
+            # but blanks left over is ?SN in the DATA line (225A-2260 ->
+            # 1991H).  A bad % is ?SN from inside the reader (1997H), which
+            # names the READ's own line.
             x = DITEM[DP]
-            gsub(/^[ \t]+|[ \t]+$/, "", x)
-            if (x == "") x = "0"
-            if (!strictnum(x)) {
+            sub(/^[ \t\n]+/, "", x)
+            x = valnum(x, 0); if (E) return
+            if (!numrest()) {
                 raise(2)
                 ERR_AT = DLINE[DP]; ERLV = DLINE[DP]
                 return
             }
-            x = numconv(x); if (E) return
             assignv(name, key, "N" x)
         }
         DP++

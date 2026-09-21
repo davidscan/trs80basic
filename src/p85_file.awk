@@ -279,7 +279,7 @@ function st_input_file(   n, nlv, name, key, i, x) {
         else {
             # the item is evaluated "by a routine just like the BASIC VAL
             # function" (Disk manual, INPUT#): A12 is 0, 5X is 5, never ?TM
-            x = valnum(FIO_IT); if (E) return       # ?OV: nothing stored
+            x = valnum(FIO_IT, 0); if (E) return   # ?OV: nothing stored
             assignv(name, key, "N" x)
         }
         if (E) return

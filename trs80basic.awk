@@ -3066,7 +3066,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         s = substr(s, 1, 1)
         return "N" ((s in ORD) ? ORD[s] : 63)
     }
-    if (name == "VAL") { s = strarg(a1, na); if (E) return "N0"; x = valnum(s); if (E) return "N0"; return "N" x }
+    if (name == "VAL") { s = strarg(a1, na); if (E) return "N0"; x = valnum(s, 1); if (E) return "N0"; return "N" x }
     if (name == "CHR$") {
         x = numarg(a1, na); if (E) return "N0"
         x = bfloor(x)
@@ -5571,11 +5571,12 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
                 CP = endp
                 if (strname(name)) assignv(name, key, "S" IB[idx])
                 else {
+                    # the ROM's reader takes what it can (valnum, p90);
+                    # anything but blanks left over is ?REDO (225A-2260)
                     x = IB[idx]
-                    gsub(/^[ \t]+|[ \t]+$/, "", x)
-                    if (x == "") x = "0"
-                    if (!strictnum(x)) { ok = 0; break }
-                    x = numconv(x); if (E) return           # ?OV, not ?REDO
+                    sub(/^[ \t\n]+/, "", x)
+                    x = valnum(x, 0); if (E) return   # ?OV, or ?SN for a bad %: not ?REDO
+                    if (!numrest()) { ok = 0; break }
                     assignv(name, key, "N" x)
                 }
                 idx++
@@ -5665,15 +5666,18 @@ function st_read(   name, key, x) {
         if (DP > NDATA) { raise(4); return }
         if (strname(name)) assignv(name, key, "S" DITEM[DP])
         else {
+            # the ROM's reader takes what it can (valnum, p90); anything
+            # but blanks left over is ?SN in the DATA line (225A-2260 ->
+            # 1991H).  A bad % is ?SN from inside the reader (1997H), which
+            # names the READ's own line.
             x = DITEM[DP]
-            gsub(/^[ \t]+|[ \t]+$/, "", x)
-            if (x == "") x = "0"
-            if (!strictnum(x)) {
+            sub(/^[ \t\n]+/, "", x)
+            x = valnum(x, 0); if (E) return
+            if (!numrest()) {
                 raise(2)
                 ERR_AT = DLINE[DP]; ERLV = DLINE[DP]
                 return
             }
-            x = numconv(x); if (E) return
             assignv(name, key, "N" x)
         }
         DP++
@@ -6222,7 +6226,7 @@ function st_input_file(   n, nlv, name, key, i, x) {
         else {
             # the item is evaluated "by a routine just like the BASIC VAL
             # function" (Disk manual, INPUT#): A12 is 0, 5X is 5, never ?TM
-            x = valnum(FIO_IT); if (E) return       # ?OV: nothing stored
+            x = valnum(FIO_IT, 0); if (E) return   # ?OV: nothing stored
             assignv(name, key, "N" x)
         }
         if (E) return
@@ -7007,17 +7011,65 @@ function fmtnum(x,   s, ax, t) {
     return (x < 0 ? s : " " s) " "
 }
 
-function valnum(s,   t) {
-    if (match(s, /^[ \t]*[-+]?([0-9]+(\.[0-9]*)?|\.[0-9]+)([EeDd][-+]?[0-9]+)?/) && RLENGTH > 0) {
-        t = substr(s, 1, RLENGTH)
-        gsub(/[ \t]/, "", t)
-        return numconv(t)
+# The ROM's ASCII-to-binary routine (0E65H/0E6CH), the one reader behind
+# VAL, INPUT, READ and INPUT#.  It reads what it can and stops; NUMEND is
+# left at the first character it did not take, and the CALLER decides what
+# may follow (VAL: anything; READ and INPUT: nothing but blanks, p80).
+#   * a sign is taken only as the very FIRST character (0E77-0E80): READ
+#     and INPUT skip the item's leading blanks before they call, VAL does
+#     not, so VAL(" -5") is 0 on the machine and here
+#   * every later character is fetched through RST 10H, which skips blank,
+#     tab and line feed (1D78-1D88): VAL("1 2") is 12, "1 E 3" is 1000
+#   * a second "." ends the number (0EE4-0EE6); a lone "." is 0
+#   * E or D with no digits behind it is an exponent of 0: "1E" is 1
+#   * "!" and "#" are taken and end the number (0EF5-0EF9).  "%" is taken
+#     only while the value is still an INTEGER -- no ".", no exponent, not
+#     past 32767, and not the double-precision entry (dp) -- and is ?SN
+#     otherwise (0EEE-0EEF, JP P,1997H).  VAL always enters there (2AD8H),
+#     so VAL("12%") is ?SN.  READ and INPUT enter there for a # variable;
+#     a variable's precision is not tracked here, so they never do.
+# Lower-case e/d is kept as an exponent: the Model I keyboard had no
+# lower case to type, a terminal types nothing else.
+function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x) {
+    i = 1; m = ""; ex = ""; isint = !dp
+    c = substr(s, 1, 1)
+    if (c == "-" || c == "+") { sg = c; i = 2 }
+    for (;;) {
+        while (substr(s, i, 1) ~ /^[ \t\n]$/) i++
+        c = substr(s, i, 1)
+        if (c ~ /^[0-9]$/) { m = m c; i++; continue }
+        if (c == ".") {
+            if (dot) break
+            dot = 1; isint = 0; m = m c; i++; continue
+        }
+        if (c ~ /^[EeDd]$/) {
+            i++
+            while (substr(s, i, 1) ~ /^[ \t\n]$/) i++
+            c = substr(s, i, 1)
+            if (c == "-" || c == "+") { exs = c; i++ }
+            for (;;) {
+                while (substr(s, i, 1) ~ /^[ \t\n]$/) i++
+                c = substr(s, i, 1)
+                if (c !~ /^[0-9]$/) break
+                ex = ex c; i++
+            }
+            break
+        }
+        if (c == "%") {
+            if (!isint || m + 0 > 32767) { raise(2); return 0 }
+            i++
+        } else if (c == "#" || c == "!") i++
+        break
     }
-    return 0
+    NUMEND = i; NUMSTR = s
+    if (m == "" || m == ".") m = "0"
+    x = numconv(sg m "E" exs (ex == "" ? "0" : ex))
+    return x
 }
 
-function strictnum(s) {
-    return s ~ /^[ \t]*[-+]?([0-9]+(\.[0-9]*)?|\.[0-9]+)([EeDd][-+]?[0-9]+)?[ \t]*$/
+# READ's and INPUT's use of it: is the rest of the item just read blank?
+function numrest() {
+    return substr(NUMSTR, NUMEND) ~ /^[ \t\n]*$/
 }
 
 # string -> number honoring the D (double-precision) exponent marker, which

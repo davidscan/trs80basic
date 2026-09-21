@@ -1058,9 +1058,11 @@ ASC(a$)   the character code of the first character of a$
 :VAL
 VAL(a$)   the number at the front of a$, or 0 if there is none
   Reads as much of the string as looks like a number and stops at the
-  first character that does not fit, so VAL("12.5X") is 12.5.  Leading
-  spaces are skipped, a leading sign is honoured, and exponent notation
-  is understood: VAL("-3E2") is -300.
+  first character that does not fit, so VAL("12.5X") is 12.5.  Spaces
+  inside the number are skipped, as the ROM skips them: VAL("1 2") is 12.
+  Exponent notation is understood: VAL("-3E2") is -300.  A sign counts
+  only as the very first character, so VAL(" -5") is 0.  A trailing ! or
+  # is accepted; a trailing % is ?SN, as on the machine.
   A string that does not begin with a number gives 0 rather than an
   error, so VAL cannot by itself tell "0" from "OFF" -- test the string
   first if that difference matters.

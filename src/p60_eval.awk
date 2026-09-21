@@ -398,7 +398,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         s = substr(s, 1, 1)
         return "N" ((s in ORD) ? ORD[s] : 63)
     }
-    if (name == "VAL") { s = strarg(a1, na); if (E) return "N0"; x = valnum(s); if (E) return "N0"; return "N" x }
+    if (name == "VAL") { s = strarg(a1, na); if (E) return "N0"; x = valnum(s, 1); if (E) return "N0"; return "N" x }
     if (name == "CHR$") {
         x = numarg(a1, na); if (E) return "N0"
         x = bfloor(x)

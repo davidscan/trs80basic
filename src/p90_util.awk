@@ -56,17 +56,65 @@ function fmtnum(x,   s, ax, t) {
     return (x < 0 ? s : " " s) " "
 }
 
-function valnum(s,   t) {
-    if (match(s, /^[ \t]*[-+]?([0-9]+(\.[0-9]*)?|\.[0-9]+)([EeDd][-+]?[0-9]+)?/) && RLENGTH > 0) {
-        t = substr(s, 1, RLENGTH)
-        gsub(/[ \t]/, "", t)
-        return numconv(t)
+# The ROM's ASCII-to-binary routine (0E65H/0E6CH), the one reader behind
+# VAL, INPUT, READ and INPUT#.  It reads what it can and stops; NUMEND is
+# left at the first character it did not take, and the CALLER decides what
+# may follow (VAL: anything; READ and INPUT: nothing but blanks, p80).
+#   * a sign is taken only as the very FIRST character (0E77-0E80): READ
+#     and INPUT skip the item's leading blanks before they call, VAL does
+#     not, so VAL(" -5") is 0 on the machine and here
+#   * every later character is fetched through RST 10H, which skips blank,
+#     tab and line feed (1D78-1D88): VAL("1 2") is 12, "1 E 3" is 1000
+#   * a second "." ends the number (0EE4-0EE6); a lone "." is 0
+#   * E or D with no digits behind it is an exponent of 0: "1E" is 1
+#   * "!" and "#" are taken and end the number (0EF5-0EF9).  "%" is taken
+#     only while the value is still an INTEGER -- no ".", no exponent, not
+#     past 32767, and not the double-precision entry (dp) -- and is ?SN
+#     otherwise (0EEE-0EEF, JP P,1997H).  VAL always enters there (2AD8H),
+#     so VAL("12%") is ?SN.  READ and INPUT enter there for a # variable;
+#     a variable's precision is not tracked here, so they never do.
+# Lower-case e/d is kept as an exponent: the Model I keyboard had no
+# lower case to type, a terminal types nothing else.
+function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x) {
+    i = 1; m = ""; ex = ""; isint = !dp
+    c = substr(s, 1, 1)
+    if (c == "-" || c == "+") { sg = c; i = 2 }
+    for (;;) {
+        while (substr(s, i, 1) ~ /^[ \t\n]$/) i++
+        c = substr(s, i, 1)
+        if (c ~ /^[0-9]$/) { m = m c; i++; continue }
+        if (c == ".") {
+            if (dot) break
+            dot = 1; isint = 0; m = m c; i++; continue
+        }
+        if (c ~ /^[EeDd]$/) {
+            i++
+            while (substr(s, i, 1) ~ /^[ \t\n]$/) i++
+            c = substr(s, i, 1)
+            if (c == "-" || c == "+") { exs = c; i++ }
+            for (;;) {
+                while (substr(s, i, 1) ~ /^[ \t\n]$/) i++
+                c = substr(s, i, 1)
+                if (c !~ /^[0-9]$/) break
+                ex = ex c; i++
+            }
+            break
+        }
+        if (c == "%") {
+            if (!isint || m + 0 > 32767) { raise(2); return 0 }
+            i++
+        } else if (c == "#" || c == "!") i++
+        break
     }
-    return 0
+    NUMEND = i; NUMSTR = s
+    if (m == "" || m == ".") m = "0"
+    x = numconv(sg m "E" exs (ex == "" ? "0" : ex))
+    return x
 }
 
-function strictnum(s) {
-    return s ~ /^[ \t]*[-+]?([0-9]+(\.[0-9]*)?|\.[0-9]+)([EeDd][-+]?[0-9]+)?[ \t]*$/
+# READ's and INPUT's use of it: is the rest of the item just read blank?
+function numrest() {
+    return substr(NUMSTR, NUMEND) ~ /^[ \t\n]*$/
 }
 
 # string -> number honoring the D (double-precision) exponent marker, which
