@@ -161,8 +161,9 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     omitted (already sent as `V`).  The interpreter applies them in order
     through `poke_byte`, so a Z80 store lands exactly where a BASIC POKE
     would: packed-string bytes write through into the string, 40B1H moves
-    HIMEM, the program-image range is stored but invisible, above RAMTOP
-    is discarded.
+    HIMEM, a store into the program image sticks and reads back (the image
+    is RAM, writable since 2026-09-12; the byte belongs to its line and a
+    rebuilt image is resent whole), above RAMTOP is discarded.
 
 ### Errors
 

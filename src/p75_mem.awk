@@ -106,9 +106,13 @@
 #      The bound is RAMTOP, not HIMEM.  a > RAMTOP -> 255 (unreachable today).
 #   6. otherwise -> MEM[a] if it was ever written, else 255.
 #
-# TWO READ-ONLY PROJECTIONS, NOT ONE (rules 2 and 5): "POKE lands in MEM[] and
-# is never read back" is a CLASS in this interpreter, not a program-image
-# quirk.  A byte in either region is a byte the core will not see.
+# ONE READ-ONLY PROJECTION, NOT TWO (rule 2 alone).  This paragraph used to
+# name rules 2 and 5 together and call "POKE lands in MEM[] and is never
+# read back" a class; rule 5 stopped being an instance of it on 2026-09-12,
+# when the image became writable, and the note was left behind (the
+# 2026-09-19 audit, L-51).  What is still read-only, with no write branch at
+# all, is listed under the write side below: 37E8/37E9H, 3800-38FFH,
+# 40A4/40A5H and 40F9/40FAH.
 #
 # 255 IS LIVE BEHAVIOUR, and it is reached by rule 6's fallthrough rather than
 # by the RAMTOP test.  Unwritten RAM reads 255 -- what a machine with no chip
