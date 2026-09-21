@@ -208,6 +208,12 @@ function aref(name,   nd, i, v, idx, key, idxs) {
         v = e_or(); if (E) return ""
         if (!isN(v)) { raise(13); return "" }
         idx = bfloor(num(v))
+        # ROM 1E45-1E4C: the subscript evaluator returns only for a POSITIVE
+        # value; a negative one is ?FC there and then, before the dimension
+        # count or the bound is looked at.  (Seen, not followed: 2B02H
+        # converts through CINT, so a subscript past 32767 is ?OV on the
+        # machine where it is ?BS here.)
+        if (idx < 0) { raise(5); return "" }
         nd++; idxs[nd] = idx
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
         break
@@ -221,7 +227,7 @@ function aref(name,   nd, i, v, idx, key, idxs) {
     if (ADIM[name] != nd) { raise(9); return "" }
     key = name
     for (i = 1; i <= nd; i++) {
-        if (idxs[i] < 0 || idxs[i] > ASZ[name, i]) { raise(9); return "" }
+        if (idxs[i] > ASZ[name, i]) { raise(9); return "" }
         key = key SUBSEP idxs[i]
     }
     return key

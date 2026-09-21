@@ -623,7 +623,7 @@ function st_dim(   name, nd, i, v, sz) {
             v = e_or(); if (E) return
             if (!isN(v)) { raise(13); return }
             sz = bfloor(num(v))
-            if (sz < 0) { raise(9); return }
+            if (sz < 0) { raise(5); return }     # ROM 1E45-1E4C: ?FC, not ?BS
             nd++; DIMB[nd] = sz
             if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
             break
