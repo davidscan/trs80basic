@@ -136,5 +136,33 @@ out=$(TRS80_DUMB=1 "$here/basic" "$tmp/trunc.bas" 2>&1 </dev/null); rc=$?
 [ "$rc" = "2" ] || fail "truncated image rc=$rc" "$out"
 printf '%s' "$out" | grep -q 'FD ERROR - FILE LINE 10 (UNTERMINATED LINE)' || fail "truncated image message" "$out"
 
+# --- 7: a one-byte-short 00 00 end marker is a COMPLETE program.  A tail of
+# NUL is a harmless truncation of the marker itself; tools/detok.py has
+# always taken it, and this rejected it with ?FD (the 2026-09-19 audit,
+# L-19).  The two readers of the same image must agree.
+python3 - "$tmp" "$here" <<'PYEOF' || fail "could not build the images" ""
+import sys, os
+d, here = sys.argv[1], sys.argv[2]
+sys.path.insert(0, os.path.join(here, "tools"))
+import tok, detok
+tbl = detok.load_tokens()
+img = tok.tokenize(b'10 PRINT "HI"\n20 END\n', tbl)
+open(os.path.join(d, "fullmark.bin"), "wb").write(img)
+open(os.path.join(d, "cutmark.bin"), "wb").write(img[:-1])       # one marker byte gone
+open(os.path.join(d, "junkmark.bin"), "wb").write(img[:-1] + b"*")  # not NUL
+# detok takes the cut image as complete -- that is the agreement being pinned
+assert detok.detokenize(img[:-1], tbl) == detok.detokenize(img, tbl)
+PYEOF
+for f in fullmark cutmark; do
+    out=$(TRS80_DUMB=1 TRS80_Z80= "$here/basic" "$tmp/$f.bin" 2>&1 </dev/null); rc=$?
+    [ "$out" = "HI" ] || fail "$f.bin ran differently" "$out"
+    [ "$rc" = 0 ] || fail "$f.bin exit status" "$rc"
+done
+# ... while a byte that is NOT NUL where the marker should be is still cut short
+out=$(TRS80_DUMB=1 TRS80_Z80= "$here/basic" "$tmp/junkmark.bin" 2>&1 </dev/null); rc=$?
+printf '%s' "$out" | grep -q 'TRUNCATED HEADER' \
+    || fail "a non-NUL tail should still be cut short" "$out"
+[ "$rc" = 2 ] || fail "junkmark.bin exit status" "$rc"
+
 rm -rf "$tmp"
 echo "TOKLOAD FIXTURE OK"

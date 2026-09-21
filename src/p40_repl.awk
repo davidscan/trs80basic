@@ -1010,7 +1010,13 @@ function prog_load_tok(data, verify, keepfiles, merge,   n, pos, nxt, ln, z, bod
     ok = 1; nseen = 0; rec = 0; bad = 0
     for (;;) {
         if (pos + 1 > n) {                       # fewer than the 2 end-marker bytes left
-            if (pos <= n) { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " (rec + 1) " (TRUNCATED HEADER)\n" }
+            # A tail of NUL is a harmless truncation of the 00 00 marker
+            # itself -- a one-byte-short image is a complete program.
+            # tools/detok.py has always taken it; this rejected it with
+            # ?FD (the 2026-09-19 audit, L-19), and the two readers of the
+            # same image must agree.  Anything else really is cut short.
+            for (x = pos; x <= n; x++) if (ORD[substr(data, x, 1)] != 0) break
+            if (x <= n) { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " (rec + 1) " (TRUNCATED HEADER)\n" }
             break
         }
         nxt = ORD[substr(data, pos, 1)] + 256 * ORD[substr(data, pos + 1, 1)]
