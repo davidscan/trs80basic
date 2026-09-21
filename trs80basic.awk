@@ -1418,11 +1418,22 @@ function handle_line(line,   s, ln, rest) {
         match(s, /^[0-9]+/)
         ln = substr(s, 1, RLENGTH) + 0
         rest = substr(s, RLENGTH + 1)
-        if (ln > 65529) { E = 2; report_err(0); return 1 }
+        # These two errors belong to the Input Phase, where the ROM's
+        # current-line cell holds FFFFH (1A36), so they carry no " IN n".
+        # They used to set E by hand and report whatever line the LAST
+        # error had left in ERR_AT -- "?UL ERROR IN 50" for a line typed
+        # at the prompt, and after L-4 "?UL ERROR IN " with no number at
+        # all when nothing had failed yet.  raise() notes the line.
+        if (ln > 65529) { CLN = DIRECTLN; raise(2); report_err(); return 1 }
         sub(/^ /, "", rest)
-        if (rest == "") {
+        # ROM 1AAD-1AAE, 1ABF: after the crunch, RST 10H scans for the
+        # line's first token SKIPPING BLANKS, and if that scan meets the
+        # end of the line the entry is a deletion.  So a number followed
+        # only by blanks deletes the line; it used to store a line of
+        # blanks (the 2026-09-19 audit, L-17).
+        if (rest ~ /^[ \t]*$/) {
             if (ln in prog) delline(ln)
-            else { E = 8; report_err(0); return 1 }
+            else { CLN = DIRECTLN; raise(8); report_err(); return 1 }
         } else storeline(ln, rest)
         return 0
     }
