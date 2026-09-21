@@ -964,6 +964,9 @@ ON e GOSUB n1[,n2...]   call the e-th line in the list
   error, and it is the normal way to handle "none of the above".
   A negative e is ?FC ERROR.
   ON ERROR GOTO n installs an error handler (see: man ERROR, man RESUME).
+  Line n must already exist: it is looked up as the statement runs, so
+  a handler line that is not there is ?UL ERROR there, not later when
+  something finally goes wrong.
   ON ERROR GOTO 0 removes it.  Inside the handler it does more: BASIC
   handles the current error normally -- the message names the line that
   failed and the program stops.  That is how a handler passes on an

@@ -424,7 +424,12 @@ function st_on(   v, n, mode, cnt, lst, retp) {
         if (!(TY[CK, CP] == "i" && TK[CK, CP] == "GOTO")) { raise(2); return }
         CP++
         if (TY[CK, CP] != "n") { raise(2); return }
-        EHANDLER = TK[CK, CP] + 0; CP++
+        n = TK[CK, CP] + 0; CP++
+        # ROM 1F7A-1F80: a target other than 0 is looked up at 1B2AH WHEN
+        # THE STATEMENT RUNS, and a line that is not there is ?UL then --
+        # not later, when an error finally fires and the handler is wanted.
+        if (n != 0 && !(n in LIDX)) { raise(8); return }
+        EHANDLER = n
         # ON ERROR GOTO 0 inside the handler: "BASIC will handle the
         # current error normally" -- the ROM reloads the error's code and
         # joins the error routine past the point where it notes the line

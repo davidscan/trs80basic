@@ -40,5 +40,30 @@ out=$(TRS80_Z80= "$here/basic" "$tmp" 2>&1 </dev/null)
 want="DISARMED
 ?/0 ERROR IN 30"
 [ "$out" = "$want" ] || fail "outside a handler it only disarms" "$out"
+
+# ROM 1F7A-1F80: the target is looked up at 1B2AH when the STATEMENT runs,
+# so a handler line that is not there is ?UL there and then -- not later,
+# when an error finally fires.  ON ERROR GOTO 0 needs no line 0.
+cat > "$tmp" <<'BAS'
+10 PRINT "BEFORE"
+20 ON ERROR GOTO 999
+30 PRINT "NOT REACHED"
+BAS
+out=$(TRS80_Z80= "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+want="BEFORE
+?UL ERROR IN 20"
+[ "$out" = "$want" ] || fail "a handler line that is not there is ?UL at the statement" "$out"
+[ "$rc" = 1 ] || fail "exit status for the missing handler line" "$rc"
+
+# a forward reference is fine -- the whole program is stored before RUN
+cat > "$tmp" <<'BAS'
+10 ON ERROR GOTO 100
+20 ON ERROR GOTO 0
+30 PRINT "ARMED FORWARD, THEN DISARMED":END
+100 PRINT "NOT REACHED":END
+BAS
+out=$(TRS80_Z80= "$here/basic" "$tmp" 2>&1 </dev/null)
+[ "$out" = "ARMED FORWARD, THEN DISARMED" ] || fail "a forward handler line, and GOTO 0" "$out"
+
 rm -f "$tmp"
 echo "ONERROR OK"
