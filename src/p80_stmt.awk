@@ -512,7 +512,11 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
             if (nib > nlv) { s_puts("?EXTRA IGNORED"); s_nl() }
             return
         }
-        s_puts("?REDO FROM START"); s_nl()
+        # ROM 2178: the message is the five bytes 3F 52 45 44 4F -- "?REDO"
+        # -- and a carriage return.  The Level II manual prints it twice,
+        # in the INPUT section and in its worked example.  "?REDO FROM
+        # START" is BASIC-80's wording, not this machine's.
+        s_puts("?REDO"); s_nl()
     }
 }
 

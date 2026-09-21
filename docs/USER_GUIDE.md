@@ -792,8 +792,8 @@ INPUT ["prompt";] var[,var...]   read values typed at the keyboard
   already ends in its own punctuation.
   Several variables may be read at once, and the user separates the
   values with commas.  Too few values re-prompts with ?? ; a value of
-  the wrong type gives ?REDO FROM START and asks again -- neither is a
-  fatal error, so INPUT cannot crash on bad typing.
+  the wrong type gives ?REDO and asks again, from the first value --
+  neither is a fatal error, so INPUT cannot crash on bad typing.
   ENTER alone assigns nothing: every variable keeps the value it had
   ("PRESS ENTER TO KEEP 5" works), and at a ?? prompt the variables not
   yet filled keep theirs.  A line of blanks is a value (0 or ""), not

@@ -53,5 +53,26 @@ INPUT 3  0  77
 BY A STRING 9 
 INPUT# 2  0  88 "
 [ "$out" = "$want" ] || fail "a subscript uses the value just read" "$out"
+
+# the retype message is "?REDO" -- ROM 2178 holds the five bytes 3F 52 45
+# 44 4F and a carriage return, and the Level II manual prints it twice
+# (p.3-9 and its worked example).  "?REDO FROM START" is BASIC-80's
+# wording, not this machine's (the 2026-09-19 audit, L-27).  Retyping
+# starts again at the FIRST value, and too many values is ?EXTRA IGNORED.
+cat > "$tmp" <<'BAS'
+10 INPUT X,Y$
+20 PRINT "GOT";X;"[";Y$;"]"
+30 INPUT Z:PRINT "Z=";Z
+BAS
+out=$(printf 'HI,THERE\n4,FOUR\n8,9\n' | TRS80_Z80= "$here/basic" "$tmp" 2>&1)
+want="? HI,THERE
+?REDO
+? 4,FOUR
+GOT 4 [FOUR]
+? 8,9
+?EXTRA IGNORED
+Z= 8 "
+[ "$out" = "$want" ] || fail "the retype message is ?REDO" "$out"
+
 rm -f "$tmp"
 echo "INPUT OK"
