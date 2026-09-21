@@ -111,5 +111,27 @@ eq(crunch('PRINT "GO TO JAIL"', IDX), bytes([0xB2]) + b' "GO TO JAIL"',
 eq(crunch("DATA GO TO JAIL", IDX), bytes([0x88]) + b" GO TO JAIL",
    "GO TO in DATA stays text")
 
+# ROM 1BC0-1C8F, the rest of the cruncher (the 2026-09-19 audit, L-13).
+eq(crunch('print a', IDX), crunch('PRINT A', IDX), "lowercase crunches as upper")
+eq(crunch('a=b', IDX), b'A' + bytes([0xD5]) + b'B', "a name is stored in upper case")
+eq(crunch('print "abc":rem abc', IDX),
+   bytes([0xB2]) + b' "abc":' + bytes([0x93]) + b' abc',
+   "a string and a REM keep their case")
+eq(crunch('data abc:x', IDX), bytes([0x88]) + b' abc:X',
+   "DATA keeps its case up to the colon")
+eq(crunch('go to 5', IDX), crunch('GOTO 5', IDX), "lowercase go to")
+eq(crunch('?"X"', IDX), bytes([0xB2]) + b'"X"', "? is the PRINT token")
+eq(crunch('PRINT "?"', IDX), bytes([0xB2]) + b' "?"', "? in a string stays")
+eq(crunch('DATA ?,1', IDX), bytes([0x88]) + b' ?,1', "? in DATA stays")
+eq(crunch("REM ?", IDX), bytes([0x93]) + b" ?", "? in a REM stays")
+eq(crunch("IFATHEN5ELSE9", IDX),
+   bytes([0x8F]) + b"A" + bytes([0xCA]) + b"5" + bytes([0x3A, 0x95]) + b"9",
+   "ELSE is stored behind a colon")
+eq(crunch("IFATHEN5:ELSE9", IDX), crunch("IFATHEN5ELSE9", IDX),
+   "the colon detok shows is not doubled")
+eq(crunch("IFATHEN5 ELSE9", IDX),
+   bytes([0x8F]) + b"A" + bytes([0xCA]) + b"5 " + bytes([0x3A, 0x95]) + b"9",
+   "a blank before ELSE stays before the colon")
+
 print("\n%d passed, %d failed" % (_PASS, _FAIL))
 sys.exit(1 if _FAIL else 0)

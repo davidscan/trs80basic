@@ -39,6 +39,7 @@ from detok import (  # noqa: E402
     QUOTE,
     TOK_APOS,
     TOK_DATA,
+    TOK_ELSE,
     TOK_REM,
     DetokError,
     load_tokens,
@@ -49,6 +50,9 @@ from detok import (  # noqa: E402
 # (detok frames on the NUL terminator), but writing the authentic value keeps
 # round-trips byte-exact against images saved by a real machine.
 LOAD_ADDRESS = 0x42E9
+
+
+TOK_PRINT = 0xB2
 
 
 class TokError(Exception):
@@ -73,8 +77,23 @@ def crunch(text, index):
 
     Mirrors detok.expand: the same three regions stay literal, or a PRINT
     inside a string would be swallowed into a token and the text destroyed.
+
+    Outside those regions it crunches as the ROM does (1BC0-1C8F; the
+    2026-09-19 audit, L-13), and p75's pm_crunch does the same:
+      * a letter is matched, and stored, in UPPER case (1C00-1C0B upper-cases
+        the symbol's first character in the buffer, 1C2D-1C31 compares the
+        rest that way, and every unmatched letter comes round as a first
+        character) -- so `print a` crunches like `PRINT A`;
+      * `?` is the PRINT token (1BE4-1BE8);
+      * ELSE is stored behind a `:` (1C42-1C49), which is what lets the
+        ROM's IF skip to it.  An image made without it never takes ELSE on
+        the machine.  ONE DEPARTURE: when the text already has the colon
+        -- detok shows the stored one as ":ELSE", on purpose -- no second
+        one is added, or image -> listing -> image would grow a byte per
+        ELSE per trip.  The ROM, given "A:ELSE" typed by hand, stores two.
     """
     src = text.encode("latin-1") if isinstance(text, str) else text
+    up = src.upper()            # bytes.upper() touches ASCII letters only
     out = bytearray()
     i, n = 0, len(src)
     in_string = False
@@ -113,22 +132,29 @@ def crunch(text, index):
         # blank in the input, so "GO TO" crunches to GOTO.  p50's tokenizer
         # and p75's pm_crunch do the same; the three must agree or the same
         # listing gives two different images (the 2026-09-19 audit, L-16).
-        if src.startswith(b"GO", i):
+        if up.startswith(b"GO", i):
             j = i + 2
             while j < n and src[j:j + 1] == b" ":
                 j += 1
-            if src.startswith(b"TO", j) and not src[j + 2:j + 3].isalnum() \
+            if up.startswith(b"TO", j) and not src[j + 2:j + 3].isalnum() \
                     and src[j + 2:j + 3] != b"$":
                 out.append(0x8D)
                 i = j + 2
                 continue
 
+        if b == 0x3F:                           # ROM 1BE4-1BE8
+            out.append(TOK_PRINT)
+            i += 1
+            continue
+
         for value, word in index:
-            if src.startswith(word, i):
+            if up.startswith(word, i):
                 # ' is stored as the three bytes :REM' -- detok collapses that
                 # back to a bare quote, so re-crunching must restore all three.
                 if value == TOK_APOS:
                     out += bytes([COLON, TOK_REM, TOK_APOS])
+                elif value == TOK_ELSE and out[-1:] != bytes([COLON]):
+                    out += bytes([COLON, TOK_ELSE])
                 else:
                     out.append(value)
                 if value in (TOK_REM, TOK_APOS):
@@ -138,7 +164,7 @@ def crunch(text, index):
                 i += len(word)
                 break
         else:
-            out.append(b)
+            out.append(up[i])
             i += 1
 
     return bytes(out)

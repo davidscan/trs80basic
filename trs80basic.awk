@@ -3860,13 +3860,13 @@ function st_resume(   p, ty, tx) {
 #     set in rebuild()).  System pointers served live: 40A4H (16548/9) =
 #     program base 42E9H, 40F9H (16633/4) = first byte past the terminator
 #     (start of variables), 40B1H (16561/2) = top of memory (the MEMORY
-#     SIZE? answer).  POKEs into the region land in MEM and are never read
-#     back -- the WRITABLE mapping (self-modifying code) stays unbuilt (see
-#     STATUS).  Keyword bytes 80-FB embedded below = tools/level2_tokens.tsv;
-#     serialization is validated byte-for-byte against tools/tok.py.
-#     Deviations, documented: lowercase keywords in typed source stay text
-#     bytes (real hardware uppercased on entry), and ELSE serializes without
-#     the hidden ":" byte the real cruncher inserted.
+#     SIZE? answer).  The image is WRITABLE since 2026-09-12 (read rule 5,
+#     below).  Keyword bytes 80-FB embedded below = tools/level2_tokens.tsv;
+#     serialization is validated byte-for-byte against tools/tok.py
+#     (programs/tests/crunch.sh).  Until the 2026-09-19 audit's L-13 two
+#     deviations were recorded here -- lowercase keywords stayed text and
+#     ELSE went without its hidden ":" -- and "?" was a third; pm_crunch
+#     follows the ROM's cruncher on all three now.
 #
 #  2. MEMORY SIZE? enforcement: a numeric answer at boot becomes HIMEM,
 #     which is a FENCE, not the top of RAM.  Two quantities, and the
@@ -4131,8 +4131,25 @@ function pm_body(ln,   body, j) {
 
 # crunch one line body into PMB[1..PMBN] (mirrors tools/tok.py: strings,
 # DATA-to-colon, and REM/' payloads stay literal; ' stores as :REM')
-function pm_crunch(text,   i, n, c, ins, ind, lit, j, w, matched) {
+#
+# Outside those regions it crunches as the ROM does (1BC0-1C8F; the
+# 2026-09-19 audit, L-13), because the core EXECUTES image bytes and a
+# program PEEKs them:
+#   * a letter is matched, and stored, in UPPER case: 1C00-1C0B upper-cases
+#     a symbol's first character in the buffer, 1C2D-1C31 compares the rest
+#     that way, and every unmatched letter comes round as a first character.
+#     prog[] keeps what was typed, for LIST; the image is what the machine
+#     would hold.  `up` is the text the matching is done on.
+#   * `?` is the PRINT token (1BE4-1BE8).
+#   * ELSE is stored behind a ":" (1C42-1C49) -- the byte that lets the
+#     ROM's IF skip to it.  ONE DEPARTURE, shared with tok.py: a ":" that
+#     is already there is not doubled.  A listing made by tools/detok.py
+#     shows the stored colon as ":ELSE" on purpose, and image -> listing ->
+#     image has to be the identity.  The ROM, given "A:ELSE" typed by hand,
+#     stores two.
+function pm_crunch(text,   i, n, c, ins, ind, lit, j, w, matched, up) {
     PMBN = 0
+    up = toupper(text)                      # ASCII letters only under -b
     i = 1; n = length(text); ins = 0; ind = 0; lit = 0
     while (i <= n) {
         c = substr(text, i, 1)
@@ -4147,20 +4164,22 @@ function pm_crunch(text,   i, n, c, ins, ind, lit, j, w, matched) {
         # blank in the input, so GO TO crunches to GOTO.  The cruncher has
         # to agree with the tokenizer (p50), or the image holds bytes the
         # machine would never have -- and the core executes image bytes.
-        if (substr(text, i, 2) == "GO") {
+        if (substr(up, i, 2) == "GO") {
             j = i + 2
             while (substr(text, j, 1) == " ") j++
-            if (substr(text, j, 2) == "TO" && substr(text, j + 2, 1) !~ /[A-Za-z0-9$]/) {
+            if (substr(up, j, 2) == "TO" && substr(text, j + 2, 1) !~ /[A-Za-z0-9$]/) {
                 PMB[++PMBN] = 141                         # 8DH, GOTO
                 i = j + 2
                 continue
             }
         }
+        if (c == "?") { PMB[++PMBN] = 178; i++; continue }     # B2H, PRINT
         matched = 0
         for (j = 1; j <= NTOKI; j++) {
             w = TIW[j]
-            if (substr(text, i, length(w)) == w) {
+            if (substr(up, i, length(w)) == w) {
                 if (TIV[j] == 251) { PMB[++PMBN] = 58; PMB[++PMBN] = 147; PMB[++PMBN] = 251 }
+                else if (TIV[j] == 149 && !(PMBN > 0 && PMB[PMBN] == 58)) { PMB[++PMBN] = 58; PMB[++PMBN] = 149 }
                 else PMB[++PMBN] = TIV[j]
                 if (TIV[j] == 147 || TIV[j] == 251) lit = 1
                 else if (TIV[j] == 136) ind = 1
@@ -4168,7 +4187,7 @@ function pm_crunch(text,   i, n, c, ins, ind, lit, j, w, matched) {
                 break
             }
         }
-        if (!matched) { PMB[++PMBN] = (c in ORD) ? ORD[c] : 63; i++ }
+        if (!matched) { c = substr(up, i, 1); PMB[++PMBN] = (c in ORD) ? ORD[c] : 63; i++ }
     }
 }
 
