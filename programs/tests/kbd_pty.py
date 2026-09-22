@@ -290,6 +290,45 @@ def dumb_zero(check):
     b.close()
 
 
+def piped_under_tty(check):
+    """Scenario 10: a transcript piped in WHILE a terminal exists is read.
+
+    TTYIN used to test whether /dev/tty opens, so from a terminal
+    `printf '\\nPRINT 1+1\\n' | gawk -b -f trs80basic.awk` read the keyboard
+    and left the pipe unread: MEMORY SIZE? waited for a typed ENTER and the
+    piped PRINT never ran -- and neither did any transcript-fed suite (the
+    2026-09-19 audit, M-22; ruled 2026-09-21: the keyboard is there when
+    STDIN is a terminal).  Here the pty is the controlling terminal and the
+    interpreter's stdin is the pipe.
+    """
+    pid, fd = pty.fork()
+    if pid == 0:
+        os.chdir(ROOT)
+        os.environ['TRS80_DUMB'] = '1'
+        os.environ['TRS80_Z80'] = ''
+        os.execv('/bin/sh', ['/bin/sh', '-c',
+                 "printf '\\nPRINT 1+1\\nBYE\\n' | gawk -b -f trs80basic.awk"])
+    out, t0 = b'', time.time()
+    while time.time() - t0 < 10 * SLOW:
+        r, _, _ = select.select([fd], [], [], 0.1)
+        if r:
+            try:
+                c = os.read(fd, 65536)
+            except OSError:
+                break
+            if not c:
+                break
+            out += c
+    try:
+        os.kill(pid, 15)
+    except OSError:
+        pass
+    os.waitpid(pid, 0)
+    s = flat(out.decode('latin-1'))
+    check(' 2 ' in s + ' ' and 'READY' in s,
+          'a transcript piped in under a controlling tty is read (M-22)', s)
+
+
 def main():
     fails = []
 
@@ -421,6 +460,9 @@ def main():
 
     # 9. TRS80_DUMB=0 is off
     dumb_zero(check)
+
+    # 10. a transcript piped in while a terminal exists
+    piped_under_tty(check)
 
     if fails:
         print('kbd_pty.py: %d check(s) failed' % len(fails))

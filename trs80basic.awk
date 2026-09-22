@@ -695,7 +695,14 @@ function kb_init() {
     # native Windows has no stty or /dev/tty -- the probe would only make
     # cmd.exe print "'stty' is not recognized" noise before failing anyway
     if (WINNATIVE) { TTYIN = 0; return }
-    TTYIN = (system("( stty -g < /dev/tty ) > /dev/null 2>&1") == 0)
+    # there is a keyboard when STDIN is a terminal -- the launcher's own
+    # `[ -t 0 ]` -- and /dev/tty opens for the readers below.  Testing
+    # /dev/tty alone read the keyboard while a transcript sat unread on a
+    # piped stdin, so `printf ... | gawk` and every transcript-fed suite
+    # stalled at MEMORY SIZE? whenever a terminal existed (the 2026-09-19
+    # audit, M-22; ruled 2026-09-21).  `stty -g` with no redirect reads
+    # gawk's stdin.
+    TTYIN = (system("( stty -g && stty -g < /dev/tty ) > /dev/null 2>&1") == 0)
     if (TTYIN) {
         ("stty -g < /dev/tty") | getline STTY0
         close("stty -g < /dev/tty")
