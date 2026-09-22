@@ -246,6 +246,10 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
             if (hl > 32767) hl -= 65536           # HL to result: signed 16-bit
             return res ? hl : x
         }
+        # `ERR ov`: the routine took its argument through 0A7FH (the ROM's
+        # CINT) and it was outside -32768..32767 -- a BASIC error the
+        # machine reports as ?OV, not a core fault, so no stderr notice
+        if (Z80LINE ~ /^ERR ov /) { raise(6); return 0 }
         if (Z80LINE ~ /^ERR /) { z80_notice(substr(Z80LINE, 5)); raise(5); return 0 }
         z80_notice("unexpected '" Z80LINE "'; the core is dead for this session, USR is the stub")
         z80_close(); raise(5); return 0

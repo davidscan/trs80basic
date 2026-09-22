@@ -131,6 +131,13 @@ function init_tables(   i, c, m, n) {
     # past end, BM bad file mode, FF file not found, BR bad record number,
     # FO field overflow
     NERRC = split("NF SN RG OD FC OV OM UL BS DD /0 ID TM OS LS ST CN NR RW UE MO FD L3 BN NO AO IE BM FF BR FO", ERRC, " ")
+    # the VARPTR string-space tables (p75) are typed as arrays HERE: gawk
+    # types an untouched name by its first use, and before the first RUN
+    # (which is what calls sp_reset) that use was `length(VPDATA)` in the
+    # assignment path -- a scalar context -- so VARPTR typed at the READY
+    # prompt was a fatal "attempt to use scalar VPDATA as an array" that
+    # killed the session (found 2026-09-21)
+    delete VPDATA; delete VPDESC; delete VPCAP; delete SPK; delete SPT; delete SPV
     # display glyphs
     GFXMODE = ENVIRON["TRS80_GFX"]
     if (GFXMODE != "braille" && GFXMODE != "ascii") GFXMODE = "sextant"

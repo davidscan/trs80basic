@@ -97,7 +97,8 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     `?FC` itself.
 *   `arg` is the BASIC argument as a number (possibly non-integer, possibly
     negative).  The core converts it as the ROM's 0A7FH routine does when
-    the routine calls that address: integer, into HL.
+    the routine calls that address: floored to an integer, into HL, and
+    `ERR ov` when it is outside -32768..32767 (see Errors).
 *   `sp` is the initial stack pointer: the interpreter's `SSP`, the bottom
     of allocated string space (HIMEM when nothing is packed), which is
     where Level II keeps its stack.  The core owns SP for the call and
@@ -186,8 +187,13 @@ ROM space that is neither the sentinel nor a served trap; when no frame
 and no store ever wrote the entry address, the text adds `-- no routine
 at XXXXH: its memory was never written`, the signature of a loader that
 never ran), `halt` (the routine executed HALT), `bad` (the core could not
-parse a message).  After an `ERR` the core is still up and the next call
-proceeds normally.
+parse a message), and `ov`, which is not a core fault but the machine's
+own error: the routine called 0A7FH (the ROM's CINT: the argument is
+floored to an integer, -32768 accepted exactly, anything else outside
+-32768..32767 exits through 07B2H) with an argument out of that range.
+For `ov` the interpreter raises `?OV` at the `USR` call, as the ROM does,
+and prints nothing on stderr.  After an `ERR` the core is still up and
+the next call proceeds normally.
 
 An `ERR` that ends a routine already running is preceded by the stores the
 routine made up to that point: `W` lines in the write-set's form (last

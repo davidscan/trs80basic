@@ -3,7 +3,8 @@
 30 DIM Z(1):F=0
 40 A$="ABCDEFGHIJ"
 50 IF VARPTR(A$)<>VARPTR(A$) THEN PRINT "FAIL idempotent":F=1
-60 V=VARPTR(A$):IF PEEK(V)<>10 THEN PRINT "FAIL len byte":F=1
+60 V=VARPTR(A$):IF V<0 THEN V=V+65536:REM the ROM's integer is negative above 32767 (L-43); the period idiom
+62 IF PEEK(V)<>10 THEN PRINT "FAIL len byte":F=1
 70 D=PEEK(V+1)+256*PEEK(V+2):IF D<>V-10 THEN PRINT "FAIL data just below descriptor":F=1
 80 REM the two-call period idiom must compose the real data address
 90 D2=PEEK(VARPTR(A$)+1)+256*PEEK(VARPTR(A$)+2):IF D2<>D THEN PRINT "FAIL two-call idiom";D2;D:F=1
@@ -17,11 +18,11 @@
 170 REM same-length reassignment keeps the same bytes live
 180 A$="0123456789":IF PEEK(D)<>48 THEN PRINT "FAIL live read after same-length assign":F=1
 190 REM growth repoints the descriptor, descriptor itself stays put
-200 A$=A$+"XYZ":IF VARPTR(A$)<>V THEN PRINT "FAIL descriptor moved on growth":F=1
+200 A$=A$+"XYZ":V2=VARPTR(A$):V2=V2-65536*(V2<0):IF V2<>V THEN PRINT "FAIL descriptor moved on growth":F=1
 210 IF PEEK(V)<>13 THEN PRINT "FAIL len after growth":F=1
 220 D3=PEEK(V+1)+256*PEEK(V+2):IF PEEK(D3+12)<>90 THEN PRINT "FAIL data after growth";PEEK(D3+12):F=1
 230 REM shrinking never moves anything
-240 A$="AB":IF VARPTR(A$)<>V OR PEEK(V+1)+256*PEEK(V+2)<>D3 THEN PRINT "FAIL shrink moved data":F=1
+240 A$="AB":V2=VARPTR(A$):V2=V2-65536*(V2<0):IF V2<>V OR PEEK(V+1)+256*PEEK(V+2)<>D3 THEN PRINT "FAIL shrink moved data":F=1
 250 REM numerics and array elements are stable too
 260 N=5:IF VARPTR(N)<>VARPTR(N) THEN PRINT "FAIL numeric idempotent":F=1
 270 DIM S$(3):S$(2)="HI":IF VARPTR(S$(2))<>VARPTR(S$(2)) THEN PRINT "FAIL array element idempotent":F=1
@@ -30,9 +31,10 @@
 300 POKE 16526,PEEK(VARPTR(B$)+1):POKE 16527,PEEK(VARPTR(B$)+2)
 310 IF PEEK(PEEK(16526)+256*PEEK(16527))<>66 THEN PRINT "FAIL vector via two-call":F=1
 312 REM a kept VARPTR follows a string that GROWS by assignment: the descriptor names the new bytes at once
-314 G$="AB":V=VARPTR(G$):G$="ABCDEFGHIJ":D=PEEK(V+1)+256*PEEK(V+2)
+314 G$="AB":V=VARPTR(G$):IF V<0 THEN V=V+65536
+315 G$="ABCDEFGHIJ":D=PEEK(V+1)+256*PEEK(V+2)
 316 IF PEEK(V)<>10 OR PEEK(D)<>65 OR PEEK(D+9)<>74 THEN PRINT "FAIL grown string through a kept VARPTR";PEEK(V);PEEK(D);PEEK(D+9):F=1
-318 POKE D+9,90:IF G$<>"ABCDEFGHIZ" OR VARPTR(G$)<>V THEN PRINT "FAIL POKE into the grown string: ";G$:F=1
+318 POKE D+9,90:V2=VARPTR(G$):V2=V2-65536*(V2<0):IF G$<>"ABCDEFGHIZ" OR V2<>V THEN PRINT "FAIL POKE into the grown string: ";G$:F=1
 319 REM past the live length a byte is RAM, not string (L-48): it reads back, LEN and the value stay, a grown length byte takes it in
 320 H$="ABCDEFGH":V=VARPTR(H$):D=PEEK(V+1)+256*PEEK(V+2):H$="AB":POKE D+5,88
 321 IF LEN(H$)<>2 OR H$<>"AB" THEN PRINT "FAIL a POKE past the live length grew the string:";LEN(H$);H$:F=1

@@ -1526,6 +1526,10 @@ VARPTR(var)   address of a variable's storage
   paint it, POKE VARPTR(A$),n sets how much is seen.  An assignment
   (LET, READ, INPUT) moves the descriptor and ends the alias.
   Numeric: address of the value's 4 Microsoft-single bytes, also live.
+  The address is the ROM's 16-bit integer, so above 32767 it is NEGATIVE
+  (65533 is -3), as on the machine; PEEK and POKE take it either way, and
+  USR needs it that way (its argument must be -32768..32767, else ?OV).
+  The period idiom for a data address: IF D>32767 THEN D=D-65536.
   Example: D=VARPTR(A$):M=PEEK(D+1)+256*PEEK(D+2):POKE M,191
 
 PEEK(addr)   read a memory byte (unset = 255)
@@ -1560,6 +1564,10 @@ PEEK(addr)   read a memory byte (unset = 255)
 USR(x) / USRn(x)   machine-language call.  With TRS80_Z80 naming the
   companion Z80 core the routine at slot n's entry runs against the
   simulated memory and its HL comes back as the result (PROTOCOL.md).
+  A routine that takes x through the ROM's 0A7FH gets it floored to an
+  integer; outside -32768..32767 that is ?OV, as on the machine -- pass
+  an address above 32767 as its negative (IF D>32767 THEN D=D-65536), or
+  VARPTR's value, which already is.
   Without a core it is a STUB: it evaluates and returns its argument x
   and no Z80 routine runs.  Programs whose USR result is decorative keep
   running; result-dependent ones fail visibly.  When a stubbed run ends,

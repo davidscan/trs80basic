@@ -136,8 +136,13 @@ def main():
         for r in runs:
             apply_run(r)
         entry = int(h["entry"])
-        arg = int(float(h["arg"]))
+        arg = int(float(h["arg"]) // 1)      # 0A7FH is the ROM's CINT: floor
         sp = int(h["sp"])
+        # the entries that take the argument through 0A7FH (7002, 7003,
+        # 7005): outside -32768..32767 the ROM exits ?OV, sent as `ERR ov`
+        if entry in (0x7002, 0x7003, 0x7005) and not -32768 <= arg <= 32767:
+            send("ERR ov USR argument %s is outside -32768..32767 at 0A7FH" % h["arg"])
+            continue
 
         if entry == 0x7000:
             send("V 15360:72,73")

@@ -44,7 +44,7 @@ cat > "$tmp" <<'EOF2'
 260 REM --- a routine that changes HIMEM by storing to 40B1H comes back through poke_byte
 261 REM --- a float stored through VARPTR while the target holds 0: LD HL,src / LD DE,dst / LD BC,4 / LDIR / RET.
 262 REM     the write-set arrives ascending, exponent LAST; the mantissa bytes must not be lost on the way
-263 Q=-123.456:Z=0:S=VARPTR(Q):T=VARPTR(Z)
+263 Q=-123.456:Z=0:S=VARPTR(Q):S=S-65536*(S<0):T=VARPTR(Z):T=T-65536*(T<0):REM VARPTR is the ROM's integer, negative up here (L-43)
 264 FOR I=0 TO 11:READ B:POKE 32300+I,B:NEXT
 265 DATA 33,0,0,17,0,0,1,4,0,237,176,201
 266 POKE 32301,S-256*INT(S/256):POKE 32302,INT(S/256):POKE 32304,T-256*INT(T/256):POKE 32305,INT(T/256)

@@ -635,7 +635,15 @@ function fn_varptr(   name, key, tgt) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return "N0" }
     CP++
     tgt = (key != "") ? "A" key : "V" name
-    return "N" sp_materialize(tgt, strname(name))
+    key = sp_materialize(tgt, strname(name)); if (E) return "N0"
+    # the ROM hands the address to 0A9AH as an INTEGER (24FAH), so above
+    # 32767 VARPTR is negative: 65533 is -3, and V=VARPTR(A$):IF V<0 THEN
+    # V=V+65536 is the period idiom (280 corpus lines).  PEEK and POKE take
+    # the negative form (addrconv), and a USR argument of it passes the
+    # core's 0A7FH trap, which is the ROM's CINT and would ?OV the positive
+    # form (the 2026-09-19 audit, L-43; ruled 2026-09-21).  Internal callers
+    # keep sp_materialize's positive address.
+    return "N" (key > 32767 ? key - 65536 : key)
 }
 
 # ===================== the SYSTEM VARIABLE WINDOW ============================

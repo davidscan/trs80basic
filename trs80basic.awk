@@ -131,6 +131,13 @@ function init_tables(   i, c, m, n) {
     # past end, BM bad file mode, FF file not found, BR bad record number,
     # FO field overflow
     NERRC = split("NF SN RG OD FC OV OM UL BS DD /0 ID TM OS LS ST CN NR RW UE MO FD L3 BN NO AO IE BM FF BR FO", ERRC, " ")
+    # the VARPTR string-space tables (p75) are typed as arrays HERE: gawk
+    # types an untouched name by its first use, and before the first RUN
+    # (which is what calls sp_reset) that use was `length(VPDATA)` in the
+    # assignment path -- a scalar context -- so VARPTR typed at the READY
+    # prompt was a fatal "attempt to use scalar VPDATA as an array" that
+    # killed the session (found 2026-09-21)
+    delete VPDATA; delete VPDESC; delete VPCAP; delete SPK; delete SPT; delete SPV
     # display glyphs
     GFXMODE = ENVIRON["TRS80_GFX"]
     if (GFXMODE != "braille" && GFXMODE != "ascii") GFXMODE = "sextant"
@@ -4546,7 +4553,15 @@ function fn_varptr(   name, key, tgt) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return "N0" }
     CP++
     tgt = (key != "") ? "A" key : "V" name
-    return "N" sp_materialize(tgt, strname(name))
+    key = sp_materialize(tgt, strname(name)); if (E) return "N0"
+    # the ROM hands the address to 0A9AH as an INTEGER (24FAH), so above
+    # 32767 VARPTR is negative: 65533 is -3, and V=VARPTR(A$):IF V<0 THEN
+    # V=V+65536 is the period idiom (280 corpus lines).  PEEK and POKE take
+    # the negative form (addrconv), and a USR argument of it passes the
+    # core's 0A7FH trap, which is the ROM's CINT and would ?OV the positive
+    # form (the 2026-09-19 audit, L-43; ruled 2026-09-21).  Internal callers
+    # keep sp_materialize's positive address.
+    return "N" (key > 32767 ? key - 65536 : key)
 }
 
 # ===================== the SYSTEM VARIABLE WINDOW ============================
@@ -5063,6 +5078,10 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
             if (hl > 32767) hl -= 65536           # HL to result: signed 16-bit
             return res ? hl : x
         }
+        # `ERR ov`: the routine took its argument through 0A7FH (the ROM's
+        # CINT) and it was outside -32768..32767 -- a BASIC error the
+        # machine reports as ?OV, not a core fault, so no stderr notice
+        if (Z80LINE ~ /^ERR ov /) { raise(6); return 0 }
         if (Z80LINE ~ /^ERR /) { z80_notice(substr(Z80LINE, 5)); raise(5); return 0 }
         z80_notice("unexpected '" Z80LINE "'; the core is dead for this session, USR is the stub")
         z80_close(); raise(5); return 0
