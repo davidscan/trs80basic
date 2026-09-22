@@ -126,11 +126,19 @@ function init_tables(   i, c, m, n) {
     # accepted when this is on -- `ext on` metacommand or TRS80_EXT=1 --
     # so the interpreter stays a strict ?SN oracle by default.
     EXTON = ("TRS80_EXT" in ENVIRON && ENVIRON["TRS80_EXT"] != "" && ENVIRON["TRS80_EXT"] != "0")
-    # error codes 1..23 (LEVEL II order), 24..31 (Disk BASIC file I/O):
-    # BN bad file number, NO file not open, AO file already open, IE input
-    # past end, BM bad file mode, FF file not found, BR bad record number,
-    # FO field overflow
-    NERRC = split("NF SN RG OD FC OV OM UL BS DD /0 ID TM OS LS ST CN NR RW UE MO FD L3 BN NO AO IE BM FF BR FO", ERRC, " ")
+    # error codes 1..23 in the ROM's order (its table ends there: NERRC),
+    # then the file errors at Disk BASIC's own numbers (Model III Disk
+    # System manual p.156), sparse: 51 FO field overflow, 53 BN bad file
+    # number (a channel out of range, and one not open -- Microsoft's one
+    # meaning for it), 54 FF file not found, 55 BM bad file mode, 63 IE
+    # input past end, 64 BR bad record number, 70 AO (file access: a busy
+    # channel re-opened, KILL of an open file).  They were 24-31 here
+    # until 2026-09-21; period listings test ERR against the machine's
+    # numbers (ERR=106 for "file not found", 450 comparisons in the corpus)
+    # and never against 24-31, so the renumbering wakes their handlers up.
+    NERRC = split("NF SN RG OD FC OV OM UL BS DD /0 ID TM OS LS ST CN NR RW UE MO FD L3", ERRC, " ")
+    ERRC[51] = "FO"; ERRC[53] = "BN"; ERRC[54] = "FF"; ERRC[55] = "BM"
+    ERRC[63] = "IE"; ERRC[64] = "BR"; ERRC[70] = "AO"
     # the VARPTR string-space tables (p75) are typed as arrays HERE: gawk
     # types an untouched name by its first use, and before the first RUN
     # (which is what calls sp_reset) that use was `length(VPDATA)` in the
@@ -3185,7 +3193,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         if (FH_MODE[i] == "R") return "N" ((FH_LOC[i] >= FH_NREC[i]) ? -1 : 0)
         # "A": reports the reply buffer only -- never triggers a send
         if (FH_MODE[i] == "A") return "N" ((FH_PENDHAS[i] || AI_RHAS[i]) ? 0 : -1)
-        raise(28); return "N0"
+        raise(55); return "N0"
     }
     if (name == "LOF") {
         x = numarg(a1, na); if (E) return "N0"
@@ -3199,10 +3207,10 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         if (FH_MODE[i] == "I" || FH_MODE[i] == "O" || FH_MODE[i] == "E") {
             if (FH_MODE[i] != "I") fflush(FH_NAME[i])    # our own writes first
             j = host_size(FH_NAME[i])
-            if (j < 0) { raise(28); return "N0" }
+            if (j < 0) { raise(55); return "N0" }
             return "N" int((j + 255) / 256)
         }
-        raise(28); return "N0"                  # "A": the AI link has no records
+        raise(55); return "N0"                  # "A": the AI link has no records
     }
     if (name == "LOC") {
         x = numarg(a1, na); if (E) return "N0"
@@ -3879,8 +3887,11 @@ function st_error(   v, n) {
     # the same one POKE's value uses -- so anything outside 0-255 is ?FC
     # (?OV outside the integer range, as byteconv has it since ruling 7);
     # then 0 is ?FC at 1FF9, and a code past the table is ?UE at 2003.
-    # The ROM's table ends at 23 (2(n-1) < 45 at 1FFF); ours runs on to 31
-    # because Disk BASIC's codes are in it, and ERROR 24-31 still name them.
+    # The ROM's table ends at 23 (2(n-1) < 45 at 1FFF).  The file errors
+    # sit at Disk BASIC's 51-70 (p10) but ERROR cannot raise them: "Disk
+    # errors cannot be simulated via the ERROR statement" (Model III Disk
+    # System manual p.156), so past 23 -- the gaps and 51-70 alike -- is
+    # ?UE.  Until 2026-09-21 they were 24-31 and ERROR 24-31 named them.
     n = byteconv(num(v)); if (E) return
     if (n == 0) { raise(5); return }
     if (n > NERRC) { raise(20); return }
@@ -6101,15 +6112,15 @@ function fio_chan(withhash,   v, n) {
     v = e_or(); if (E) return 0
     if (!isN(v)) { raise(13); return 0 }
     n = bfloor(num(v))
-    if (n < 1 || n > 15) { raise(24); return 0 }
+    if (n < 1 || n > 15) { raise(53); return 0 }
     return n
 }
 
 # channel argument of EOF/LOF/LOC: validated + must be open
 function fio_fnchan(x,   n) {
     n = bfloor(x)
-    if (n < 1 || n > 15) { raise(24); return 0 }
-    if (!fio_isopen(n)) { raise(25); return 0 }
+    if (n < 1 || n > 15) { raise(53); return 0 }
+    if (!fio_isopen(n)) { raise(53); return 0 }
     return n
 }
 
@@ -6120,7 +6131,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     v = e_or(); if (E) return
     if (isN(v)) { raise(13); return }
     mode = toupper(substr(vstr(v), 1, 1))
-    if (mode != "I" && mode != "O" && mode != "E" && mode != "R") { raise(28); return }
+    if (mode != "I" && mode != "O" && mode != "E" && mode != "R") { raise(55); return }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
     n = fio_chan(1); if (E) return
@@ -6143,9 +6154,9 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
         if (rlen < 0 || rlen > 256) { raise(5); return }
         if (rlen == 0) rlen = 256
     }
-    if (fio_isopen(n)) { raise(26); return }
+    if (fio_isopen(n)) { raise(70); return }
     for (i = 1; i <= 15; i++)
-        if (fio_isopen(i) && FH_NAME[i] == f) { raise(26); return }
+        if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
     if (toupper(f) ~ /^OLLAMA(:|$)/) { ai_open(n, f); return }
     if (host_special(f)) { raise(22); return }    # /inet/..., /dev/..., "-": not files (p90)
     if (mode != "I") {
@@ -6158,7 +6169,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     FH_OPEND[n] = ""; FH_OPENDHAS[n] = 0
     if (mode == "I") {
         r = (getline l < f)
-        if (r < 0) { raise(29); return }
+        if (r < 0) { raise(54); return }
         if (r > 0) {
             sub(/\r$/, "", l)
             # a 0DH inside the line is a record end, as in fio_fill below
@@ -6243,9 +6254,9 @@ function st_kill(   v, f, i) {
     f = vstr(v)
     if (f == "") { raise(21); return }
     for (i = 1; i <= 15; i++)
-        if (fio_isopen(i) && FH_NAME[i] == f) { raise(26); return }
+        if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
     if (!WINNATIVE && f ~ /'/) { raise(22); return }
-    if (!host_exists(f)) { raise(29); return }
+    if (!host_exists(f)) { raise(54); return }
     # a delete the host refuses -- a read-only directory, say -- used to be
     # ignored: rm complained on the program's own error channel, the file
     # stayed, and the program carried on as though it had gone.  ?FD is what
@@ -6337,8 +6348,8 @@ function st_input_file(   n, nlv, name, key, i, x) {
     n = fio_chan(0); if (E) return
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
-    if (!fio_isopen(n)) { raise(25); return }
-    if (FH_MODE[n] != "I" && FH_MODE[n] != "A") { raise(28); return }
+    if (!fio_isopen(n)) { raise(53); return }
+    if (FH_MODE[n] != "I" && FH_MODE[n] != "A") { raise(55); return }
     # each target is resolved when its item is stored, after the
     # assignments before it (INPUT#1,I,A(I)), as INPUT and READ do
     for (;;) {
@@ -6346,7 +6357,7 @@ function st_input_file(   n, nlv, name, key, i, x) {
         name = TK[CK, CP]; CP++
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
-        if (!fio_next_item(n, !strname(name))) { raise(27); return }
+        if (!fio_next_item(n, !strname(name))) { raise(63); return }
         if (strname(name)) assignv(name, key, "S" FIO_IT)
         else {
             # the item is evaluated "by a routine just like the BASIC VAL
@@ -6369,14 +6380,14 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         n = fio_chan(0); if (E) return
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
         CP++
-        if (!fio_isopen(n)) { raise(25); return }
-        if (FH_MODE[n] != "I" && FH_MODE[n] != "A") { raise(28); return }
+        if (!fio_isopen(n)) { raise(53); return }
+        if (FH_MODE[n] != "I" && FH_MODE[n] != "A") { raise(55); return }
         if (TY[CK, CP] != "i") { raise(2); return }
         name = TK[CK, CP]; CP++
         if (!strname(name)) { raise(13); return }
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
-        if (!fio_fill(n)) { raise(27); return }
+        if (!fio_fill(n)) { raise(63); return }
         # Disk manual, LINE INPUT#: it "reads everything from the first
         # character up to: 1. an (ENTER) character ... 2. the end of file
         # 3. the 255th data character (this 255 character is included in
@@ -6436,8 +6447,8 @@ function st_print_file(   n, s, sep, ty, tx, v, x) {
     n = fio_chan(0); if (E) return
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
-    if (!fio_isopen(n)) { raise(25); return }
-    if (FH_MODE[n] != "O" && FH_MODE[n] != "E" && FH_MODE[n] != "A") { raise(28); return }
+    if (!fio_isopen(n)) { raise(53); return }
+    if (FH_MODE[n] != "O" && FH_MODE[n] != "E" && FH_MODE[n] != "A") { raise(55); return }
     s = FH_OPENDHAS[n] ? FH_OPEND[n] : ""
     if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") { CP++; fio_pr_using(n, s); return }
     sep = 0
@@ -6516,8 +6527,8 @@ function fio_pr_out(n, s, sep) {
 # ---- random access ---------------------------------------------------------
 function st_field(   n, off, w, v, name, key, tgt, i, found) {
     n = fio_chan(1); if (E) return
-    if (!fio_isopen(n)) { raise(25); return }
-    if (FH_MODE[n] != "R") { raise(28); return }
+    if (!fio_isopen(n)) { raise(53); return }
+    if (FH_MODE[n] != "R") { raise(55); return }
     off = 0
     for (;;) {
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
@@ -6533,7 +6544,7 @@ function st_field(   n, off, w, v, name, key, tgt, i, found) {
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
         if (!strname(name)) { raise(13); return }
-        if (off + w > FH_RLEN[n]) { raise(31); return }
+        if (off + w > FH_RLEN[n]) { raise(51); return }
         tgt = fld_tgt(name, key)
         found = 0
         for (i = 1; i <= FLDN[n]; i++)
@@ -6613,8 +6624,8 @@ function st_lset(left,   name, key, v, s, tgt, cur) {
 
 function st_get(   n, rec, v) {
     n = fio_chan(1); if (E) return
-    if (!fio_isopen(n)) { raise(25); return }
-    if (FH_MODE[n] != "R") { raise(28); return }
+    if (!fio_isopen(n)) { raise(53); return }
+    if (FH_MODE[n] != "R") { raise(55); return }
     rec = FH_LOC[n] + 1
     if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
         CP++
@@ -6622,7 +6633,7 @@ function st_get(   n, rec, v) {
         if (!isN(v)) { raise(13); return }
         rec = bfloor(num(v))
     }
-    if (rec < 1 || rec > 65535) { raise(30); return }
+    if (rec < 1 || rec > 65535) { raise(64); return }
     # past the last record: "BASIC simply fills the buffer with hexadecimal
     # zeros, and no error is generated" (Disk manual, GET and LOF; the error
     # it speaks of is for variable-length records, which are not served).
@@ -6636,8 +6647,8 @@ function st_get(   n, rec, v) {
 
 function st_put(   n, rec, v, r) {
     n = fio_chan(1); if (E) return
-    if (!fio_isopen(n)) { raise(25); return }
-    if (FH_MODE[n] != "R") { raise(28); return }
+    if (!fio_isopen(n)) { raise(53); return }
+    if (FH_MODE[n] != "R") { raise(55); return }
     rec = FH_LOC[n] + 1
     if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
         CP++
@@ -6645,7 +6656,7 @@ function st_put(   n, rec, v, r) {
         if (!isN(v)) { raise(13); return }
         rec = bfloor(num(v))
     }
-    if (rec < 1 || rec > 65535) { raise(30); return }
+    if (rec < 1 || rec > 65535) { raise(64); return }
     if (rec > FH_NREC[n]) {
         for (r = FH_NREC[n] + 1; r < rec; r++) FH_REC[n, r] = fio_pad("", FH_RLEN[n])
         FH_NREC[n] = rec
@@ -7101,7 +7112,7 @@ function raise(c) {
 
 function report_err(   c, msg) {
     c = E; E = 0
-    if (c < 1 || c > NERRC) c = 20
+    if (!(c in ERRC)) c = 20                  # the table is sparse past 23 (the file codes)
     # ROM 1A11-1A14 prints the line unless H AND L is FF, that is unless it
     # is 65535 -- so an error in line 0 reports " IN 0"
     msg = "?" ERRC[c] " ERROR" inln(ERR_AT)

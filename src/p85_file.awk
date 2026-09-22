@@ -29,15 +29,15 @@ function fio_chan(withhash,   v, n) {
     v = e_or(); if (E) return 0
     if (!isN(v)) { raise(13); return 0 }
     n = bfloor(num(v))
-    if (n < 1 || n > 15) { raise(24); return 0 }
+    if (n < 1 || n > 15) { raise(53); return 0 }
     return n
 }
 
 # channel argument of EOF/LOF/LOC: validated + must be open
 function fio_fnchan(x,   n) {
     n = bfloor(x)
-    if (n < 1 || n > 15) { raise(24); return 0 }
-    if (!fio_isopen(n)) { raise(25); return 0 }
+    if (n < 1 || n > 15) { raise(53); return 0 }
+    if (!fio_isopen(n)) { raise(53); return 0 }
     return n
 }
 
@@ -48,7 +48,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     v = e_or(); if (E) return
     if (isN(v)) { raise(13); return }
     mode = toupper(substr(vstr(v), 1, 1))
-    if (mode != "I" && mode != "O" && mode != "E" && mode != "R") { raise(28); return }
+    if (mode != "I" && mode != "O" && mode != "E" && mode != "R") { raise(55); return }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
     n = fio_chan(1); if (E) return
@@ -71,9 +71,9 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
         if (rlen < 0 || rlen > 256) { raise(5); return }
         if (rlen == 0) rlen = 256
     }
-    if (fio_isopen(n)) { raise(26); return }
+    if (fio_isopen(n)) { raise(70); return }
     for (i = 1; i <= 15; i++)
-        if (fio_isopen(i) && FH_NAME[i] == f) { raise(26); return }
+        if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
     if (toupper(f) ~ /^OLLAMA(:|$)/) { ai_open(n, f); return }
     if (host_special(f)) { raise(22); return }    # /inet/..., /dev/..., "-": not files (p90)
     if (mode != "I") {
@@ -86,7 +86,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     FH_OPEND[n] = ""; FH_OPENDHAS[n] = 0
     if (mode == "I") {
         r = (getline l < f)
-        if (r < 0) { raise(29); return }
+        if (r < 0) { raise(54); return }
         if (r > 0) {
             sub(/\r$/, "", l)
             # a 0DH inside the line is a record end, as in fio_fill below
@@ -171,9 +171,9 @@ function st_kill(   v, f, i) {
     f = vstr(v)
     if (f == "") { raise(21); return }
     for (i = 1; i <= 15; i++)
-        if (fio_isopen(i) && FH_NAME[i] == f) { raise(26); return }
+        if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
     if (!WINNATIVE && f ~ /'/) { raise(22); return }
-    if (!host_exists(f)) { raise(29); return }
+    if (!host_exists(f)) { raise(54); return }
     # a delete the host refuses -- a read-only directory, say -- used to be
     # ignored: rm complained on the program's own error channel, the file
     # stayed, and the program carried on as though it had gone.  ?FD is what
@@ -265,8 +265,8 @@ function st_input_file(   n, nlv, name, key, i, x) {
     n = fio_chan(0); if (E) return
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
-    if (!fio_isopen(n)) { raise(25); return }
-    if (FH_MODE[n] != "I" && FH_MODE[n] != "A") { raise(28); return }
+    if (!fio_isopen(n)) { raise(53); return }
+    if (FH_MODE[n] != "I" && FH_MODE[n] != "A") { raise(55); return }
     # each target is resolved when its item is stored, after the
     # assignments before it (INPUT#1,I,A(I)), as INPUT and READ do
     for (;;) {
@@ -274,7 +274,7 @@ function st_input_file(   n, nlv, name, key, i, x) {
         name = TK[CK, CP]; CP++
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
-        if (!fio_next_item(n, !strname(name))) { raise(27); return }
+        if (!fio_next_item(n, !strname(name))) { raise(63); return }
         if (strname(name)) assignv(name, key, "S" FIO_IT)
         else {
             # the item is evaluated "by a routine just like the BASIC VAL
@@ -297,14 +297,14 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         n = fio_chan(0); if (E) return
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
         CP++
-        if (!fio_isopen(n)) { raise(25); return }
-        if (FH_MODE[n] != "I" && FH_MODE[n] != "A") { raise(28); return }
+        if (!fio_isopen(n)) { raise(53); return }
+        if (FH_MODE[n] != "I" && FH_MODE[n] != "A") { raise(55); return }
         if (TY[CK, CP] != "i") { raise(2); return }
         name = TK[CK, CP]; CP++
         if (!strname(name)) { raise(13); return }
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
-        if (!fio_fill(n)) { raise(27); return }
+        if (!fio_fill(n)) { raise(63); return }
         # Disk manual, LINE INPUT#: it "reads everything from the first
         # character up to: 1. an (ENTER) character ... 2. the end of file
         # 3. the 255th data character (this 255 character is included in
@@ -364,8 +364,8 @@ function st_print_file(   n, s, sep, ty, tx, v, x) {
     n = fio_chan(0); if (E) return
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
-    if (!fio_isopen(n)) { raise(25); return }
-    if (FH_MODE[n] != "O" && FH_MODE[n] != "E" && FH_MODE[n] != "A") { raise(28); return }
+    if (!fio_isopen(n)) { raise(53); return }
+    if (FH_MODE[n] != "O" && FH_MODE[n] != "E" && FH_MODE[n] != "A") { raise(55); return }
     s = FH_OPENDHAS[n] ? FH_OPEND[n] : ""
     if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") { CP++; fio_pr_using(n, s); return }
     sep = 0
@@ -444,8 +444,8 @@ function fio_pr_out(n, s, sep) {
 # ---- random access ---------------------------------------------------------
 function st_field(   n, off, w, v, name, key, tgt, i, found) {
     n = fio_chan(1); if (E) return
-    if (!fio_isopen(n)) { raise(25); return }
-    if (FH_MODE[n] != "R") { raise(28); return }
+    if (!fio_isopen(n)) { raise(53); return }
+    if (FH_MODE[n] != "R") { raise(55); return }
     off = 0
     for (;;) {
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
@@ -461,7 +461,7 @@ function st_field(   n, off, w, v, name, key, tgt, i, found) {
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
         if (!strname(name)) { raise(13); return }
-        if (off + w > FH_RLEN[n]) { raise(31); return }
+        if (off + w > FH_RLEN[n]) { raise(51); return }
         tgt = fld_tgt(name, key)
         found = 0
         for (i = 1; i <= FLDN[n]; i++)
@@ -541,8 +541,8 @@ function st_lset(left,   name, key, v, s, tgt, cur) {
 
 function st_get(   n, rec, v) {
     n = fio_chan(1); if (E) return
-    if (!fio_isopen(n)) { raise(25); return }
-    if (FH_MODE[n] != "R") { raise(28); return }
+    if (!fio_isopen(n)) { raise(53); return }
+    if (FH_MODE[n] != "R") { raise(55); return }
     rec = FH_LOC[n] + 1
     if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
         CP++
@@ -550,7 +550,7 @@ function st_get(   n, rec, v) {
         if (!isN(v)) { raise(13); return }
         rec = bfloor(num(v))
     }
-    if (rec < 1 || rec > 65535) { raise(30); return }
+    if (rec < 1 || rec > 65535) { raise(64); return }
     # past the last record: "BASIC simply fills the buffer with hexadecimal
     # zeros, and no error is generated" (Disk manual, GET and LOF; the error
     # it speaks of is for variable-length records, which are not served).
@@ -564,8 +564,8 @@ function st_get(   n, rec, v) {
 
 function st_put(   n, rec, v, r) {
     n = fio_chan(1); if (E) return
-    if (!fio_isopen(n)) { raise(25); return }
-    if (FH_MODE[n] != "R") { raise(28); return }
+    if (!fio_isopen(n)) { raise(53); return }
+    if (FH_MODE[n] != "R") { raise(55); return }
     rec = FH_LOC[n] + 1
     if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
         CP++
@@ -573,7 +573,7 @@ function st_put(   n, rec, v, r) {
         if (!isN(v)) { raise(13); return }
         rec = bfloor(num(v))
     }
-    if (rec < 1 || rec > 65535) { raise(30); return }
+    if (rec < 1 || rec > 65535) { raise(64); return }
     if (rec > FH_NREC[n]) {
         for (r = FH_NREC[n] + 1; r < rec; r++) FH_REC[n, r] = fio_pad("", FH_RLEN[n])
         FH_NREC[n] = rec

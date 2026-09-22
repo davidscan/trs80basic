@@ -309,7 +309,8 @@ before `--update`.
 - **`LOF` is for random files only.** On a sequential channel it raises `?BM`;
   use `LOC(n)` for lines read or written.
 - **`ERR` is not the error code.** As on the real machine, `ERR/2+1` is the
-  code (1 = NF, 2 = SN, 11 = /0, 29 = FF). `man ERR` lists them.
+  code (1 = NF, 2 = SN, 11 = /0, 54 = FF: the file errors carry Disk
+  BASIC's own numbers, 51-70). `man ERR` lists them.
 - **A program can disable BREAK**, as on the real machine, with `POKE 16396,23`
   (or 175, 165); `POKE 16396,201` re-enables it. Press Ctrl-C three times in
   a row to break anyway.

@@ -126,11 +126,19 @@ function init_tables(   i, c, m, n) {
     # accepted when this is on -- `ext on` metacommand or TRS80_EXT=1 --
     # so the interpreter stays a strict ?SN oracle by default.
     EXTON = ("TRS80_EXT" in ENVIRON && ENVIRON["TRS80_EXT"] != "" && ENVIRON["TRS80_EXT"] != "0")
-    # error codes 1..23 (LEVEL II order), 24..31 (Disk BASIC file I/O):
-    # BN bad file number, NO file not open, AO file already open, IE input
-    # past end, BM bad file mode, FF file not found, BR bad record number,
-    # FO field overflow
-    NERRC = split("NF SN RG OD FC OV OM UL BS DD /0 ID TM OS LS ST CN NR RW UE MO FD L3 BN NO AO IE BM FF BR FO", ERRC, " ")
+    # error codes 1..23 in the ROM's order (its table ends there: NERRC),
+    # then the file errors at Disk BASIC's own numbers (Model III Disk
+    # System manual p.156), sparse: 51 FO field overflow, 53 BN bad file
+    # number (a channel out of range, and one not open -- Microsoft's one
+    # meaning for it), 54 FF file not found, 55 BM bad file mode, 63 IE
+    # input past end, 64 BR bad record number, 70 AO (file access: a busy
+    # channel re-opened, KILL of an open file).  They were 24-31 here
+    # until 2026-09-21; period listings test ERR against the machine's
+    # numbers (ERR=106 for "file not found", 450 comparisons in the corpus)
+    # and never against 24-31, so the renumbering wakes their handlers up.
+    NERRC = split("NF SN RG OD FC OV OM UL BS DD /0 ID TM OS LS ST CN NR RW UE MO FD L3", ERRC, " ")
+    ERRC[51] = "FO"; ERRC[53] = "BN"; ERRC[54] = "FF"; ERRC[55] = "BM"
+    ERRC[63] = "IE"; ERRC[64] = "BR"; ERRC[70] = "AO"
     # the VARPTR string-space tables (p75) are typed as arrays HERE: gawk
     # types an untouched name by its first use, and before the first RUN
     # (which is what calls sp_reset) that use was `length(VPDATA)` in the

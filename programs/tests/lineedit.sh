@@ -64,7 +64,7 @@ want='=BEFORE 11  6
 =THE TYPE TABLE IS SINGLE AGAIN
 ?TM ERROR
 =THE FILE IS CLOSED
-?NO ERROR'
+?BN ERROR'
 [ "$out" = "$want" ] || fail "the run state after a program line changes" "$out"
 
 # A line number followed only by BLANKS is a deletion too (ROM 1AAD-1AAE,

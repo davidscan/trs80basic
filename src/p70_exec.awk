@@ -557,8 +557,11 @@ function st_error(   v, n) {
     # the same one POKE's value uses -- so anything outside 0-255 is ?FC
     # (?OV outside the integer range, as byteconv has it since ruling 7);
     # then 0 is ?FC at 1FF9, and a code past the table is ?UE at 2003.
-    # The ROM's table ends at 23 (2(n-1) < 45 at 1FFF); ours runs on to 31
-    # because Disk BASIC's codes are in it, and ERROR 24-31 still name them.
+    # The ROM's table ends at 23 (2(n-1) < 45 at 1FFF).  The file errors
+    # sit at Disk BASIC's 51-70 (p10) but ERROR cannot raise them: "Disk
+    # errors cannot be simulated via the ERROR statement" (Model III Disk
+    # System manual p.156), so past 23 -- the gaps and 51-70 alike -- is
+    # ?UE.  Until 2026-09-21 they were 24-31 and ERROR 24-31 named them.
     n = byteconv(num(v)); if (E) return
     if (n == 0) { raise(5); return }
     if (n > NERRC) { raise(20); return }

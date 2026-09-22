@@ -255,8 +255,10 @@ Things worth knowing even if you know Level II:
 - **Error codes**: `ERR` holds `(code-1)*2`, so the code is `ERR/2+1` —
   1 NF, 2 SN, 3 RG, 4 OD, 5 FC, 6 OV, 7 OM, 8 UL, 9 BS, 10 DD, 11 /0,
   12 ID, 13 TM, 14 OS, 15 LS, 16 ST, 17 CN, 18 NR, 19 RW, 20 UE, 21 MO,
-  22 FD, 23 L3, and (EXT, for file I/O) 24 BN, 25 NO, 26 AO, 27 IE,
-  28 BM, 29 FF, 30 BR, 31 FO. `ERROR n` raises one on purpose.
+  22 FD, 23 L3, and (EXT, for file I/O, at Disk BASIC's own numbers)
+  51 FO, 53 BN, 54 FF, 55 BM, 63 IE, 64 BR, 70 AO — so `ERR=106` is "file
+  not found" as on the machine. `ERROR n` raises one of the first 23 on
+  purpose; past 23 it is `?UE` (disk errors cannot be simulated).
 - `INPUT` is not allowed in immediate mode (`?ID`), like the ROM.
 - `AUTO` shows `*` for existing lines; ENTER keeps the old line; BREAK exits.
 - `EDIT` does not exist here (by design — you have a real editor and
@@ -1422,8 +1424,10 @@ ERROR n   raise error number n as though it had really happened
   Inside a handler, ERR and ERL report the forced code and the line the
   ERROR statement was on.
   n is a byte: 0 or anything outside 0-255 is ?FC, and outside the
-  integer range it is ?OV.  A code above the last one in the table
-  raises ?UE instead (ERROR 32 reports ?UE ERROR).
+  integer range it is ?OV.  A code past 23, the end of the ROM's table,
+  raises ?UE instead (ERROR 32 reports ?UE ERROR) -- and so do the file
+  codes 51-70: the Disk manual says disk errors cannot be simulated via
+  ERROR, so a handler is tested for ?FF with a missing file, not ERROR 54.
   Example: ERROR 6                (raises ?OV, overflow)
 ```
 
@@ -1440,8 +1444,8 @@ RESUME [0 | NEXT | n]   carry on after an ON ERROR handler
   the safe default.
   RESUME outside a handler raises ?RW ERROR.
   Example: RESUME NEXT
-  Example: 900 IF ERR/2+1=29 THEN PRINT "NO FILE": RESUME 100
-           (29 is ?FF, file not found -- see: man ERR for the codes)
+  Example: 900 IF ERR/2+1=54 THEN PRINT "NO FILE": RESUME 100
+           (54 is ?FF, file not found -- see: man ERR for the codes)
 ```
 
 #### ERR
@@ -1465,14 +1469,16 @@ ERR   the last error's code, held as (code-1)*2
     10 DD Redimensioned array   22 FD Bad file data
     11 /0 Division by zero      23 L3 Disk BASIC only
     12 ID Illegal direct
-  and the file codes, which continue the table here:
-    24 BN Bad file number       28 BM Bad file mode
-    25 NO File not open         29 FF File not found
-    26 AO File already open     30 BR Bad record number
-    27 IE Input past end        31 FO Field overflow
-  (Disk BASIC itself numbers those 51-70 on the machine.  These follow
-  the ROM's table instead, so a listing that compares ERR against a disk
-  number from the Disk manual will not match.)
+  and the file codes, at Disk BASIC's own numbers (the Disk System
+  manual's table; a listing that compares ERR against them matches, so
+  "file not found" is ERR=106 as on the machine):
+    51 FO Field overflow        55 BM Bad file mode
+    53 BN Bad file number       63 IE Input past end
+       (out of range, or not open)
+    54 FF File not found        64 BR Bad record number
+    70 AO File access (a busy channel re-opened, KILL of an open file)
+  ERROR n cannot raise a file code: the Disk manual says disk errors
+  cannot be simulated, so ERROR 54 is ?UE like any code past 23.
   Example: PRINT ERR/2+1
   Example: IF ERR/2+1=11 THEN PRINT "DIVIDE BY ZERO": RESUME NEXT
 ```

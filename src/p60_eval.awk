@@ -478,7 +478,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         if (FH_MODE[i] == "R") return "N" ((FH_LOC[i] >= FH_NREC[i]) ? -1 : 0)
         # "A": reports the reply buffer only -- never triggers a send
         if (FH_MODE[i] == "A") return "N" ((FH_PENDHAS[i] || AI_RHAS[i]) ? 0 : -1)
-        raise(28); return "N0"
+        raise(55); return "N0"
     }
     if (name == "LOF") {
         x = numarg(a1, na); if (E) return "N0"
@@ -492,10 +492,10 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         if (FH_MODE[i] == "I" || FH_MODE[i] == "O" || FH_MODE[i] == "E") {
             if (FH_MODE[i] != "I") fflush(FH_NAME[i])    # our own writes first
             j = host_size(FH_NAME[i])
-            if (j < 0) { raise(28); return "N0" }
+            if (j < 0) { raise(55); return "N0" }
             return "N" int((j + 255) / 256)
         }
-        raise(28); return "N0"                  # "A": the AI link has no records
+        raise(55); return "N0"                  # "A": the AI link has no records
     }
     if (name == "LOC") {
         x = numarg(a1, na); if (E) return "N0"
