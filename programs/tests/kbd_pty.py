@@ -146,6 +146,8 @@ def protocol(check):
     step(b'\x1b[1;1:3C', ['0'], 'release the arrow')
     step(b'A', ['3'], 'a shifted key sets the SHIFT row too')
     step(b'\x1b[97;2:3u', ['0'], 'its release (the unshifted code, shift in mods) clears both')
+    step(b'\x7f', ['32'], 'Delete presses the left arrow')
+    step(b'\x1b[127;1:3u', ['0'], 'its release (kitty code 127) lets it go')
     step(b'a', ['2'], 'press a and abandon it')
     # without the time extension the timer runs on whole seconds: 2-4 s, not 2
     step(b'', ['0'], 'no event for KP_STUCK seconds: released by itself', 2.6 if has_clock() else 4.3)
@@ -345,13 +347,15 @@ def main():
     b.send('10 A$=INKEY$:IF A$="" THEN 10\r20 PRINT ASC(A$);:GOTO 10\rRUN\r', 0.6)
     b.drain(0.3)
     # an arrow is the Model I's ONE byte (91 10 8 9; shifted 27 26 24 25), a
-    # lone ESC is 27, and a key the TRS-80 lacks (PgUp) is no key at all
-    for k in (b'a', b'.', b'Z', b' ', b'\x1b[A', b'\r', b'\x1b', b'\x1b[5~', b'\x1b[1;2D', b'\x1bOC', b'\x1b[B'):
+    # lone ESC is 27, a key the TRS-80 lacks (PgUp) is no key at all, and
+    # Delete (127) is the left arrow, the machine's backspace (HAND_TEST 25)
+    for k in (b'a', b'.', b'Z', b' ', b'\x1b[A', b'\r', b'\x1b', b'\x1b[5~', b'\x1b[1;2D', b'\x1bOC', b'\x1b[B', b'\x7f'):
         b.send(k, 0.15)
     b.send(b'\x03', 0.5)
     out = b.drain()
-    check('97 46 90 32 91 13 27 24 9 10 ' in flat(out) + ' ' and ' 53 ' not in flat(out) and ' 126 ' not in flat(out),
-          'INKEY$ bytes in order (a . Z space up ENTER ESC PgUp shift-left right down)', out)
+    check('97 46 90 32 91 13 27 24 9 10 8 ' in flat(out) + ' ' and ' 53 ' not in flat(out)
+          and ' 126 ' not in flat(out) and ' 127 ' not in flat(out),
+          'INKEY$ bytes in order (a . Z space up ENTER ESC PgUp shift-left right down Delete)', out)
     check('BREAK IN 10' in out, 'Ctrl-C breaks the INKEY$ loop', out)
 
     # 2. the matrix hold: count the polls that see one keypress
@@ -385,6 +389,13 @@ def main():
     out = b.drain(0.5, 6)
     check('ROW6 32 SH 1' in flat(out), 'SHIFT + left arrow presses the arrow and the shift key', out)
     check('CLEAN' in out and 'JUNK' not in out, 'the escape sequence presses no other key', out)
+
+    # 2c. Delete on the matrix: the left arrow, unshifted (HAND_TEST 25)
+    b.send('RUN\r', 0.8)
+    b.drain(0.3)
+    b.send(b'\x7f', 0.3)
+    out = b.drain(0.5, 6)
+    check('ROW6 32 SH 0' in flat(out), 'Delete presses the left arrow on the matrix', out)
 
     # 3. Ctrl-S pause, resume, BREAK
     b.send('NEW\r10 FOR I=1 TO 200000:PRINT I;:NEXT\rRUN\r', 0.3)
@@ -431,9 +442,9 @@ def main():
     # 4. INPUT with a period, through the line editor
     b.send('NEW\r10 INPUT "NAME";A$:PRINT "["A$"]"\rRUN\r', 0.6)
     b.drain(0.3)
-    b.send('A.B\r', 0.5)
+    b.send('A.BX\x7f\r', 0.5)                          # ... and Delete still backspaces
     out = b.drain()
-    check('[A.B]' in out, 'INPUT returns a line with a period', out)
+    check('[A.B]' in out, 'INPUT returns a line with a period; Delete erased the X', out)
 
     # 4b. the line editor refuses the 241st character (the ROM's 0361H limit)
     b.send('NEW\r10 INPUT A$:PRINT "LEN";LEN(A$)\rRUN\r', 0.6)

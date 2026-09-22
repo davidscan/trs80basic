@@ -800,6 +800,7 @@ function kp_event(body, fin,   a, m, code, mods, ev, r, b) {
     KPLAST = kp_now()
     if (fin == "u") {
         code = a[1] + 0
+        if (code == 127) code = 8                             # Delete: the left arrow, as its press byte is
         if (and(mods - 1, 4) && code == 99) { r = 6; b = 4 }  # Ctrl-C: the BREAK key
         else if (code in KMR_) { r = KMR_[code]; b = KMB_[code] }
         else return
@@ -1136,6 +1137,21 @@ function kb_escseq(   c, n, par, a) {
     return (c == 65) ? 91 : (c == 66) ? 10 : (c == 67) ? 9 : 8
 }
 
+# A byte consumed at a terminal, as the Model I key it meant: ESC starts a
+# sequence (kb_escseq above), and 127 -- the Delete/Backspace key on a Mac
+# or PC keyboard -- is the LEFT ARROW, byte 8, which IS the machine's
+# backspace (row 6 bit 32).  No Model I key produces 127; the line editor
+# had long taken 127 and 8 alike (readline below) while a program's INKEY$
+# and the matrix saw 127 and no key, so `IF A$=CHR$(8)` never fired for the
+# natural key (HAND_TEST 25, ruled 2026-09-21).  INKEY$, the timed latch
+# and the release protocol's press path all come through here; a piped
+# byte stream stays byte-exact and never does.
+function kb_termkey(c) {
+    if (c == 27) return kb_escseq()
+    if (c == 127) return 8
+    return c
+}
+
 # consume at most one pending byte into the latch; age the latch when idle.
 # Under the release protocol (KBPROTO) every pending press byte goes into
 # the down-set instead, and nothing ages: a key is up when its release
@@ -1158,7 +1174,8 @@ function km_pump(   c) {
     c = KBQ[++KH]
     if (c == 3) { if (brk_take()) { PENDBRK = 1; kb_flush() }; km_latch(6, 4, 0); return }
     BRKFORCE = 0
-    if (c == 27) c = kb_escseq()                  # an arrow, or no TRS-80 key (-1)
+    if (TTYIN) c = kb_termkey(c)                  # an arrow, Delete, or no TRS-80 key (-1)
+    else if (c == 27) c = kb_escseq()             # a piped ESC [ A is still an arrow
     if (c in KMR_) km_latch(KMR_[c], KMB_[c], KMS_[c] + 0)
     else { KMR = -1; KMSH = 0 }                   # key with no matrix position
 }
@@ -1167,7 +1184,7 @@ function km_pump(   c) {
 function kp_byte(c) {
     if (c == 3) { if (brk_take()) { PENDBRK = 1; kb_flush() }; kp_press(6, 4, 0); return }
     BRKFORCE = 0
-    if (c == 27) c = kb_escseq()
+    c = kb_termkey(c)                             # the protocol only runs at a terminal
     if (c in KMR_) kp_press(KMR_[c], KMB_[c], KMS_[c] + 0)
 }
 
@@ -3288,9 +3305,10 @@ function fn_inkey(   c) {
     if (c == 3) { if (brk_take()) PENDBRK = 1; return "S" }   # the BREAK vector (p30)
     if (c < 0) return "S"
     BRKFORCE = 0
-    # at a terminal an arrow key is the Model I's one byte, not ESC [ A
-    # (p30 kb_escseq); piped input is a byte stream and stays as sent
-    if (c == 27 && TTYIN) { c = kb_escseq(); if (c < 0) return "S" }
+    # at a terminal an arrow key is the Model I's one byte, not ESC [ A, and
+    # Delete is the left arrow (p30 kb_termkey); piped input is a byte
+    # stream and stays as sent
+    if (TTYIN) { c = kb_termkey(c); if (c < 0) return "S" }
     return "S" CHR[c]
 }
 
