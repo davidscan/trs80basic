@@ -472,7 +472,16 @@ function st_sound(arg,   rest) {
     if (arg == "off" || arg == "0") { SNDON = 0; snd_apply(); t_man(snd_msg()); return }
     if (arg ~ /^wav[ \t]+[^ \t]/) {
         rest = substr(arg, 4); sub(/^[ \t]+/, "", rest)
-        SNDWAV = (rest == "off" || rest == "0") ? "" : rest
+        if (rest == "off" || rest == "0") rest = ""
+        # `~` is the home directory, as at a shell prompt; a path that
+        # cannot be written is refused here and the capture left as it
+        # was -- it used to be shown as active while the core dropped it
+        # in silence (the 2026-09-19 audit, L-49)
+        if (rest ~ /^~(\/|$)/ && ENVIRON["HOME"] != "") rest = ENVIRON["HOME"] substr(rest, 2)
+        if (rest != "" && !host_canwrite(rest)) {
+            t_man("?CANNOT WRITE " rest "\n" snd_msg()); return
+        }
+        SNDWAV = rest
         Z80WAVGOING = ""                # naming a file begins a new capture in it
         snd_apply(); t_man(snd_msg()); return
     }

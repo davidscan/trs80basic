@@ -78,5 +78,22 @@ if [ "$(id -u)" != 0 ]; then
     [ -f gone.txt ] && bad "an ordinary KILL left the file"
 fi
 
+# `sound wav <path>` names a file the core opens at its next start: one
+# that cannot be written is refused at once and the capture stays as it
+# was, and nothing is created by asking; `~` is the home directory.  An
+# unwritable path used to be shown as the active capture while the core
+# dropped it in silence (the 2026-09-19 audit, L-49).  No core needed.
+mkdir -p home
+out=$(printf '\nsound wav %s\nsound wav ~/cap.wav\nsound wav nodir/x.wav\nsound wav home\nBYE\n' "$d/home/a.wav" |
+      HOME="$d/home" TRS80_Z80= TRS80_DUMB=1 "$here/basic" 2>&1 | grep -E '^(\?CANNOT|SOUND)')
+want="SOUND OFF, WAV $d/home/a.wav
+SOUND OFF, WAV $d/home/cap.wav
+?CANNOT WRITE nodir/x.wav
+SOUND OFF, WAV $d/home/cap.wav
+?CANNOT WRITE home
+SOUND OFF, WAV $d/home/cap.wav"
+[ "$out" = "$want" ] || bad "sound wav refusals: $out"
+[ -e home/a.wav ] || [ -e home/cap.wav ] && bad "sound wav created a file by naming it"
+
 [ $fail = 0 ] && echo "HOSTWRITE OK"
 exit $fail

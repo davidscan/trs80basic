@@ -2425,6 +2425,8 @@ sound                  report the current state
   A change takes effect at the next USR call, which starts a fresh core;
   nothing in memory is lost, and a WAV capture carries on in its file
   (`sound wav <path>` is what begins a new one, the same path included).
+  A leading ~ is your home directory; a path that cannot be written is
+  refused (?CANNOT WRITE) and the capture stays as it was.
   Without the core there is no sound.
   Metacommand: lowercase only.
   Example: sound on

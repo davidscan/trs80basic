@@ -1948,7 +1948,16 @@ function st_sound(arg,   rest) {
     if (arg == "off" || arg == "0") { SNDON = 0; snd_apply(); t_man(snd_msg()); return }
     if (arg ~ /^wav[ \t]+[^ \t]/) {
         rest = substr(arg, 4); sub(/^[ \t]+/, "", rest)
-        SNDWAV = (rest == "off" || rest == "0") ? "" : rest
+        if (rest == "off" || rest == "0") rest = ""
+        # `~` is the home directory, as at a shell prompt; a path that
+        # cannot be written is refused here and the capture left as it
+        # was -- it used to be shown as active while the core dropped it
+        # in silence (the 2026-09-19 audit, L-49)
+        if (rest ~ /^~(\/|$)/ && ENVIRON["HOME"] != "") rest = ENVIRON["HOME"] substr(rest, 2)
+        if (rest != "" && !host_canwrite(rest)) {
+            t_man("?CANNOT WRITE " rest "\n" snd_msg()); return
+        }
+        SNDWAV = rest
         Z80WAVGOING = ""                # naming a file begins a new capture in it
         snd_apply(); t_man(snd_msg()); return
     }
@@ -7406,6 +7415,17 @@ function host_writable(f) {
     if (WINNATIVE)
         return f !~ /"/ && system("type nul >> \"" f "\" 2>nul") == 0
     return system("test ! -d " shq(f) " && touch -- " shq(f) " 2>/dev/null && test -w " shq(f)) == 0
+}
+
+# f could be written, WITHOUT creating it: an existing plain file we may
+# write, or a new name in a directory we may write.  For a path handed to
+# another process to open later (the `sound wav` capture, which the core
+# opens at its next start), so naming it leaves no empty file behind.
+function host_canwrite(f) {
+    if (host_special(f)) return 0
+    if (WINNATIVE) return f !~ /"/
+    return system("if [ -e " shq(f) " ]; then [ -f " shq(f) " ] && [ -w " shq(f) " ]; " \
+                  "else d=$(dirname -- " shq(f) ") && [ -d \"$d\" ] && [ -w \"$d\" ]; fi") == 0
 }
 
 # s as one single-quoted sh word: each ' becomes '\'' (close the quote,

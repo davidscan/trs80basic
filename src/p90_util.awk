@@ -248,6 +248,17 @@ function host_writable(f) {
     return system("test ! -d " shq(f) " && touch -- " shq(f) " 2>/dev/null && test -w " shq(f)) == 0
 }
 
+# f could be written, WITHOUT creating it: an existing plain file we may
+# write, or a new name in a directory we may write.  For a path handed to
+# another process to open later (the `sound wav` capture, which the core
+# opens at its next start), so naming it leaves no empty file behind.
+function host_canwrite(f) {
+    if (host_special(f)) return 0
+    if (WINNATIVE) return f !~ /"/
+    return system("if [ -e " shq(f) " ]; then [ -f " shq(f) " ] && [ -w " shq(f) " ]; " \
+                  "else d=$(dirname -- " shq(f) ") && [ -d \"$d\" ] && [ -w \"$d\" ]; fi") == 0
+}
+
 # s as one single-quoted sh word: each ' becomes '\'' (close the quote,
 # an escaped quote, reopen).  For names the shell must never parse, such
 # as file names read back from ls (p30 rl_complete, the 2026-09-19 audit, C-2).
