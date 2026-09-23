@@ -51,13 +51,13 @@ function kb_mode(m) {
 # and the line editor see nothing new, and the matrix gets what the
 # hardware had: a key is down from its press until its release, chords
 # included, and the OS's delay-until-repeat no longer shows as a gap.
-#   Entering poll mode sends CSI ? u (the query, once) and CSI > 2 u (push
+#   Entering poll mode sends CSI ? u (the query, until answered) and CSI > 2 u (push
 #   the flag); entering line mode and exiting send CSI < u (pop).  A
 #   terminal without the protocol ignores all three and never answers
 #   the query, so KBPROTO stays 0 and the timed latch above is used.
 #   The reply CSI ? <flags> u, and every event CSI <code> ; <mods> : <ev> u
-#   (or ... <ev> A-D for the arrows), is taken out of the byte stream in
-#   kb_fill_tty by kp_filter: ev 2 = repeat (keeps the key fresh), ev 3 =
+#   (or ... <ev> A-D for the arrows), is taken out of the byte stream by
+#   kp_filter, in both tty readers: ev 2 = repeat (keeps the key fresh), ev 3 =
 #   release.  The code is the unshifted key; the shift/ctrl bits are in
 #   mods-1.  Pressed keys that never see a release (the window lost focus
 #   mid-hold) are all released after KP_STUCK seconds with no event at
@@ -74,9 +74,15 @@ function kp_on(   e) {
     return TTYIN && e != "0" && (e == "1" || !DUMB)
 }
 
+# The query goes out on every push until the terminal has answered.  It
+# used to go out once: a reply that missed the first poll episode (a short
+# RUN, a LIST, an arrow key at READY) was lost, and KBPROTO stayed 0 for
+# the session with flag 2 still pushed (the 2026-09-19 audit, H-15).  A
+# terminal without the protocol ignores the repeats as it ignored the first.
 function kp_push() {
     if (!kp_on()) return
-    if (!KPQUERIED) { printf "\033[?u"; KPQUERIED = 1 }
+    if (!KBPROTO) printf "\033[?u"
+    KPQUERIED = 1
     printf "\033[>2u"; fflush()
     KPPUSHED = 1
 }
@@ -184,14 +190,24 @@ function kb_fill_tty(   save, r, i, n, line) {
     return n
 }
 
-function kb_fill_pipe(   cmd, ln, a, n, i, got) {
+# The line-mode read goes through kp_filter as the poll does: the query's
+# reply and a release event arrive whenever the terminal sends them, and
+# one that lands here (the reply after a short RUN, a key let go after
+# BREAK) was queued as typed bytes for rl_arrow to swallow -- the protocol
+# never came on, the release was never applied (the 2026-09-19 audit,
+# H-15 and L-7).  Returns the bytes READ, not the bytes queued: a read
+# the filter emptied is not the end of input kb_get counts to three.
+function kb_fill_pipe(   cmd, ln, a, n, i, got, s) {
     cmd = "dd if=/dev/tty bs=256 count=1 2>/dev/null | od -A n -t u1 -v"
-    got = 0
+    got = 0; s = ""
     while ((cmd | getline ln) > 0) {
         n = split(ln, a, " ")
-        for (i = 1; i <= n; i++) { KBQ[++KT] = a[i] + 0; got++ }
+        for (i = 1; i <= n; i++) { s = s CHR[a[i] + 0]; got++ }
     }
     close(cmd)
+    if (KPQUERIED) s = kp_filter(s)
+    n = length(s)
+    for (i = 1; i <= n; i++) KBQ[++KT] = ORD[substr(s, i, 1)]
     return got
 }
 

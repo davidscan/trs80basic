@@ -35,7 +35,10 @@ terminal emulator gives it, and checks:
      puts the modes back as it found them (the 2026-09-19 audit, M-31);
   9. TRS80_DUMB=0 means OFF, as TRS80_EXT=0 and TRS80_KBPROTO=0 do --
      it used to turn plain mode on, since any non-empty value counted
-     (the 2026-09-19 audit, L-6).
+     (the 2026-09-19 audit, L-6);
+ 11. the kitty query's reply arriving after the LIST that sent it, at
+     READY in line mode, still turns the protocol on, and an unanswered
+     query is asked again at the next poll episode (the 2026-09-19 audit, H-15).
 
 Standard library only; run by run_all.sh when python3 is present (so CI
 exercises the tty reader on Linux, where it was not measured by hand).
@@ -170,6 +173,47 @@ def protocol(check):
     whole = ''.join(log)
     check(whole.rfind(POP) > whole.rfind(PUSH), 'the session ends with the protocol popped',
           whole[-200:])
+
+
+def late_reply(check):
+    """Scenario 11: the query's reply arrives after the LIST that sent it
+    (the 2026-09-19 audit, H-15).  It lands in line mode, at READY; it
+    used to be eaten there as a typed escape sequence, the query never
+    went out again, and a held key read as the timed latch's short taps
+    for the rest of the session."""
+    b = Basic([('TRS80_KBPROTO', '1'), ('TRS80_KPSTUCK', str(4 * SLOW))])
+    b.drain()
+    b.send('\r')
+    b.drain()
+    # a LIST polls BREAK once a line, so it is a poll episode over at
+    # once (HAND_TEST 17's leg A).  The terminal says nothing this time,
+    # so the next episode must ask again
+    b.send('10 PRINT "SHORT"\rLIST\r', 0.6)
+    out = b.drain(0.3)
+    check(QUERY in out, 'the first LIST queries the terminal', out)
+    b.send('LIST\r', 0.6)
+    out = b.drain(0.3)
+    check(QUERY in out, 'a LIST after an unanswered query asks again', out)
+    b.send(b'\x1b[?0u', 0.3)                        # the answer, at READY: line mode
+    b.send('PRINT 6+1\r', 0.4)
+    out = b.drain(0.3)
+    check('7' in numbers(out) and '?SN' not in out,
+          'the reply at READY is not typed into the line', out)
+    b.send('NEW\r10 P=PEEK(14591):IF P<>Q THEN PRINT P;:Q=P\r20 GOTO 10\rRUN\r', 0.6)
+    out = b.drain(0.3)
+    check(QUERY not in out, 'an answered query is not sent again', out)
+    b.send(b'a', 0.5)                              # longer than the timed 100 ms hold
+    got = numbers(b.drain(0.2))
+    check(got == ['2'], 'a held key stays down: the protocol came on from the late reply',
+          ' '.join(got) or '(nothing)')
+    b.send(b'\x1b[97;1:3u', 0.35)
+    got = numbers(b.drain(0.2))
+    check(got == ['0'], 'and lets go at its release event', ' '.join(got) or '(nothing)')
+    b.send(b'\x03', 0.5)
+    b.drain()
+    b.send('BYE\r', 0.5)
+    b.drain(0.3, 2)
+    b.close()
 
 
 def completion(check):
@@ -474,6 +518,9 @@ def main():
 
     # 10. a transcript piped in while a terminal exists
     piped_under_tty(check)
+
+    # 11. the query's reply after the LIST that sent it
+    late_reply(check)
 
     if fails:
         print('kbd_pty.py: %d check(s) failed' % len(fails))
