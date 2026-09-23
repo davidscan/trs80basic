@@ -243,6 +243,52 @@ def late_reply(check):
     b.close()
 
 
+def split_event(check):
+    """Scenario 12: a kitty event cut in two by the read (the 2026-09-19
+    audit, L-8).  The held fragment used to be flushed as keys by the very
+    next empty poll -- microseconds later, long before the rest arrived --
+    so the release was lost and the fragment's scan, ending on the next
+    byte in 64-126, swallowed the next real key.  HAND_TEST 28: a terminal
+    cannot be made to lose this race on command; the pty can."""
+    b = Basic([('TRS80_KBPROTO', '1'), ('TRS80_KPSTUCK', str(4 * SLOW))])
+    b.drain()
+    b.send('\r')
+    b.drain()
+    b.send('10 A$=INKEY$:IF A$<>"" THEN PRINT ASC(A$);\r20 GOTO 10\rRUN\r', 0.6)
+    b.drain(0.3)
+    b.send(b'\x1b[?0u', 0.3)                       # the terminal speaks the protocol
+    b.drain(0.2)
+    # the cut after the digits, after ESC [, after ESC alone: the gap is far
+    # longer than a poll and far shorter than any human keystroke
+    for cut in (b'\x1b[97;1:', b'\x1b[', b'\x1b'):
+        rest = b'\x1b[97;1:3u'[len(cut):]
+        b.send(b'a' + cut, 0.02)
+        b.send(rest + b'b', 0.35)
+        got = numbers(b.drain(0.2))
+        check(got == ['97', '98'], 'a release cut after %r is no key, and b arrives' % cut,
+              ' '.join(got) or '(nothing)')
+    b.send(b'\x1b', 0.4)                            # a lone ESC is still a key, only later
+    got = numbers(b.drain(0.2))
+    check(got == ['27'], 'a lone ESC under the protocol still reads 27', ' '.join(got) or '(nothing)')
+    b.send(b'\x03', 0.5)
+    b.drain()
+    # on the matrix: the cut release still lets the key go
+    b.send('NEW\r10 P=PEEK(14591):IF P<>Q THEN PRINT P;:Q=P\r20 GOTO 10\rRUN\r', 0.6)
+    b.drain(0.3)
+    b.send(b'a', 0.35)
+    got = numbers(b.drain(0.2))
+    check(got == ['2'], 'press a on the matrix', ' '.join(got) or '(nothing)')
+    b.send(b'\x1b[97;', 0.02)
+    b.send(b'1:3u', 0.35)
+    got = numbers(b.drain(0.2))
+    check(got == ['0'], 'a release cut in two lets a go', ' '.join(got) or '(nothing)')
+    b.send(b'\x03', 0.5)
+    b.drain()
+    b.send('BYE\r', 0.5)
+    b.drain(0.3, 2)
+    b.close()
+
+
 def completion(check):
     """Scenario 7: TAB completion in a directory holding a hostile name."""
     with tempfile.TemporaryDirectory() as d:
@@ -548,6 +594,9 @@ def main():
 
     # 11. the query's reply after the LIST that sent it
     late_reply(check)
+
+    # 12. a kitty event cut in two by the read
+    split_event(check)
 
     if fails:
         print('kbd_pty.py: %d check(s) failed' % len(fails))

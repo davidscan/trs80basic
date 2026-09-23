@@ -800,18 +800,30 @@ function kp_pop() {
 }
 
 # strip the protocol's replies and events from a record of tty bytes,
-# applying them to the matrix; return the plain key bytes
-function kp_filter(s,   out, i, n, j, body, fin) {
+# applying them to the matrix; return the plain key bytes.  A sequence the
+# read cut short is held in KPPART for the next read to complete.  `bare`
+# (the poll reader) holds a trailing ESC or ESC [ too, once the terminal
+# has answered: the cut can fall there as well, and the rest of the event
+# arrived as keys (L-8 below).  The line reader blocks until the next
+# keystroke, so a real Esc key there would wait on it; and a terminal
+# without the protocol sends no events to cut: a bare ESC or ESC [ at the
+# end of the read is keys for both.
+function kp_filter(s, bare,   out, i, n, j, body, fin, had, cut) {
     if (!KPQUERIED) return s
-    s = KPPART s; KPPART = ""
+    bare = bare && KBPROTO
+    had = (KPPART != ""); s = KPPART s; KPPART = ""
     out = ""; n = length(s); i = 1
     while (i <= n) {
-        if (substr(s, i, 2) != "\033[") { out = out substr(s, i, 1); i++; continue }
+        if (substr(s, i, 2) != "\033[") {
+            if (bare && i == n && substr(s, i, 1) == "\033") { KPPART = "\033"; cut = i; break }
+            out = out substr(s, i, 1); i++; continue
+        }
         j = i + 2
         while (j <= n && index("0123456789;:?", substr(s, j, 1))) j++
         if (j > n) {
-            if (j > i + 2) { KPPART = substr(s, i); break }   # a sequence cut by the read
-            out = out substr(s, i); break                     # a bare ESC or ESC [: keys
+            if (bare || j > i + 2) { KPPART = substr(s, i); cut = i }   # a sequence cut by the read
+            else out = out substr(s, i)                     # a bare ESC [ in line mode: keys
+            break
         }
         body = substr(s, i + 2, j - i - 2); fin = substr(s, j, 1)
         if (fin == "u" && body ~ /^\?[0-9]*$/) KBPROTO = 1     # the terminal answered: it speaks it
@@ -819,7 +831,23 @@ function kp_filter(s,   out, i, n, j, body, fin) {
         else out = out substr(s, i, j - i + 1)                # an ordinary press sequence
         i = j + 1
     }
+    if (KPPART != "" && !(had && cut == 1)) KPCUT = kp_now()   # a new cut starts the clock
     return out
+}
+
+# How long a cut sequence is held before it counts as keys.  It was
+# flushed by the very next EMPTY poll, and a poll is 0.007 ms: the rest of
+# the event, a write or two behind, came in after it as keys of its own --
+# the release was never applied, and the fragment's scan (kb_escseq), ending
+# on the next byte in 64-126, swallowed the next real keystroke (the
+# 2026-09-19 audit, L-8; kbd_pty scenario 12).  A terminal writes one
+# event whole, so the rest arrives within a millisecond; KP_CUTMS (100)
+# is far beyond that and still below any human keystroke.  Only a real
+# Esc key is ever kept that long, and only under the protocol.  Without
+# the time extension the clock is systime(): 1-2 s.
+function kp_cutstale() {
+    if (KMCLOCK != "") return (km_now() - KPCUT) * 1000 >= KP_CUTMS
+    return systime() - KPCUT >= 2
 }
 
 function kp_event(body, fin,   a, m, code, mods, ev, r, b, k) {
@@ -893,9 +921,9 @@ function kb_fill_tty(   save, r, i, n, line) {
     RS = save
     close("/dev/tty")
     if (r <= 0) {
-        if (KPPART == "") return 0
+        if (KPPART == "" || !kp_cutstale()) return 0
         line = KPPART; KPPART = ""          # a held partial that never completed: keys after all
-    } else if (KPQUERIED) line = kp_filter(line)
+    } else if (KPQUERIED) line = kp_filter(line, 1)
     n = length(line)
     for (i = 1; i <= n; i++) KBQ[++KT] = ORD[substr(line, i, 1)]
     return n
@@ -916,7 +944,7 @@ function kb_fill_pipe(   cmd, ln, a, n, i, got, s) {
         for (i = 1; i <= n; i++) { s = s CHR[a[i] + 0]; got++ }
     }
     close(cmd)
-    if (KPQUERIED) s = kp_filter(s)
+    if (KPQUERIED) s = kp_filter(s, 0)
     n = length(s)
     for (i = 1; i <= n; i++) KBQ[++KT] = ORD[substr(s, i, 1)]
     return got
@@ -1111,6 +1139,7 @@ function km_init(   i) {
     for (i = 0; i < 8; i++) KPDOWN[i] = 0
     # a shifted symbol's PC key, US layout: the code its release event names
     km_us("!@#$%^&*()_+{}|:\"<>?~", "1234567890-=[]\\;',./`")
+    KP_CUTMS = 100                      # ms a sequence cut by the read is held (kp_cutstale)
     # seconds without any event: release everything.  TRS80_KPSTUCK moves it
     # (the pty test does, on a slow CI runner whose own waits are stretched)
     KP_STUCK = (ENVIRON["TRS80_KPSTUCK"] + 0 > 0) ? ENVIRON["TRS80_KPSTUCK"] + 0 : 2
