@@ -400,27 +400,34 @@ markers in `docs/USER_GUIDE.md`; nothing else.
 
 ## Files and logs
 
-| path | what it holds | written by | safe to delete? |
-|---|---|---|---|
-| `trs80basic.awk` | the whole interpreter, one file | `cat src/p*.awk > trs80basic.awk` | no — regenerate from `src/` if you edit there |
-| `src/p*.awk` | the interpreter's source modules, concatenated in name order | you | no |
-| `basic` | launcher: finds gawk and the manpages, runs it with `-b` (strings are bytes), passes flags through | you | no |
-| `support/manpages.txt` | text behind `man` and `help`; plain format, edit freely | you | no — `man` stops working |
-| `programs/demos/` | interactive demos (`tictactoe`, `demo_graphics`) — INKEY$-driven, so run them at the READY prompt, not in batch | you | yes |
-| `programs/examples/` | feature examples with `.in` inputs and `.out` transcripts (`tiny_if` the text adventure, `demo_showcase`, `hilo`, `life`, …) | `run_examples.sh --update` (transcripts) | transcripts regenerate; programs do not |
-| `programs/tests/t*.txt`, `prog1.bas` | interactive-mode input scripts for regression checks (t1–t33) | you | no |
-| `programs/tests/*.bas`, `programs/tests/*.sh` | self-checking fixtures and shell suites: VARPTR, string aliasing, INP, the system variable window, the BREAK and driver vectors, USR, image truncation, the Z80 protocol (`z80.sh`), POKEd and string-packed routines through the real core (`z80core.sh`, skips without it), CLOAD of a tokenized image (`tokload.sh`), the trs-80.com tips tally | you | no |
-| `programs/tests/ollama_stub.sh` | canned Ollama replies for tests | you | no — `oracle`, `t13` and `t29` use it |
-| `programs/tests/z80_stub.py` | the reference Z80 core stand-in that `z80.sh` and `t32` run against | you | no |
-| `programs/tests/run_all.sh` | the whole suite in one exit status: the generated file, t1–t33, every fixture and suite, the tool tests | you | no |
-| `.github/workflows/tests.yml` | runs `run_all.sh` on GitHub on every push and pull request | you | no |
-| `PROTOCOL.md` | the USR coprocess protocol between the interpreter and the Z80 core; mirrored into the core repo | you | no |
-| `tools/detok.py`, `tools/tok.py`, `tools/level2_tokens.tsv` | image ↔ listing converters and the Level II token table | you | no |
-| `tools/test_*.py` | their tests (`python3 -m unittest`) | you | no |
-| `tools/DETOK.md` | the token format and conversion notes | you | yes |
-| `docs/USER_GUIDE.md` | the full user manual; Part V regenerates | `tools/make_userguide.py` (Part V only) | no |
-| `*.ollama` in your cwd | OLLAMA conversation threads | a program using a named thread | yes — `KILL` or `rm` forgets the conversation |
-| `RELEASE_NOTES.md` | keyword inventory and documented deviations from Level II | you | yes |
+Three things here are generated and should never be hand-edited:
+`trs80basic.awk` (rebuild with `cat src/p*.awk > trs80basic.awk`), Part V of
+`docs/USER_GUIDE.md` (`python3 tools/make_userguide.py`) and the `.out`
+transcripts under `programs/examples/` (`run_examples.sh --update`). The rest
+is source. The only file the interpreter writes into your working directory
+while it runs is an `.ollama` thread.
+
+| path | what it holds |
+|---|---|
+| `trs80basic.awk` | the whole interpreter, one file — generated from `src/`, never edited directly |
+| `src/p*.awk` | the interpreter's source modules, concatenated in name order; edit these |
+| `basic` | launcher: finds gawk and the manpages, runs it with `-b` (strings are bytes), passes flags through |
+| `support/manpages.txt` | text behind `man` and `help`; plain format, edit freely |
+| `programs/demos/` | interactive demos (`tictactoe`, `demo_graphics`) — INKEY$-driven, so run them at the READY prompt, not in batch |
+| `programs/examples/` | feature examples with `.in` inputs and `.out` transcripts (`tiny_if` the text adventure, `demo_showcase`, `hilo`, `life`, …); the transcripts regenerate with `run_examples.sh --update` |
+| `programs/tests/t*.txt`, `prog1.bas` | interactive-mode input scripts for regression checks (t1–t33) |
+| `programs/tests/*.bas`, `programs/tests/*.sh` | self-checking fixtures and shell suites: VARPTR, string aliasing, INP, the system variable window, the BREAK and driver vectors, USR, image truncation, the Z80 protocol (`z80.sh`), POKEd and string-packed routines through the real core (`z80core.sh`, skips without it), CLOAD of a tokenized image (`tokload.sh`), the trs-80.com tips tally |
+| `programs/tests/ollama_stub.sh` | canned Ollama replies; `oracle`, `t13` and `t29` run against it |
+| `programs/tests/z80_stub.py` | the reference Z80 core stand-in that `z80.sh` and `t32` run against |
+| `programs/tests/run_all.sh` | the whole suite in one exit status: the generated file, t1–t33, every fixture and suite, the tool tests |
+| `.github/workflows/tests.yml` | runs `run_all.sh` on GitHub on every push and pull request |
+| `PROTOCOL.md` | the USR coprocess protocol between the interpreter and the Z80 core; mirrored into the core repo |
+| `tools/detok.py`, `tools/tok.py`, `tools/level2_tokens.tsv` | image ↔ listing converters and the Level II token table |
+| `tools/test_*.py` | their tests (`python3 -m unittest`) |
+| `tools/DETOK.md` | the token format and conversion notes |
+| `docs/USER_GUIDE.md` | the full user manual; Part V is generated by `tools/make_userguide.py` |
+| `*.ollama` in your working directory | an OLLAMA conversation thread, written by a program that names one; `KILL` or `rm` forgets the conversation |
+| `RELEASE_NOTES.md` | keyword inventory and documented deviations from Level II |
 
 ## License
 
