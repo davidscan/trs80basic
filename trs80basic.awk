@@ -2781,7 +2781,12 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
             k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0
             continue
         }
+        # ' is ":REM" -- the ROM's cruncher stores 3AH 93H FBH -- so a
+        # statement boundary comes first.  It was a bare REM, which a
+        # bare NEXT took for its loop variable: `NEXT 'POKE IN USR` was
+        # ?NF (morseply, found by the core's oracle in its Phase A pass).
         if (c == "'") {
+            k++; TK[key, k] = ":"; TY[key, k] = "o"; TPO[key, k] = t0
             k++; TK[key, k] = "REM"; TY[key, k] = "i"; TPO[key, k] = t0
             k++; TK[key, k] = substr(text, i + 1); TY[key, k] = "r"; TPO[key, k] = i + 1
             i = n + 1
