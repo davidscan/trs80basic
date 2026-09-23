@@ -27,7 +27,8 @@ terminal emulator gives it, and checks:
      key releases itself after KP_STUCK seconds, a release lets go of
      what its press put down where the PC and Model I keyboards differ
      (`: " @`, Ctrl-H: the 2026-09-19 audit, M-20), repeats never reach
-     INKEY$, and the mode is pushed at RUN and popped at READY and BYE;
+     INKEY$ (events, or iTerm2's plain repeat bytes: HAND_TEST 29), and
+     the mode is pushed at RUN and popped at READY and BYE;
   7. TAB file-name completion: a unique directory gains "/", and a
      matched name with a quote in it is completed but never parsed by the
      shell (the directory test once ran it as a command, the 2026-09-19 audit, C-2).
@@ -182,6 +183,24 @@ def protocol(check):
     b.send(b'a\x1b[97;1:2u\x1b[97;1:2u\x1b[97;1:2u\x1b[97;1:3u', 0.4)
     got = numbers(b.drain(0.2))
     check(got == ['97'], 'INKEY$ gets one byte for a press with three repeats', ' '.join(got))
+    # iTerm2 sends a plain key's repeats as the plain byte again, no event
+    # (HAND_TEST 29): they are dropped until the key's release
+    b.send(b'aaaa', 0.3)
+    b.send(b'aa', 0.3)
+    got = numbers(b.drain(0.2))
+    check(got == ['97'], 'INKEY$ gets one byte for a press with plain repeat bytes', ' '.join(got))
+    b.send(b'\x1b[97;1:3ua\x1b[97;1:3ua', 0.4)
+    got = numbers(b.drain(0.2))
+    check(got == ['97', '97'], 'after its release the key types again', ' '.join(got))
+    b.send(b'b\x1b[98;1:3ub\x1b[98;1:3u', 0.4)
+    b.drain(0.2)
+    b.send(b'\r\r\t\t', 0.4)
+    got = numbers(b.drain(0.2))
+    check(got == ['13', '13', '9', '9'], 'ENTER and TAB (no release under flag 2) are never repeats', ' '.join(got))
+    b.send(b'x', 3.3 if has_clock() else 4.3)     # no release follows; KP_STUCK is 2 (x SLOW)
+    b.send(b'x', 0.3)
+    got = numbers(b.drain(0.2))
+    check(got == ['120', '120'], 'a key whose release was lost types again once quiet for KP_STUCK', ' '.join(got))
     b.send(b'\x03', 0.5)
     log.append(b.drain())
     b.send('BYE\r', 0.5)
@@ -263,7 +282,7 @@ def split_event(check):
     for cut in (b'\x1b[97;1:', b'\x1b[', b'\x1b'):
         rest = b'\x1b[97;1:3u'[len(cut):]
         b.send(b'a' + cut, 0.02)
-        b.send(rest + b'b', 0.35)
+        b.send(rest + b'b\x1b[98;1:3u', 0.35)             # b released too, or the next b is its repeat
         got = numbers(b.drain(0.2))
         check(got == ['97', '98'], 'a release cut after %r is no key, and b arrives' % cut,
               ' '.join(got) or '(nothing)')

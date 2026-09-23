@@ -765,8 +765,11 @@ function kb_mode(m) {
 # Why it cannot break a period program: presses are unchanged bytes; a
 # program that read the matrix now reads what the machine's matrix read.
 # One visible difference on such a terminal: INKEY$ no longer sees the
-# terminal's auto-repeat as a stream of bytes, because repeats are events
-# now -- which is what Level II did (no auto-repeat).
+# terminal's auto-repeat -- which is what Level II did (no auto-repeat).
+# An arrow's repeats are events; a plain key's are NOT: iTerm2 sends them
+# as the plain byte again, and they reached INKEY$ as a stream (HAND_TEST
+# 29, 27 `a`s for a three-second hold; ruled 2026-09-23: drop them).  So
+# kp_repeat drops them in the poll reader.
 function kp_on(   e) {
     e = ENVIRON["TRS80_KBPROTO"]
     return TTYIN && e != "0" && (e == "1" || !DUMB)
@@ -816,7 +819,8 @@ function kp_filter(s, bare,   out, i, n, j, body, fin, had, cut) {
     while (i <= n) {
         if (substr(s, i, 2) != "\033[") {
             if (bare && i == n && substr(s, i, 1) == "\033") { KPPART = "\033"; cut = i; break }
-            out = out substr(s, i, 1); i++; continue
+            if (!bare || !kp_repeat(substr(s, i, 1))) out = out substr(s, i, 1)
+            i++; continue
         }
         j = i + 2
         while (j <= n && index("0123456789;:?", substr(s, j, 1))) j++
@@ -833,6 +837,27 @@ function kp_filter(s, bare,   out, i, n, j, body, fin, had, cut) {
     }
     if (KPPART != "" && !(had && cut == 1)) KPCUT = kp_now()   # a new cut starts the clock
     return out
+}
+
+# a plain byte that is its key's auto-repeat, not a press: the same PC key
+# typed within KP_STUCK s with no release between (KPREP[key] = when it
+# last typed).  A repeat keeps its key fresh, so a hold of any length is
+# one press and the matrix keeps the key down; a key whose release was
+# lost types again once it has been quiet for KP_STUCK s.  Never a repeat:
+# Ctrl-C (BREAK must always get through), and ENTER, TAB, Backspace and
+# Esc, which flag 2 gives no release (the protocol reports those only
+# under flag 8), so a second tap could not be told from a repeat.
+function kp_repeat(ch,   c, pk, now) {
+    c = ORD[ch]
+    if (c == 3 || c == 8 || c == 9 || c == 13 || c == 27 || c == 127) return 0
+    if ((pk = kp_pckey(c)) < 0) return 0
+    now = kp_now()
+    if ((pk in KPREP) && now - KPREP[pk] <= KP_STUCK + KPSLACK) {
+        KPREP[pk] = now; KPLAST = now
+        return 1
+    }
+    KPREP[pk] = now
+    return 0
 }
 
 # How long a cut sequence is held before it counts as keys.  It was
@@ -857,6 +882,7 @@ function kp_event(body, fin,   a, m, code, mods, ev, r, b, k) {
     KPLAST = kp_now()
     if (fin == "u") {
         code = a[1] + 0
+        if (ev == 3) delete KPREP[code]                       # the next byte of it is a press
         if (ev == 3 && code in KPKEY) {                       # what this PC key's press put down
             split(KPKEY[code], k, SUBSEP); delete KPKEY[code]
             kp_release(k[1] + 0, k[2] + 0)
@@ -887,7 +913,7 @@ function kp_release(r, b) {
 
 function kp_release_all(   r) {
     for (r = 0; r < 8; r++) KPDOWN[r] = 0
-    delete KPSH; KPSHIFT = 0; delete KPKEY
+    delete KPSH; KPSHIFT = 0; delete KPKEY; delete KPREP
 }
 
 # read whatever is available from the tty into the queue (>=1 byte if "line").
