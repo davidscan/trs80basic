@@ -87,10 +87,18 @@ function kp_push() {
     KPPUSHED = 1
 }
 
+# Popping lets go of every key.  The down-set outlived the pop: the Ctrl-C
+# that ended a run left BREAK down, and a key held across it stayed down
+# too, until the stuck-key sweep KP_STUCK seconds after that last event --
+# so a program that polled again at once (a RUN typed quickly, a menu
+# loop, CONT) read BREAK as held for most of the window (the 2026-09-19
+# audit, L-7; HAND_TEST 27).  Line mode takes no presses, and a key still
+# held when poll mode returns is pressed again by its repeat bytes.
 function kp_pop() {
     if (!KPPUSHED) return
     printf "\033[<u"; fflush()
     KPPUSHED = 0
+    kp_release_all(); KPLAST = 0
 }
 
 # strip the protocol's replies and events from a record of tty bytes,

@@ -40,7 +40,8 @@ terminal emulator gives it, and checks:
      (the 2026-09-19 audit, L-6);
  11. the kitty query's reply arriving after the LIST that sent it, at
      READY in line mode, still turns the protocol on, and an unanswered
-     query is asked again at the next poll episode (the 2026-09-19 audit, H-15).
+     query is asked again at the next poll episode (the 2026-09-19 audit,
+     H-15), and a key held at BREAK is up in the next RUN (L-7).
 
 Standard library only; run by run_all.sh when python3 is present (so CI
 exercises the tty reader on Linux, where it was not measured by hand).
@@ -225,6 +226,16 @@ def late_reply(check):
     b.send(b'\x1b[97;1:3u', 0.35)
     got = numbers(b.drain(0.2))
     check(got == ['0'], 'and lets go at its release event', ' '.join(got) or '(nothing)')
+    # L-7: a key held at BREAK, BREAK included, is let go at the pop; they
+    # read as held into the next RUN until the stuck-key sweep
+    b.send(b'a', 0.3)
+    b.drain(0.2)
+    b.send(b'\x03', 0.5)
+    b.drain()
+    b.send('RUN\r', 0.8)
+    got = numbers(b.drain(0.3))
+    check(got == [], 'nothing held at BREAK is down in the next RUN (the 2026-09-19 audit, L-7)',
+          ' '.join(got) or '(nothing)')
     b.send(b'\x03', 0.5)
     b.drain()
     b.send('BYE\r', 0.5)
