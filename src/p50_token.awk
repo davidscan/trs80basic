@@ -40,6 +40,7 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
             # after PRINT/INPUT (PRINT#1), where it must stay an operator
             if (c == "!" || c == "%") i++
             else if (c == "#" && s != "PRINT" && s != "INPUT") i++
+            if (VARNAMES2 && length(s) > 2) s = vn_cut(s)
             if (s == "REM") {
                 k++; TK[key, k] = "REM"; TY[key, k] = "i"; TPO[key, k] = t0
                 k++; TK[key, k] = substr(text, i); TY[key, k] = "r"; TPO[key, k] = i
@@ -112,6 +113,34 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
     }
     k++; TK[key, k] = ""; TY[key, k] = "e"; TPO[key, k] = n + 1
     TCN[key] = k; TOKD[key] = 1
+}
+
+# TRS80_VARNAMES=2: a variable is named by its first two characters, as
+# the ROM's variable table stores it, so ADDR and AD are one variable
+# (gprixmc1.bas relies on it).  The tokenizer is the one place every name
+# passes, so cutting here reaches variables, arrays, FOR/NEXT, INPUT/READ,
+# DIM, VARPTR and the memory projection alike.  LIST shows the program's
+# text, and the image cruncher and tools/tok.py crunch that text, so the
+# full names stay in the program, as they do on the machine.  Not cut: the
+# ROM's reserved words (pm_init_index's table), BYE, DEFUSR and USR0-USR9;
+# FNABC is FN plus a name, so FNAB.  The type suffix `$` is kept (AB$ and AB
+# are two variables); % ! # are already dropped (G% is G).  What this does
+# NOT do: the ROM also takes a reserved word out of the middle of a name
+# (TOTAL is TO TAL); this tokenizer reads a whole identifier first.
+function vn_cut(s,   d, b) {
+    if (!VNINIT) vn_init()
+    if (s in VNKEEP || s ~ /^USR[0-9]$/) return s
+    d = (s ~ /\$$/) ? "$" : ""
+    b = d ? substr(s, 1, length(s) - 1) : s
+    if (b ~ /^FN./) return "FN" substr(b, 3, 2) d
+    return substr(b, 1, 2) d
+}
+
+function vn_init(   j, w) {
+    if (!TOKIDX) pm_init_index()
+    for (j = 1; j <= NTOKI; j++) { w = TIW[j]; sub(/\($/, "", w); VNKEEP[w] = 1 }
+    VNKEEP["BYE"] = 1; VNKEEP["DEFUSR"] = 1
+    VNINIT = 1
 }
 
 function inval_cache_key(k,   i) {

@@ -63,6 +63,7 @@ II):
 | `TRS80_MHZ` | full speed | throttle to a period clock; the `speed` metacommand does the same |
 | `TRS80_PRINTER` | unset (discard) | file that `LPRINT`/`LLIST` append to |
 | `TRS80_EXT` | `0` | `1` turns on the EXT gate (Part IV); `ext on` does the same |
+| `TRS80_VARNAMES` | unset (every character counts) | `2` gives variables the ROM's two-character names: `SUM` and `SU` are one variable |
 | `TRS80_MANFILE` | `support/manpages.txt` | where `man` reads its text |
 | `TRS80_KMHOLD` | `100` ms at a terminal, `4` polls in batch | how long one keypress holds its key on the keyboard matrix |
 | `TRS80_USR` | unset | `strict` makes a `USR` call raise `?FC` instead of returning its argument |
@@ -506,9 +507,13 @@ Honest list, stated as current behavior:
   (DEFSTR *is* honoured, everywhere). Consequence: exact integers print in
   full — `12345678` where real single-precision hardware shows
   `1.23457E+07` — and E vs D exponent forms carry no precision difference.
-- **Variable names are fully significant.** The ROM's 2-character rule is
-  not enforced: `SUM` and `SU` are different variables. A period program
-  that *relied* on the truncation would misbehave.
+- **Variable names are fully significant** by default. The ROM's
+  2-character rule is not enforced: `SUM` and `SU` are different
+  variables, and a period program that *relied* on the truncation
+  misbehaves. `TRS80_VARNAMES=2` applies the ROM's rule: `SUM` is `SU`,
+  `FNABC` is `FNAB`, a `$` still keeps `AB$` apart from `AB`, and `LIST`
+  still shows the names as typed. It does not make a reserved word inside
+  a name an error, as the ROM does (`TOTAL` is `TO TAL` on the machine).
 - **Strings may be arbitrarily long** (ROM caps at 255; a program relying
   on `?LS`/`?OS` at the cap will not see the error).
 - **Compressed source does not lex.** `IFA=1THEN100` is the identifier

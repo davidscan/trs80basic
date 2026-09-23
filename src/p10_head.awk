@@ -126,6 +126,10 @@ function init_tables(   i, c, m, n) {
     # accepted when this is on -- `ext on` metacommand or TRS80_EXT=1 --
     # so the interpreter stays a strict ?SN oracle by default.
     EXTON = ("TRS80_EXT" in ENVIRON && ENVIRON["TRS80_EXT"] != "" && ENVIRON["TRS80_EXT"] != "0")
+    # TRS80_VARNAMES=2: the ROM's two-character variable names (SUM is SU),
+    # applied by the tokenizer (vn_cut, p50).  Unset -- the default, the
+    # user's 2026-08-07 ruling -- every character of a name counts.
+    VARNAMES2 = (ENVIRON["TRS80_VARNAMES"] == "2")
     # error codes 1..23 in the ROM's order (its table ends there: NERRC),
     # then the file errors at Disk BASIC's own numbers (Model III Disk
     # System manual p.156), sparse: 51 FO field overflow, 53 BN bad file
