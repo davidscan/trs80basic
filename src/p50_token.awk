@@ -2,7 +2,7 @@
 # Token types: n number, s string, i identifier/keyword (uppercase), o op,
 #              d DATA payload, r REM payload, e end sentinel.
 
-function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
+function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx) {
     if (key == "I") inval_cache_key("I")
     k = 0; i = 1; n = length(text)
     # TSRC + TPO give parse_fname (p40) the raw source from a token's own
@@ -38,8 +38,11 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
             c = substr(text, i, 1)
             # "#" is a type suffix on variables (X#) but a channel marker
             # after PRINT/INPUT (PRINT#1), where it must stay an operator
-            if (c == "!" || c == "%") i++
-            else if (c == "#" && s != "PRINT" && s != "INPUT") i++
+            # the suffix is dropped from the name (G% is G) but kept beside
+            # the token in TSX: a store into a % name is an integer store
+            sx = ""
+            if (c == "!" || c == "%") { sx = c; i++ }
+            else if (c == "#" && s != "PRINT" && s != "INPUT") { sx = c; i++ }
             if (VARNAMES2 && length(s) > 2) s = vn_cut(s)
             if (s == "REM") {
                 k++; TK[key, k] = "REM"; TY[key, k] = "i"; TPO[key, k] = t0
@@ -74,7 +77,7 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
                     s = "GOTO"; i = j + 2
                 }
             }
-            k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0
+            k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0; TSX[key, k] = sx
             continue
         }
         # ' is ":REM" -- the ROM's cruncher stores 3AH 93H FBH -- so a
@@ -145,7 +148,7 @@ function vn_init(   j, w) {
 
 function inval_cache_key(k,   i) {
     if (k in TOKD) {
-        for (i = 1; i <= TCN[k]; i++) { delete TK[k, i]; delete TY[k, i]; delete TPO[k, i] }
+        for (i = 1; i <= TCN[k]; i++) { delete TK[k, i]; delete TY[k, i]; delete TPO[k, i]; delete TSX[k, i] }
         delete TCN[k]; delete TOKD[k]; delete TSRC[k]
     }
 }

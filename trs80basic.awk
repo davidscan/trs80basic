@@ -1841,7 +1841,7 @@ function clear_vars(keepfiles) {
     # program load AND the CLEAR statement: the ROM's CLEAR joins RUN's
     # initializer (1E7A/1EA0 -> 1B61-1B6C), so DEFSTR A:CLEAR 500:A="X" is
     # ?TM on the machine -- period programs CLEAR first, then DEFSTR
-    delete DEFS
+    delete DEFS; delete DEFI
     sp_reset()                      # VARPTR string space empties with the vars
     FSN = 0; GSN = 0
 }
@@ -2737,7 +2737,7 @@ function batch_ineof() {
 # Token types: n number, s string, i identifier/keyword (uppercase), o op,
 #              d DATA payload, r REM payload, e end sentinel.
 
-function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
+function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx) {
     if (key == "I") inval_cache_key("I")
     k = 0; i = 1; n = length(text)
     # TSRC + TPO give parse_fname (p40) the raw source from a token's own
@@ -2773,8 +2773,11 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
             c = substr(text, i, 1)
             # "#" is a type suffix on variables (X#) but a channel marker
             # after PRINT/INPUT (PRINT#1), where it must stay an operator
-            if (c == "!" || c == "%") i++
-            else if (c == "#" && s != "PRINT" && s != "INPUT") i++
+            # the suffix is dropped from the name (G% is G) but kept beside
+            # the token in TSX: a store into a % name is an integer store
+            sx = ""
+            if (c == "!" || c == "%") { sx = c; i++ }
+            else if (c == "#" && s != "PRINT" && s != "INPUT") { sx = c; i++ }
             if (VARNAMES2 && length(s) > 2) s = vn_cut(s)
             if (s == "REM") {
                 k++; TK[key, k] = "REM"; TY[key, k] = "i"; TPO[key, k] = t0
@@ -2809,7 +2812,7 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0) {
                     s = "GOTO"; i = j + 2
                 }
             }
-            k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0
+            k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0; TSX[key, k] = sx
             continue
         }
         # ' is ":REM" -- the ROM's cruncher stores 3AH 93H FBH -- so a
@@ -2880,7 +2883,7 @@ function vn_init(   j, w) {
 
 function inval_cache_key(k,   i) {
     if (k in TOKD) {
-        for (i = 1; i <= TCN[k]; i++) { delete TK[k, i]; delete TY[k, i]; delete TPO[k, i] }
+        for (i = 1; i <= TCN[k]; i++) { delete TK[k, i]; delete TY[k, i]; delete TPO[k, i]; delete TSX[k, i] }
         delete TCN[k]; delete TOKD[k]; delete TSRC[k]
     }
 }
@@ -3626,7 +3629,7 @@ function execstmt(   ty, tx) {
         if (tx == "RANDOM")  { CP++; rnd_setmid(int(rand() * 256)); return }
         if (tx == "ERROR")   { CP++; st_error(); return }
         if (tx == "RESUME")  { CP++; st_resume(); return }
-        if (tx == "DEFINT" || tx == "DEFSNG" || tx == "DEFDBL" || tx == "DEFSTR") { CP++; st_deftype(tx == "DEFSTR"); return }
+        if (tx == "DEFINT" || tx == "DEFSNG" || tx == "DEFDBL" || tx == "DEFSTR") { CP++; st_deftype(tx == "DEFSTR", tx == "DEFINT"); return }
         if (tx == "DEF" || tx ~ /^DEFUSR[0-9]?$/ || tx ~ /^DEFFN./) { CP++; st_def(tx); return }
         if (tx == "LPRINT")  { CP++; st_lprint(); return }
         if (tx == "LLIST")   { CP++; st_llist(); return }
@@ -3662,7 +3665,7 @@ function skipstmt(   ty, tx) {
 # ---- assignment ------------------------------------------------------------
 function st_let(   name, key, v) {
     if (TY[CK, CP] != "i") { raise(2); return }
-    name = TK[CK, CP]; CP++
+    name = lvname()
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
         key = aref(name); if (E) return
@@ -3674,11 +3677,12 @@ function st_let(   name, key, v) {
 }
 
 # DEFSTR/DEFINT/DEFSNG/DEFDBL letter[-letter][,...]: per-letter default type.
-# Only the string/numeric split matters here -- numeric precision is a
-# documented no-op -- so DEFINT/SNG/DBL clear the DEFSTR flag for the range.
+# DEFSTR sets DEFS, DEFINT sets DEFI (a store into the name is rounded down
+# to an integer, as LET's conversion through 0A7FH does), DEFSNG/DEFDBL
+# clear both: single and double precision are the same here.
 # RUN/NEW/program load reset the table (clear_vars); CLEAR keeps it, so
 # DEFSTR A: CLEAR 500: A="X" stays typed.
-function st_deftype(isstr,   a, b, c) {
+function st_deftype(isstr, isint,   a, b, c) {
     for (;;) {
         if (TY[CK, CP] != "i" || TK[CK, CP] !~ /^[A-Z]$/) { raise(2); return }
         a = TK[CK, CP]; CP++
@@ -3688,7 +3692,7 @@ function st_deftype(isstr,   a, b, c) {
             if (TY[CK, CP] != "i" || TK[CK, CP] !~ /^[A-Z]$/) { raise(2); return }
             b = TK[CK, CP]; CP++
         }
-        for (c = ORD[a]; c <= ORD[b]; c++) DEFS[CHR[c]] = isstr
+        for (c = ORD[a]; c <= ORD[b]; c++) { DEFS[CHR[c]] = isstr; DEFI[CHR[c]] = isint }
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
         return
     }
@@ -3774,7 +3778,34 @@ function strname(name) {
     return name ~ /\$$/ || DEFS[substr(name, 1, 1)]
 }
 
-function assignv(name, key, v) {
+# The name a store is about to write, read at CP (which moves past it).
+# LVI says whether the ROM would hold it as an INTEGER: a % suffix, or no
+# suffix and a DEFINT letter (! and # override DEFINT, as on the machine).
+# assignv reads LVI and clears it, so a store that did not come through
+# here is never rounded.
+function lvname(   s) {
+    s = TK[CK, CP]
+    LVI = intvar(s, TSX[CK, CP])
+    CP++
+    return s
+}
+
+function intvar(name, sx) {
+    if (name ~ /\$$/ || sx == "!" || sx == "#") return 0
+    return sx == "%" || DEFI[substr(name, 1, 1)]
+}
+
+# A value stored into an integer variable: LET converts through 0A7FH
+# (2819H, table 18A5H), which rounds DOWN, so I=7/2 is 3 and I=-2.5 is -3.
+# A value outside -32768..32767 is kept as it is for now: the ROM's ?OV
+# there is a separate decision.
+function intstore(x,   r) {
+    r = bfloor(x)
+    return (r > 32767 || r < -32768) ? x : r
+}
+
+function assignv(name, key, v,   isint) {
+    isint = LVI; LVI = 0
     if (strname(name)) {
         if (isN(v)) { raise(13); return }
         if (ALN) al_clear(name, key)            # the descriptor moves (p75, finding 7)
@@ -3783,7 +3814,8 @@ function assignv(name, key, v) {
         if (length(VPDATA)) sp_grown(name, key)  # a VARPTRed string that outgrew its cells (p75)
     } else {
         if (!isN(v)) { raise(13); return }
-        if (key != "") VA[key] = "N" num(v); else NV[name] = num(v)
+        v = isint ? intstore(num(v)) : num(v)
+        if (key != "") VA[key] = "N" v; else NV[name] = v
     }
 }
 
@@ -3814,10 +3846,11 @@ function st_return() {
     CLN = (CK == "I") ? DIRECTLN : CK + 0
 }
 
-function st_for(   name, v0, v1, stp, j, v) {
+function st_for(   name, v0, v1, stp, j, v, isint) {
     if (TY[CK, CP] != "i") { raise(2); return }
     name = TK[CK, CP]
     if (strname(name)) { raise(13); return }
+    isint = intvar(name, TSX[CK, CP])
     CP++
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
@@ -3836,6 +3869,9 @@ function st_for(   name, v0, v1, stp, j, v) {
         if (!isN(v)) { raise(13); return }
         stp = num(v)
     }
+    # an integer index runs an integer loop: the start through LET (1F21H),
+    # TO through 0A7FH (1CD7H), STEP through 2B01H -- all rounded down
+    if (isint) { v0 = intstore(v0); v1 = intstore(v1); stp = intstore(stp) }
     NV[name] = v0
     for (j = FSN; j > for_floor(); j--)
         if (FS_V[j] == name) { FSN = j - 1; break }
@@ -5835,7 +5871,7 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
             if (line == "") return
             nib = parse_items(line, nib)
             while (idx <= nlv && idx <= nib) {
-                CP = LV_P[idx]; name = TK[CK, CP]; CP++; key = ""
+                CP = LV_P[idx]; name = lvname(); key = ""
                 if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
                 CP = endp
                 if (IBBAD[idx] || (IBQ[idx] && !strname(name))) { ok = 0; break }
@@ -5959,7 +5995,7 @@ function st_read(   name, key, x) {
     if (DATADIRTY) datascan()
     for (;;) {
         if (TY[CK, CP] != "i") { raise(2); return }
-        name = TK[CK, CP]; CP++
+        name = lvname()
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
         if (DP > NDATA) { raise(4); return }
@@ -6525,7 +6561,7 @@ function st_input_file(   n, nlv, name, key, i, x) {
     # assignments before it (INPUT#1,I,A(I)), as INPUT and READ do
     for (;;) {
         if (TY[CK, CP] != "i") { raise(2); return }
-        name = TK[CK, CP]; CP++
+        name = lvname()
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
         if (!fio_next_item(n, !strname(name))) { raise(63); return }

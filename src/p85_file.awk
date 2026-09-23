@@ -271,7 +271,7 @@ function st_input_file(   n, nlv, name, key, i, x) {
     # assignments before it (INPUT#1,I,A(I)), as INPUT and READ do
     for (;;) {
         if (TY[CK, CP] != "i") { raise(2); return }
-        name = TK[CK, CP]; CP++
+        name = lvname()
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
         if (!fio_next_item(n, !strname(name))) { raise(63); return }

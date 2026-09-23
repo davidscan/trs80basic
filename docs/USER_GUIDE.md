@@ -503,8 +503,10 @@ Honest list, stated as current behavior:
   number move — it would misbehave or never terminate.
 - **All numerics are doubles.** There is no single/double/integer
   distinction; `%` `!` `#` suffixes are accepted and stripped (so `G%` and
-  `G` are the same variable), `DEFINT`/`DEFSNG`/`DEFDBL` set no precision
-  (DEFSTR *is* honoured, everywhere). Consequence: exact integers print in
+  `G` are the same variable). `DEFSNG`/`DEFDBL` set no precision; `DEFINT`
+  and a `%` name round a stored value DOWN, as on the machine (`I=7/2` is
+  3), but a value past -32768..32767 is not yet `?OV` (DEFSTR *is*
+  honoured, everywhere). Consequence: exact integers print in
   full — `12345678` where real single-precision hardware shows
   `1.23457E+07` — and E vs D exponent forms carry no precision difference.
 - **Variable names are fully significant** by default. The ROM's
@@ -1517,10 +1519,16 @@ DEFSNG / DEFDBL / DEFSTR      integer / single / double / string
   IMPORTANT in this interpreter: DEFSTR is honored -- a name in its
   range really is a string everywhere (assignment, arrays, INPUT, READ,
   FOR, file I/O), and storing a number into one raises ?TM.
-  DEFINT, DEFSNG and DEFDBL are accepted and clear the DEFSTR flag for
-  their range, but the numeric precision distinction is NOT enforced:
-  every number is held in one type, so DEFINT A does not truncate A.
-  The %, ! and # suffixes are likewise accepted and stripped.
+  A number stored into an integer variable -- a name in DEFINT's range,
+  or any name written with % -- is rounded DOWN, as the ROM's LET does:
+  DEFINT I: I=7/2 gives 3, and I=-2.5 gives -3.  This covers LET, INPUT,
+  READ, INPUT# and FOR (an integer index takes its start, TO and STEP
+  rounded down).  A value outside -32768 to 32767 is not yet ?OV; it is
+  kept as it is.  A ! or # suffix overrides DEFINT for that store.
+  DEFSNG and DEFDBL clear DEFINT and DEFSTR for their range; single and
+  double precision are one type here.  The suffixes do not make separate
+  variables: G%, G! and G are the same variable, and only the name as
+  written in the store decides whether it is rounded.
   Example: DEFINT I-N
   Example: DEFSTR S: S="TEXT"          (S=1 would be ?TM)
 ```

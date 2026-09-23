@@ -521,7 +521,7 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
             if (line == "") return
             nib = parse_items(line, nib)
             while (idx <= nlv && idx <= nib) {
-                CP = LV_P[idx]; name = TK[CK, CP]; CP++; key = ""
+                CP = LV_P[idx]; name = lvname(); key = ""
                 if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
                 CP = endp
                 if (IBBAD[idx] || (IBQ[idx] && !strname(name))) { ok = 0; break }
@@ -645,7 +645,7 @@ function st_read(   name, key, x) {
     if (DATADIRTY) datascan()
     for (;;) {
         if (TY[CK, CP] != "i") { raise(2); return }
-        name = TK[CK, CP]; CP++
+        name = lvname()
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
         if (DP > NDATA) { raise(4); return }
