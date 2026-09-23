@@ -24,7 +24,9 @@ terminal emulator gives it, and checks:
      the pty playing a terminal that answers the query): a key is down
      from its press byte until its release event, chords OR together,
      a held key never drops out between press and repeat, an abandoned
-     key releases itself after KP_STUCK seconds, repeats never reach
+     key releases itself after KP_STUCK seconds, a release lets go of
+     what its press put down where the PC and Model I keyboards differ
+     (`: " @`, Ctrl-H: the 2026-09-19 audit, M-20), repeats never reach
      INKEY$, and the mode is pushed at RUN and popped at READY and BYE;
   7. TAB file-name completion: a unique directory gains "/", and a
      matched name with a quote in it is completed but never parsed by the
@@ -151,6 +153,20 @@ def protocol(check):
     step(b'\x1b[97;2:3u', ['0'], 'its release (the unshifted code, shift in mods) clears both')
     step(b'\x7f', ['32'], 'Delete presses the left arrow')
     step(b'\x1b[127;1:3u', ['0'], 'its release (kitty code 127) lets it go')
+    # a press is the typed byte, a release the PC's unshifted key: where the
+    # keyboards differ the release must let go of what the press put down,
+    # SHIFT included (the 2026-09-19 audit, M-20; HAND_TEST 22)
+    step(b':', ['4'], 'colon (Shift+; on the PC) presses the Model I colon, row 5 bit 4')
+    step(b'\x1b[59;2:3u', ['0'], 'its release names ; and lets the colon go')
+    step(b'"', ['5'], 'quote (Shift+\' on the PC) presses shift-2 and SHIFT')
+    step(b'\x1b[39;1:3u', ['0'], 'SHIFT let go first: the release still clears both')
+    step(b'@', ['1'], 'at (Shift+2 on the PC) is the Model I @ key, unshifted')
+    step(b'\x1b[50;2:3u', ['0'], 'its release names 2 and lets @ go')
+    step(b'\x08', ['32'], 'Ctrl-H presses the left arrow')
+    step(b'\x1b[104;5:3u', ['0'], 'its release names h with Ctrl, and lets the arrow go')
+    step(b':a', [['6'], ['4', '6']], 'a chord: colon and a')
+    step(b'\x1b[59;2:3u', ['2'], 'the colon lets go, a stays')
+    step(b'\x1b[97;1:3u', ['0'], 'release a')
     step(b'a', ['2'], 'press a and abandon it')
     # without the time extension the timer runs on whole seconds: 2-4 s, not 2
     step(b'', ['0'], 'no event for KP_STUCK seconds: released by itself', 2.6 if has_clock() else 4.3)

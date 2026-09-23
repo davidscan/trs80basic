@@ -116,13 +116,18 @@ function kp_filter(s,   out, i, n, j, body, fin) {
     return out
 }
 
-function kp_event(body, fin,   a, m, code, mods, ev, r, b) {
+function kp_event(body, fin,   a, m, code, mods, ev, r, b, k) {
     split(body, a, ";"); split(a[2], m, ":")
     mods = m[1] + 0; ev = m[2] + 0
     if (mods < 1) mods = 1
     KPLAST = kp_now()
     if (fin == "u") {
         code = a[1] + 0
+        if (ev == 3 && code in KPKEY) {                       # what this PC key's press put down
+            split(KPKEY[code], k, SUBSEP); delete KPKEY[code]
+            kp_release(k[1] + 0, k[2] + 0)
+            return
+        }
         if (code == 127) code = 8                             # Delete: the left arrow, as its press byte is
         if (and(mods - 1, 4) && code == 99) { r = 6; b = 4 }  # Ctrl-C: the BREAK key
         else if (code in KMR_) { r = KMR_[code]; b = KMB_[code] }
@@ -148,7 +153,7 @@ function kp_release(r, b) {
 
 function kp_release_all(   r) {
     for (r = 0; r < 8; r++) KPDOWN[r] = 0
-    delete KPSH; KPSHIFT = 0
+    delete KPSH; KPSHIFT = 0; delete KPKEY
 }
 
 # read whatever is available from the tty into the queue (>=1 byte if "line").
@@ -398,6 +403,8 @@ function km_init(   i) {
     KMR = -1; KMSH = 0
     KBPROTO = 0; KPQUERIED = 0; KPPUSHED = 0; KPPART = ""; KPSHIFT = 0; KPLAST = 0
     for (i = 0; i < 8; i++) KPDOWN[i] = 0
+    # a shifted symbol's PC key, US layout: the code its release event names
+    km_us("!@#$%^&*()_+{}|:\"<>?~", "1234567890-=[]\\;',./`")
     # seconds without any event: release everything.  TRS80_KPSTUCK moves it
     # (the pty test does, on a slow CI runner whose own waits are stretched)
     KP_STUCK = (ENVIRON["TRS80_KPSTUCK"] + 0 > 0) ? ENVIRON["TRS80_KPSTUCK"] + 0 : 2
@@ -432,6 +439,10 @@ function km_row(s, row, sh, fb,   i, c) {
         c = ORD[substr(s, i, 1)]
         KMR_[c] = row; KMB_[c] = 2 ^ (fb + i - 1); KMS_[c] = sh
     }
+}
+
+function km_us(sh, un,   i) {
+    for (i = 1; i <= length(sh); i++) KPUS_[ORD[substr(sh, i, 1)]] = ORD[substr(un, i, 1)]
 }
 
 function km_latch(r, b, sh) { KMR = r; KMB = b; KMSH = sh; KMTTL = KMHOLD; KMT0 = km_now() }
@@ -513,12 +524,46 @@ function km_pump(   c) {
     else { KMR = -1; KMSH = 0 }                   # key with no matrix position
 }
 
-# one press byte under the release protocol: the key goes down and stays
-function kp_byte(c) {
-    if (c == 3) { if (brk_take()) { PENDBRK = 1; kb_flush() }; kp_press(6, 4, 0); return }
+# one press byte under the release protocol: the key goes down and stays.
+# The press is the TYPED byte and the release names the PC's UNSHIFTED key,
+# and the two part company wherever the keyboards do: `:` is its own key on
+# a Model I and Shift+; on a PC, so the press put down row 5 bit 4 and the
+# release (code 59) let go of `;`, bit 8 -- the colon stayed down, SHIFT
+# with it, until the stuck-key sweep (the 2026-09-19 audit, M-20: `: @ " &
+# ( ) * +` and the Ctrl-H/J arrows).  So each press records, under the PC
+# key that typed it (kp_pckey), the matrix key it put down, and the release
+# lets go of exactly that -- whatever the modifiers are by then.
+function kp_byte(c,   raw, pk) {
+    raw = c
+    if (c == 3) {
+        if (brk_take()) { PENDBRK = 1; kb_flush() }
+        kp_press(6, 4, 0); kp_owns(99, 6, 4); return
+    }
     BRKFORCE = 0
     c = kb_termkey(c)                             # the protocol only runs at a terminal
-    if (c in KMR_) kp_press(KMR_[c], KMB_[c], KMS_[c] + 0)
+    if (!(c in KMR_)) return
+    kp_press(KMR_[c], KMB_[c], KMS_[c] + 0)
+    if ((pk = kp_pckey(raw)) >= 0) kp_owns(pk, KMR_[c], KMB_[c])
+}
+
+# the PC key pk put down matrix key (r, b); a different key it held before
+# (a repeat typed under another shift state) is let go first
+function kp_owns(pk, r, b,   k) {
+    if (pk in KPKEY && KPKEY[pk] != r SUBSEP b) {
+        split(KPKEY[pk], k, SUBSEP); kp_release(k[1] + 0, k[2] + 0)
+    }
+    KPKEY[pk] = r SUBSEP b
+}
+
+# the kitty key code (the unshifted key) of the PC key that typed byte c,
+# on the US layout the protocol's own codes assume; -1 for an escape
+# sequence's byte (the arrows have their own release form, A-D)
+function kp_pckey(c) {
+    if (c >= 65 && c <= 90) return c + 32                          # A-Z: the letter key
+    if (c >= 1 && c <= 26 && c != 9 && c != 13) return c + 96      # Ctrl-letter (TAB, ENTER are keys)
+    if (c == 27) return -1
+    if (c in KPUS_) return KPUS_[c]
+    return c
 }
 
 function kb_matrix(sel,   out, r) {
