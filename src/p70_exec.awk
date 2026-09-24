@@ -578,6 +578,7 @@ function st_run(   n, f, keep) {
             if (TY[CK, CP] == "i" && TK[CK, CP] == "R") { CP++; keep = 1 }
             else { raise(2); return }
         }
+        if (!host_found(f)) return            # 54, File not found (p40)
         if (!prog_load(f, 0, keep)) { raise(22); return }
         run_start(0, keep)
         return

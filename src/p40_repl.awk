@@ -736,9 +736,25 @@ function st_load(   f, keep) {
         if (TY[CK, CP] == "i" && TK[CK, CP] == "R") { CP++; keep = 1 }
         else { raise(2); return }
     }
+    if (!host_found(f)) return
     if (!prog_load(f, 0, keep)) { raise(22); return }
     if (keep) run_start(0, 1)
     else to_ready()
+}
+
+# A file that is not there is Disk BASIC's 54, "File not found" (ERR=106),
+# for LOAD, RUN "file" and MERGE as for OPEN "I" and KILL: they open the
+# file through the same DOS open, and 54 is the only not-found code in the
+# Disk System manual's error table.  A name that is not a file at all (a
+# socket, a descriptor: host_special) stays ?FD, as everywhere a program
+# names one; so does a file that is there but will not read.  CLOAD does
+# not come here: a tape has no "not found", and Level II's cassette read
+# says bad file data.  Until 2026-09-24 all three said ?FD, so a listing's
+# ERR=106 handler never saw them (the 2026-09-23 audit, M-8).
+function host_found(f) {
+    if (host_special(f) || host_exists(f)) return 1
+    raise(54)
+    return 0
 }
 
 # Disk BASIC MERGE "file": read a listing into the CURRENT program -- no
@@ -749,6 +765,7 @@ function st_load(   f, keep) {
 function st_merge(   f) {
     f = parse_fname(); if (E) return
     if (f == "") { raise(21); return }
+    if (!host_found(f)) return
     if (!prog_load(f, 0, 0, 1)) { raise(22); return }
     HALT = 1
 }
