@@ -287,7 +287,10 @@ def split_event(check):
         check(got == ['97', '98'], 'a release cut after %r is no key, and b arrives' % cut,
               ' '.join(got) or '(nothing)')
     b.send(b'\x1b', 0.4)                            # a lone ESC is still a key, only later
-    got = numbers(b.drain(0.2))
+    # later by KP_CUTMS with gawk's clock, but 1-2 s by systime() without it
+    # (Ubuntu 24.04's gawk skips the obsolete time extension, and so did CI:
+    # a 0.2 s window failed there about one run in three)
+    got = numbers(b.drain(2.2))
     check(got == ['27'], 'a lone ESC under the protocol still reads 27', ' '.join(got) or '(nothing)')
     b.send(b'\x03', 0.5)
     b.drain()
