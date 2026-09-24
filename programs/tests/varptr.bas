@@ -41,5 +41,5 @@
 321 IF LEN(H$)<>2 OR H$<>"AB" THEN PRINT "FAIL a POKE past the live length grew the string:";LEN(H$);H$:F=1
 322 IF PEEK(D+5)<>88 OR PEEK(D+4)<>32 THEN PRINT "FAIL the byte past the live length";PEEK(D+5);PEEK(D+4):F=1
 323 POKE V,6:IF H$<>"AB   X" THEN PRINT "FAIL the length byte grown over it: [";H$;"]":F=1
-328 IF F THEN PRINT "VARPTR FIXTURE FAILED":Z(9)=0
+328 IF F THEN PRINT "VARPTR FIXTURE FAILED":ERROR 5
 330 PRINT "VARPTR FIXTURE OK"

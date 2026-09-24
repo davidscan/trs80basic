@@ -40,13 +40,22 @@ while [ $i -le 33 ]; do
     i=$((i+1))
 done
 
-# 3. the batch fixtures (the stub: a core beside the checkout must not matter)
+# 3. the batch fixtures (the stub: a core beside the checkout must not matter).
+# A fixture fails by its exit status, AND by printing "FIXTURE FAILED": a
+# failure path that stops raising an error must not pass silently (sysvar.bas
+# did, from 70b0c22 on: its CLEAR 50 erased the DIM its failure path used).
+fixture() {
+    if ! "$@" >"$log" 2>&1; then bad "$b.bas"; show "$b.bas"
+    elif grep -q "FIXTURE FAILED" "$log"; then
+        bad "$b.bas (printed FIXTURE FAILED but exited 0)"; show "$b.bas"
+    fi
+}
 for b in varptr rawbytes alias literal inp out255 ifcomma intconv defint forstack pokerange mbfpoke round errcode cursor dataitem power using apostrophe; do
-    TRS80_Z80= ./basic "programs/tests/$b.bas" >"$log" 2>&1 || { bad "$b.bas"; show "$b.bas"; }
+    fixture env TRS80_Z80= ./basic "programs/tests/$b.bas"
 done
 lp=$(mktemp) || exit 2
-TRS80_Z80= TRS80_PRINTER="$lp" ./basic programs/tests/sysvar.bas >"$log" 2>&1 \
-    || { bad "sysvar.bas"; show "sysvar.bas"; }
+b=sysvar
+fixture env TRS80_Z80= TRS80_PRINTER="$lp" ./basic programs/tests/sysvar.bas
 rm -f "$lp"
 
 # 4. the shell suites (each pins its own core or stub; z80core/sound skip without one)

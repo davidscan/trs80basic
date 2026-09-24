@@ -53,6 +53,6 @@
 510 IF P$<>"JACKED" THEN PRINT "FAIL write-through into packed string: ";P$:F=1
 520 REM --- ordinary strings are untouched throughout
 530 C$="PLAIN":C$=C$+"!":IF C$<>"PLAIN!" THEN PRINT "FAIL ordinary string":F=1
-540 IF F THEN PRINT "ALIAS FIXTURE FAILED":Z(9)=0
+540 IF F THEN PRINT "ALIAS FIXTURE FAILED":ERROR 5
 550 CLEAR:IF A$<>"" THEN PRINT "ALIAS FIXTURE FAILED: CLEAR":X=1/0
 560 PRINT "ALIAS FIXTURE OK"
