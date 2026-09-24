@@ -1,7 +1,10 @@
 # The regression suite on every push and pull request: exactly what
 # programs/tests/run_all.sh runs at a checkout, on GitHub's Ubuntu image.
-# The companion Z80 core is not checked out here, so its suites skip; the
-# protocol suite (z80.sh) and t32 run against the reference stub as always.
+# The companion Z80 core is checked out beside this repo, where the
+# launcher and the suites look for it, so z80core.sh, sound.sh, system.sh
+# and the z80.sh run against the real core all run here; with
+# TRS80_REQUIRE_CORE set, a suite that skips fails the job instead of
+# passing silently.
 name: tests
 
 on:
@@ -13,9 +16,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          path: trs80basic
+      - uses: actions/checkout@v4
+        with:
+          repository: davidscan/trs80_z80_core
+          path: trs80_z80_core
       - name: Install gawk
         run: sudo apt-get update -q && sudo apt-get install -y -q gawk
       - name: Versions
-        run: gawk --version | head -1 && python3 --version
+        run: gawk --version | head -1 && python3 --version && git -C trs80_z80_core log --oneline -1
       - name: Run the suite
-        run: sh programs/tests/run_all.sh
+        run: cd trs80basic && TRS80_REQUIRE_CORE=1 sh programs/tests/run_all.sh
