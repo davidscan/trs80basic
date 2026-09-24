@@ -507,8 +507,8 @@ Honest list, stated as current behavior:
 - **All numerics are doubles.** There is no single/double/integer
   distinction; `%` `!` `#` suffixes are accepted and stripped (so `G%` and
   `G` are the same variable). `DEFSNG`/`DEFDBL` set no precision; `DEFINT`
-  and a `%` name round a stored value DOWN, as on the machine (`I=7/2` is
-  3), but a value past -32768..32767 is not yet `?OV` (DEFSTR *is*
+  and a `%` name round a stored value DOWN and make a value past
+  -32768..32767 `?OV`, as on the machine (`I=7/2` is 3) (DEFSTR *is*
   honoured, everywhere). Consequence: exact integers print in
   full — `12345678` where real single-precision hardware shows
   `1.23457E+07` — and E vs D exponent forms carry no precision difference.
@@ -1526,8 +1526,12 @@ DEFSNG / DEFDBL / DEFSTR      integer / single / double / string
   or any name written with % -- is rounded DOWN, as the ROM's LET does:
   DEFINT I: I=7/2 gives 3, and I=-2.5 gives -3.  This covers LET, INPUT,
   READ, INPUT# and FOR (an integer index takes its start, TO and STEP
-  rounded down).  A value outside -32768 to 32767 is not yet ?OV; it is
-  kept as it is.  A ! or # suffix overrides DEFINT for that store.
+  rounded down).  A value outside -32768 to 32767 is ?OV and nothing is
+  stored -- at INPUT too, never ?REDO -- and an integer FOR index is ?OV
+  at the NEXT that would step it past the range, so FOR I%=1 TO 32767
+  stops at its last NEXT, as on the machine.  Arithmetic is no error:
+  I%+1 past 32767 is simply a larger number, until it is stored.  A ! or
+  # suffix overrides DEFINT for that store.
   DEFSNG and DEFDBL clear DEFINT and DEFSTR for their range; single and
   double precision are one type here.  The suffixes do not make separate
   variables: G%, G! and G are the same variable, and only the name as

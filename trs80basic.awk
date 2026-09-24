@@ -3816,12 +3816,14 @@ function intvar(name, sx) {
 }
 
 # A value stored into an integer variable: LET converts through 0A7FH
-# (2819H, table 18A5H), which rounds DOWN, so I=7/2 is 3 and I=-2.5 is -3.
-# A value outside -32768..32767 is kept as it is for now: the ROM's ?OV
-# there is a separate decision.
+# (2819H, table 18A5H), which rounds DOWN, so I=7/2 is 3 and I=-2.5 is -3,
+# and a result outside -32768..32767 is ?OV there (0A8AH pushes 07B2H):
+# nothing is stored.  READ and INPUT reach the same conversion (224AH ->
+# 1F33H), so a typed 40000 is ?OV, not ?REDO.
 function intstore(x,   r) {
     r = bfloor(x)
-    return (r > 32767 || r < -32768) ? x : r
+    if (r > 32767 || r < -32768) { raise(6); return 0 }
+    return r
 }
 
 function assignv(name, key, v,   isint) {
@@ -3836,6 +3838,7 @@ function assignv(name, key, v,   isint) {
     } else {
         if (!isN(v)) { raise(13); return }
         v = isint ? intstore(num(v)) : num(v)
+        if (E) return
         if (key != "") VA[key] = "N" v; else NV[name] = v
     }
 }
@@ -3877,27 +3880,30 @@ function st_for(   name, v0, v1, stp, j, v, isint) {
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
+    # an integer index runs an integer loop: the start through LET (1CA6H ->
+    # 1F21H, stored before TO is read), TO through 0A7FH (1CD7H), STEP
+    # through 2B01H -- each rounded down, each ?OV out of range
     v0 = num(v)
+    if (isint) { v0 = intstore(v0); if (E) return }
+    NV[name] = v0
     if (!(TY[CK, CP] == "i" && TK[CK, CP] == "TO")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     v1 = num(v)
+    if (isint) { v1 = intstore(v1); if (E) return }
     stp = 1
     if (TY[CK, CP] == "i" && TK[CK, CP] == "STEP") {
         CP++
         v = e_or(); if (E) return
         if (!isN(v)) { raise(13); return }
         stp = num(v)
+        if (isint) { stp = intstore(stp); if (E) return }
     }
-    # an integer index runs an integer loop: the start through LET (1F21H),
-    # TO through 0A7FH (1CD7H), STEP through 2B01H -- all rounded down
-    if (isint) { v0 = intstore(v0); v1 = intstore(v1); stp = intstore(stp) }
-    NV[name] = v0
     for (j = FSN; j > for_floor(); j--)
         if (FS_V[j] == name) { FSN = j - 1; break }
     FSN++
-    FS_V[FSN] = name; FS_L[FSN] = v1; FS_S[FSN] = stp
+    FS_V[FSN] = name; FS_L[FSN] = v1; FS_S[FSN] = stp; FS_I[FSN] = isint
     FS_K[FSN] = CK; FS_LI[FSN] = CLI; FS_P[FSN] = CP
 }
 
@@ -3931,6 +3937,10 @@ function do_next(name,   j, v, fl) {
     }
     FSN = j
     v = NV[FS_V[j]] + FS_S[j]
+    # an integer index steps by integer addition (22F9H); a sum past
+    # -32768..32767 is ?OV and the index keeps its value (2301H), so
+    # FOR I%=32760 TO 32767 stops at the NEXT after 32767, as on the machine
+    if (FS_I[j] && (v > 32767 || v < -32768)) { raise(6); return 0 }
     NV[FS_V[j]] = v
     if (FS_S[j] >= 0 ? v <= FS_L[j] : v >= FS_L[j]) {
         CK = FS_K[j]; CLI = FS_LI[j]; CP = FS_P[j]

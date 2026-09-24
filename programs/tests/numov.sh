@@ -69,5 +69,24 @@ want="ERR 6 IN 30
 A, B KEPT 4  9 "
 [ "$out" = "$want" ] || fail "INPUT#" "$out"
 
+# an INTEGER target: a number that reads fine but does not fit -32768..32767
+# is ?OV at the store (224AH -> 1F33H -> 0A7FH), at INPUT too, never ?REDO
+cat > "$tmp/int.bas" <<'BAS'
+10 ON ERROR GOTO 100
+20 A%=5:INPUT A%
+30 PRINT "A% KEPT";A%
+40 OPEN "O",1,"IV.DAT":PRINT#1,"40000":CLOSE
+50 OPEN "I",1,"IV.DAT":B%=9:INPUT#1,B%
+60 CLOSE:PRINT "B% KEPT";B%:END
+100 PRINT "ERR";ERR/2+1;"IN";ERL:RESUME NEXT
+BAS
+out=$(printf '40000\n' | run "$tmp/int.bas")
+want="? 40000
+ERR 6 IN 20 
+A% KEPT 5 
+ERR 6 IN 50 
+B% KEPT 9 "
+[ "$out" = "$want" ] || fail "INPUT and INPUT# into an integer" "$out"
+
 rm -rf "$tmp"
 echo "NUMOV OK"
