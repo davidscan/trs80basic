@@ -50,7 +50,7 @@ fixture() {
         bad "$b.bas (printed FIXTURE FAILED but exited 0)"; show "$b.bas"
     fi
 }
-for b in varptr rawbytes alias literal inp out255 ifcomma intconv defint forstack pokerange mbfpoke round errcode cursor dataitem power using apostrophe; do
+for b in varptr rawbytes alias literal inp out255 ifcomma intconv defint forstack pokerange mbfpoke round errcode cursor dataitem power using apostrophe controlflow functions; do
     fixture env TRS80_Z80= ./basic "programs/tests/$b.bas"
 done
 lp=$(mktemp) || exit 2
@@ -59,7 +59,7 @@ fixture env TRS80_Z80= TRS80_PRINTER="$lp" ./basic programs/tests/sysvar.bas
 rm -f "$lp"
 
 # 4. the shell suites (each pins its own core or stub; z80core/sound skip without one)
-for s in break devvec usr pmtrunc z80 z80core sound tokload system tips_probe hostwrite special linelen clear memsize print input ready inputnum printcomma onerror ollama randfile lof crunch auto notty corepath errline goto imgpoke lineedit numov numread inputitem freshline linecut dotline fname varptrsign varnames; do
+for s in break devvec usr pmtrunc z80 z80core sound tokload system tips_probe hostwrite special linelen clear memsize print input ready inputnum printcomma onerror ollama randfile lof crunch auto notty corepath errline goto imgpoke lineedit numov numread inputitem freshline linecut dotline fname varptrsign varnames cont; do
     sh "programs/tests/$s.sh" >"$log" 2>&1 || { bad "$s.sh"; show "$s.sh"; }
 done
 
