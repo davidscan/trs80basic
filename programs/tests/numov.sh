@@ -88,5 +88,36 @@ ERR 6 IN 50
 B% KEPT 9 "
 [ "$out" = "$want" ] || fail "INPUT and INPUT# into an integer" "$out"
 
+# a store that fails ENDS the statement.  INPUT: the items behind the
+# failed one are not assigned.  READ: the DATA pointer (40FFH) is committed
+# only when the statement ends (1D96H from 2274H), so after the error it is
+# where the statement began -- the handler's READ gets the FIRST item again
+# -- while the items stored before the error keep their values.  (Until
+# 2026-09-24 INPUT went on to B$, and READ's pointer moved past 40000.)
+cat > "$tmp/int2.bas" <<'BAS'
+10 ON ERROR GOTO 100
+20 B$="OLD":INPUT A%,B$
+30 PRINT "A%, B$ KEPT";A%;B$:END
+100 PRINT "ERR";ERR/2+1;"IN";ERL:RESUME NEXT
+BAS
+out=$(printf '40000,NEW\n' | run "$tmp/int2.bas")
+want="? 40000,NEW
+ERR 6 IN 20 
+A%, B$ KEPT 0 OLD"
+[ "$out" = "$want" ] || fail "INPUT stops at the failed store" "$out"
+
+cat > "$tmp/read2.bas" <<'BAS'
+10 ON ERROR GOTO 100
+20 C$="OLD":READ A,B%,C$
+30 PRINT "A, B%, C$";A;B%;C$:END
+40 DATA 5,40000,NEW
+100 PRINT "ERR";ERR/2+1;"IN";ERL:READ R$:PRINT "NEXT ITEM ";R$:RESUME NEXT
+BAS
+out=$(run "$tmp/read2.bas")
+want="ERR 6 IN 20 
+NEXT ITEM 5
+A, B%, C$ 5  0 OLD"
+[ "$out" = "$want" ] || fail "READ's pointer after a failed store" "$out"
+
 rm -rf "$tmp"
 echo "NUMOV OK"

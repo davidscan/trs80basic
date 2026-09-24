@@ -6046,6 +6046,9 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
                     if (!numrest()) { ok = 0; break }
                     assignv(name, key, "N" x)
                 }
+                # a store that fails (?OV into an integer, 1F33H -> 0A7FH)
+                # ends the INPUT: the items behind it are not assigned
+                if (E) return
                 idx++
             }
             if (!ok || idx > nlv) break
@@ -6156,8 +6159,22 @@ function data_items(txt, ln, dn,   ci, cn, c, j, item, wasq, bad, off) {
     }
 }
 
-function st_read(   name, key, x) {
+# The DATA pointer (40FFH) is committed only when the READ statement ENDS:
+# the ROM carries it on the stack from 21F0H and stores it at 1D96H, reached
+# from 2274H after the last item.  So an error inside a READ -- ?OV at the
+# store (224AH -> 1F33H -> 0A7FH), ?SN in the DATA line (217FH), ?OD
+# (22A2H), a bad subscript from 260DH -- leaves the pointer where the
+# statement began, and RESUME re-reads the whole statement; the items stored
+# before the error keep their values.  Until 2026-09-24 the pointer moved
+# past every item as it was stored, so RESUME went on from the wrong item.
+function st_read(   dp0) {
     if (DATADIRTY) datascan()
+    dp0 = DP
+    st_read_items()
+    if (E) DP = dp0
+}
+
+function st_read_items(   name, key, x) {
     for (;;) {
         if (TY[CK, CP] != "i") { raise(2); return }
         name = lvname()
@@ -6190,6 +6207,7 @@ function st_read(   name, key, x) {
             }
             assignv(name, key, "N" x)
         }
+        if (E) return                       # ?OV at the store: nothing stored
         DP++
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
         return
