@@ -2949,7 +2949,15 @@ function e_add(   v, r, op, x) {
         op = TK[CK, CP]; CP++
         r = e_mul(); if (E) return v
         if (op == "+") {
-            if (!isN(v) && !isN(r)) { v = "S" vstr(v) vstr(r); continue }
+            if (!isN(v) && !isN(r)) {
+                # ROM 299CH-29A5H adds the two lengths in a byte and takes
+                # a carry to ?LS: a string is at most 255 characters, and
+                # the store never happens.  Until 2026-09-24 strings grew
+                # without bound, so the VARPTR length byte held the length
+                # mod 256 and a handler written for ?LS never fired (H-2).
+                if (length(v) + length(r) - 2 > 255) { raise(15); return v }
+                v = "S" vstr(v) vstr(r); continue
+            }
             if (isN(v) != isN(r)) { raise(13); return v }
             x = num(v) + num(r)
         } else {

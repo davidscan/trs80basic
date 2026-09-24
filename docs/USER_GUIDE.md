@@ -519,8 +519,6 @@ Honest list, stated as current behavior:
   `FNABC` is `FNAB`, a `$` still keeps `AB$` apart from `AB`, and `LIST`
   still shows the names as typed. It does not make a reserved word inside
   a name an error, as the ROM does (`TOTAL` is `TO TAL` on the machine).
-- **Strings may be arbitrarily long** (ROM caps at 255; a program relying
-  on `?LS`/`?OS` at the cap will not see the error).
 - **Compressed source does not lex.** `IFA=1THEN100` is the identifier
   `IFA`, not `IF A`. This is the dominant failure mode when pasting
   archived listings — `detok.py -s` exists precisely for it.
