@@ -201,9 +201,9 @@ NEXT [v[,v...]]   close the innermost FOR loop(s)
 
 :INPUT
 INPUT ["prompt";] var[,var...]   read values typed at the keyboard
-  Waits for a line and ENTER.  A ; after the prompt keeps the "? "
-  that BASIC adds; a , drops it, which is what you want when the prompt
-  already ends in its own punctuation.
+  Waits for a line and ENTER.  The prompt is followed by ; and BASIC
+  adds "? " behind it; a , there is ?SN, as on the machine (LINE INPUT
+  takes only ; too).
   Several variables may be read at once, and the user separates the
   values with commas.  Too few values re-prompts with ?? ; a value of
   the wrong type gives ?REDO and asks again, from the first value --
@@ -225,6 +225,9 @@ INPUT ["prompt";] var[,var...]   read values typed at the keyboard
   240 and one line on stderr says so.  LOAD of a file has no such limit.
   EXT (needs `ext on` / TRS80_EXT=1): INPUT with no variable at all --
   INPUT"PRESS ENTER"; -- prompts, waits for ENTER and discards the line.
+  EXT (needs `ext on` / TRS80_EXT=1): INPUT "prompt",var -- the later
+  Microsoft BASICs' form -- is taken and drops the "? ", for a prompt
+  that ends in its own punctuation.  Level II has no such form.
   Example: INPUT "NAME";N$
   Example: INPUT "X,Y";X,Y
 
@@ -1488,8 +1491,9 @@ ext on | off   enable or disable the gated extensions
 ext            report the current state
   The extensions are small conveniences that real Level II does not
   have, kept behind this switch so that default behavior stays
-  faithful.  Currently gated: INPUT with a prompt but no variable, DIM
-  of a scalar name, and REM META: directives (see: man REM).
+  faithful.  Currently gated: INPUT with a prompt but no variable,
+  INPUT "prompt",var (a comma behind the prompt), DIM of a scalar name,
+  and REM META: directives (see: man REM).
   Off by default.  The environment variable TRS80_EXT=1 turns them on
   at startup instead.
   Metacommand: lowercase only.

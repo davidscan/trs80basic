@@ -365,7 +365,7 @@ function rem_meta(   s, cmd, arg) {
 
 # --- ext metacommand: gate for extensions that damaged OCR could spell ------
 function st_ext(arg) {
-    if (arg == "") { t_man("EXT " (EXTON ? "ON" : "OFF") " (gated: bare/prompt-only INPUT, DIM of a scalar, REM META:)"); return }
+    if (arg == "") { t_man("EXT " (EXTON ? "ON" : "OFF") " (gated: bare/prompt-only INPUT, INPUT "prompt",var, DIM of a scalar, REM META:)"); return }
     if (arg == "on" || arg == "1") { EXTON = 1; return }
     if (arg == "off" || arg == "0") { EXTON = 0; return }
     t_man("USAGE: ext on|off|1|0")

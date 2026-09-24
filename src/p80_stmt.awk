@@ -9,7 +9,11 @@ function st_print(   sep, ty, tx, v, tgt, col, t) {
         tgt = bfloor(num(v))
         if (tgt < 0 || tgt > 1023) { raise(5); return }
         CUR = tgt
-        if (TY[CK, CP] == "o" && (TK[CK, CP] == "," || TK[CK, CP] == ";")) CP++
+        # ROM 208DH: RST 08H against "," -- the position is followed by a
+        # comma and nothing else; PRINT @5;"X" and PRINT @5 "X" are ?SN.
+        # Until 2026-09-24 a ";" or nothing passed (the 2026-09-23 audit, L-2).
+        if (TY[CK, CP] == "o" && TK[CK, CP] == ",") CP++
+        else { raise(2); return }
     }
     if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") { CP++; pr_using(); return }
     sep = 0
@@ -466,8 +470,14 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
             if (substr(x, 1, 1) != "S") { raise(13); return }
             prompt = substr(x, 2)
         }
+        # ROM 21D3H: RST 08H against ";" -- the prompt is followed by a
+        # semicolon, and a comma is ?SN.  EXT (gated): under ext on, the
+        # later Microsoft BASICs' INPUT "prompt",var is taken and drops
+        # the "? ".  No period listing uses it (the 2026-09-23 audit, L-2,
+        # ruled 2026-09-24), so the gate costs nothing; LINE INPUT takes
+        # only ";" either way.
         if (TY[CK, CP] == "o" && TK[CK, CP] == ";") { pq = 1; CP++ }
-        else if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { pq = 2; CP++ }
+        else if (EXTON && TY[CK, CP] == "o" && TK[CK, CP] == ",") { pq = 2; CP++ }
         else if (!(EXTON && at_stmt_end())) { raise(2); return }
     }
     if (EXTON && at_stmt_end()) {
