@@ -33,7 +33,7 @@
 322 IF V2<>V THEN PRINT "FAIL VARPTR moved":F=1
 330 REM --- indirect form and an array element, onto system RAM (4010H)
 340 POKE 16400,65:POKE 16401,66:POKE 16402,67
-350 DIM B$(2):B$(1)="...":W=VARPTR(B$(1)):IF W<0 THEN W=W+65536
+350 DIM B$(2):B$(1)="..."+"":W=VARPTR(B$(1)):IF W<0 THEN W=W+65536
 360 L=16400-INT(16400/256)*256:H=INT(16400/256)
 370 POKE W+1,L:POKE W+2,H
 380 IF B$(1)<>"ABC" THEN PRINT "FAIL array element alias: ";B$(1):F=1

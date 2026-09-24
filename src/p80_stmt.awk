@@ -596,13 +596,14 @@ function parse_items(line, base,   cnt, i, n, c, j, item, q, bad) {
 }
 
 # ---- DATA / READ / RESTORE -------------------------------------------------
-function datascan(   i, k, j) {
+function datascan(   i, k, j, dn) {
     NDATA = 0
     for (i = 1; i <= NL; i++) {
         k = LNS[i] ""
-        if (!(k in TOKD)) tokline(k, prog[LNS[i]])
+        if (!(k in TOKD)) tokline(k, runtext(LNS[i]))
+        dn = 0                          # which DATA of the line (p75 lit_addr)
         for (j = 1; j <= TCN[k]; j++)
-            if (TY[k, j] == "d") data_items(TK[k, j], LNS[i])
+            if (TY[k, j] == "d") data_items(TK[k, j], LNS[i], ++dn)
     }
     DATADIRTY = 0
 }
@@ -612,12 +613,14 @@ function datascan(   i, k, j) {
 # the end of the statement, and finds neither (225A-2260).  That is ?SN
 # when READ REACHES the item, not before; until 2026-09-21 the rest of the
 # line was dropped silently and EF was never read.
-function data_items(txt, ln,   ci, cn, c, j, item, wasq, bad) {
+function data_items(txt, ln, dn,   ci, cn, c, j, item, wasq, bad, off) {
     ci = 1; cn = length(txt)
     for (;;) {
         bad = 0
         while (ci <= cn && substr(txt, ci, 1) ~ /^[ \t\n]$/) ci++    # RST 10H: blank, tab, line feed
+        off = ci
         if (ci <= cn && substr(txt, ci, 1) == "\"") {
+            off = ci + 1
             j = index(substr(txt, ci + 1), "\"")
             if (j == 0) { item = substr(txt, ci + 1); ci = cn + 1 }
             else { item = substr(txt, ci + 1, j - 1); ci = ci + j + 1 }
@@ -636,6 +639,7 @@ function data_items(txt, ln,   ci, cn, c, j, item, wasq, bad) {
             wasq = 0
         }
         NDATA++; DITEM[NDATA] = item; DQ[NDATA] = wasq; DBAD[NDATA] = bad; DLINE[NDATA] = ln
+        DLIT[NDATA] = lit_spec(ln, "d", dn, off)   # where READ's string points (2240H)
         if (ci <= cn && substr(txt, ci, 1) == ",") { ci++; continue }
         break
     }
@@ -657,8 +661,10 @@ function st_read(   name, key, x) {
             ERR_AT = DLINE[DP]; ERLV = DLINE[DP]
             return
         }
-        if (strname(name)) assignv(name, key, "S" DITEM[DP])
-        else {
+        if (strname(name)) {
+            assignv(name, key, "S" DITEM[DP])
+            lit_note((key != "") ? "A" key : "V" name, DLIT[DP])
+        } else {
             # the ROM's reader takes what it can (valnum, p90); anything
             # but blanks left over is ?SN in the DATA line (225A-2260 ->
             # 1991H).  A bad % is ?SN from inside the reader (1997H), which

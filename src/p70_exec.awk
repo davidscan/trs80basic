@@ -12,7 +12,7 @@ function exec_immediate(line) {
 
 function setline(i) {
     CLI = i; CLN = LNS[i]; CK = CLN ""
-    if (!(CK in TOKD)) tokline(CK, prog[CLN])
+    if (!(CK in TOKD)) tokline(CK, runtext(CLN))
     CP = 1
     if (TRACE) s_puts("<" CLN ">")
 }
@@ -159,7 +159,7 @@ function skipstmt(   ty, tx) {
 }
 
 # ---- assignment ------------------------------------------------------------
-function st_let(   name, key, v) {
+function st_let(   name, key, v, lp, src, j, n) {
     if (TY[CK, CP] != "i") { raise(2); return }
     name = lvname()
     key = ""
@@ -168,8 +168,21 @@ function st_let(   name, key, v) {
     }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
+    # a string literal, or a plain string variable, alone on the right in a
+    # program line: the ROM leaves the string where it is (1F46H-1F57H)
+    lp = 0
+    if (CK != "I" && (TY[CK, CP] == "s" || TY[CK, CP] == "i") && strname(name)) {
+        CP++; if (at_stmt_end()) lp = CP - 1; CP--
+    }
     v = e_or(); if (E) return
     assignv(name, key, v)
+    if (lp && !E) {
+        if (TY[CK, lp] == "s") {
+            for (j = 1; j <= lp; j++) if (TY[CK, j] == "s") n++
+            src = lit_spec(CK + 0, "s", n, 0)
+        } else src = lit_of("V" TK[CK, lp])
+        if (src != "") lit_note((key != "") ? "A" key : "V" name, src)
+    }
 }
 
 # DEFSTR/DEFINT/DEFSNG/DEFDBL letter[-letter][,...]: per-letter default type.
@@ -305,6 +318,7 @@ function assignv(name, key, v,   isint) {
     if (strname(name)) {
         if (isN(v)) { raise(13); return }
         if (ALN) al_clear(name, key)            # the descriptor moves (p75, finding 7)
+        delete LITA[(key != "") ? "A" key : "V" name]   # a literal it noted (p75)
         if (FLDANY) fld_detach(name, key)       # ... and out of a FIELD's buffer (p85)
         if (key != "") VA[key] = v; else SV[name] = vstr(v)
         if (length(VPDATA)) sp_grown(name, key)  # a VARPTRed string that outgrew its cells (p75)
@@ -521,7 +535,7 @@ function st_cont() {
     CONTOK = 0
     CK = CONT_K; CLI = CONT_LI; CP = CONT_P
     CLN = (CK == "I") ? DIRECTLN : CK + 0
-    if (CK != "I" && !(CK in TOKD)) tokline(CK, prog[CLN])
+    if (CK != "I" && !(CK in TOKD)) tokline(CK, runtext(CLN))
 }
 
 function st_run(   n, f, keep) {

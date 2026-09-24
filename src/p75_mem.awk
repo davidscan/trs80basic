@@ -55,9 +55,12 @@
 #     re-allocated the whole thing, so VARPTR(A$);VARPTR(A$) answered two
 #     addresses, the two-call idiom PEEK(VARPTR(A$)+1)+256*PEEK(VARPTR(A$)+2)
 #     composed a dead address, and VARPTR in a loop marched SSP down to ?OM --
-#     162 corpus listings call VARPTR on the same string twice.)  Documented
-#     deviations: the bytes are a mem[]-backed COPY (a literal's bytes are
-#     not the program line, so pack-then-SAVE captures nothing), the data
+#     162 corpus listings call VARPTR on the same string twice.)  A string
+#     assigned from a LITERAL in a program line is the exception, as on the
+#     machine: its bytes are the line's own (lit_bind, below; since
+#     2026-09-23), and only its descriptor is allocated here.  Documented
+#     deviations: other strings' bytes are a mem[]-backed COPY, SAVE and
+#     LIST show a line as typed even after a POKE into its literal, the data
 #     region a string outgrew is unmapped rather than left as stale bytes,
 #     and POKEing the descriptor's address cells is ignored.  POKE of the
 #     length byte truncates the live value, or grows it over the cells that
@@ -231,6 +234,10 @@ function pm_init_index(   tbl, pairs, np, i, j, v, w, ins) {
     TOKIDX = 1
 }
 
+# the text line ln RUNS from: prog[ln], or for a line loaded from a tokenized
+# image the escrowed bytes with CR and LF kept inside its strings
+function runtext(ln) { return (ln in ESC) ? pm_detok(ESC[ln], 1) : prog[ln] }
+
 # detokenize one stored line body into the text prog[] holds (R1, p40).  The
 # inverse of pm_crunch and a port of tools/detok.py's expand() with keyword
 # spacing on: strings, DATA items up to a colon and everything after REM or
@@ -240,15 +247,19 @@ function pm_init_index(   tbl, pairs, np, i, j, v, w, ins) {
 # because tokline lexes FORX as one identifier.  A CR or LF -- legal in a
 # stored body, impossible in a text line -- becomes a space, or inside a
 # non-DATA string the equivalent "+CHR$(n)+" splice.  Those rewrites touch
-# only this text; the image is built from the escrowed bytes.
-function pm_detok(body,   out, i, n, b, c, ins, ind, lit, kw, nxt) {
+# only this text; the image is built from the escrowed bytes.  With raw set
+# the byte stays in its string: that is the text a loaded line RUNS from
+# (runtext), so the literal is ONE literal, as the ROM's LET sees it -- its
+# descriptor then points into the line (lit_bind), where the splice would
+# have built a joined string at the top of memory (Isolate's M$, 2026-09-23).
+function pm_detok(body, raw,   out, i, n, b, c, ins, ind, lit, kw, nxt) {
     if (!TOKIDX) pm_init_index()
     out = ""; i = 1; n = length(body); ins = 0; ind = 0; lit = 0
     while (i <= n) {
         c = substr(body, i, 1); b = ORD[c]
         if (lit) { out = out ((b == 10 || b == 13) ? " " : c); i++; continue }
         if (ins) {
-            if (b == 10 || b == 13) { out = out (ind ? " " : "\"+CHR$(" b ")+\""); i++; continue }
+            if (!raw && (b == 10 || b == 13)) { out = out (ind ? " " : "\"+CHR$(" b ")+\""); i++; continue }
             out = out c
             if (b == 34) ins = 0
             i++; continue
@@ -473,6 +484,7 @@ function sp_reset(   a) {
     if (FRTRACK) for (a in SPK) FRDIRTY[a] = 1   # the frame resends what these read as now
     delete SPK; delete SPT; delete SPV; delete VPDESC; delete VPDATA; delete VPCAP
     delete ALIAS; ALN = 0
+    delete LITA; delete LITV; delete LITSPEC
     delete NRAW
     SSP = HIMEM
 }
@@ -518,6 +530,18 @@ function sp_materialize(tgt, isstr,   len, need, base, j, dbase) {
         sp_map_data(tgt, base, len)
         SPV[dbase + 1] = base % 256; SPV[dbase + 2] = int(base / 256)
         return dbase
+    }
+    if (tgt in LITA) {                            # a literal: the bytes are in
+        if (SSP - 3 < 17131) { raise(7); return 0 } # the line, only the
+        dbase = SSP - 2; SSP -= 3                 # descriptor is new
+        SPK[dbase] = tgt;     SPT[dbase] = "L"
+        SPK[dbase + 1] = tgt; SPT[dbase + 1] = "C"
+        SPK[dbase + 2] = tgt; SPT[dbase + 2] = "C"
+        VPDESC[tgt] = dbase
+        lit_bind(tgt)
+        if (tgt in LITV) return dbase
+        VPCAP[tgt] = -1                           # not bound: bytes below, as ever
+        return sp_materialize(tgt, 1)
     }
     need = len + 3                                # first VARPTR: bytes, then
     if (SSP - need < 17131) { raise(7); return 0 } # the descriptor just above
@@ -788,7 +812,7 @@ function al_repoint(a, b, tgt,   d, addr) {
     SPV[a] = b
     d = VPDESC[tgt]
     addr = SPV[d + 1] + 256 * SPV[d + 2]
-    if (addr == VPDATA[tgt]) { if (tgt in ALIAS) { delete ALIAS[tgt]; ALN-- } }
+    if (addr == VPDATA[tgt] && !(tgt in LITV)) { if (tgt in ALIAS) { delete ALIAS[tgt]; ALN-- } }
     else { if (!(tgt in ALIAS)) ALN++; ALIAS[tgt] = addr }
 }
 function al_read(tgt,   addr, len, j, s, b) {
@@ -816,7 +840,100 @@ function al_clear(name, key,   tgt, d) {
     if (!(tgt in ALIAS)) return
     delete ALIAS[tgt]; ALN--
     d = VPDESC[tgt]
+    if (tgt in LITV) {                  # its own data was a literal: none here
+        delete LITV[tgt]; delete LITSPEC[tgt]   # the next VARPTR or sp_grown re-homes it
+        VPCAP[tgt] = -1
+        return
+    }
     SPV[d + 1] = VPDATA[tgt] % 256; SPV[d + 2] = int(VPDATA[tgt] / 256)
+}
+
+# ===================== a string literal lives in the program text ============
+# ROM 1F46H-1F57H: LET compares a string's address with the program's bounds
+# and, when it is "a literal in the program", does NOT copy it -- the
+# descriptor points into the line, at the byte after the opening quote.  READ
+# stores through the same code (224AH -> 1F33H) with a descriptor into the
+# DATA statement (2240H).  So VARPTR(A$) after 10 A$="..." names bytes in the
+# program image, low in memory: the address fits an integer on any machine,
+# and a POKE there changes the line AND the string -- the period way of
+# hiding machine code in a string.  Until 2026-09-23 every literal was copied
+# to string space at the top of memory (65528 for the first one on a 48K
+# machine), which the integer ?OV would have turned into an error the machine
+# never raised.
+#
+# Kept lazy, because nearly no program asks: an assignment from a literal
+# only NOTES where the literal is (LITA[tgt] = line, kind, ordinal, offset).
+# The first VARPTR binds it (lit_bind): the descriptor's address cells name
+# the image bytes, and the string reads its value from them through the
+# alias path (ALIAS[tgt], LITV[tgt] says the alias is the string's own data,
+# so poking the cells back to it keeps it).  Any later assignment unbinds it
+# (al_clear) and the string moves to string space, as on the machine.
+# Direct statements copy, as the ROM does (the input buffer is below the
+# program).  Documented deviations: before the first VARPTR a POKE into the
+# literal does not change the string's value; LIST and CSAVE still show the
+# line as typed.  A literal whose image bytes do not match the value (a line
+# the image could not hold) is copied as before.
+function lit_spec(ln, kind, n, off) { return ln SUBSEP kind SUBSEP n SUBSEP off }
+
+function lit_note(tgt, spec) {
+    LITA[tgt] = spec
+    if (tgt in VPDESC) lit_bind(tgt)
+}
+
+# where a string's literal is, bound or not ("" if it has none)
+function lit_of(tgt) {
+    if (tgt in LITA) return LITA[tgt]
+    if (tgt in LITV) return LITSPEC[tgt]
+    return ""
+}
+
+# the address of the n-th string literal of line ln (kind "s"), or of byte
+# off of the n-th DATA statement's text (kind "d"); -1 if the image does not
+# hold it.  Quotes inside REM, ' and DATA text open no literal; in a DATA
+# statement they do, which is what the ordinal of a DATA item counts past.
+function lit_addr(ln, kind, n, off,   a, e, b, q, cnt) {
+    pm_sync()
+    if (!(ln in PMLA)) return -1
+    a = PMLA[ln] + 4; e = PMLA[ln] + PMLL[ln] - 1
+    q = 0; cnt = 0
+    for (; a < e; a++) {
+        b = PMEM[a]
+        if (q) { if (b == 34) q = 0; continue }
+        if (b == 34) { if (kind == "s" && ++cnt == n) return a + 1; q = 1; continue }
+        if (b == 147 || b == 251) return -1          # REM, ': the rest is text
+        if (b == 136) {                               # DATA: its text to an unquoted :
+            if (kind == "d" && ++cnt == n) return a + off
+            for (a++; a < e; a++) {
+                b = PMEM[a]
+                if (b == 34) q = !q
+                else if (b == 58 && !q) break
+            }
+            q = 0
+        }
+    }
+    return -1
+}
+
+function lit_bind(tgt,   p, a, s, j, d, c) {
+    split(LITA[tgt], p, SUBSEP)
+    a = lit_addr(p[1], p[2], p[3], p[4])
+    s = sp_gets(tgt)
+    # each byte must be the line's as crunched (PMEM) or as POKEd (MEM): a
+    # later LET of the same literal takes the text, and names the same
+    # bytes, POKEs and all, as on the machine (convywm2 pokes a routine's
+    # parameter, then re-assigns); C$=A$ after such a POKE takes the bytes
+    if (a < 0) { delete LITA[tgt]; return }
+    for (j = 1; j <= length(s); j++) {
+        c = ORD[substr(s, j, 1)]
+        if (PMEM[a + j - 1] != c && !((a + j - 1) in MEM && MEM[a + j - 1] == c)) { delete LITA[tgt]; return }
+    }
+    if (!(tgt in LITV)) sp_free_data(tgt)
+    VPDATA[tgt] = a; VPCAP[tgt] = length(s)
+    d = VPDESC[tgt]
+    SPV[d + 1] = a % 256; SPV[d + 2] = int(a / 256)
+    if (!(tgt in ALIAS)) ALN++
+    ALIAS[tgt] = a; LITV[tgt] = 1; LITSPEC[tgt] = LITA[tgt]
+    delete LITA[tgt]
 }
 
 # ===================== the USR frame's memory image ==========================

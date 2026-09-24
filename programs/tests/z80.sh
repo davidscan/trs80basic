@@ -23,7 +23,7 @@ cat > "$tmp" <<'EOF'
 56 IF ERR/2+1<>6 THEN PRINT "FAIL 40000 at 0A7FH is not ?OV but";ERR/2+1:F=1
 57 RESUME 58
 58 ON ERROR GOTO 0
-60 A$="HELLO":V=VARPTR(A$):D=PEEK(V+1)+256*PEEK(V+2)
+60 A$="HELLO"+"":V=VARPTR(A$):D=PEEK(V+1)+256*PEEK(V+2)
 62 IF V>=0 THEN PRINT "FAIL VARPTR below HIMEM is the ROM's integer, negative";V:F=1
 64 IF USR1(V)<>2*V THEN PRINT "FAIL a negative VARPTR passes 0A7FH";USR1(V);V:F=1
 66 IF D>32767 THEN D=D-65536:REM the period idiom: a data address above 32767 must be signed for USR
@@ -34,7 +34,7 @@ cat > "$tmp" <<'EOF'
 110 IF USR3(50000-65536)<>255 THEN PRINT "FAIL unwritten reads 255";USR3(50000-65536):F=1
 120 IF USR3(16561)<>PEEK(16561) OR USR3(16562)<>PEEK(16562) THEN PRINT "FAIL core sees the pointers":F=1
 130 POKE 30001,7:IF USR3(30001)<>7 THEN PRINT "FAIL delta frame carries a new POKE";USR3(30001):F=1
-140 A$="WORLD":IF USR3(D)<>87 THEN PRINT "FAIL delta frame carries a string value";USR3(D):F=1
+140 A$="WORLD"+"":IF USR3(D)<>87 THEN PRINT "FAIL delta frame carries a string value";USR3(D):F=1
 150 DEFUSR4=&H7008:X=USR4(0):POKE 30002,8
 160 IF USR3(30002)<>8 OR USR3(30000)<>99 OR USR3(D)<>87 THEN PRINT "FAIL full resend after NEED":F=1
 170 DEFUSR5=&H7009:X=USR5(0):S=V-6:IF PEEK(S-1)<>18 OR PEEK(S-2)<>52 THEN PRINT "FAIL stack pushed below SSP";PEEK(S-1);PEEK(S-2):F=1

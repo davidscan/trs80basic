@@ -441,7 +441,10 @@ because period programs poke at it:
 - **Display memory** 15360–16383, live both ways.
 - **`VARPTR`** returns a live descriptor: for a string, `[len][addr lo]
   [addr hi]` whose byte region PEEKs and POKEs *through* to the value —
-  the string-packing sprite idiom from the magazines works. The address
+  the string-packing sprite idiom from the magazines works. A string
+  assigned from a literal in a program line points into that line, as
+  on the machine, so its address is low and a POKE there changes the
+  line's bytes and the string together. The address
   is stable — one per variable per run, so the two-call
   `PEEK(VARPTR(A$)+1)+256*PEEK(VARPTR(A$)+2)` idiom composes — and
   POKEing the address cells repoints the string, so
@@ -1539,6 +1542,12 @@ DEFSNG / DEFDBL / DEFSTR      integer / single / double / string
 VARPTR(var)   address of a variable's storage
   String: a live 3-byte descriptor [len][addr lo][addr hi]; the bytes
   at that address PEEK and POKE through to the value (string packing).
+  A string assigned from a literal in a program line (A$="..." alone on
+  the right, or READ from DATA) points INTO THAT LINE, as on the machine:
+  a low address that fits an integer, and a POKE there changes the line's
+  bytes and the string together (the machine-code-in-a-string idiom).  A
+  string built by + or a function, or typed at READY, lives in string
+  space at the top of memory.  LIST and SAVE still show the line as typed.
   POKE of the address cells REPOINTS the string (the period screen-editor
   trick): after POKE VARPTR(A$)+1,0:POKE VARPTR(A$)+2,60 the string reads
   and writes video RAM -- PRINT A$ shows the screen, LSET/RSET/MID$=

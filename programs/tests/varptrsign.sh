@@ -21,6 +21,12 @@ out=$(run '\nA$="HI":PRINT VARPTR(A$);PEEK(VARPTR(A$))\n')
 case "$out" in *fatal*) fail "direct-mode VARPTR is a gawk fatal" "$out";; esac
 echo "$out" | grep -q -- '^-[0-9]*  2 $' || fail "direct-mode VARPTR(A\$) is not negative, or PEEK of it is not the length" "$out"
 
+# a literal typed at READY is copied to string space, as the ROM's LET
+# copies a string that lies below the program (the input buffer, 1F4AH);
+# in a program line it stays in the line (literal.bas)
+out=$(run '\nA$="HI":V=VARPTR(A$):PRINT PEEK(V+1)+256*PEEK(V+2)\n')
+echo "$out" | grep -q -- '^ 655[0-9][0-9] $' || fail "a direct-mode literal is not copied to the top of memory" "$out"
+
 # in a program: the sign, the idiom, PEEK and POKE through the negative form,
 # a numeric's 4 cells, and an array element -- all at the top of memory
 out=$(run '\n10 A$="HELLO":V=VARPTR(A$)\n20 IF V>=0 THEN PRINT "FAIL not negative";V\n30 P=V:IF P<0 THEN P=P+65536\n40 IF P<32768 OR P>65535 THEN PRINT "FAIL idiom";P\n50 IF PEEK(V)<>5 OR PEEK(P)<>5 THEN PRINT "FAIL PEEK both forms";PEEK(V);PEEK(P)\n60 D=PEEK(V+1)+256*PEEK(V+2):POKE D,74:IF A$<>"JELLO" THEN PRINT "FAIL POKE via the composed address ";A$\n70 N=1:W=VARPTR(N):IF W>=0 THEN PRINT "FAIL numeric not negative";W\n80 IF PEEK(W+3)<>129 THEN PRINT "FAIL numeric cells through the negative address";PEEK(W+3)\n90 DIM S$(2):S$(1)="X":IF VARPTR(S$(1))>=0 THEN PRINT "FAIL element not negative"\n100 PRINT "SIGN OK"\nRUN\n')

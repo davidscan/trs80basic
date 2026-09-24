@@ -996,6 +996,12 @@ CDBL(x)   convert x to double precision
 VARPTR(var)   address of a variable's storage
   String: a live 3-byte descriptor [len][addr lo][addr hi]; the bytes
   at that address PEEK and POKE through to the value (string packing).
+  A string assigned from a literal in a program line (A$="..." alone on
+  the right, or READ from DATA) points INTO THAT LINE, as on the machine:
+  a low address that fits an integer, and a POKE there changes the line's
+  bytes and the string together (the machine-code-in-a-string idiom).  A
+  string built by + or a function, or typed at READY, lives in string
+  space at the top of memory.  LIST and SAVE still show the line as typed.
   POKE of the address cells REPOINTS the string (the period screen-editor
   trick): after POKE VARPTR(A$)+1,0:POKE VARPTR(A$)+2,60 the string reads
   and writes video RAM -- PRINT A$ shows the screen, LSET/RSET/MID$=
