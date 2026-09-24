@@ -90,7 +90,8 @@
 #      cursor position and character, 4028H/4029H/409BH printer lines per
 #      page, line counter and column, 4041-4046H the Model I clock,
 #      40A2/40A3H the current line number, 40E1-40E5H AUTO's flag, line and
-#      increment, 411BH the TRON flag -- each read from the live state it
+#      increment, 4101-411AH the DEF-type table, 411BH the TRON flag -- each
+#      read from the live state it
 #      names.  Added 2026-09-11; see the window's own comment for the write
 #      side of each.
 #   4. a in SPK -> VARPTR string space (sp_peek).  THIS DELIBERATELY OUTRANKS
@@ -143,7 +144,8 @@
 #   2. 40AA-40ACH (16554-16556) -> rnd_poke(), the ROM RND seed
 #   3. 40B1/40B2H (16561/16562) -> pm_sethimem(), the one writable pointer
 #      the SYSTEM VARIABLE WINDOW (a in SVW) -> sv_poke(): cursor moves,
-#      cursor character, printer counters, AUTO request, TRON flag; a
+#      cursor character, printer counters, AUTO request, the DEF-type
+#      table (a letter's type), TRON flag; a
 #      clock cell (4041-4046H) becomes plain RAM once written (MEM[a],
 #      read back by sv_peek; on a cassette machine nothing updates those
 #      bytes, and Space Chase parks its routine across them); the current
@@ -713,6 +715,14 @@ function fn_varptr(   name, key, tgt) {
 #                         request is inert there.
 #   40E2/40E3H (16610/1)  AUTO's current line (AUTOLINE).  POKE sets it.
 #   40E4/40E5H (16612/3)  AUTO's increment (AUTOINC).  POKE sets it (tip 71).
+#   4101-411AH (16641-66) the DEF-type table, one byte per letter A-Z: 2
+#                         integer, 3 string, 4 single, 8 double (DEFT, p70
+#                         deftype).  RUN and CLEAR set every byte to 4.
+#                         POKE retypes the letter as DEFINT/DEFSTR would;
+#                         another value is kept and reads back (dueldrd
+#                         parks machine-code parameters there, using %
+#                         names only) and the letter acts as single.  Added
+#                         2026-09-23: it read 255.
 #   411BH (16667)         TRON flag: 175 on, 0 off.  POKE non-zero = TRON,
 #                         0 = TROFF (tips 76/77).
 # Every cell is also in the USR frame's always-sent set (fr_build).
@@ -723,6 +733,7 @@ function sv_init(   a) {
     SVW[16546] = 1; SVW[16547] = 1
     for (a = 16609; a <= 16613; a++) SVW[a] = 1
     SVW[16667] = 1
+    for (a = 16641; a <= 16666; a++) SVW[a] = 1
 }
 function sv_peek(a,   v) {
     if (a == 16416) return (15360 + CUR) % 256
@@ -744,6 +755,7 @@ function sv_peek(a,   v) {
     if (a == 16612) return AUTOINC % 256
     if (a == 16613) return int(AUTOINC / 256) % 256
     if (a == 16667) return TRACE ? 175 : 0
+    if (a >= 16641 && a <= 16666) { a = CHR[a - 16576]; return (a in DEFT) ? DEFT[a] : 4 }
     return 255
 }
 function sv_poke(a, b,   v) {
@@ -767,6 +779,7 @@ function sv_poke(a, b,   v) {
     if (a == 16612) { AUTOINC = int(AUTOINC / 256) * 256 + b; return }
     if (a == 16613) { AUTOINC = AUTOINC % 256 + 256 * b; return }
     if (a == 16667) { TRACE = (b != 0); return }
+    if (a >= 16641 && a <= 16666) { deftype(CHR[a - 16576], b); return }
     if (a >= 16449 && a <= 16454) { MEM[a] = b; SVWRIT[a] = 1; return }
     # 16546/16547 (the current line): ignored
 }

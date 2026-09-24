@@ -1841,7 +1841,7 @@ function clear_vars(keepfiles) {
     # program load AND the CLEAR statement: the ROM's CLEAR joins RUN's
     # initializer (1E7A/1EA0 -> 1B61-1B6C), so DEFSTR A:CLEAR 500:A="X" is
     # ?TM on the machine -- period programs CLEAR first, then DEFSTR
-    delete DEFS; delete DEFI
+    delete DEFS; delete DEFI; delete DEFT
     sp_reset()                      # VARPTR string space empties with the vars
     FSN = 0; GSN = 0
 }
@@ -3629,7 +3629,7 @@ function execstmt(   ty, tx) {
         if (tx == "RANDOM")  { CP++; rnd_setmid(int(rand() * 256)); return }
         if (tx == "ERROR")   { CP++; st_error(); return }
         if (tx == "RESUME")  { CP++; st_resume(); return }
-        if (tx == "DEFINT" || tx == "DEFSNG" || tx == "DEFDBL" || tx == "DEFSTR") { CP++; st_deftype(tx == "DEFSTR", tx == "DEFINT"); return }
+        if (tx == "DEFINT" || tx == "DEFSNG" || tx == "DEFDBL" || tx == "DEFSTR") { CP++; st_deftype(tx == "DEFINT" ? 2 : tx == "DEFSTR" ? 3 : tx == "DEFDBL" ? 8 : 4); return }
         if (tx == "DEF" || tx ~ /^DEFUSR[0-9]?$/ || tx ~ /^DEFFN./) { CP++; st_def(tx); return }
         if (tx == "LPRINT")  { CP++; st_lprint(); return }
         if (tx == "LLIST")   { CP++; st_llist(); return }
@@ -3690,12 +3690,19 @@ function st_let(   name, key, v, lp, src, j, n) {
 }
 
 # DEFSTR/DEFINT/DEFSNG/DEFDBL letter[-letter][,...]: per-letter default type.
-# DEFSTR sets DEFS, DEFINT sets DEFI (a store into the name is rounded down
-# to an integer, as LET's conversion through 0A7FH does), DEFSNG/DEFDBL
-# clear both: single and double precision are the same here.
+# The ROM keeps one type byte per letter at 4101H-411AH (2 integer, 3
+# string, 4 single, 8 double; RUN and CLEAR set all 26 to 4).  DEFT holds
+# those bytes (absent = 4) and PEEK/POKE reach them (sv_peek/sv_poke, p75);
+# DEFS and DEFI are the two the interpreter acts on -- a string name, and an
+# integer one whose stores round down (LET through 0A7FH).  Single and
+# double precision are the same here.
 # RUN/NEW/program load reset the table (clear_vars); CLEAR keeps it, so
 # DEFSTR A: CLEAR 500: A="X" stays typed.
-function st_deftype(isstr, isint,   a, b, c) {
+function deftype(l, code) {
+    DEFT[l] = code; DEFS[l] = (code == 3); DEFI[l] = (code == 2)
+}
+
+function st_deftype(code,   a, b, c) {
     for (;;) {
         if (TY[CK, CP] != "i" || TK[CK, CP] !~ /^[A-Z]$/) { raise(2); return }
         a = TK[CK, CP]; CP++
@@ -3705,7 +3712,7 @@ function st_deftype(isstr, isint,   a, b, c) {
             if (TY[CK, CP] != "i" || TK[CK, CP] !~ /^[A-Z]$/) { raise(2); return }
             b = TK[CK, CP]; CP++
         }
-        for (c = ORD[a]; c <= ORD[b]; c++) { DEFS[CHR[c]] = isstr; DEFI[CHR[c]] = isint }
+        for (c = ORD[a]; c <= ORD[b]; c++) deftype(CHR[c], code)
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
         return
     }
@@ -4240,7 +4247,8 @@ function st_resume(   p, ty, tx) {
 #      cursor position and character, 4028H/4029H/409BH printer lines per
 #      page, line counter and column, 4041-4046H the Model I clock,
 #      40A2/40A3H the current line number, 40E1-40E5H AUTO's flag, line and
-#      increment, 411BH the TRON flag -- each read from the live state it
+#      increment, 4101-411AH the DEF-type table, 411BH the TRON flag -- each
+#      read from the live state it
 #      names.  Added 2026-09-11; see the window's own comment for the write
 #      side of each.
 #   4. a in SPK -> VARPTR string space (sp_peek).  THIS DELIBERATELY OUTRANKS
@@ -4293,7 +4301,8 @@ function st_resume(   p, ty, tx) {
 #   2. 40AA-40ACH (16554-16556) -> rnd_poke(), the ROM RND seed
 #   3. 40B1/40B2H (16561/16562) -> pm_sethimem(), the one writable pointer
 #      the SYSTEM VARIABLE WINDOW (a in SVW) -> sv_poke(): cursor moves,
-#      cursor character, printer counters, AUTO request, TRON flag; a
+#      cursor character, printer counters, AUTO request, the DEF-type
+#      table (a letter's type), TRON flag; a
 #      clock cell (4041-4046H) becomes plain RAM once written (MEM[a],
 #      read back by sv_peek; on a cassette machine nothing updates those
 #      bytes, and Space Chase parks its routine across them); the current
@@ -4863,6 +4872,14 @@ function fn_varptr(   name, key, tgt) {
 #                         request is inert there.
 #   40E2/40E3H (16610/1)  AUTO's current line (AUTOLINE).  POKE sets it.
 #   40E4/40E5H (16612/3)  AUTO's increment (AUTOINC).  POKE sets it (tip 71).
+#   4101-411AH (16641-66) the DEF-type table, one byte per letter A-Z: 2
+#                         integer, 3 string, 4 single, 8 double (DEFT, p70
+#                         deftype).  RUN and CLEAR set every byte to 4.
+#                         POKE retypes the letter as DEFINT/DEFSTR would;
+#                         another value is kept and reads back (dueldrd
+#                         parks machine-code parameters there, using %
+#                         names only) and the letter acts as single.  Added
+#                         2026-09-23: it read 255.
 #   411BH (16667)         TRON flag: 175 on, 0 off.  POKE non-zero = TRON,
 #                         0 = TROFF (tips 76/77).
 # Every cell is also in the USR frame's always-sent set (fr_build).
@@ -4873,6 +4890,7 @@ function sv_init(   a) {
     SVW[16546] = 1; SVW[16547] = 1
     for (a = 16609; a <= 16613; a++) SVW[a] = 1
     SVW[16667] = 1
+    for (a = 16641; a <= 16666; a++) SVW[a] = 1
 }
 function sv_peek(a,   v) {
     if (a == 16416) return (15360 + CUR) % 256
@@ -4894,6 +4912,7 @@ function sv_peek(a,   v) {
     if (a == 16612) return AUTOINC % 256
     if (a == 16613) return int(AUTOINC / 256) % 256
     if (a == 16667) return TRACE ? 175 : 0
+    if (a >= 16641 && a <= 16666) { a = CHR[a - 16576]; return (a in DEFT) ? DEFT[a] : 4 }
     return 255
 }
 function sv_poke(a, b,   v) {
@@ -4917,6 +4936,7 @@ function sv_poke(a, b,   v) {
     if (a == 16612) { AUTOINC = int(AUTOINC / 256) * 256 + b; return }
     if (a == 16613) { AUTOINC = AUTOINC % 256 + 256 * b; return }
     if (a == 16667) { TRACE = (b != 0); return }
+    if (a >= 16641 && a <= 16666) { deftype(CHR[a - 16576], b); return }
     if (a >= 16449 && a <= 16454) { MEM[a] = b; SVWRIT[a] = 1; return }
     # 16546/16547 (the current line): ignored
 }

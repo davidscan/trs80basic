@@ -1569,7 +1569,10 @@ PEEK(addr)   read a memory byte (unset = 255)
   cassette machine, where nothing updates them), 16546/16547 the line
   number executing,
   16609-16613 AUTO's flag, line and increment (POKE 16609,1 starts AUTO
-  at the next READY), 16667 the TRON flag (175 on; POKE switches it).
+  at the next READY), 16641-16666 the DEF-type table, one byte per
+  letter A-Z (2 integer, 3 string, 4 single, 8 double; RUN and CLEAR set
+  4; POKE 16641,2 is DEFINT A), 16667 the TRON flag (175 on; POKE
+  switches it).
   The driver vectors re-route output: POKE 16414,141:POKE 16415,5 sends
   PRINT to the printer, POKE 16422,88:POKE 16423,4 sends LPRINT to the
   screen, POKE 16422,103:POKE 16423,0 silences the printer; restore with

@@ -306,7 +306,7 @@ function clear_vars(keepfiles) {
     # program load AND the CLEAR statement: the ROM's CLEAR joins RUN's
     # initializer (1E7A/1EA0 -> 1B61-1B6C), so DEFSTR A:CLEAR 500:A="X" is
     # ?TM on the machine -- period programs CLEAR first, then DEFSTR
-    delete DEFS; delete DEFI
+    delete DEFS; delete DEFI; delete DEFT
     sp_reset()                      # VARPTR string space empties with the vars
     FSN = 0; GSN = 0
 }

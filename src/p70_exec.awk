@@ -125,7 +125,7 @@ function execstmt(   ty, tx) {
         if (tx == "RANDOM")  { CP++; rnd_setmid(int(rand() * 256)); return }
         if (tx == "ERROR")   { CP++; st_error(); return }
         if (tx == "RESUME")  { CP++; st_resume(); return }
-        if (tx == "DEFINT" || tx == "DEFSNG" || tx == "DEFDBL" || tx == "DEFSTR") { CP++; st_deftype(tx == "DEFSTR", tx == "DEFINT"); return }
+        if (tx == "DEFINT" || tx == "DEFSNG" || tx == "DEFDBL" || tx == "DEFSTR") { CP++; st_deftype(tx == "DEFINT" ? 2 : tx == "DEFSTR" ? 3 : tx == "DEFDBL" ? 8 : 4); return }
         if (tx == "DEF" || tx ~ /^DEFUSR[0-9]?$/ || tx ~ /^DEFFN./) { CP++; st_def(tx); return }
         if (tx == "LPRINT")  { CP++; st_lprint(); return }
         if (tx == "LLIST")   { CP++; st_llist(); return }
@@ -186,12 +186,19 @@ function st_let(   name, key, v, lp, src, j, n) {
 }
 
 # DEFSTR/DEFINT/DEFSNG/DEFDBL letter[-letter][,...]: per-letter default type.
-# DEFSTR sets DEFS, DEFINT sets DEFI (a store into the name is rounded down
-# to an integer, as LET's conversion through 0A7FH does), DEFSNG/DEFDBL
-# clear both: single and double precision are the same here.
+# The ROM keeps one type byte per letter at 4101H-411AH (2 integer, 3
+# string, 4 single, 8 double; RUN and CLEAR set all 26 to 4).  DEFT holds
+# those bytes (absent = 4) and PEEK/POKE reach them (sv_peek/sv_poke, p75);
+# DEFS and DEFI are the two the interpreter acts on -- a string name, and an
+# integer one whose stores round down (LET through 0A7FH).  Single and
+# double precision are the same here.
 # RUN/NEW/program load reset the table (clear_vars); CLEAR keeps it, so
 # DEFSTR A: CLEAR 500: A="X" stays typed.
-function st_deftype(isstr, isint,   a, b, c) {
+function deftype(l, code) {
+    DEFT[l] = code; DEFS[l] = (code == 3); DEFI[l] = (code == 2)
+}
+
+function st_deftype(code,   a, b, c) {
     for (;;) {
         if (TY[CK, CP] != "i" || TK[CK, CP] !~ /^[A-Z]$/) { raise(2); return }
         a = TK[CK, CP]; CP++
@@ -201,7 +208,7 @@ function st_deftype(isstr, isint,   a, b, c) {
             if (TY[CK, CP] != "i" || TK[CK, CP] !~ /^[A-Z]$/) { raise(2); return }
             b = TK[CK, CP]; CP++
         }
-        for (c = ORD[a]; c <= ORD[b]; c++) { DEFS[CHR[c]] = isstr; DEFI[CHR[c]] = isint }
+        for (c = ORD[a]; c <= ORD[b]; c++) deftype(CHR[c], code)
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
         return
     }
