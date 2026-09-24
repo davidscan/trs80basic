@@ -47,7 +47,21 @@ function execloop(   ty, tx) {
         SK = CK; SLI = CLI; SCP = CP
         execstmt()
         if (E) {
-            if (EHANDLER && !INHANDLER && CK != "I") {
+            # ROM 19C9H-19CDH: before the handler test, the error routine
+            # saves the line and the statement that failed in 40F5H/40F7H
+            # -- the CONT point, the same cells STOP and END fill -- unless
+            # the statement was typed at READY (19C7H: the line is FFFFH),
+            # which leaves an earlier STOP's point alone.  So CONT after an
+            # error re-runs the failing statement, trapped or not; until
+            # 2026-09-24 a reported error made CONT ?CN (H-1).
+            if (SK != "I") { CONT_K = SK; CONT_LI = SLI; CONT_P = SCP; CONTOK = 1 }
+            # 19D0H-19E0H: a handler that is armed and not already running
+            # takes the error, whether the statement is a program's or one
+            # typed at READY (the ROM's test skips only the CONT save for
+            # line FFFFH, and END does not disarm the trap); ERL is then
+            # 65535, and RESUME goes on in the typed line.  Until
+            # 2026-09-24 a typed statement's error was never trapped (M-6).
+            if (EHANDLER && !INHANDLER) {
                 ERRV = (E - 1) * 2; ERLV = ERR_AT
                 ERR_K = SK; ERR_LI = SLI; ERR_CP = SCP
                 INHANDLER = 1; E = 0

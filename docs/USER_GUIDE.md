@@ -80,7 +80,7 @@ or unshifted.
 
 | key | does |
 |---|---|
-| Ctrl-C | **BREAK**: stops a running program (`BREAK IN nnnn`), cancels the input line, stops LIST, exits AUTO. `CONT` resumes after BREAK/STOP/END. A program can disable it with `POKE 16396,23` (Part III); three presses in a row break anyway |
+| Ctrl-C | **BREAK**: stops a running program (`BREAK IN nnnn`), cancels the input line, stops LIST, exits AUTO. `CONT` resumes after BREAK/STOP/END, and after an error (re-running the statement that failed). A program can disable it with `POKE 16396,23` (Part III); three presses in a row break anyway |
 | Ctrl-S | pause a running program or LIST (the real SHIFT-@); any key resumes, Ctrl-C breaks |
 | Ctrl-L | CLEAR: wipe the screen at the `>` prompt |
 | Ctrl-U | erase the input line (SHIFT-left-arrow) |
@@ -908,7 +908,8 @@ REM text   a remark; the rest of the line is ignored
 ```text
 END   stop the program silently
   Ends the run with no BREAK message, closes open files, and returns to
-  READY.  Variables keep their values, but CONT cannot resume past it.
+  READY.  Variables keep their values, and CONT goes on behind the END
+  (with the files closed).
   Its other job is structural: END placed before the first subroutine
   stops the main program running on into code meant only to be called
   (see: man GOSUB).
@@ -997,6 +998,11 @@ ON e GOSUB n1[,n2...]   call the e-th line in the list
   handles the current error normally -- the message names the line that
   failed and the program stops.  That is how a handler passes on an
   error it does not expect.
+  The handler stays installed after the program ends (only RUN, CLEAR
+  and a line edit remove it), so it also traps an error in a statement
+  typed at the prompt: ERL is then 65535, and RESUME NEXT goes on in the
+  typed line.  An error the handler itself raises is reported, not
+  trapped; the handler is over then, and the trap is armed again.
   Example: ON X GOTO 100,200,300
   Example: ON MENU GOSUB 1000,2000,3000
            PRINT "BAD CHOICE"     (reached when MENU is 0 or > 3)
@@ -1156,10 +1162,13 @@ NEW   erase the program and all variables
 #### CONT
 
 ```text
-CONT   resume a program stopped by STOP or BREAK
+CONT   resume a program stopped by STOP, BREAK, END or an error
   Picks up at the statement after the one that stopped, with all
   variables intact -- which is what makes STOP useful for inspecting a
-  program mid-run and then carrying on.
+  program mid-run and then carrying on.  After an error it re-runs the
+  statement that failed, so the cause can be fixed at the prompt (a
+  variable set, a file created) and the program continued.  An error in
+  a statement typed at the prompt does not disturb it.
   Entering, changing or deleting any program line ends that: as on the
   Model I it clears every variable and DEF FN, closes the files and
   resets the stacks, ON ERROR and the DATA pointer, just as CLEAR does,

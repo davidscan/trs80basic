@@ -25,7 +25,15 @@ function report_err(   c, msg) {
     # ROM 1A11-1A14 prints the line unless H AND L is FF, that is unless it
     # is 65535 -- so an error in line 0 reports " IN 0"
     msg = "?" ERRC[c] " ERROR" inln(ERR_AT)
-    CONTOK = 0
+    # ROM 19E3H-19E4H: every error that is PRINTED clears the handler flag
+    # (40F2H), so a handler that failed is over -- the trap stays armed
+    # (40F0H is cleared only by RUN's initializer, 1B74H) and a RESUME typed
+    # afterwards is ?RW.  Until 2026-09-24 the flag stayed set: later errors
+    # were not trapped, and a stray RESUME resumed the dead handler (M-5).
+    # The CONT point is NOT cleared: the error routine's exit (19B1H ->
+    # 1B9AH, past the 1B77H clear) leaves 40F5H/40F7H as execloop set
+    # them, so CONT re-runs the statement that failed (H-1).
+    INHANDLER = 0
     # only UNCAUGHT errors reach here (ON ERROR GOTO is handled in execloop),
     # so this is the one place batch mode needs for its exit-1 status
     if (BATCH) { BATCHERR = 1; diag_err(msg); return }

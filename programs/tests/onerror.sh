@@ -65,5 +65,58 @@ BAS
 out=$(TRS80_Z80= "$here/basic" "$tmp" 2>&1 </dev/null)
 [ "$out" = "ARMED FORWARD, THEN DISARMED" ] || fail "a forward handler line, and GOTO 0" "$out"
 
+# The three below need READY between the steps, so they run a transcript.
+run() { printf '%b' "$1" | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | sed -n '/^>RUN/,$p'; }
+
+# ROM 19C7H skips only the CONT save for a statement typed at READY (line
+# FFFFH) and falls into the ON ERROR test at 19D0H, and 40F0H is cleared
+# by RUN's initializer (1B74H), not by END: so a handler left armed by a
+# program that ended traps an error in a typed statement, with ERL 65535,
+# and RESUME NEXT goes on behind the typed statement.
+out=$(run '\n10 ON ERROR GOTO 100\n20 END\n100 PRINT "TRAPPED";ERR/2+1;ERL:RESUME NEXT\nRUN\nPRINT 1/0:PRINT "AFTER"\n')
+want='>RUN
+READY
+>PRINT 1/0:PRINT "AFTER"
+TRAPPED 11  65535 
+AFTER
+READY
+>'
+[ "$out" = "$want" ] || fail "an armed handler traps an error in a typed statement" "$out"
+
+# An error the handler itself raises is printed (nested traps: 19DBH-19DCH),
+# and 19E3H-19E4H clear the handler flag 40F2H with EVERY printed error.
+# So afterwards the trap is armed again (40F0H untouched): a typed RESUME
+# NEXT is ?RW, and that ?RW is trapped like any error typed at READY; a
+# GOTO into the failing line is trapped too.  Until 2026-09-24 the flag
+# stayed set: the RESUME silently resumed the dead handler, and the GOTO's
+# error was printed untrapped.
+out=$(run '\n10 ON ERROR GOTO 100\n20 X=1/0\n30 END\n100 PRINT "HANDLER";ERR/2+1;ERL:Y=1/0\nRUN\nRESUME NEXT\nGOTO 20\n')
+want='>RUN
+HANDLER 11  20 
+?/0 ERROR IN 100
+READY
+>RESUME NEXT
+HANDLER 19  65535 
+?/0 ERROR IN 100
+READY
+>GOTO 20
+HANDLER 11  20 
+?/0 ERROR IN 100
+READY
+>'
+[ "$out" = "$want" ] || fail "an untrapped error inside the handler clears the flag; the trap stays armed" "$out"
+
+# with the trap disarmed (ON ERROR GOTO 0 hands the error back, see the
+# top of this file), the stray RESUME is a plain ?RW at READY
+out=$(run '\n10 ON ERROR GOTO 100\n20 X=1/0\n100 ON ERROR GOTO 0:Y=1/0\nRUN\nRESUME NEXT\n')
+want='>RUN
+?/0 ERROR IN 20
+READY
+>RESUME NEXT
+?RW ERROR
+READY
+>'
+[ "$out" = "$want" ] || fail "RESUME at READY after the handler died is ?RW" "$out"
+
 rm -f "$tmp"
 echo "ONERROR OK"

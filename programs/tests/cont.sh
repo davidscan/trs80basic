@@ -36,4 +36,38 @@ B
 READY
 >'
 [ "$out" = "$want" ] || fail "CONT after END continues behind the END" "$out"
+# CONT after an ERROR re-runs the statement that failed: the error routine
+# saves the line and the statement in 40F5H/40F7H (19C9H-19CDH) before it
+# looks for a handler, and its exit (19B1H -> 1B9AH, past the 1B77H clear)
+# never drops them, so 1DE4H finds them.  Until 2026-09-24 every reported
+# error was ?CN afterwards.
+out=$(run '\n10 A=0\n20 PRINT "X";:PRINT 1/A;:PRINT "Y"\n30 PRINT "DONE"\nRUN\nA=2\nCONT\n')
+want='>RUN
+X
+?/0 ERROR IN 20
+READY
+>A=2
+READY
+>CONT
+ .5 Y
+DONE
+READY
+>'
+[ "$out" = "$want" ] || fail "CONT after an error re-runs the failing statement" "$out"
+
+# an error in a statement TYPED at READY skips that save (19C7H: the line
+# is FFFFH), so it leaves the CONT point of an earlier STOP alone
+out=$(run '\n10 PRINT "A":STOP:PRINT "B"\nRUN\nPRINT 1/0\nCONT\n')
+want='>RUN
+A
+BREAK IN 10
+READY
+>PRINT 1/0
+?/0 ERROR
+READY
+>CONT
+B
+READY
+>'
+[ "$out" = "$want" ] || fail "an error typed at READY keeps the CONT point" "$out"
 echo "CONT OK"

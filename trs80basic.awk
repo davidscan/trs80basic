@@ -3551,7 +3551,21 @@ function execloop(   ty, tx) {
         SK = CK; SLI = CLI; SCP = CP
         execstmt()
         if (E) {
-            if (EHANDLER && !INHANDLER && CK != "I") {
+            # ROM 19C9H-19CDH: before the handler test, the error routine
+            # saves the line and the statement that failed in 40F5H/40F7H
+            # -- the CONT point, the same cells STOP and END fill -- unless
+            # the statement was typed at READY (19C7H: the line is FFFFH),
+            # which leaves an earlier STOP's point alone.  So CONT after an
+            # error re-runs the failing statement, trapped or not; until
+            # 2026-09-24 a reported error made CONT ?CN (H-1).
+            if (SK != "I") { CONT_K = SK; CONT_LI = SLI; CONT_P = SCP; CONTOK = 1 }
+            # 19D0H-19E0H: a handler that is armed and not already running
+            # takes the error, whether the statement is a program's or one
+            # typed at READY (the ROM's test skips only the CONT save for
+            # line FFFFH, and END does not disarm the trap); ERL is then
+            # 65535, and RESUME goes on in the typed line.  Until
+            # 2026-09-24 a typed statement's error was never trapped (M-6).
+            if (EHANDLER && !INHANDLER) {
                 ERRV = (E - 1) * 2; ERLV = ERR_AT
                 ERR_K = SK; ERR_LI = SLI; ERR_CP = SCP
                 INHANDLER = 1; E = 0
@@ -7508,7 +7522,15 @@ function report_err(   c, msg) {
     # ROM 1A11-1A14 prints the line unless H AND L is FF, that is unless it
     # is 65535 -- so an error in line 0 reports " IN 0"
     msg = "?" ERRC[c] " ERROR" inln(ERR_AT)
-    CONTOK = 0
+    # ROM 19E3H-19E4H: every error that is PRINTED clears the handler flag
+    # (40F2H), so a handler that failed is over -- the trap stays armed
+    # (40F0H is cleared only by RUN's initializer, 1B74H) and a RESUME typed
+    # afterwards is ?RW.  Until 2026-09-24 the flag stayed set: later errors
+    # were not trapped, and a stray RESUME resumed the dead handler (M-5).
+    # The CONT point is NOT cleared: the error routine's exit (19B1H ->
+    # 1B9AH, past the 1B77H clear) leaves 40F5H/40F7H as execloop set
+    # them, so CONT re-runs the statement that failed (H-1).
+    INHANDLER = 0
     # only UNCAUGHT errors reach here (ON ERROR GOTO is handled in execloop),
     # so this is the one place batch mode needs for its exit-1 status
     if (BATCH) { BATCHERR = 1; diag_err(msg); return }
