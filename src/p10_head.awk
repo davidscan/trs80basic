@@ -105,6 +105,10 @@ function init_tables(   i, c, m, n) {
     # LPRINT/LLIST printer stream: append to $TRS80_PRINTER, or discard when
     # unset (the hardware analog: printing into no attached printer)
     LPFILE = ("TRS80_PRINTER" in ENVIRON) ? ENVIRON["TRS80_PRINTER"] : ""
+    # a path gawk could not append to would be a fatal at the first
+    # LPRINT, losing the program: probed once here, and LPRINT/LLIST are
+    # ?FD instead (lp_refuse, p80; the 2026-09-23 audit, M-1)
+    LPBAD = (LPFILE != "" && !host_appendable(LPFILE))
     LPCOL = 0
     # the SYSTEM VARIABLE WINDOW (p75 sv_*): ROM RAM cells period listings
     # PEEK and POKE, served from live state.  CURCH = the cursor character

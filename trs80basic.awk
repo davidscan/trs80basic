@@ -105,6 +105,10 @@ function init_tables(   i, c, m, n) {
     # LPRINT/LLIST printer stream: append to $TRS80_PRINTER, or discard when
     # unset (the hardware analog: printing into no attached printer)
     LPFILE = ("TRS80_PRINTER" in ENVIRON) ? ENVIRON["TRS80_PRINTER"] : ""
+    # a path gawk could not append to would be a fatal at the first
+    # LPRINT, losing the program: probed once here, and LPRINT/LLIST are
+    # ?FD instead (lp_refuse, p80; the 2026-09-23 audit, M-1)
+    LPBAD = (LPFILE != "" && !host_appendable(LPFILE))
     LPCOL = 0
     # the SYSTEM VARIABLE WINDOW (p75 sv_*): ROM RAM cells period listings
     # PEEK and POKE, served from live state.  CURCH = the cursor character
@@ -1746,6 +1750,7 @@ function st_llist(   i, ln) {
         if (ln > RB) break
         LASTLN = ln
         lp_puts(ln " " prog[ln]); lp_nl()
+        if (E) return                         # the printer path refused (lp_refuse, p80)
     }
     to_ready()
 }
@@ -5682,6 +5687,7 @@ function lp_puts(s,   i, n, c) {
     if (LPTOVID) { s_puts(s); return }        # printer vector -> the ROM video driver
     if (LPOFF) return                         # printer vector -> a RET
     if (index(s, CHR[12])) LPLINES = 0        # a form feed starts the page over
+    if (LPBAD) { lp_refuse(); return }
     if (LPFILE != "") printf "%s", s >> LPFILE
 }
 
@@ -5690,7 +5696,23 @@ function lp_nl() {
     if (LPTOVID) { s_nl(); return }
     if (LPOFF) return
     if (++LPLINES >= LPPAGE - 1) LPLINES = 0   # 4029H: lines on this page, a page is LPPAGE-1
+    if (LPBAD) { lp_refuse(); return }
     if (LPFILE != "") { print "" >> LPFILE; fflush(LPFILE) }
+}
+
+# TRS80_PRINTER names a path gawk cannot append to (LPBAD, probed at start
+# in p10): the redirect would be a gawk fatal, so the statement is ?FD,
+# and the first refusal says which path and why on the diagnostic channel
+# (stderr in batch, the screen at the prompt), as a bad LOAD does.  LPNOTED
+# is set BEFORE the message: with the video routed to the printer the
+# message itself comes back through here.
+function lp_refuse() {
+    if (!LPNOTED) {
+        LPNOTED = 1
+        s_fresh()
+        diag("?FD ERROR - PRINTER: TRS80_PRINTER '" LPFILE "' cannot be written (a directory, a folder that is not there, or no permission)")
+    }
+    raise(22)
 }
 
 function st_lprint(   sep, ty, tx, v, t) {
@@ -7840,6 +7862,22 @@ function host_canwrite(f) {
     if (host_special(f)) return 0
     if (WINNATIVE) return f !~ /"/
     return system("if [ -e " shq(f) " ]; then [ -f " shq(f) " ] && [ -w " shq(f) " ]; " \
+                  "else d=$(dirname -- " shq(f) ") && [ -d \"$d\" ] && [ -w \"$d\" ]; fi") == 0
+}
+
+# can gawk append to f, the printer path (TRS80_PRINTER)?  That path is
+# the USER's, from the environment, not a program's, so the kind rule does
+# not apply: a device is a fine printer (/dev/null discards, /dev/stdout
+# shows the printout in a capture).  What is refused is exactly what makes
+# gawk's redirect fatal -- a directory, a name in a directory that is not
+# there or cannot be written, a file that cannot be written -- and a
+# socket name, which gawk would try to connect (the 2026-09-23 audit,
+# M-1, the C-1 class).  Asked once at start (p10, LPBAD); nothing is
+# created by asking, the redirect makes the file when something prints.
+function host_appendable(f) {
+    if (f ~ /^\/inet[46]?\//) return 0
+    if (WINNATIVE) return f !~ /"/
+    return system("if [ -e " shq(f) " ]; then [ ! -d " shq(f) " ] && [ -w " shq(f) " ]; " \
                   "else d=$(dirname -- " shq(f) ") && [ -d \"$d\" ] && [ -w \"$d\" ]; fi") == 0
 }
 

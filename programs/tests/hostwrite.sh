@@ -78,6 +78,39 @@ if [ "$(id -u)" != 0 ]; then
     [ -f gone.txt ] && bad "an ordinary KILL left the file"
 fi
 
+# the printer: TRS80_PRINTER is a path the user chose, probed once at
+# start.  One that cannot be written makes LPRINT and LLIST ?FD, and says
+# why on the diagnostic channel -- the first LPRINT used to be a gawk
+# fatal at the redirect (the 2026-09-23 audit, M-1, the C-1 class).  A
+# device is a fine printer: the path is the user's, not the program's.
+lpcheck() {   # $1 = TRS80_PRINTER, $2 = the statement on line 20, $3 = what it tests
+    printf '10 PRINT "X"\n20 %s\n30 PRINT "NOT REACHED"\n' "$2" > t.bas
+    out=$(TRS80_PRINTER="$1" TRS80_Z80= "$here/basic" t.bas 2>&1)
+    rc=$?
+    case "$out" in
+      *"?FD ERROR IN 20"*) [ "$rc" = 1 ] || bad "$3: rc=$rc, want 1" ;;
+      *) bad "$3: $out" ;;
+    esac
+    case "$out" in *"TRS80_PRINTER"*) ;; *) bad "$3: the refusal must name TRS80_PRINTER: $out" ;; esac
+    case "$out" in *"NOT REACHED"*) bad "$3: the program went on" ;; esac
+}
+lpcheck adir     'LPRINT "X"'  'LPRINT into a directory'
+lpcheck nodir/lp 'LPRINT "X"'  'LPRINT into a missing directory'
+lpcheck adir     'LLIST'       'LLIST into a directory'
+[ "$(id -u)" != 0 ] && lpcheck ro.bas 'LPRINT "X"' 'LPRINT onto a read-only file'
+printf '10 LPRINT "X"\n20 PRINT "PRINTED"\n30 LLIST\n' > t.bas     # LLIST ends at READY, so it goes last
+out=$(TRS80_PRINTER=/dev/null TRS80_Z80= "$here/basic" t.bas 2>&1)
+[ "$out" = PRINTED ] || bad "a device as the printer: $out"
+out=$(TRS80_PRINTER=lp.txt TRS80_Z80= "$here/basic" t.bas 2>&1)
+[ "$out" = PRINTED ] && [ "$(cat lp.txt)" = "X
+10 LPRINT \"X\"
+20 PRINT \"PRINTED\"
+30 LLIST" ] || bad "a file as the printer: $out / $(cat lp.txt)"
+# naming the printer creates nothing until something is printed
+printf '10 PRINT "QUIET"\n' > q.bas
+out=$(TRS80_PRINTER=never.txt TRS80_Z80= "$here/basic" q.bas 2>&1)
+[ "$out" = QUIET ] && [ ! -e never.txt ] || bad "naming the printer made a file: $out"
+
 # `sound wav <path>` names a file the core opens at its next start: one
 # that cannot be written is refused at once and the capture stays as it
 # was, and nothing is created by asking; `~` is the home directory.  An

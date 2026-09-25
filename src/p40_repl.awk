@@ -211,6 +211,7 @@ function st_llist(   i, ln) {
         if (ln > RB) break
         LASTLN = ln
         lp_puts(ln " " prog[ln]); lp_nl()
+        if (E) return                         # the printer path refused (lp_refuse, p80)
     }
     to_ready()
 }

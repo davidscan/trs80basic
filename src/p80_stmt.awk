@@ -120,6 +120,7 @@ function lp_puts(s,   i, n, c) {
     if (LPTOVID) { s_puts(s); return }        # printer vector -> the ROM video driver
     if (LPOFF) return                         # printer vector -> a RET
     if (index(s, CHR[12])) LPLINES = 0        # a form feed starts the page over
+    if (LPBAD) { lp_refuse(); return }
     if (LPFILE != "") printf "%s", s >> LPFILE
 }
 
@@ -128,7 +129,23 @@ function lp_nl() {
     if (LPTOVID) { s_nl(); return }
     if (LPOFF) return
     if (++LPLINES >= LPPAGE - 1) LPLINES = 0   # 4029H: lines on this page, a page is LPPAGE-1
+    if (LPBAD) { lp_refuse(); return }
     if (LPFILE != "") { print "" >> LPFILE; fflush(LPFILE) }
+}
+
+# TRS80_PRINTER names a path gawk cannot append to (LPBAD, probed at start
+# in p10): the redirect would be a gawk fatal, so the statement is ?FD,
+# and the first refusal says which path and why on the diagnostic channel
+# (stderr in batch, the screen at the prompt), as a bad LOAD does.  LPNOTED
+# is set BEFORE the message: with the video routed to the printer the
+# message itself comes back through here.
+function lp_refuse() {
+    if (!LPNOTED) {
+        LPNOTED = 1
+        s_fresh()
+        diag("?FD ERROR - PRINTER: TRS80_PRINTER '" LPFILE "' cannot be written (a directory, a folder that is not there, or no permission)")
+    }
+    raise(22)
 }
 
 function st_lprint(   sep, ty, tx, v, t) {

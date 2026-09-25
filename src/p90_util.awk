@@ -295,6 +295,22 @@ function host_canwrite(f) {
                   "else d=$(dirname -- " shq(f) ") && [ -d \"$d\" ] && [ -w \"$d\" ]; fi") == 0
 }
 
+# can gawk append to f, the printer path (TRS80_PRINTER)?  That path is
+# the USER's, from the environment, not a program's, so the kind rule does
+# not apply: a device is a fine printer (/dev/null discards, /dev/stdout
+# shows the printout in a capture).  What is refused is exactly what makes
+# gawk's redirect fatal -- a directory, a name in a directory that is not
+# there or cannot be written, a file that cannot be written -- and a
+# socket name, which gawk would try to connect (the 2026-09-23 audit,
+# M-1, the C-1 class).  Asked once at start (p10, LPBAD); nothing is
+# created by asking, the redirect makes the file when something prints.
+function host_appendable(f) {
+    if (f ~ /^\/inet[46]?\//) return 0
+    if (WINNATIVE) return f !~ /"/
+    return system("if [ -e " shq(f) " ]; then [ ! -d " shq(f) " ] && [ -w " shq(f) " ]; " \
+                  "else d=$(dirname -- " shq(f) ") && [ -d \"$d\" ] && [ -w \"$d\" ]; fi") == 0
+}
+
 # s as one single-quoted sh word: each ' becomes '\'' (close the quote,
 # an escaped quote, reopen).  For names the shell must never parse, such
 # as file names read back from ls (p30 rl_complete, the 2026-09-19 audit, C-2).

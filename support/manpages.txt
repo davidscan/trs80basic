@@ -1234,6 +1234,10 @@ LPRINT list   the same as PRINT, but to the printer
   printed output is appended to that file.  With it unset there is no
   printer attached and the output is discarded, silently -- so nothing
   appearing is the expected result rather than a fault.
+  A path that cannot be written -- a directory, a folder that is not
+  there, a file without permission -- is ?FD at the first LPRINT or
+  LLIST, with a line naming the path.  A device is a fine printer:
+  /dev/null discards, /dev/stdout shows the printout in a capture.
   Example: LPRINT "TOTAL:";TAB(10);T
   Example: LPRINT USING "###.##";X
 
@@ -1242,7 +1246,9 @@ LLIST [n][-[m]]   list program lines to the PRINTER
   Takes the same ranges as LIST but sends the text to the printer
   instead of the screen (see: man LIST).
   With no printer attached this is where a program appears to hang, so
-  check the destination before assuming the program is at fault.
+  check the destination before assuming the program is at fault.  Here
+  the printer is the TRS80_PRINTER file (see: man LPRINT); a path that
+  cannot be written is ?FD.
   Example: LLIST
   Example: LLIST 100-200
 
