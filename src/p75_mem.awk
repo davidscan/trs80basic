@@ -233,7 +233,48 @@ function pm_init_index(   tbl, pairs, np, i, j, v, w, ins) {
                                         # spelling wins (D1H lists as [, and
                                         # both [ and ^ parse as the power op)
     }
+    # the same table by first character, in the same order, for kw_at: a
+    # character tries only the keywords that begin with it (the 2026-09-23
+    # audit, L-14: the linear scan cost 8.5 us a byte)
+    for (j = 1; j <= NTOKI; j++) {
+        w = substr(TIW[j], 1, 1)
+        KW[w, ++KWN[w]] = TIW[j]; KWV[w, KWN[w]] = TIV[j]
+    }
     TOKIDX = 1
+}
+
+# The ROM's keyword match at one position (1BF5-1C3C), shared by the
+# tokenizer (tokline, p50) and the image cruncher (pm_crunch, below): the
+# table is tried against the text at i and the first keyword whose every
+# byte matches wins.  The ROM scans its table in token order and this one
+# is longest first; they pick the same word for the Level II table, because
+# every keyword that begins another (ERR/ERROR, INP/INPUT, DEF/DEFINT,
+# STR$/STRING$) comes after it in token order.  Matching is in upper case
+# (1C00-1C0B, 1C2D-1C31): `up` is toupper(text).  While the keyword being
+# matched is GOTO, 8DH, and only then, every byte after the first is
+# fetched through RST 10H (1C24-1C2A), which skips blanks and tabs
+# (1D78-1D88), so GO TO, G O T O and GO TOTAL (= GOTO TAL) all match it.
+# Returns the keyword, or "" when none matches; KWLEN is the number of text
+# characters it covered and KWVAL its token byte.
+function kw_at(up, i,   c, j, w, p, q) {
+    if (!TOKIDX) pm_init_index()
+    c = substr(up, i, 1)
+    if (!(c in KWN)) return ""
+    for (j = 1; j <= KWN[c]; j++) {
+        w = KW[c, j]
+        if (w == "GOTO") {
+            p = i
+            for (q = 2; q <= 4; q++) {
+                p++
+                while (substr(up, p, 1) ~ /^[ \t]$/) p++
+                if (substr(up, p, 1) != substr(w, q, 1)) break
+            }
+            if (q > 4) { KWLEN = p + 1 - i; KWVAL = KWV[c, j]; return w }
+            continue
+        }
+        if (substr(up, i, length(w)) == w) { KWLEN = length(w); KWVAL = KWV[c, j]; return w }
+    }
+    return ""
 }
 
 # the text line ln RUNS from: prog[ln], or for a line loaded from a tokenized
@@ -313,13 +354,17 @@ function pm_body(ln,   body, j) {
 #     prog[] keeps what was typed, for LIST; the image is what the machine
 #     would hold.  `up` is the text the matching is done on.
 #   * `?` is the PRINT token (1BE4-1BE8).
+#   * every other character outside those regions is tried against the
+#     keyword table (kw_at, above): TOTAL is stored as TO "TAL", and GO TO
+#     as GOTO.  Digits, ":" and ";" (30H-3BH, 1BEC-1BF2) are stored without
+#     a try; no keyword begins with one, so kw_at agrees.
 #   * ELSE is stored behind a ":" (1C42-1C49) -- the byte that lets the
 #     ROM's IF skip to it.  ONE DEPARTURE, shared with tok.py: a ":" that
 #     is already there is not doubled.  A listing made by tools/detok.py
 #     shows the stored colon as ":ELSE" on purpose, and image -> listing ->
 #     image has to be the identity.  The ROM, given "A:ELSE" typed by hand,
 #     stores two.
-function pm_crunch(text,   i, n, c, ins, ind, lit, j, w, matched, up) {
+function pm_crunch(text,   i, n, c, ins, ind, lit, w, up) {
     PMBN = 0
     up = toupper(text)                      # ASCII letters only under -b
     i = 1; n = length(text); ins = 0; ind = 0; lit = 0
@@ -332,34 +377,21 @@ function pm_crunch(text,   i, n, c, ins, ind, lit, j, w, matched, up) {
         }
         if (c == "\"") { ins = 1; PMB[++PMBN] = 34; i++; continue }
         if (ind) { if (c == ":") ind = 0; PMB[++PMBN] = ORD[c]; i++; continue }
-        # ROM 1C24-1C2A: matching token 8DH, and only that one, skips a
-        # blank in the input, so GO TO crunches to GOTO.  The cruncher has
-        # to agree with the tokenizer (p50), or the image holds bytes the
-        # machine would never have -- and the core executes image bytes.
-        if (substr(up, i, 2) == "GO") {
-            j = i + 2
-            while (substr(text, j, 1) == " ") j++
-            if (substr(up, j, 2) == "TO" && substr(text, j + 2, 1) !~ /[A-Za-z0-9$]/) {
-                PMB[++PMBN] = 141                         # 8DH, GOTO
-                i = j + 2
-                continue
-            }
-        }
         if (c == "?") { PMB[++PMBN] = 178; i++; continue }     # B2H, PRINT
-        matched = 0
-        for (j = 1; j <= NTOKI; j++) {
-            w = TIW[j]
-            if (substr(up, i, length(w)) == w) {
-                if (TIV[j] == 251) { PMB[++PMBN] = 58; PMB[++PMBN] = 147; PMB[++PMBN] = 251 }
-                else if (TIV[j] == 149 && !(PMBN > 0 && PMB[PMBN] == 58)) { PMB[++PMBN] = 58; PMB[++PMBN] = 149 }
-                else PMB[++PMBN] = TIV[j]
-                if (TIV[j] == 147 || TIV[j] == 251) lit = 1
-                else if (TIV[j] == 136) ind = 1
-                i += length(w); matched = 1
-                break
-            }
+        # the cruncher has to agree with the tokenizer (p50), or the image
+        # holds bytes the machine would never have -- and the core executes
+        # image bytes; kw_at is the one matcher behind both
+        w = kw_at(up, i)
+        if (w != "") {
+            if (KWVAL == 251) { PMB[++PMBN] = 58; PMB[++PMBN] = 147; PMB[++PMBN] = 251 }
+            else if (KWVAL == 149 && !(PMBN > 0 && PMB[PMBN] == 58)) { PMB[++PMBN] = 58; PMB[++PMBN] = 149 }
+            else PMB[++PMBN] = KWVAL
+            if (KWVAL == 147 || KWVAL == 251) lit = 1
+            else if (KWVAL == 136) ind = 1
+            i += KWLEN
+            continue
         }
-        if (!matched) { c = substr(up, i, 1); PMB[++PMBN] = (c in ORD) ? ORD[c] : 63; i++ }
+        c = substr(up, i, 1); PMB[++PMBN] = (c in ORD) ? ORD[c] : 63; i++
     }
 }
 

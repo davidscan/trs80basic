@@ -53,6 +53,7 @@ LOAD_ADDRESS = 0x42E9
 
 
 TOK_PRINT = 0xB2
+TOK_GOTO = 0x8D
 
 
 class TokError(Exception):
@@ -70,6 +71,29 @@ def build_index(table):
     if table.get(0xD1) == b"[":
         items.append((0xD1, b"^"))
     return sorted(items, key=lambda kv: (-len(kv[1]), kv[1]))
+
+
+def match_at(src, up, i, word, value):
+    """The number of characters of src the keyword covers at i, 0 if none.
+
+    ROM 1C24-1C2A: while the cruncher matches token 8DH, and only that one,
+    every byte after the first is fetched through RST 10H, which skips blanks
+    and tabs (1D78-1D88): GO TO, G O T O and GO TOTAL (= GOTO TAL) all match
+    GOTO.  p50's tokenizer and p75's pm_crunch do the same (kw_at); the three
+    must agree or the same listing gives two different images.
+    """
+    if value != TOK_GOTO:
+        return len(word) if up.startswith(word, i) else 0
+    if up[i:i + 1] != word[0:1]:
+        return 0
+    p = i
+    for ch in word[1:]:
+        p += 1
+        while src[p:p + 1] in (b" ", b"\t"):
+            p += 1
+        if up[p:p + 1] != bytes([ch]):
+            return 0
+    return p + 1 - i
 
 
 def crunch(text, index):
@@ -128,27 +152,14 @@ def crunch(text, index):
             i += 1
             continue
 
-        # ROM 1C24-1C2A: matching token 8DH, and only that one, skips a
-        # blank in the input, so "GO TO" crunches to GOTO.  p50's tokenizer
-        # and p75's pm_crunch do the same; the three must agree or the same
-        # listing gives two different images (the 2026-09-19 audit, L-16).
-        if up.startswith(b"GO", i):
-            j = i + 2
-            while j < n and src[j:j + 1] == b" ":
-                j += 1
-            if up.startswith(b"TO", j) and not src[j + 2:j + 3].isalnum() \
-                    and src[j + 2:j + 3] != b"$":
-                out.append(0x8D)
-                i = j + 2
-                continue
-
         if b == 0x3F:                           # ROM 1BE4-1BE8
             out.append(TOK_PRINT)
             i += 1
             continue
 
         for value, word in index:
-            if up.startswith(word, i):
+            covered = match_at(src, up, i, word, value)
+            if covered:
                 # ' is stored as the three bytes :REM' -- detok collapses that
                 # back to a bare quote, so re-crunching must restore all three.
                 if value == TOK_APOS:
@@ -161,7 +172,7 @@ def crunch(text, index):
                     literal_to_eol = True
                 elif value == TOK_DATA:
                     in_data = True
-                i += len(word)
+                i += covered
                 break
         else:
             out.append(up[i])

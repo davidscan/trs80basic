@@ -51,7 +51,7 @@ function st_print(   sep, ty, tx, v, col, t) {
             CP++
             continue
         }
-        if (ty == "i" && tx == "TAB") {
+        if (ty == "i" && tx == "TAB" && TKW[CK, CP]) {   # the token TAB( ; the name TAB is a variable (p50)
             CP++
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return }
             CP++
@@ -192,7 +192,7 @@ function st_lprint(   sep, ty, tx, v, t) {
             CP++
             continue
         }
-        if (ty == "i" && tx == "TAB") {
+        if (ty == "i" && tx == "TAB" && TKW[CK, CP]) {   # the token TAB( ; the name TAB is a variable (p50)
             CP++
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return }
             CP++

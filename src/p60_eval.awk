@@ -142,6 +142,9 @@ function e_powrhs(   v) {
 function e_prim(   t, s, v, key) {
     t = TY[CK, CP]
     if (t == "n") {
+        # 1.5% and 32768%: % is taken only behind an integer (tk_number,
+        # p50; ROM 0EEE-0EEF, JP P,1997H)
+        if (TSX[CK, CP] == "%SN") { raise(2); return "N0" }
         s = TK[CK, CP] + 0; CP++
         if (s >= FMAX || s <= -FMAX) { raise(6); return "N0" }   # 1.70142E38, 1E39 (p10 FMAX)
         return "N" s
@@ -198,7 +201,15 @@ function e_prim(   t, s, v, key) {
             CP++                                  # spaced call: FN AB(1)
             return fn_user(TK[CK, CP])
         }
-        if (index(FNLIST, " " s " ") > 0) return fncall(s)
+        # TAB is the token only as TAB( -- TAB (5) with a blank is the
+        # variable TAB, an array here (trs-80.com's bug 7c; TKW, p50)
+        if (index(FNLIST, " " s " ") > 0 && (s != "TAB" || TKW[CK, CP])) return fncall(s)
+        # any other keyword token where an operand is expected is ?SN, as
+        # at 2337H (PRINT 1END, X=END): a variable is never spelled like a
+        # keyword, since the tokenizer takes the keyword out of the name
+        # (TOTAL is TO TAL, p50).  It read as a variable of that name
+        # before 2026-09-25 (the L-10 remainder).
+        if (TKW[CK, CP]) { raise(2); return "N0" }
         CP++
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
             key = aref(s); if (E) return "N0"

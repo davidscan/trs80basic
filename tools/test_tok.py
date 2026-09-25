@@ -94,18 +94,22 @@ for listing in (
     eq(detokenize(tokenize(listing, TBL), TBL), listing,
        "listing -> image -> listing is identity for %r" % listing[:28])
 
-# ROM 1C24-1C2A: while the cruncher matches token 8DH, and only that one, it
-# skips a blank in the input, so "GO TO" crunches to GOTO.  p50's tokenizer
-# and p75's pm_crunch do the same; all three must agree or one listing gives
-# two different images (the 2026-09-19 audit, L-16).
+# ROM 1C24-1C2A: while the cruncher matches token 8DH, and only that one,
+# every byte after the first comes through RST 10H, which skips blanks, so
+# "GO TO" and "G O T O" crunch to GOTO.  p50's tokenizer and p75's pm_crunch
+# do the same; all three must agree or one listing gives two different
+# images (the 2026-09-19 audit, L-16; the keyword-crunching rule, 2026-09-25).
 eq(crunch("GO TO 100", IDX), crunch("GOTO 100", IDX), "GO TO crunches to GOTO")
 eq(crunch("GO   TO 100", IDX), crunch("GOTO 100", IDX), "GO TO, several blanks")
+eq(crunch("G O T O 100", IDX), crunch("GOTO 100", IDX), "G O T O, a blank after every letter")
 eq(crunch("IFA=1THENGO TO 50", IDX), crunch("IFA=1THENGOTO 50", IDX),
    "GO TO after THEN")
 check(0x8D not in crunch("GO SUB 100", IDX), "GO SUB is not crunched to GOTO")
 check(0x91 not in crunch("GO SUB 100", IDX), "GO SUB is not crunched at all")
-check(crunch("GO TOTAL=5", IDX).startswith(b"GO "),
-      "a name beginning with TO is left alone")
+eq(crunch("GO TOTAL=5", IDX), bytes([0x8D]) + b"TAL" + bytes([0xD5]) + b"5",
+   "GO TOTAL is GOTO TAL: the match is byte by byte, as the ROM's")
+eq(crunch("TOTAL=5", IDX), bytes([0xBD]) + b"TAL" + bytes([0xD5]) + b"5",
+   "TOTAL is TO TAL")
 eq(crunch('PRINT "GO TO JAIL"', IDX), bytes([0xB2]) + b' "GO TO JAIL"',
    "GO TO inside a string stays text")
 eq(crunch("DATA GO TO JAIL", IDX), bytes([0x88]) + b" GO TO JAIL",

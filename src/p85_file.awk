@@ -386,7 +386,7 @@ function st_print_file(   n, s, sep, ty, tx, v, x) {
             sep = 1; CP++
             continue
         }
-        if (ty == "i" && tx == "TAB") {
+        if (ty == "i" && tx == "TAB" && TKW[CK, CP]) {   # the token TAB( (p50)
             CP++
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return }
             CP++

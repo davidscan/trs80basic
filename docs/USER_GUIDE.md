@@ -522,11 +522,10 @@ Honest list, stated as current behavior:
   variables, and a period program that *relied* on the truncation
   misbehaves. `TRS80_VARNAMES=2` applies the ROM's rule: `SUM` is `SU`,
   `FNABC` is `FNAB`, a `$` still keeps `AB$` apart from `AB`, and `LIST`
-  still shows the names as typed. It does not make a reserved word inside
-  a name an error, as the ROM does (`TOTAL` is `TO TAL` on the machine).
-- **Compressed source does not lex.** `IFA=1THEN100` is the identifier
-  `IFA`, not `IF A`. This is the dominant failure mode when pasting
-  archived listings — `detok.py -s` exists precisely for it.
+  still shows the names as typed. A reserved word inside a name ends the
+  name with or without it, as on the machine: `TOTAL` is `TO TAL`, and a
+  line reads as the ROM's cruncher reads it, so `IFA=1THEN100` and
+  `FORX=1TO10` run and `SCORE=5` is `?SN ERROR`.
 - **`ext on` (EXT gate).** Three things that valid Level II rejects, or
   never does, are accepted only when switched on (`ext on` or
   `TRS80_EXT=1`): the bare `INPUT"PRESS ENTER";` pause idiom, `DIM` of
@@ -724,9 +723,10 @@ GOTO n   jump to line n and continue from there
   Unlike GOSUB it leaves no return address, so there is no way back --
   use GOSUB when the code should come back.
   IF cond GOTO n is a shorthand for IF cond THEN n.
-  GO TO, written with a space, is the same keyword: the machine skips a
-  blank while it is recognising this one word.  GO SUB is not -- that
-  space belongs to GOTO alone, and GO SUB is ?SN.
+  GO TO, written with a space, is the same keyword: the machine skips
+  blanks between the letters while it is recognising this one word, so
+  G O T O is GOTO as well.  GO SUB is not -- that skip belongs to GOTO
+  alone, and GO SUB is ?SN.
   Example: GOTO 100
   Example: 90 IF K$="" THEN 90        (wait loop, same idea)
 ```

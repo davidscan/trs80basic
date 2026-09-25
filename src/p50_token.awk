@@ -1,10 +1,27 @@
 # ===================== tokenizer ============================================
 # Token types: n number, s string, i identifier/keyword (uppercase), o op,
 #              d DATA payload, r REM payload, e end sentinel.
+# TKW[key, k] is 1 on a keyword the table matched (kw_at, p75), unset on a
+# name: the parser needs it where the two spell alike (TAB( and the
+# variable TAB).  TSX[key, k] is a name's type suffix (! % #), or on a
+# number "%" and "%SN" (see tk_number).
+#
+# The line is read as the ROM's cruncher reads it (1BC0-1C8F), so that the
+# tokens here are the tokens in the program image (pm_crunch, p75) and the
+# program the machine would run: outside a string, a REM and DATA every
+# letter is tried against the keyword table and a name is what lies
+# between the keywords (TOTAL is TO TAL, SCORE is SC OR E, IFA=1THEN30 and
+# FORI=1TO3 need no blanks).  The ROM stores digits and points as they
+# stand and READS them at run time through RST 10H (0E6CH from 24A5H), so
+# blanks inside a number are nothing (1 2 is 12) -- tk_number below.
+# Until 2026-09-25 a whole identifier was read first and then looked up,
+# and a number by a regex (the 2026-09-23 audit, M-2, and the keyword-
+# crunching rule ruled 2026-09-23).
 
-function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx) {
+function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
     if (key == "I") inval_cache_key("I")
     k = 0; i = 1; n = length(text)
+    up = toupper(text)                      # ASCII letters only under -b
     # TSRC + TPO give parse_fname (p40) the raw source from a token's own
     # position, so an unquoted file name is taken verbatim.  EVERY token
     # needs its TPO: a missing one made substr() start at "" and hand back
@@ -24,59 +41,59 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx) {
             continue
         }
         if (c ~ /[0-9]/ || (c == "." && substr(text, i + 1, 1) ~ /[0-9]/)) {
-            match(substr(text, i), /^([0-9]+\.?[0-9]*|\.[0-9]+)([EeDd][-+]?[0-9]+)?/)
-            s = substr(text, i, RLENGTH); i += RLENGTH
-            sub(/[Dd]/, "E", s)             # D exponent: same value, E form for awk
-            c = substr(text, i, 1)
-            if (c == "!" || c == "#" || c == "%") i++
-            k++; TK[key, k] = s; TY[key, k] = "n"; TPO[key, k] = t0
+            i = tk_number(text, up, i)
+            k++; TK[key, k] = TKNUM; TY[key, k] = "n"; TPO[key, k] = t0; TSX[key, k] = TKSX
             continue
         }
         if (c ~ /[A-Za-z]/) {
-            match(substr(text, i), /^[A-Za-z][A-Za-z0-9]*\$?/)
-            s = toupper(substr(text, i, RLENGTH)); i += RLENGTH
-            c = substr(text, i, 1)
-            # "#" is a type suffix on variables (X#) but a channel marker
-            # after PRINT/INPUT (PRINT#1), where it must stay an operator
-            # the suffix is dropped from the name (G% is G) but kept beside
-            # the token in TSX: a store into a % name is an integer store
-            sx = ""
-            if (c == "!" || c == "%") { sx = c; i++ }
-            else if (c == "#" && s != "PRINT" && s != "INPUT") { sx = c; i++ }
+            s = kw_at(up, i)                # the ROM's match at this letter (p75)
+            if (s != "") {
+                i += KWLEN
+                if (s == "TAB(") {          # the token is TAB( ; the ( stays a token of its own for the parser
+                    k++; TK[key, k] = "TAB"; TY[key, k] = "i"; TPO[key, k] = t0; TKW[key, k] = 1
+                    k++; TK[key, k] = "("; TY[key, k] = "o"; TPO[key, k] = i - 1
+                    continue
+                }
+                if (s == "REM") {
+                    k++; TK[key, k] = "REM"; TY[key, k] = "i"; TPO[key, k] = t0; TKW[key, k] = 1
+                    k++; TK[key, k] = substr(text, i); TY[key, k] = "r"; TPO[key, k] = i
+                    i = n + 1
+                    continue
+                }
+                if (s == "DATA") {
+                    k++; TK[key, k] = "DATA"; TY[key, k] = "i"; TPO[key, k] = t0; TKW[key, k] = 1
+                    q = 0; j = i
+                    while (j <= n) {
+                        c2 = substr(text, j, 1)
+                        if (c2 == "\"") q = !q
+                        else if (c2 == ":" && !q) break
+                        j++
+                    }
+                    k++; TK[key, k] = substr(text, i, j - i); TY[key, k] = "d"; TPO[key, k] = i
+                    i = j
+                    continue
+                }
+                if (!(s == "FN" && substr(text, i, 1) ~ /[A-Za-z]/)) {
+                    k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0; TKW[key, k] = 1
+                    continue
+                }
+                # FNAB: the name behind the FN token is carried in ONE
+                # identifier, FNAB, as before -- e_prim (p60) makes it a
+                # call only once a DEF has run for it, else a variable
+                # (three period listings use FN* names as arrays)
+                j = tk_name(text, up, i); s = "FN" substr(up, i, j - i); i = j
+            } else {
+                # a name: the letters and digits up to the next keyword
+                j = tk_name(text, up, i); s = substr(up, i, j - i); i = j
+            }
+            if (substr(text, i, 1) == "$") { s = s "$"; i++ }
+            # the type suffix is dropped from the name (G% is G) but kept
+            # beside the token in TSX: a store into a % name is an integer
+            # store.  Behind a keyword # is never a suffix now (PRINT#1,
+            # CLOSE#1): the keyword's token ended before it.
+            sx = ""; c = substr(text, i, 1)
+            if (c == "!" || c == "%" || c == "#") { sx = c; i++ }
             if (VARNAMES2 && length(s) > 2) s = vn_cut(s)
-            if (s == "REM") {
-                k++; TK[key, k] = "REM"; TY[key, k] = "i"; TPO[key, k] = t0
-                k++; TK[key, k] = substr(text, i); TY[key, k] = "r"; TPO[key, k] = i
-                i = n + 1
-                continue
-            }
-            if (s == "DATA") {
-                k++; TK[key, k] = "DATA"; TY[key, k] = "i"; TPO[key, k] = t0
-                q = 0; j = i
-                while (j <= n) {
-                    c2 = substr(text, j, 1)
-                    if (c2 == "\"") q = !q
-                    else if (c2 == ":" && !q) break
-                    j++
-                }
-                k++; TK[key, k] = substr(text, i, j - i); TY[key, k] = "d"; TPO[key, k] = i
-                i = j
-                continue
-            }
-            # ROM 1C24-1C2A: while the cruncher is matching token 8DH --
-            # and ONLY that one -- it skips a blank in the input, so "GO TO"
-            # crunches to GOTO.  It was ?SN here (the 2026-09-19 audit,
-            # L-16).  GO SUB does NOT crunch: the ROM's skip is GOTO's alone.
-            # The ROM matches byte by byte, so on the machine "GO TOTAL=5"
-            # also becomes GOTO followed by TAL; this tokenizer reads a whole
-            # identifier first, so only a standalone TO is taken.
-            if (s == "GO") {
-                j = i
-                while (substr(text, j, 1) == " ") j++
-                if (toupper(substr(text, j, 2)) == "TO" && substr(text, j + 2, 1) !~ /[A-Za-z0-9$]/) {
-                    s = "GOTO"; i = j + 2
-                }
-            }
             k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0; TSX[key, k] = sx
             continue
         }
@@ -118,37 +135,84 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx) {
     TCN[key] = k; TOKD[key] = 1
 }
 
+# the end of a name that begins at i: letters and digits, up to the first
+# letter where a keyword matches (ROM 1BF5-1C3C tries the table at every
+# letter and stores a digit without a try, 1BEC-1BF2)
+function tk_name(text, up, i,   c) {
+    for (i++; ; i++) {
+        c = substr(text, i, 1)
+        if (c !~ /^[A-Za-z0-9]$/) return i
+        if (c ~ /^[A-Za-z]$/ && kw_at(up, i) != "") return i
+    }
+}
+
+# A number in a line, as 0E6CH reads it (24A5H: JP C,0E6CH at a digit or
+# a point): every character after the first comes through RST 10H, which
+# skips blanks and tabs (1D78-1D88), so 1 2 is 12, 12 34 is 1234 and a
+# line number behind GOTO the same (1E5AH: GOTO 3 0 is GOTO 30); E or D is
+# an exponent, of 0 when no digit follows (1E is 1); a second point ends
+# the number (0EE4-0EE6); ! and # are taken (0EF5-0EF9); % is taken behind
+# an integer up to 32767 and is ?SN otherwise (0EEE-0EEF, JP P,1997H),
+# which e_prim raises when the number is evaluated.  The exponent letter
+# is a letter the cruncher stored raw, so where a keyword begins the number
+# ends: 1END is 1 then END, 100 ELSE 200 is two numbers.  valnum (p90) is
+# the same reader for VAL, READ and INPUT, over text no cruncher has seen.
+# Returns the index behind the number; TKNUM is its text in awk's form
+# (the blanks gone, D as E), TKSX its suffix.
+function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint) {
+    m = ""; ex = ""; exs = ""; dot = 0; hasexp = 0; isint = 1; TKSX = ""
+    for (;;) {
+        while (substr(text, i, 1) ~ /^[ \t]$/) i++
+        c = substr(text, i, 1)
+        if (c ~ /^[0-9]$/) { m = m c; i++; continue }
+        if (c == ".") {
+            if (dot) break
+            dot = 1; isint = 0; m = m c; i++; continue
+        }
+        if (c ~ /^[EeDd]$/ && kw_at(up, i) == "") {
+            hasexp = 1; isint = 0; i++
+            while (substr(text, i, 1) ~ /^[ \t]$/) i++
+            c = substr(text, i, 1)
+            if (c == "+" || c == "-") { exs = c; i++ }
+            for (;;) {
+                while (substr(text, i, 1) ~ /^[ \t]$/) i++
+                c = substr(text, i, 1)
+                if (c !~ /^[0-9]$/) break
+                ex = ex c; i++
+            }
+            break
+        }
+        if (c == "%") { TKSX = (isint && m + 0 <= 32767) ? "%" : "%SN"; i++ }
+        else if (c == "!" || c == "#") { TKSX = c; i++ }
+        break
+    }
+    TKNUM = m (hasexp ? "E" exs (ex == "" ? "0" : ex) : "")
+    return i
+}
+
 # TRS80_VARNAMES=2: a variable is named by its first two characters, as
 # the ROM's variable table stores it, so ADDR and AD are one variable
 # (gprixmc1.bas relies on it).  The tokenizer is the one place every name
 # passes, so cutting here reaches variables, arrays, FOR/NEXT, INPUT/READ,
 # DIM, VARPTR and the memory projection alike.  LIST shows the program's
 # text, and the image cruncher and tools/tok.py crunch that text, so the
-# full names stay in the program, as they do on the machine.  Not cut: the
-# ROM's reserved words (pm_init_index's table), BYE, DEFUSR and USR0-USR9;
-# FNABC is FN plus a name, so FNAB.  The type suffix `$` is kept (AB$ and AB
-# are two variables); % ! # are already dropped (G% is G).  What this does
-# NOT do: the ROM also takes a reserved word out of the middle of a name
-# (TOTAL is TO TAL); this tokenizer reads a whole identifier first.
+# full names stay in the program, as they do on the machine.  The ROM's
+# reserved words never reach it (kw_at takes them first, since 2026-09-25,
+# and a reserved word inside a name ends the name: TOTAL is TO TAL); BYE,
+# the one statement word that is no token, is kept.  FNABC is FN plus a
+# name, so FNAB.  The type suffix `$` is kept (AB$ and AB are two
+# variables); % ! # are already dropped (G% is G).
 function vn_cut(s,   d, b) {
-    if (!VNINIT) vn_init()
-    if (s in VNKEEP || s ~ /^USR[0-9]$/) return s
+    if (s == "BYE") return s
     d = (s ~ /\$$/) ? "$" : ""
     b = d ? substr(s, 1, length(s) - 1) : s
     if (b ~ /^FN./) return "FN" substr(b, 3, 2) d
     return substr(b, 1, 2) d
 }
 
-function vn_init(   j, w) {
-    if (!TOKIDX) pm_init_index()
-    for (j = 1; j <= NTOKI; j++) { w = TIW[j]; sub(/\($/, "", w); VNKEEP[w] = 1 }
-    VNKEEP["BYE"] = 1; VNKEEP["DEFUSR"] = 1
-    VNINIT = 1
-}
-
 function inval_cache_key(k,   i) {
     if (k in TOKD) {
-        for (i = 1; i <= TCN[k]; i++) { delete TK[k, i]; delete TY[k, i]; delete TPO[k, i]; delete TSX[k, i] }
+        for (i = 1; i <= TCN[k]; i++) { delete TK[k, i]; delete TY[k, i]; delete TPO[k, i]; delete TSX[k, i]; delete TKW[k, i] }
         delete TCN[k]; delete TOKD[k]; delete TSRC[k]
     }
 }

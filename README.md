@@ -300,9 +300,12 @@ before `--update`.
   what `SET` drew; actually any `PRINT` that reaches the bottom line scrolls
   the whole screen, pixels included — read before you print, or use
   `PRINT@` to place text.
-- **`FORX` is an identifier.** You might expect `FORX=1TO10` to work as on the
-  real machine; actually it is one variable name, because this interpreter
-  lexes text greedily. `detok.py -s` inserts the spaces from the token stream.
+- **A keyword inside a name ends the name.** You might expect `TOTAL=5` or
+  `SCORE=5` to work; actually they are `?SN ERROR`, because the machine reads
+  every letter against its keyword table and `TOTAL` is `TO TAL`, `SCORE` is
+  `SC OR E`. The same rule is what makes `FORX=1TO10` and `IFA=1THEN100`
+  run. `detok.py -s` spaces a listing out for reading; the interpreter does
+  not need it.
 - **Metacommands are lowercase.** `dir`, `man`, `help`, `fullscreen` are
   metacommands; `DIR` or `MAN` reach BASIC and give `?SN ERROR`. This keeps
   the two namespaces apart.
@@ -370,7 +373,7 @@ with `-o`; otherwise to stdout.
 | argument | default | what it does | when you'd use it |
 |---|---|---|---|
 | `-o DIR`, `--outdir DIR` | stdout | write one `.bas` per input into DIR | converting more than one file |
-| `-s`, `--space-keywords` | off | re-separate keywords the ROM ran together (`FORX=1TOR` → `FOR X=1 TO R`) | **always, for this interpreter** — it lexes `FORX` as one identifier |
+| `-s`, `--space-keywords` | off | re-separate keywords the ROM ran together (`FORX=1TOR` → `FOR X=1 TO R`) | for reading; the interpreter reads `FORX` as `FOR X`, as the machine does |
 | `--check` | off | parse only, report problems, write nothing | finding out whether a file is really a tokenized image |
 | `--raw-newlines` | off | keep CR/LF inside strings and REMs byte-for-byte | archival fidelity only; the result will not reload |
 | `--table TSV` | `tools/level2_tokens.tsv` | alternate token table | never, unless you are studying another ROM |
