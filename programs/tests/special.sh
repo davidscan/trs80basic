@@ -80,13 +80,71 @@ if mkfifo "$d/ff" 2>/dev/null; then
     (printf '10 PRINT "FROM FIFO"\n' > "$d/ff" &)
     TRS80_DUMB=1 TRS80_Z80= "$here/basic" "$d/ff" > "$d/ff.out" 2>&1 </dev/null &
     bp=$!
-    (sleep 20; kill "$bp" 2>/dev/null) &
+    (sleep 20; kill "$bp" 2>/dev/null) >/dev/null 2>&1 &
     wp=$!
     wait "$bp"; rc=$?
     kill "$wp" 2>/dev/null; wait "$wp" 2>/dev/null
     out=$(cat "$d/ff.out")
     [ $rc -eq 0 ] && [ "$out" = "FROM FIFO" ] || fail "a FIFO as the batch program (rc=$rc)" "$out"
 fi
+
+# the SAME devices spelled another way.  gawk matches its own names as
+# literal prefixes, so //dev/zero, /./dev/zero and (on a case-insensitive
+# filesystem) /Dev/zero are handed to the OS, which resolves them to the
+# device: the slurp never ended, the write went raw to the terminal (the
+# 2026-09-23 audit, H-3).  The rule is now the file's KIND, not its
+# spelling: a program reads a regular file, and writes a regular file or a
+# name that does not exist yet -- a device, a directory or a FIFO is ?FD.
+# A run that hangs on a device is killed after 20 s and counts as a failure.
+# (//dev/stdout is not in the list: it IS whatever stdout is, and here that
+# is a regular file, which a program may write; at a terminal or a pipe it
+# is a device and is refused like the rest.)
+runto() {   # $1 = stdin file, $2... = arguments; output on stdout, rc 124 on the kill
+    inp=$1; shift
+    TRS80_DUMB=1 TRS80_Z80= "$here/basic" "$@" < "$inp" > "$d/to.out" 2>&1 &
+    bp=$!
+    (sleep 20; kill "$bp" 2>/dev/null) >/dev/null 2>&1 &
+    wp=$!
+    wait "$bp"; rc=$?
+    kill "$wp" 2>/dev/null; wait "$wp" 2>/dev/null
+    cat "$d/to.out"; return $rc
+}
+mkdir adir
+mkfifo "$d/ff" 2>/dev/null || touch "$d/ff"      # no FIFO: a plain file, refused nowhere, counted below
+fifo=$([ -p "$d/ff" ] && echo 1 || echo 0)
+cat > k.bas <<BAS
+10 ON ERROR GOTO 900:K=0:F=$fifo
+20 S=1:OPEN "I",1,"//dev/zero"
+30 S=2:OPEN "O",1,"/./dev/tty"
+40 S=3:OPEN "E",1,"//dev/null"
+50 S=4:OPEN "R",1,"//dev/zero"
+60 S=5:OPEN "O",1,"//dev/zero"
+70 S=6:OPEN "I",1,"adir"
+80 S=7:OPEN "I",1,"$d/ff":IF F=0 THEN CLOSE:K=K+1
+90 S=8:OPEN "R",1,"$d/ff":IF F=0 THEN CLOSE:K=K+1
+100 S=9:KILL "//dev/null"
+110 IF K=9 THEN PRINT "ALL REFUSED" ELSE PRINT "REFUSED ONLY";K
+120 END
+900 IF ERR/2+1=22 OR (S=9 AND ERR/2+1=54) THEN K=K+1 ELSE PRINT "STEP";S;"GAVE ERROR";ERR/2+1
+910 RESUME NEXT
+BAS
+out=$(runto /dev/null k.bas)
+[ "$out" = "ALL REFUSED" ] || fail "OPEN/KILL on a device, a directory or a FIFO by another spelling" "$out"
+# LOAD, RUN "f", MERGE, CLOAD, SAVE and SYSTEM, at the prompt: ?FD each, the program survives
+printf '\n10 PRINT "MINE"\nLOAD "//dev/zero"\nRUN "/./dev/zero"\nMERGE "adir"\nCLOAD "%s"\nSAVE "//dev/null"\nCSAVE "adir"\nRUN\n' "$d/ff" > in.txt
+out=$(runto in.txt)
+n=$(printf '%s\n' "$out" | grep -c '?FD ERROR')
+[ "$n" -eq 6 ] || fail "LOAD/RUN/MERGE/CLOAD/SAVE/CSAVE by another spelling: $n of 6 were ?FD" "$out"
+case $out in *MINE*) ;; *) fail "the program in memory did not survive the other spellings" "$out" ;; esac
+printf '\nSYSTEM\n//dev/zero\n' > in.txt
+out=$(runto in.txt)
+case $out in *"?FD ERROR"*) ;; *) fail "SYSTEM took a device by another spelling" "$out" ;; esac
+# a symbolic link to a regular file is that file
+printf '10 PRINT "THROUGH THE LINK"\n' > real.bas
+ln -s real.bas link.bas
+printf '\nLOAD "link.bas"\nRUN\n' > in.txt
+out=$(runto in.txt)
+case $out in *"THROUGH THE LINK"*) ;; *) fail "a symlink to a regular file must load" "$out" ;; esac
 
 # nothing connected
 [ -s "$d/hits" ] && fail "the listener saw $(wc -l < "$d/hits") connection(s)" ""

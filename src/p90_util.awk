@@ -241,19 +241,47 @@ function rnd_poke(i, b,   lo, mid, hi) {
 # expression -- so without this gate a listing could open a network
 # connection, carry out a file it had read in the host part of the name,
 # or LOAD and RUN whatever a server sent (the 2026-09-19 audit, H-1).  gawk
-# matches these names as literal prefixes, so that is the test.  EVERY path
-# that hands a BASIC-chosen name to getline or to a redirect asks here
-# first: OPEN, LOAD/RUN/MERGE/CLOAD and SYSTEM (slurp_bytes), SAVE/CSAVE
-# and the OLLAMA transcript (host_writable), KILL (host_exists).
+# matches these names as literal prefixes, so that is the test here.  It is
+# only half the gate: any OTHER spelling of a device -- //dev/zero,
+# /./dev/zero, /Dev/zero on a case-insensitive filesystem -- is not gawk's
+# name, so gawk hands it to the OS, which resolves it to the device: a
+# slurp that never ends, a write that lands raw on the terminal (the
+# 2026-09-23 audit, H-3).  The other half is host_kind below: a program
+# READS a regular file and WRITES a regular file or a name that does not
+# exist yet; a device, a directory, a FIFO or a socket is ?FD however it
+# is spelled.  EVERY path that hands a BASIC-chosen name to getline or to
+# a redirect asks both: LOAD/RUN/MERGE (host_found, p40), CLOAD and
+# SYSTEM (p40), OPEN (p85), SAVE/CSAVE and the OLLAMA transcript
+# (host_writable), KILL (host_exists).  The batch program named on the
+# command line is the user's own and is not kind-checked: a FIFO there is
+# read once and works (special.sh).
 function host_special(f) {
     return f == "-" || f ~ /^\/inet[46]?\// || f ~ /^\/dev\//
+}
+
+# what f names: "f" a regular file (through a symbolic link), "x" anything
+# else that is there (a directory, a device, a FIFO, a socket, a dangling
+# link), "" nothing.  One shell-out; cmd.exe knows only "is it there".
+function host_kind(f,   cmd, s, r) {
+    if (WINNATIVE) {
+        if (f ~ /"/) return "x"
+        return system("if exist \"" f "\" (exit 0) else (exit 1)") == 0 ? "f" : ""
+    }
+    cmd = "if [ -f " shq(f) " ]; then echo f; elif [ -e " shq(f) " ] || [ -L " shq(f) " ]; then echo x; fi"
+    s = ""
+    r = (cmd | getline s)
+    close(cmd)
+    return (r > 0) ? s : ""
 }
 
 function host_writable(f) {
     if (host_special(f)) return 0
     if (WINNATIVE)
         return f !~ /"/ && system("type nul >> \"" f "\" 2>nul") == 0
-    return system("test ! -d " shq(f) " && touch -- " shq(f) " 2>/dev/null && test -w " shq(f)) == 0
+    # a regular file or a new name (H-3), then: not a directory, creatable,
+    # and writable once it exists (C-1)
+    return system("{ test ! -e " shq(f) " || test -f " shq(f) "; } && test ! -d " shq(f) \
+                  " && touch -- " shq(f) " 2>/dev/null && test -w " shq(f)) == 0
 }
 
 # f could be written, WITHOUT creating it: an existing plain file we may
@@ -295,11 +323,10 @@ function host_size(f,   cmd, s, r) {
     return (s == "") ? -1 : s + 0
 }
 
+# f is a regular file (KILL, host_found): a device by any spelling is not
 function host_exists(f) {
     if (host_special(f)) return 0
-    if (WINNATIVE)
-        return f !~ /"/ && system("if exist \"" f "\" (exit 0) else (exit 1)") == 0
-    return system("test -f " shq(f)) == 0
+    return host_kind(f) == "f"
 }
 
 # 1 when f is gone afterwards.  rm's own complaint is swallowed: stderr is

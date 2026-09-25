@@ -564,6 +564,7 @@ function st_cload(   f, verify) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "?") { verify = 1; CP++ }
     f = parse_fname(); if (E) return
     if (f == "") { raise(21); return }
+    if (host_kind(f) == "x") { raise(22); return }    # a device, a directory, a FIFO (H-3; p90)
     if (!prog_load(f, verify)) { raise(22); return }
     to_ready()
 }
@@ -627,6 +628,7 @@ function sys_find(name,   i, f, ext) {
     split("|.cas|.CAS|.cmd|.CMD", ext, "|")
     for (i = 1; i <= 5; i++) {
         f = name ext[i]
+        if (host_kind(f) != "f") continue         # absent, or not a regular file (H-3; p90)
         if (slurp_bytes(f) >= 0) return f
     }
     return ""
@@ -751,9 +753,14 @@ function st_load(   f, keep) {
 # not come here: a tape has no "not found", and Level II's cassette read
 # says bad file data.  Until 2026-09-24 all three said ?FD, so a listing's
 # ERR=106 handler never saw them (the 2026-09-23 audit, M-8).
-function host_found(f) {
-    if (host_special(f) || host_exists(f)) return 1
-    raise(54)
+# A name that is there but is not a regular file -- a device spelled past
+# the prefix test, a directory, a FIFO -- is ?FD here, before slurp_bytes
+# would read it without end (the 2026-09-23 audit, H-3; host_kind, p90).
+function host_found(f,   k) {
+    if (host_special(f)) return 1
+    k = host_kind(f)
+    if (k == "f") return 1
+    raise(k == "x" ? 22 : 54)
     return 0
 }
 
@@ -977,6 +984,10 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
 # record is the entire file; with gawk -b every byte is one character, NULs
 # included.  RS = "\0" is NOT an option: a line number below 256 has a 00 high
 # byte and would split the record inside the line header.
+# The kind rule (a regular file only: host_kind, p90) is the CALLER's --
+# host_found, st_cload, sys_find -- not this function's: the batch program
+# comes through here too, and that name is the user's own command line,
+# where a FIFO is read once and works (special.sh).
 function slurp_bytes(f,   save, r) {
     if (host_special(f)) { SLURPED = ""; return -1 }   # a socket or a descriptor, not a file (p90)
     save = RS; RS = "^$"

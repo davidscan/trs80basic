@@ -735,7 +735,11 @@ OPEN mode$, [#]n, name$ [,reclen]   open a file on channel n (1-15)
   anything under /dev/, or gawk's network names /inet/..., /inet4/...,
   /inet6/... -- is ?FD, here and in LOAD, RUN "f", MERGE, CLOAD, SAVE,
   SYSTEM and KILL: a listing cannot open a socket or load a program from
-  one.
+  one.  The same goes by what the name IS, not how it is spelled: "I"
+  reads a regular file, the other modes write a regular file or a name
+  that does not exist yet, so a device reached another way (//dev/zero),
+  a directory or a FIFO is ?FD too.  A symbolic link to a file is that
+  file.
   A channel stays busy until CLOSE; re-opening a busy channel is ?AO.
   A name starting with OLLAMA opens an AI link (see: man OLLAMA).
   Example: OPEN "O",1,"DATA.TXT"

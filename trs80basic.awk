@@ -2099,6 +2099,7 @@ function st_cload(   f, verify) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "?") { verify = 1; CP++ }
     f = parse_fname(); if (E) return
     if (f == "") { raise(21); return }
+    if (host_kind(f) == "x") { raise(22); return }    # a device, a directory, a FIFO (H-3; p90)
     if (!prog_load(f, verify)) { raise(22); return }
     to_ready()
 }
@@ -2162,6 +2163,7 @@ function sys_find(name,   i, f, ext) {
     split("|.cas|.CAS|.cmd|.CMD", ext, "|")
     for (i = 1; i <= 5; i++) {
         f = name ext[i]
+        if (host_kind(f) != "f") continue         # absent, or not a regular file (H-3; p90)
         if (slurp_bytes(f) >= 0) return f
     }
     return ""
@@ -2286,9 +2288,14 @@ function st_load(   f, keep) {
 # not come here: a tape has no "not found", and Level II's cassette read
 # says bad file data.  Until 2026-09-24 all three said ?FD, so a listing's
 # ERR=106 handler never saw them (the 2026-09-23 audit, M-8).
-function host_found(f) {
-    if (host_special(f) || host_exists(f)) return 1
-    raise(54)
+# A name that is there but is not a regular file -- a device spelled past
+# the prefix test, a directory, a FIFO -- is ?FD here, before slurp_bytes
+# would read it without end (the 2026-09-23 audit, H-3; host_kind, p90).
+function host_found(f,   k) {
+    if (host_special(f)) return 1
+    k = host_kind(f)
+    if (k == "f") return 1
+    raise(k == "x" ? 22 : 54)
     return 0
 }
 
@@ -2512,6 +2519,10 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
 # record is the entire file; with gawk -b every byte is one character, NULs
 # included.  RS = "\0" is NOT an option: a line number below 256 has a 00 high
 # byte and would split the record inside the line header.
+# The kind rule (a regular file only: host_kind, p90) is the CALLER's --
+# host_found, st_cload, sys_find -- not this function's: the batch program
+# comes through here too, and that name is the user's own command line,
+# where a FIFO is read once and works (special.sh).
 function slurp_bytes(f,   save, r) {
     if (host_special(f)) { SLURPED = ""; return -1 }   # a socket or a descriptor, not a file (p90)
     save = RS; RS = "^$"
@@ -6601,6 +6612,10 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
         if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
     if (toupper(f) ~ /^OLLAMA(:|$)/) { ai_open(n, f); return }
     if (host_special(f)) { raise(22); return }    # /inet/..., /dev/..., "-": not files (p90)
+    # a device by another spelling, a directory, a FIFO: not a file either,
+    # however it is written (the 2026-09-23 audit, H-3); "O", "E" and "R"
+    # ask host_writable, which holds the same rule
+    if (mode == "I" && host_kind(f) == "x") { raise(22); return }
     if (mode != "I") {
         # probe writability now: a failed awk redirect later would be fatal
         if ((!WINNATIVE && f ~ /'/) || !host_writable(f)) { raise(22); return }
@@ -7774,19 +7789,47 @@ function rnd_poke(i, b,   lo, mid, hi) {
 # expression -- so without this gate a listing could open a network
 # connection, carry out a file it had read in the host part of the name,
 # or LOAD and RUN whatever a server sent (the 2026-09-19 audit, H-1).  gawk
-# matches these names as literal prefixes, so that is the test.  EVERY path
-# that hands a BASIC-chosen name to getline or to a redirect asks here
-# first: OPEN, LOAD/RUN/MERGE/CLOAD and SYSTEM (slurp_bytes), SAVE/CSAVE
-# and the OLLAMA transcript (host_writable), KILL (host_exists).
+# matches these names as literal prefixes, so that is the test here.  It is
+# only half the gate: any OTHER spelling of a device -- //dev/zero,
+# /./dev/zero, /Dev/zero on a case-insensitive filesystem -- is not gawk's
+# name, so gawk hands it to the OS, which resolves it to the device: a
+# slurp that never ends, a write that lands raw on the terminal (the
+# 2026-09-23 audit, H-3).  The other half is host_kind below: a program
+# READS a regular file and WRITES a regular file or a name that does not
+# exist yet; a device, a directory, a FIFO or a socket is ?FD however it
+# is spelled.  EVERY path that hands a BASIC-chosen name to getline or to
+# a redirect asks both: LOAD/RUN/MERGE (host_found, p40), CLOAD and
+# SYSTEM (p40), OPEN (p85), SAVE/CSAVE and the OLLAMA transcript
+# (host_writable), KILL (host_exists).  The batch program named on the
+# command line is the user's own and is not kind-checked: a FIFO there is
+# read once and works (special.sh).
 function host_special(f) {
     return f == "-" || f ~ /^\/inet[46]?\// || f ~ /^\/dev\//
+}
+
+# what f names: "f" a regular file (through a symbolic link), "x" anything
+# else that is there (a directory, a device, a FIFO, a socket, a dangling
+# link), "" nothing.  One shell-out; cmd.exe knows only "is it there".
+function host_kind(f,   cmd, s, r) {
+    if (WINNATIVE) {
+        if (f ~ /"/) return "x"
+        return system("if exist \"" f "\" (exit 0) else (exit 1)") == 0 ? "f" : ""
+    }
+    cmd = "if [ -f " shq(f) " ]; then echo f; elif [ -e " shq(f) " ] || [ -L " shq(f) " ]; then echo x; fi"
+    s = ""
+    r = (cmd | getline s)
+    close(cmd)
+    return (r > 0) ? s : ""
 }
 
 function host_writable(f) {
     if (host_special(f)) return 0
     if (WINNATIVE)
         return f !~ /"/ && system("type nul >> \"" f "\" 2>nul") == 0
-    return system("test ! -d " shq(f) " && touch -- " shq(f) " 2>/dev/null && test -w " shq(f)) == 0
+    # a regular file or a new name (H-3), then: not a directory, creatable,
+    # and writable once it exists (C-1)
+    return system("{ test ! -e " shq(f) " || test -f " shq(f) "; } && test ! -d " shq(f) \
+                  " && touch -- " shq(f) " 2>/dev/null && test -w " shq(f)) == 0
 }
 
 # f could be written, WITHOUT creating it: an existing plain file we may
@@ -7828,11 +7871,10 @@ function host_size(f,   cmd, s, r) {
     return (s == "") ? -1 : s + 0
 }
 
+# f is a regular file (KILL, host_found): a device by any spelling is not
 function host_exists(f) {
     if (host_special(f)) return 0
-    if (WINNATIVE)
-        return f !~ /"/ && system("if exist \"" f "\" (exit 0) else (exit 1)") == 0
-    return system("test -f " shq(f)) == 0
+    return host_kind(f) == "f"
 }
 
 # 1 when f is gone afterwards.  rm's own complaint is swallowed: stderr is

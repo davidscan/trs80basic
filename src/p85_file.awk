@@ -76,6 +76,10 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
         if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
     if (toupper(f) ~ /^OLLAMA(:|$)/) { ai_open(n, f); return }
     if (host_special(f)) { raise(22); return }    # /inet/..., /dev/..., "-": not files (p90)
+    # a device by another spelling, a directory, a FIFO: not a file either,
+    # however it is written (the 2026-09-23 audit, H-3); "O", "E" and "R"
+    # ask host_writable, which holds the same rule
+    if (mode == "I" && host_kind(f) == "x") { raise(22); return }
     if (mode != "I") {
         # probe writability now: a failed awk redirect later would be fatal
         if ((!WINNATIVE && f ~ /'/) || !host_writable(f)) { raise(22); return }
