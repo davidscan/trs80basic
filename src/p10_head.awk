@@ -188,6 +188,14 @@ function init_tables(   i, c, m, n) {
     # the ROM marks the Input Phase in its current-line cell 40A2H with
     # FFFFH (1A36), so a typed statement and a real line 0 are distinct
     DIRECTLN = 65535
+    # The single-precision overflow threshold.  MBF's largest value is
+    # (1 - 2^-24) * 2^127 = 1.70141E38, and the ROM's normalizer rounds the
+    # guard byte half up (0796H), so anything at or above (1 - 2^-25) * 2^127
+    # carries into an exponent byte of 256: ?OV at 07B2H.  Until 2026-09-25
+    # the limit was 1.7E38, so PRINT 1.70141E38 was ?OV (the 2026-09-23
+    # audit, M-10).  The p60 operators, a literal, numconv (p90) and the
+    # MBF encoder (p85) all test against it.
+    FMAX = 2^127 - 2^102
     CLN = DIRECTLN
     CUR = 0; VCOL = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
     FSN = 0; GSN = 0; CONTOK = 0; TRACE = 0

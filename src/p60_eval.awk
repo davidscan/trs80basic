@@ -75,7 +75,7 @@ function e_add(   v, r, op, x) {
             if (!isN(v) || !isN(r)) { raise(13); return v }
             x = num(v) - num(r)
         }
-        if (x > 1.7e38 || x < -1.7e38) { raise(6); return v }
+        if (x >= FMAX || x <= -FMAX) { raise(6); return v }
         v = "N" x
     }
     return v
@@ -93,7 +93,7 @@ function e_mul(   v, r, op, x, d) {
             if (d == 0) { raise(11); return v }
             x = num(v) / d
         }
-        if (x > 1.7e38 || x < -1.7e38) { raise(6); return v }
+        if (x >= FMAX || x <= -FMAX) { raise(6); return v }
         v = "N" x
     }
     return v
@@ -120,7 +120,7 @@ function e_pow(   v, r, a, b, x) {
         if (a < 0 && b != int(b)) { raise(5); return v }
         if (a == 0 && b < 0) { raise(11); return v }
         x = a ^ b
-        if (x > 1.7e38 || x < -1.7e38) { raise(6); return v }
+        if (x >= FMAX || x <= -FMAX) { raise(6); return v }
         v = "N" x
     }
     return v
@@ -143,7 +143,7 @@ function e_prim(   t, s, v, key) {
     t = TY[CK, CP]
     if (t == "n") {
         s = TK[CK, CP] + 0; CP++
-        if (s > 1.7e38 || s < -1.7e38) { raise(6); return "N0" }   # 1E39 etc.
+        if (s >= FMAX || s <= -FMAX) { raise(6); return "N0" }   # 1.70142E38, 1E39 (p10 FMAX)
         return "N" s
     }
     if (t == "s") { v = "S" TK[CK, CP]; CP++; return v }

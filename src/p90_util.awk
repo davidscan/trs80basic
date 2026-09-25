@@ -134,7 +134,7 @@ function numrest() {
 function numconv(s,   x) {
     sub(/[Dd]/, "E", s)
     x = s + 0
-    if (x > 1.7e38 || x < -1.7e38) { raise(6); return 0 }
+    if (x >= FMAX || x <= -FMAX) { raise(6); return 0 }
     return x
 }
 

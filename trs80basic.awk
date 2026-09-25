@@ -188,6 +188,14 @@ function init_tables(   i, c, m, n) {
     # the ROM marks the Input Phase in its current-line cell 40A2H with
     # FFFFH (1A36), so a typed statement and a real line 0 are distinct
     DIRECTLN = 65535
+    # The single-precision overflow threshold.  MBF's largest value is
+    # (1 - 2^-24) * 2^127 = 1.70141E38, and the ROM's normalizer rounds the
+    # guard byte half up (0796H), so anything at or above (1 - 2^-25) * 2^127
+    # carries into an exponent byte of 256: ?OV at 07B2H.  Until 2026-09-25
+    # the limit was 1.7E38, so PRINT 1.70141E38 was ?OV (the 2026-09-23
+    # audit, M-10).  The p60 operators, a literal, numconv (p90) and the
+    # MBF encoder (p85) all test against it.
+    FMAX = 2^127 - 2^102
     CLN = DIRECTLN
     CUR = 0; VCOL = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
     FSN = 0; GSN = 0; CONTOK = 0; TRACE = 0
@@ -3053,7 +3061,7 @@ function e_add(   v, r, op, x) {
             if (!isN(v) || !isN(r)) { raise(13); return v }
             x = num(v) - num(r)
         }
-        if (x > 1.7e38 || x < -1.7e38) { raise(6); return v }
+        if (x >= FMAX || x <= -FMAX) { raise(6); return v }
         v = "N" x
     }
     return v
@@ -3071,7 +3079,7 @@ function e_mul(   v, r, op, x, d) {
             if (d == 0) { raise(11); return v }
             x = num(v) / d
         }
-        if (x > 1.7e38 || x < -1.7e38) { raise(6); return v }
+        if (x >= FMAX || x <= -FMAX) { raise(6); return v }
         v = "N" x
     }
     return v
@@ -3098,7 +3106,7 @@ function e_pow(   v, r, a, b, x) {
         if (a < 0 && b != int(b)) { raise(5); return v }
         if (a == 0 && b < 0) { raise(11); return v }
         x = a ^ b
-        if (x > 1.7e38 || x < -1.7e38) { raise(6); return v }
+        if (x >= FMAX || x <= -FMAX) { raise(6); return v }
         v = "N" x
     }
     return v
@@ -3121,7 +3129,7 @@ function e_prim(   t, s, v, key) {
     t = TY[CK, CP]
     if (t == "n") {
         s = TK[CK, CP] + 0; CP++
-        if (s > 1.7e38 || s < -1.7e38) { raise(6); return "N0" }   # 1E39 etc.
+        if (s >= FMAX || s <= -FMAX) { raise(6); return "N0" }   # 1.70142E38, 1E39 (p10 FMAX)
         return "N" s
     }
     if (t == "s") { v = "S" TK[CK, CP]; CP++; return v }
@@ -7319,7 +7327,7 @@ function fio_mkf(x, nb,   sgn, e, i, b, out) {
     }
     sgn = 0
     if (x < 0) { sgn = 128; x = -x }
-    if (x > 1.7e38) { raise(6); return "" }     # an infinity would never leave the loop
+    if (x >= FMAX) { raise(6); return "" }      # the exponent byte would pass 255 (p10 FMAX); an infinity would never leave the loop
     e = 0
     while (x >= 1) { x /= 2; e++ }
     while (x < 0.5) { x *= 2; e-- }
@@ -7820,7 +7828,7 @@ function numrest() {
 function numconv(s,   x) {
     sub(/[Dd]/, "E", s)
     x = s + 0
-    if (x > 1.7e38 || x < -1.7e38) { raise(6); return 0 }
+    if (x >= FMAX || x <= -FMAX) { raise(6); return 0 }
     return x
 }
 
