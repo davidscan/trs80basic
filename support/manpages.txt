@@ -122,6 +122,9 @@ ELSE   introduces the false branch of an IF
 :GOTO
 GOTO n   jump to line n and continue from there
   The target must be a line that exists, or ?UL ERROR (undefined line).
+  The number is read as the machine reads it: GOTO with nothing behind
+  it, or with something that is not a number, is GOTO 0, and a number
+  past 65529 is ?SN.  GOSUB, RUN n and THEN n take theirs the same way.
   Unlike GOSUB it leaves no return address, so there is no way back --
   use GOSUB when the code should come back.
   IF cond GOTO n is a shorthand for IF cond THEN n.
@@ -427,7 +430,9 @@ RUN "name"   load that file and run it (Disk BASIC)
   Use CONT, not RUN, to carry on after a STOP.
   With a line number, execution begins there instead of at the lowest
   line -- but the clearing still happens, so RUN 500 is not a way to
-  resume part-way through with the variables intact.
+  resume part-way through with the variables intact.  A number that
+  names no line is ?UL (RUN 0 with no line 0, RUN 10 in an empty
+  program), where plain RUN in an empty program is simply READY.
   Example: RUN
   Example: RUN 500
 

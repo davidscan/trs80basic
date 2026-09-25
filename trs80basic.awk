@@ -3956,15 +3956,27 @@ function assignv(name, key, v,   isint) {
 }
 
 # ---- control flow ----------------------------------------------------------
-function st_goto(   ln) {
-    if (TY[CK, CP] != "n") { raise(2); return }
+# The line number behind GOTO, GOSUB, RUN n and IF's THEN/ELSE, as the
+# ROM's one reader takes it (1E5AH; GOSUB and RUN n join the GOTO code at
+# 1EC1H, IF jumps to 1EC2H from 2050H).  It starts at 0 and stops at the
+# first byte that is not a digit, so a bare GOTO, or GOTO X, is GOTO 0;
+# and a value that would pass 65529 is ?SN (1E62H-1E66H), so GOTO 70000
+# is ?SN, never ?UL.  Until 2026-09-25 a bare GOTO was ?SN and GOTO 70000
+# was ?UL (the 2026-09-23 audit, L-5).
+function lineno_arg(   ln) {
+    if (TY[CK, CP] != "n") return 0
     ln = TK[CK, CP] + 0; CP++
+    if (ln > 65529) { raise(2); return 0 }
+    return ln
+}
+
+function st_goto(   ln) {
+    ln = lineno_arg(); if (E) return
     jumpline(ln)
 }
 
 function st_gosub(   ln) {
-    if (TY[CK, CP] != "n") { raise(2); return }
-    ln = TK[CK, CP] + 0; CP++
+    ln = lineno_arg(); if (E) return
     GSN++
     GS_K[GSN] = CK; GS_LI[GSN] = CLI; GS_P[GSN] = CP; GS_F[GSN] = FSN
     jumpline(ln)
@@ -4070,7 +4082,7 @@ function do_next(name,   j, v, fl, d) {
     return 0
 }
 
-function st_if(   v, truth, hadkw, d, p, ty, tx) {
+function st_if(   v, truth, hadkw, d, p, ty, tx, ln) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     truth = (num(v) != 0)
@@ -4082,7 +4094,7 @@ function st_if(   v, truth, hadkw, d, p, ty, tx) {
         hadkw = TK[CK, CP]; CP++
     }
     if (truth) {
-        if (TY[CK, CP] == "n") { jumpline(TK[CK, CP] + 0); return }
+        if (TY[CK, CP] == "n") { ln = lineno_arg(); if (!E) jumpline(ln); return }
         if (hadkw == "GOTO") { raise(2); return }
         return                              # statements after THEN execute
     }
@@ -4096,7 +4108,7 @@ function st_if(   v, truth, hadkw, d, p, ty, tx) {
         else if (ty == "i" && tx == "ELSE") {
             if (d == 0) {
                 CP = p + 1
-                if (TY[CK, CP] == "n") jumpline(TK[CK, CP] + 0)
+                if (TY[CK, CP] == "n") { ln = lineno_arg(); if (!E) jumpline(ln) }
                 return
             }
             d--
@@ -4178,7 +4190,7 @@ function st_cont() {
     if (CK != "I" && !(CK in TOKD)) tokline(CK, runtext(CLN))
 }
 
-function st_run(   n, f, keep) {
+function st_run(   n, f, keep, given) {
     if (fname_is_expr()) {              # Disk BASIC RUN "file"[,R]; the name is an expression (p40)
         f = parse_fname(); if (E) return
         keep = 0
@@ -4192,21 +4204,26 @@ function st_run(   n, f, keep) {
         run_start(0, keep)
         return
     }
-    n = 0
-    if (TY[CK, CP] == "n") { n = TK[CK, CP] + 0; CP++ }
-    run_start(n, 0)
+    n = 0; given = 0
+    if (TY[CK, CP] == "n") { given = 1; n = lineno_arg(); if (E) return }
+    run_start(n, 0, given)
 }
 
-# shared RUN startup (st_run, and LOAD "file",R)
-function run_start(n, keepfiles) {
+# shared RUN startup (st_run, and LOAD "file",R).  given: RUN n was typed
+# with its number, which then goes through the GOTO code after the
+# variables are cleared (1EA9H -> 1EC1H), so a line that is not there is
+# ?UL from 1ED9H -- RUN 0 with no line 0, or RUN 10 in an empty program
+# (until 2026-09-25 the first ran from the lowest line and the second was
+# silent).  Plain RUN in an empty program is READY (1B5DH).
+function run_start(n, keepfiles, given) {
     clear_vars(keepfiles)
     if (DATADIRTY) datascan()
     DP = 1
     EHANDLER = 0; INHANDLER = 0; ERRV = 0; ERLV = 0
     CONTOK = 0
+    if (given) { jumpline(n); return }
     if (NL == 0) { HALT = 1; return }
-    if (n) jumpline(n)
-    else setline(1)
+    setline(1)
 }
 
 function st_clear(   v, ty, tx) {
