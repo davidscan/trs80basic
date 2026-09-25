@@ -1502,9 +1502,14 @@ function rl_clear_screen() {
 # as before.  Extends by the longest common prefix of the glob matches; a
 # unique directory match gains "/"; ambiguous with nothing to extend lists
 # the candidates below the grid.
-function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, out) {
+# The line you see is the line that runs (the 2026-09-23 audit, L-9): a
+# name holding a control byte is never offered, since on the screen it
+# could hide the rest of the line; and on a cat or dir line, which the
+# shell parses, a unique match the shell would take apart is inserted
+# quoted (shq), so Enter runs cat on that one file.
+function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, out, bnd, name, q) {
     oldl = length(RLS); oldp = RLP
-    nm = 0
+    nm = 0; bnd = 0
     for (i = 0; i <= RLP && nm == 0; i++) {
         if (i > 0) {
             c = substr(RLS, i, 1)
@@ -1513,8 +1518,12 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
         word = substr(RLS, i + 1, RLP - i)
         if (word == "" || index(word, "\"") || word ~ /'/) continue
         cmd = "ls -1d -- " shq(word) "* 2>/dev/null"
-        while ((cmd | getline line) > 0) { if (nm < 100) mt[++nm] = line }
+        while ((cmd | getline line) > 0) {
+            if (line ~ /[\001-\037\177]/) continue     # a control byte in the name: never offered
+            if (nm < 100) mt[++nm] = line
+        }
         close(cmd)
+        if (nm) bnd = i                                # the boundary the word starts after
     }
     if (nm == 0) return
     lcp = mt[1]
@@ -1524,6 +1533,20 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
     # mt[1] is ls output, not typed text: the quote test above never saw
     # it, so it must be quoted for sh (a name with a ' ran as a command)
     if (nm == 1 && system("test -d " shq(mt[1])) == 0) add = add "/"
+    # a unique match on a cat or dir line, after a blank (not inside a
+    # "..." literal), that sh would take apart: the whole word becomes
+    # one quoted sh word.  Only there: the raw name after LOAD or CLOAD
+    # is not parsed by sh, so it stays as typed.
+    name = word add
+    if (nm == 1 && bnd > 0 && substr(RLS, bnd, 1) != "\"" && RLS ~ /^[ \t]*(cat|dir)[ \t]/ \
+        && name ~ /[^A-Za-z0-9._\/+,:@%=-]/) {
+        q = shq(name)
+        if (oldl - length(word) + length(q) > RLMAX) return
+        RLS = substr(RLS, 1, bnd) q substr(RLS, RLP + 1)
+        RLP = bnd + length(q)
+        rl_draw(oldl, oldp)
+        return
+    }
     if (add != "") {
         if (oldl + length(add) > RLMAX) return
         RLS = substr(RLS, 1, RLP) add substr(RLS, RLP + 1)
@@ -2029,14 +2052,19 @@ function st_sound(arg,   rest) {
 }
 
 # --- dir metacommand: shell passthrough for "ls -al" (below-grid output) ----
+# Its output is scrubbed as cat's is: a file NAME can hold an escape
+# sequence, which printed raw could redraw or erase part of the screen
+# (the 2026-09-23 audit, L-9).
 function st_dir(args,   cmd, outline, out, n) {
     if (WINNATIVE) cmd = "dir" (args == "" ? "" : " " args) " 2>&1"
-    else           cmd = "ls -al" (args == "" ? "" : " " args) " 2>&1"
+    else           cmd = "ls -al" (args == "" ? "" : " " args) " 2>&1 | LC_ALL=C tr -c '\\11\\12\\40-\\176' '.'"
     out = ""; n = 0
     # no cap: fullscreen streams to a scrolling terminal, and the grid's
     # below-grid region pages long output (PgUp/PgDn / Ctrl-B/F)
-    while ((cmd | getline outline) > 0)
+    while ((cmd | getline outline) > 0) {
+        if (WINNATIVE) gsub(/[^\t -~]/, ".", outline)   # best effort natively
         out = out (out != "" ? "\n" : "") outline
+    }
     close(cmd)
     t_man(out == "" ? "(no output)" : out)
 }

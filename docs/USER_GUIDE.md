@@ -2381,7 +2381,9 @@ help <text>  search the manual for text
 dir [args]   list files in the current directory
   Passes through to the host shell's `ls -al` (or `dir` on native
   Windows) and shows the result below the grid.  Any arguments are
-  handed straight to that command.
+  handed straight to that command.  Bytes that are not printable text
+  are shown as a full stop, as cat shows them, so a file name cannot
+  disturb the terminal.
   Provided because a program's data files live on the host filesystem,
   not on a simulated disk, so this is how you see what is actually
   there.
@@ -2399,6 +2401,9 @@ cat <file...>   show the contents of one or more files
   inspected without disturbing the terminal.
   Handy for checking a data file a program has just written without
   leaving the interpreter.
+  The arguments go to the shell, so TAB completion on a cat or dir line
+  inserts a name the shell would take apart -- one with a space or a ;
+  in it -- quoted, and a name holding a control byte is never completed.
   Metacommand: lowercase only.
   Example: cat SCORES.TXT
 ```

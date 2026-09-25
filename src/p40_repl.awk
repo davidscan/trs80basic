@@ -490,14 +490,19 @@ function st_sound(arg,   rest) {
 }
 
 # --- dir metacommand: shell passthrough for "ls -al" (below-grid output) ----
+# Its output is scrubbed as cat's is: a file NAME can hold an escape
+# sequence, which printed raw could redraw or erase part of the screen
+# (the 2026-09-23 audit, L-9).
 function st_dir(args,   cmd, outline, out, n) {
     if (WINNATIVE) cmd = "dir" (args == "" ? "" : " " args) " 2>&1"
-    else           cmd = "ls -al" (args == "" ? "" : " " args) " 2>&1"
+    else           cmd = "ls -al" (args == "" ? "" : " " args) " 2>&1 | LC_ALL=C tr -c '\\11\\12\\40-\\176' '.'"
     out = ""; n = 0
     # no cap: fullscreen streams to a scrolling terminal, and the grid's
     # below-grid region pages long output (PgUp/PgDn / Ctrl-B/F)
-    while ((cmd | getline outline) > 0)
+    while ((cmd | getline outline) > 0) {
+        if (WINNATIVE) gsub(/[^\t -~]/, ".", outline)   # best effort natively
         out = out (out != "" ? "\n" : "") outline
+    }
     close(cmd)
     t_man(out == "" ? "(no output)" : out)
 }

@@ -332,6 +332,28 @@ def completion(check):
               'the completed name is never run by the shell', out)
         b.send('\x15', 0.3)
         b.drain(0.2)
+        # the cat and dir passthroughs hand their line to sh, so a name
+        # completed into one is quoted for sh, and Enter runs cat on THAT
+        # file; a name holding a control byte is never completed, and dir
+        # shows the byte as a full stop, so the visible line is the line
+        # that runs (the 2026-09-23 audit, L-9)
+        open(os.path.join(d, 'zsemi;touch INJECTED;x'), 'w').close()
+        open(os.path.join(d, 'zesc\x1b[2Kfoo'), 'w').close()
+        b.send('cat zsem\t', 0.5)
+        out = b.drain(0.3)
+        check("cat 'zsemi;touch INJECTED;x'" in out, 'TAB quotes a unique match for cat', out)
+        b.send('\r', 0.6)
+        out = b.drain(0.3)
+        check('(no output)' in out and not os.path.exists(os.path.join(d, 'INJECTED')),
+              'Enter runs cat on the one quoted file, and nothing else', out)
+        b.send('cat zes\t', 0.5)
+        out = b.drain(0.3)
+        check('\x1b[2K' not in out and 'foo' not in out, 'a name holding a control byte is never completed', out)
+        b.send('\x15', 0.3)
+        b.drain(0.2)
+        b.send('dir\r', 0.6)
+        out = b.drain(0.3)
+        check('zesc.[2Kfoo' in out and '\x1b[2K' not in out, 'dir shows a control byte as a full stop', out)
         b.send('BYE\r', 0.5)
         b.drain(0.3, 2)
         b.close()
