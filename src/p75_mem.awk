@@ -17,13 +17,13 @@
 #     ELSE went without its hidden ":" -- and "?" was a third; pm_crunch
 #     follows the ROM's cruncher on all three now.
 #
-#  2. MEMORY SIZE? enforcement: a numeric answer at boot becomes HIMEM,
+#  2. MEM SIZE? enforcement: a numeric answer at boot becomes HIMEM,
 #     which is a FENCE, not the top of RAM.  Two quantities, and the
 #     distinction is the whole point of the prompt:
 #       RAMTOP  the machine's physical top (FFFFH for the 48K Model I this
 #               emulates).  Above it memory is ABSENT: PEEK reads 255,
 #               POKE is discarded.
-#       HIMEM   the MEMORY SIZE? answer, at or below RAMTOP.  The region
+#       HIMEM   the MEM SIZE? answer, at or below RAMTOP.  The region
 #               between them is PROTECTED RAM -- present, readable and
 #               writable, simply never allocated by string space
 #               (sp_materialize descends from HIMEM).  Reserving memory is
@@ -461,7 +461,7 @@ function pm_sysptr(a) {
 
 # 40B1H/40B2H is a WRITABLE pointer: lowering HIMEM with POKE 16561/16562
 # (then CLEAR) is the PROGRAMMATIC half of the reserve-then-load idiom, the
-# half that does not go through the MEMORY SIZE? prompt -- 91 corpus
+# half that does not go through the MEM SIZE? prompt -- 91 corpus
 # listings do it, e.g. wordsmth.bas reserving BF78H-BFFFH for a lowercase
 # driver.  Writes move the live fence; string space allocated afterwards
 # descends from the new value.  Existing VARPTR regions are left where they

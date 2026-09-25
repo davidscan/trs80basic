@@ -32,7 +32,7 @@ function parse_args(   i, a, nofl) {
             OPT_SEED = a + 0; SEEDED = 1
             continue
         }
-        # --memsize N: the answer to MEMORY SIZE?, for a run that has no
+        # --memsize N: the answer to MEM SIZE?, for a run that has no
         # prompt to answer.  Batch mode otherwise sees all 64K, and a period
         # program written on a 16K machine can depend on a smaller one: it
         # makes an address byte signed (IF H>127 THEN H=H-256) and POKEs it,
@@ -64,7 +64,7 @@ function usage(dest,   t) {
         "With no file, start the interactive READY prompt.\n" \
         "\n" \
         "  --seed N     seed RND for repeatable runs (RANDOM re-applies N)\n" \
-        "  --memsize N  answer MEMORY SIZE? with N (17280-65535); 32767 is a\n" \
+        "  --memsize N  answer MEM SIZE? with N (17280-65535); 32767 is a\n" \
         "               16K machine, for programs that only ran on one\n" \
         "  --screen     keep the TRS-80 screen/cursor control codes\n" \
         "               (output is plain text by default without a tty)\n" \

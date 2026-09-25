@@ -33,10 +33,10 @@ Level II never did. Everything else is intended to match the manuals.
 ./basic
 ```
 
-You get the authentic `MEMORY SIZE?` prompt (press ENTER — or answer with a
+You get the authentic `MEM SIZE?` prompt (press ENTER — or answer with a
 number, which becomes HIMEM, the ceiling BASIC allocates below; memory above
 it stays present for a machine-language routine to load into, see Part III),
-the `RADIO SHACK LEVEL II BASIC` banner, and `READY`. Exit with `BYE`, which restores your terminal; if the interpreter
+the `R/S L2 BASIC` banner, and `READY`. Exit with `BYE`, which restores your terminal; if the interpreter
 is ever killed abnormally, `stty sane` recovers the tty.
 
 The top 16 rows of your terminal are the simulated 64x16 display. Everything
@@ -457,7 +457,7 @@ because period programs poke at it:
   PEEK/POKEable at 16554–16556; `RANDOM` (and boot) rewrite only the middle
   byte, like the ROM's R-register read. `--seed N` (EXT) makes the whole
   sequence repeatable.
-- **`MEMORY SIZE?`** really works, and it *reserves* memory rather than
+- **`MEM SIZE?`** really works, and it *reserves* memory rather than
   removing it — exactly as on hardware. The answer becomes HIMEM, the
   ceiling string space allocates below (and what
   `PEEK(16561)+256*PEEK(16562)` reports). Memory **above** HIMEM stays
@@ -498,6 +498,11 @@ because period programs poke at it:
 ## Part IV — Fidelity: deviations and kept quirks
 
 ### Where this interpreter differs from the ROM
+
+The target is the Model I Level II ROM 1.3, the last revision (February
+1980): its `MEM SIZE?` and `R/S L2 BASIC` messages, `TAB` up to 127, and
+`PRINT @` anywhere in the list. The earlier revisions differ from it in
+those three places and in the cassette and keyboard routines.
 
 Honest list, stated as current behavior:
 
@@ -589,9 +594,11 @@ PRINT [items]   display values on the screen
              64-col line).  They are real spaces: they overwrite what
              was on the screen.  From column 48 on there is no zone
              left and the comma starts a new line instead
-    @n       print at screen position n (0-1023; row = INT(n/64),
-             col = n-64*INT(n/64))
-    TAB(n)   pad with spaces out to column n
+    @n,      print at screen position n (0-1023; row = INT(n/64),
+             col = n-64*INT(n/64)); a comma must follow.  It may stand
+             anywhere in the list, and more than once (ROM 1.3):
+             PRINT@64,"A";@128,"B";
+    TAB(n)   pad with spaces out to column n (n up to 127)
   Numbers carry their own spacing: a leading space for positive values
   (a '-' for negative) and always one trailing space.  So PRINT 1;2
   gives " 1  2 ", not "12".  A leading 0 is dropped: -0.5 prints as -.5.
@@ -1057,8 +1064,10 @@ LPRINT list   the same as PRINT, but to the printer
   That counter is PEEK(16539), and as on the machine it is BASIC's, not
   the printer driver's: it advances even while the printer vector
   (16422/16423) points at a RET or at the video driver, and CHR$(13),
-  CHR$(10) and CHR$(12) set it back to 0.  TAB(n) is taken modulo 64,
-  like PRINT's, and a comma past column 112 starts a new line.
+  CHR$(10) and CHR$(12) set it back to 0.  TAB(n) is taken modulo 128,
+  like PRINT's, and a comma past column 112 starts a new line.  An @
+  position in the list moves the video cursor, as on the machine, where
+  LPRINT and PRINT share one loop.
   The printer here is a host stream: set TRS80_PRINTER to a path and
   printed output is appended to that file.  With it unset there is no
   printer attached and the output is discarded, silently -- so nothing
@@ -1127,6 +1136,10 @@ TAB(n)   inside PRINT, pad with spaces out to column n
   already passed column n, TAB does nothing rather than starting a new
   line.  In 32-character mode (CHR$(23)) the columns are characters,
   0-31, as the ROM counts them, and so are the comma's zones.
+  n is taken modulo 128 (ROM 1.3; the earlier revisions used 64), and
+  the blanks are counted once: past the screen's right edge they run on
+  into the next line, so TAB(70) from column 0 lands at column 6 of the
+  line below.
   Valid only within a PRINT (or LPRINT) list, not as a statement.
   Compare PRINT@, which sets an absolute screen position including the
   row, while TAB works within the current line.

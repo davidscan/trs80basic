@@ -44,7 +44,7 @@ BEGIN {
     if (!parse_args()) { usage("/dev/stderr"); exit 2 }
     if (OPT_HELP) { usage(""); exit 0 }
     if (SEEDED) srand(OPT_SEED); else srand()
-    # MUST precede the MEMORY SIZE? prompt below: that bound reads RAMTOP,
+    # MUST precede the MEM SIZE? prompt below: that bound reads RAMTOP,
     # and an uninitialised RAMTOP would compare as "" in gawk, silently
     # rejecting every legal answer.  Keep both in this BEGIN block.
     init_tables()
@@ -61,7 +61,11 @@ BEGIN {
         exit RC
     }
     s_cls()
-    s_puts("MEMORY SIZE? "); sync_cursor()
+    # ROM 1.3's messages (0105H, 010EH: "MEM SIZE" and "R/S L2 BASIC",
+    # shortened from "MEMORY SIZE" and "RADIO SHACK LEVEL II BASIC" to make
+    # room for its keyboard debounce routine).  The target revision is 1.3,
+    # the last Model I ROM (February 1980), ruled 2026-09-25.
+    s_puts("MEM SIZE? "); sync_cursor()
     if (OPT_MEMSIZE) { BOOTMS = OPT_MEMSIZE ""; s_puts(BOOTMS) }   # --memsize answered it
     else BOOTMS = rl_read()
     # honored since 2026-08-14 (p75): a numeric answer becomes HIMEM -- the
@@ -74,7 +78,7 @@ BEGIN {
         HIMEM = BOOTMS + 0; SSP = HIMEM
     }
     s_nl()
-    s_puts("RADIO SHACK LEVEL II BASIC"); s_nl()
+    s_puts("R/S L2 BASIC"); s_nl()
     show_banner()
     repl()
     fio_closeall()                          # flush any open files on exit
@@ -214,7 +218,7 @@ function init_tables(   i, c, m, n) {
     RNDSEED = 0; rnd_setmid(int(rand() * 256))
     # memory model (p75): RAMTOP is the machine's PHYSICAL top -- a 48K
     # Model I, so FFFFH; above it memory is genuinely absent (255 on read,
-    # writes discarded).  HIMEM is the MEMORY SIZE? answer, at or below it.
+    # writes discarded).  HIMEM is the MEM SIZE? answer, at or below it.
     # Between HIMEM and RAMTOP is PROTECTED RAM: present, readable and
     # writable, simply never allocated by string space.  Also a stale flag
     # for the PEEKable tokenized program image, and the VARPTR string-space

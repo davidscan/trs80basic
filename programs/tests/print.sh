@@ -130,5 +130,17 @@ printf '10 CLS:PRINT CHR$(23);STRING$(30,"X");123456;\n20 A=PEEK(15422):B=PEEK(1
 out=$(run)
 case "$out" in *" 49  50  54  49  49  32 "*) ;; *) fail "the number fit is 40A6H against 409DH (64, never updated for 32 characters)" "$out" ;; esac
 
+# ROM 1.3 (the target revision, ruled 2026-09-25): the PRINT loop
+# re-examines the code string before every item (207CH), so an @ position
+# stands anywhere in the list and more than once, each followed by its
+# comma (Farvour's starred 206C-20A3); the revisions before 1.3 took @
+# only right after PRINT.  LPRINT shares the loop, so its @ moves the
+# video cursor.  TAB's argument is AND 7FH (213AH): TAB(70) from column
+# 10 prints 60 blanks, which run on to column 6 of the next line.
+printf '10 CLS:PRINT "A";@70,"B";@140,1;2;@200,"C";\n20 PRINT@320,PEEK(15360);PEEK(15430);PEEK(15501);PEEK(15560);PEEK(15431)\n30 CLS:PRINT "ABCDEFGHIJ";TAB(70);"X";:P=POS(0):PRINT@256,PEEK(15430);P\n40 CLS:LPRINT @9,"P";:PRINT POS(0);\n' > "$tmp"
+out=$(run); p=$(cat "$lp" 2>/dev/null)
+case "$out" in *" 65  66  49  67  32 "*" 88  7 "*" 9 "*) ;; *) fail "PRINT @ anywhere in the list, TAB past 63 (ROM 1.3)" "$out" ;; esac
+[ "$p" = "P" ] || fail "LPRINT @ printed its position" "$p"
+
 rm -f "$tmp" "$lp"
 echo "PRINT OK"

@@ -1,22 +1,29 @@
 # ===================== PRINT, INPUT, READ/DATA, DIM, POKE, graphics =========
 
-function st_print(   sep, ty, tx, v, tgt, col, t) {
+# PRINT @: the target ROM is 1.3 (ruled 2026-09-25), whose PRINT loop
+# re-examines the code string at 207CH before every item, so an @
+# position may stand anywhere in the list and more than once (Farvour's
+# starred bytes 206C-20A3; the revisions before 1.3 took it only right
+# after PRINT).  The expression is evaluated (208AH), a position past
+# 1023 is ?FC (208DH), the cursor address is set and 40A6H takes the byte
+# offset AND 3FH even in 32-character mode (2093H-209DH), and a comma
+# must follow (20A1H, RST 08H): PRINT @5;"X" and PRINT @5 "X" are ?SN.
+# Until 2026-09-24 a ";" or nothing passed (the 2026-09-23 audit, L-2).
+# LPRINT shares the loop: its @ moves the video cursor too.
+function pr_at(   v, tgt) {
+    CP++
+    v = e_or(); if (E) return
+    if (!isN(v)) { raise(13); return }
+    tgt = bfloor(num(v))
+    if (tgt < 0 || tgt > 1023) { raise(5); return }
+    CUR = tgt
+    VCOL = tgt % 64
+    if (TY[CK, CP] == "o" && TK[CK, CP] == ",") CP++
+    else raise(2)
+}
+
+function st_print(   sep, ty, tx, v, col, t) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "#") { CP++; st_print_file(); return }
-    if (TY[CK, CP] == "o" && TK[CK, CP] == "@") {
-        CP++
-        v = e_or(); if (E) return
-        if (!isN(v)) { raise(13); return }
-        tgt = bfloor(num(v))
-        if (tgt < 0 || tgt > 1023) { raise(5); return }
-        CUR = tgt
-        VCOL = tgt % 64                     # 2086H-2089H: the byte offset, even in 32-character mode
-        # ROM 208DH: RST 08H against "," -- the position is followed by a
-        # comma and nothing else; PRINT @5;"X" and PRINT @5 "X" are ?SN.
-        # Until 2026-09-24 a ";" or nothing passed (the 2026-09-23 audit, L-2).
-        if (TY[CK, CP] == "o" && TK[CK, CP] == ",") CP++
-        else { raise(2); return }
-    }
-    if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") { CP++; pr_using(); return }
     sep = 0
     for (;;) {
         ty = TY[CK, CP]
@@ -26,6 +33,7 @@ function st_print(   sep, ty, tx, v, tgt, col, t) {
         # a bare REM token is an item: the evaluator meets it and says ?SN,
         # as at 20B9H -> 2337H (the 2026-09-23 audit, L-10); ' is :REM
         if (ty == "i" && tx == "ELSE") break
+        if (ty == "o" && tx == "@") { pr_at(); if (E) return; sep = 0; continue }
         if (ty == "i" && tx == "USING") { CP++; pr_using(); return }
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
@@ -53,9 +61,10 @@ function st_print(   sep, ty, tx, v, tgt, col, t) {
             CP++
             t = bfloor(num(v))
             if (t < 0 || t > 255) { raise(5); return }
-            t = t % 64
+            t = t % 128                       # 213AH: AND 7FH in ROM 1.3 (3FH before it)
             # 2153H-2162H: the blanks are counted from 40A6H once, each
-            # one a character (two display bytes in 32-character mode)
+            # one a character (two display bytes in 32-character mode);
+            # past the screen's edge they run on into the next line
             col = VCOL
             while (col < t) { s_putc(32); col++ }
             # the TAB path rejoins at 20A0H, past the carriage return of
@@ -164,7 +173,6 @@ function lp_refuse() {
 }
 
 function st_lprint(   sep, ty, tx, v, t) {
-    if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") { CP++; lp_using(); return }
     sep = 0
     for (;;) {
         ty = TY[CK, CP]
@@ -172,6 +180,7 @@ function st_lprint(   sep, ty, tx, v, t) {
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
         if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
+        if (ty == "o" && tx == "@") { pr_at(); if (E) return; sep = 0; continue }
         if (ty == "i" && tx == "USING") { CP++; lp_using(); return }
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
@@ -193,7 +202,7 @@ function st_lprint(   sep, ty, tx, v, t) {
             CP++
             t = bfloor(num(v))
             if (t < 0 || t > 255) { raise(5); return }
-            t = t % 64                        # the ROM masks it, as PRINT's (213AH)
+            t = t % 128                       # the ROM masks it, as PRINT's (213AH: 7FH in 1.3)
             while (LPCOL < t) lp_puts(" ")
             sep = 1                           # no carriage return after a trailing TAB (M-3)
             continue

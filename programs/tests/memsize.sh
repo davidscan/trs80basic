@@ -1,5 +1,5 @@
 #!/bin/sh
-# memsize.sh -- --memsize N answers MEMORY SIZE? for a run with no prompt.
+# memsize.sh -- --memsize N answers MEM SIZE? for a run with no prompt.
 # Batch mode otherwise sees all 64K, and a program written on a 16K machine
 # can depend on a smaller one: it makes an address byte signed (IF H>127
 # THEN H=H-256) and POKEs it, which is ?FC -- on the machine too -- wherever
@@ -28,9 +28,9 @@ for v in 17279 65536 abc ""; do
     [ $rc -eq 2 ] || fail "--memsize '$v' was accepted (rc=$rc)" "$out"
 done
 
-# at the prompt the option answers MEMORY SIZE?, so the first piped line is a command
+# at the prompt the option answers MEM SIZE?, so the first piped line is a command
 out=$(printf 'PRINT PEEK(16561)+256*PEEK(16562)\n' | TRS80_DUMB=1 TRS80_Z80= "$here/basic" --memsize 30000 2>&1)
-case $out in *"MEMORY SIZE? 30000"*" 30000 "*) ;; *) fail "--memsize at the prompt" "$out" ;; esac
+case $out in *"MEM SIZE? 30000"*" 30000 "*) ;; *) fail "--memsize at the prompt" "$out" ;; esac
 
 rm -f "$tmp"
 echo "MEMSIZE OK"

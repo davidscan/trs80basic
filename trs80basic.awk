@@ -44,7 +44,7 @@ BEGIN {
     if (!parse_args()) { usage("/dev/stderr"); exit 2 }
     if (OPT_HELP) { usage(""); exit 0 }
     if (SEEDED) srand(OPT_SEED); else srand()
-    # MUST precede the MEMORY SIZE? prompt below: that bound reads RAMTOP,
+    # MUST precede the MEM SIZE? prompt below: that bound reads RAMTOP,
     # and an uninitialised RAMTOP would compare as "" in gawk, silently
     # rejecting every legal answer.  Keep both in this BEGIN block.
     init_tables()
@@ -61,7 +61,11 @@ BEGIN {
         exit RC
     }
     s_cls()
-    s_puts("MEMORY SIZE? "); sync_cursor()
+    # ROM 1.3's messages (0105H, 010EH: "MEM SIZE" and "R/S L2 BASIC",
+    # shortened from "MEMORY SIZE" and "RADIO SHACK LEVEL II BASIC" to make
+    # room for its keyboard debounce routine).  The target revision is 1.3,
+    # the last Model I ROM (February 1980), ruled 2026-09-25.
+    s_puts("MEM SIZE? "); sync_cursor()
     if (OPT_MEMSIZE) { BOOTMS = OPT_MEMSIZE ""; s_puts(BOOTMS) }   # --memsize answered it
     else BOOTMS = rl_read()
     # honored since 2026-08-14 (p75): a numeric answer becomes HIMEM -- the
@@ -74,7 +78,7 @@ BEGIN {
         HIMEM = BOOTMS + 0; SSP = HIMEM
     }
     s_nl()
-    s_puts("RADIO SHACK LEVEL II BASIC"); s_nl()
+    s_puts("R/S L2 BASIC"); s_nl()
     show_banner()
     repl()
     fio_closeall()                          # flush any open files on exit
@@ -214,7 +218,7 @@ function init_tables(   i, c, m, n) {
     RNDSEED = 0; rnd_setmid(int(rand() * 256))
     # memory model (p75): RAMTOP is the machine's PHYSICAL top -- a 48K
     # Model I, so FFFFH; above it memory is genuinely absent (255 on read,
-    # writes discarded).  HIMEM is the MEMORY SIZE? answer, at or below it.
+    # writes discarded).  HIMEM is the MEM SIZE? answer, at or below it.
     # Between HIMEM and RAMTOP is PROTECTED RAM: present, readable and
     # writable, simply never allocated by string space.  Also a stale flag
     # for the PEEKable tokenized program image, and the VARPTR string-space
@@ -747,7 +751,7 @@ function kb_init() {
     # `[ -t 0 ]` -- and /dev/tty opens for the readers below.  Testing
     # /dev/tty alone read the keyboard while a transcript sat unread on a
     # piped stdin, so `printf ... | gawk` and every transcript-fed suite
-    # stalled at MEMORY SIZE? whenever a terminal existed (the 2026-09-19
+    # stalled at MEM SIZE? whenever a terminal existed (the 2026-09-19
     # audit, M-22; ruled 2026-09-21).  `stty -g` with no redirect reads
     # gawk's stdin.
     TTYIN = (system("( stty -g && stty -g < /dev/tty ) > /dev/null 2>&1") == 0)
@@ -2747,7 +2751,7 @@ function parse_args(   i, a, nofl) {
             OPT_SEED = a + 0; SEEDED = 1
             continue
         }
-        # --memsize N: the answer to MEMORY SIZE?, for a run that has no
+        # --memsize N: the answer to MEM SIZE?, for a run that has no
         # prompt to answer.  Batch mode otherwise sees all 64K, and a period
         # program written on a 16K machine can depend on a smaller one: it
         # makes an address byte signed (IF H>127 THEN H=H-256) and POKEs it,
@@ -2779,7 +2783,7 @@ function usage(dest,   t) {
         "With no file, start the interactive READY prompt.\n" \
         "\n" \
         "  --seed N     seed RND for repeatable runs (RANDOM re-applies N)\n" \
-        "  --memsize N  answer MEMORY SIZE? with N (17280-65535); 32767 is a\n" \
+        "  --memsize N  answer MEM SIZE? with N (17280-65535); 32767 is a\n" \
         "               16K machine, for programs that only ran on one\n" \
         "  --screen     keep the TRS-80 screen/cursor control codes\n" \
         "               (output is plain text by default without a tty)\n" \
@@ -4339,13 +4343,13 @@ function st_resume(   p, ty, tx) {
 #     ELSE went without its hidden ":" -- and "?" was a third; pm_crunch
 #     follows the ROM's cruncher on all three now.
 #
-#  2. MEMORY SIZE? enforcement: a numeric answer at boot becomes HIMEM,
+#  2. MEM SIZE? enforcement: a numeric answer at boot becomes HIMEM,
 #     which is a FENCE, not the top of RAM.  Two quantities, and the
 #     distinction is the whole point of the prompt:
 #       RAMTOP  the machine's physical top (FFFFH for the 48K Model I this
 #               emulates).  Above it memory is ABSENT: PEEK reads 255,
 #               POKE is discarded.
-#       HIMEM   the MEMORY SIZE? answer, at or below RAMTOP.  The region
+#       HIMEM   the MEM SIZE? answer, at or below RAMTOP.  The region
 #               between them is PROTECTED RAM -- present, readable and
 #               writable, simply never allocated by string space
 #               (sp_materialize descends from HIMEM).  Reserving memory is
@@ -4783,7 +4787,7 @@ function pm_sysptr(a) {
 
 # 40B1H/40B2H is a WRITABLE pointer: lowering HIMEM with POKE 16561/16562
 # (then CLEAR) is the PROGRAMMATIC half of the reserve-then-load idiom, the
-# half that does not go through the MEMORY SIZE? prompt -- 91 corpus
+# half that does not go through the MEM SIZE? prompt -- 91 corpus
 # listings do it, e.g. wordsmth.bas reserving BF78H-BFFFH for a lowercase
 # driver.  Writes move the live fence; string space allocated afterwards
 # descends from the new value.  Existing VARPTR regions are left where they
@@ -5666,23 +5670,30 @@ function snd_msg(   s) {
 END { z80_stop() }
 # ===================== PRINT, INPUT, READ/DATA, DIM, POKE, graphics =========
 
-function st_print(   sep, ty, tx, v, tgt, col, t) {
+# PRINT @: the target ROM is 1.3 (ruled 2026-09-25), whose PRINT loop
+# re-examines the code string at 207CH before every item, so an @
+# position may stand anywhere in the list and more than once (Farvour's
+# starred bytes 206C-20A3; the revisions before 1.3 took it only right
+# after PRINT).  The expression is evaluated (208AH), a position past
+# 1023 is ?FC (208DH), the cursor address is set and 40A6H takes the byte
+# offset AND 3FH even in 32-character mode (2093H-209DH), and a comma
+# must follow (20A1H, RST 08H): PRINT @5;"X" and PRINT @5 "X" are ?SN.
+# Until 2026-09-24 a ";" or nothing passed (the 2026-09-23 audit, L-2).
+# LPRINT shares the loop: its @ moves the video cursor too.
+function pr_at(   v, tgt) {
+    CP++
+    v = e_or(); if (E) return
+    if (!isN(v)) { raise(13); return }
+    tgt = bfloor(num(v))
+    if (tgt < 0 || tgt > 1023) { raise(5); return }
+    CUR = tgt
+    VCOL = tgt % 64
+    if (TY[CK, CP] == "o" && TK[CK, CP] == ",") CP++
+    else raise(2)
+}
+
+function st_print(   sep, ty, tx, v, col, t) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "#") { CP++; st_print_file(); return }
-    if (TY[CK, CP] == "o" && TK[CK, CP] == "@") {
-        CP++
-        v = e_or(); if (E) return
-        if (!isN(v)) { raise(13); return }
-        tgt = bfloor(num(v))
-        if (tgt < 0 || tgt > 1023) { raise(5); return }
-        CUR = tgt
-        VCOL = tgt % 64                     # 2086H-2089H: the byte offset, even in 32-character mode
-        # ROM 208DH: RST 08H against "," -- the position is followed by a
-        # comma and nothing else; PRINT @5;"X" and PRINT @5 "X" are ?SN.
-        # Until 2026-09-24 a ";" or nothing passed (the 2026-09-23 audit, L-2).
-        if (TY[CK, CP] == "o" && TK[CK, CP] == ",") CP++
-        else { raise(2); return }
-    }
-    if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") { CP++; pr_using(); return }
     sep = 0
     for (;;) {
         ty = TY[CK, CP]
@@ -5692,6 +5703,7 @@ function st_print(   sep, ty, tx, v, tgt, col, t) {
         # a bare REM token is an item: the evaluator meets it and says ?SN,
         # as at 20B9H -> 2337H (the 2026-09-23 audit, L-10); ' is :REM
         if (ty == "i" && tx == "ELSE") break
+        if (ty == "o" && tx == "@") { pr_at(); if (E) return; sep = 0; continue }
         if (ty == "i" && tx == "USING") { CP++; pr_using(); return }
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
@@ -5719,9 +5731,10 @@ function st_print(   sep, ty, tx, v, tgt, col, t) {
             CP++
             t = bfloor(num(v))
             if (t < 0 || t > 255) { raise(5); return }
-            t = t % 64
+            t = t % 128                       # 213AH: AND 7FH in ROM 1.3 (3FH before it)
             # 2153H-2162H: the blanks are counted from 40A6H once, each
-            # one a character (two display bytes in 32-character mode)
+            # one a character (two display bytes in 32-character mode);
+            # past the screen's edge they run on into the next line
             col = VCOL
             while (col < t) { s_putc(32); col++ }
             # the TAB path rejoins at 20A0H, past the carriage return of
@@ -5830,7 +5843,6 @@ function lp_refuse() {
 }
 
 function st_lprint(   sep, ty, tx, v, t) {
-    if (TY[CK, CP] == "i" && TK[CK, CP] == "USING") { CP++; lp_using(); return }
     sep = 0
     for (;;) {
         ty = TY[CK, CP]
@@ -5838,6 +5850,7 @@ function st_lprint(   sep, ty, tx, v, t) {
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
         if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
+        if (ty == "o" && tx == "@") { pr_at(); if (E) return; sep = 0; continue }
         if (ty == "i" && tx == "USING") { CP++; lp_using(); return }
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
@@ -5859,7 +5872,7 @@ function st_lprint(   sep, ty, tx, v, t) {
             CP++
             t = bfloor(num(v))
             if (t < 0 || t > 255) { raise(5); return }
-            t = t % 64                        # the ROM masks it, as PRINT's (213AH)
+            t = t % 128                       # the ROM masks it, as PRINT's (213AH: 7FH in 1.3)
             while (LPCOL < t) lp_puts(" ")
             sep = 1                           # no carriage return after a trailing TAB (M-3)
             continue

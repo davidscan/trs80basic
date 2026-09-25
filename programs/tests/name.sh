@@ -12,7 +12,7 @@
 # Run from the repo root:  sh programs/tests/name.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
 fail() { echo "NAME FAILED: $1"; printf '%s\n' "$2"; exit 1; }
-repl() { TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep '^[A-Z?=0-9]' | grep -v '^READY\|^MEMORY\|^TRS-80\|^RADIO\|^man \|^"help' ; }
+repl() { TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep '^[A-Z?=0-9]' | grep -v '^READY\|^MEM SIZE\|^TRS-80\|^R/S L2\|^man \|^"help' ; }
 
 # the handler follows its line
 out=$(repl <<'EOF'

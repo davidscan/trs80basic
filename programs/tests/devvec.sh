@@ -41,10 +41,11 @@ printf '10 POKE 16422,88:POKE 16423,4:LPRINT "L2";:PRINT PEEK(16539);:LPRINT TAB
 out=$(run)
 [ "$out" = "L2 2     X" ] || fail "printer column routed to the screen" "$out" "$(lpget)"
 # the comma past column 112 skips to the next line (ROM 211B-212B), and
-# TAB is masked to 0-63 as PRINT's is (213AH): TAB(70) is TAB(6)
-printf '10 LPRINT STRING$(113,"-"),"Z"\n20 LPRINT "AB";TAB(70);"C"\n' > "$tmp"
+# TAB is masked to 0-127 as PRINT's is (213AH, ROM 1.3): TAB(70) is
+# column 70, and TAB(134) is TAB(6)
+printf '10 LPRINT STRING$(113,"-"),"Z"\n20 LPRINT "AB";TAB(70);"C"\n30 LPRINT "AB";TAB(134);"C"\n' > "$tmp"
 out=$(run); p=$(lpget)
-[ "$p" = "$(awk 'BEGIN { while (n++ < 113) printf "-"; print ""; print "Z"; print "AB    C" }')" ] || fail "LPRINT comma at 112 / TAB mask" "$out" "$p"
+[ "$p" = "$(awk 'BEGIN { while (n++ < 113) printf "-"; print ""; print "Z"; printf "AB"; while (m++ < 68) printf " "; print "C"; print "AB    C" }')" ] || fail "LPRINT comma at 112 / TAB mask" "$out" "$p"
 # a custom machine-language driver address leaves the default route
 printf '10 POKE 16422,23:POKE 16423,32:LPRINT "STILL PRINTER":POKE 16414,187:POKE 16415,64:PRINT "STILL SCREEN"\n' > "$tmp"
 out=$(run); p=$(lpget)

@@ -13,9 +13,10 @@
 130 A$="ABCDE"
 140 IF MID$(A$,2)<>"BCDE" OR MID$(A$,2,2)<>"BC" OR LEFT$(A$,9)<>A$ OR RIGHT$(A$,2)<>"DE" OR MID$(A$,9)<>"" THEN PRINT "FAIL: MID$/LEFT$/RIGHT$":F=1
 150 PRINT "AB";:P=POS(0):PRINT:IF P<>2 THEN PRINT "FAIL: POS AFTER AB IS";P:F=1
-160 REM TAB past 63 wraps: 213AH masks the column with 3FH in the listing
-170 REM followed (the revisions before 1.3, which changed it to 7FH)
-180 PRINT TAB(70);"X";:P=POS(0):PRINT:IF P<>7 THEN PRINT "FAIL: TAB(70) LANDED AT";P:F=1
+160 REM TAB up to 127: 213AH masks the argument with 7FH in ROM 1.3 (3FH before
+170 REM it); the blanks run on past the edge, so from column 10 TAB(70) lands at 6
+180 PRINT "ABCDEFGHIJ";TAB(70);"X";:P=POS(0):PRINT:IF P<>7 THEN PRINT "FAIL: TAB(70) LANDED AT";P:F=1
+185 PRINT TAB(130);"X";:P=POS(0):PRINT:IF P<>3 THEN PRINT "FAIL: TAB(130) LANDED AT";P:F=1
 190 A(10)=7:IF A(10)<>7 THEN PRINT "FAIL: AUTO-DIM 10":F=1
 200 REM --- the errors: ?FC (5) and ?BS (9) through the handler
 210 S=1:X=SQR(-1)
