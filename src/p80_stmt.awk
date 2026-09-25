@@ -716,7 +716,7 @@ function st_read_items(   name, key, x) {
         # ?SN in the DATA line, the pointer stays (225A-2260 -> 1991H)
         if (DBAD[DP] || (DQ[DP] && !strname(name))) {
             raise(2)
-            ERR_AT = DLINE[DP]; ERLV = DLINE[DP]
+            ERR_AT = DLINE[DP]; ERLV = DLINE[DP]; LASTLN = DLINE[DP]
             return
         }
         if (strname(name)) {
@@ -725,14 +725,16 @@ function st_read_items(   name, key, x) {
         } else {
             # the ROM's reader takes what it can (valnum, p90); anything
             # but blanks left over is ?SN in the DATA line (225A-2260 ->
-            # 1991H).  A bad % is ?SN from inside the reader (1997H), which
-            # names the READ's own line.
+            # 1991H, which makes the DATA line the current one, so the
+            # message, ERL and "." all name it: 19A2H-19A8H).  A bad % is
+            # ?SN from inside the reader (1997H), which names the READ's
+            # own line.
             x = DITEM[DP]
             sub(/^[ \t\n]+/, "", x)
             x = valnum(x, 0); if (E) return
             if (!numrest()) {
                 raise(2)
-                ERR_AT = DLINE[DP]; ERLV = DLINE[DP]
+                ERR_AT = DLINE[DP]; ERLV = DLINE[DP]; LASTLN = DLINE[DP]
                 return
             }
             assignv(name, key, "N" x)
