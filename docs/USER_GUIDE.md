@@ -556,7 +556,7 @@ Honest list, stated as current behavior:
 
 ### Quirks kept on purpose
 
-- `RND(1)` is always 1. `STEP 0` loops forever. `?EXTRA IGNORED`.
+- `RND(1)` is always 1. `?EXTRA IGNORED`.
   `PRINT USING` rounds half-up like the ROM, and the `^^^^` form fills
   every integer position with the exponent adjusted.
 - `INPUT` in immediate mode raises `?ID`.
@@ -782,7 +782,10 @@ STEP s   sets how much a FOR loop adds each time round
   the limit is then a floor rather than a ceiling: FOR I=10 TO 1 STEP -1.
   Fractional steps are allowed (STEP .5), though repeated addition of a
   fraction can drift, so do not rely on an exact final value.
-  A step of 0 never advances the variable and loops forever.
+  A step of 0 never advances the variable, and the loop ends only when
+  the variable EQUALS the limit (the machine tests the comparison
+  against the step's sign, which is 0): FOR I=5 TO 5 STEP 0 runs once,
+  FOR I=7 TO 5 STEP 0 runs forever.
   See: man FOR
   Example: FOR I=1 TO 10 STEP 2
   Example: FOR I=10 TO 1 STEP -1

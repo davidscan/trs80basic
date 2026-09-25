@@ -4037,7 +4037,7 @@ function st_next(   name, looped) {
 # current GOSUB recorded.
 function for_floor() { return (GSN > 0) ? GS_F[GSN] : 0 }
 
-function do_next(name,   j, v, fl) {
+function do_next(name,   j, v, fl, d) {
     fl = for_floor()
     if (FSN <= fl) { raise(1); return 0 }
     if (name == "") j = FSN
@@ -4053,7 +4053,14 @@ function do_next(name,   j, v, fl) {
     # FOR I%=32760 TO 32767 stops at the NEXT after 32767, as on the machine
     if (FS_I[j] && (v > 32767 || v < -32768)) { raise(6); return 0 }
     NV[FS_V[j]] = v
-    if (FS_S[j] >= 0 ? v <= FS_L[j] : v >= FS_L[j]) {
+    # the loop goes on unless the sign of (index - limit) is the STEP's
+    # sign: 2310H compares the new index with the limit, 2315H subtracts
+    # the sign flag FOR pushed (1D11H: +1 or -1 from 0955H/099EH, 0 for a
+    # zero step) and 2319H leaves on zero.  So a STEP 0 loop ends when the
+    # index EQUALS the limit: FOR I=5 TO 5 STEP 0 runs once and FOR I=7
+    # TO 5 STEP 0 never ends.  Until 2026-09-25 STEP 0 counted as positive.
+    d = v - FS_L[j]
+    if (((d > 0) - (d < 0)) != ((FS_S[j] > 0) - (FS_S[j] < 0))) {
         CK = FS_K[j]; CLI = FS_LI[j]; CP = FS_P[j]
         CLN = (CK == "I") ? DIRECTLN : CK + 0
         return 1
