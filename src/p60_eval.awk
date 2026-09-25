@@ -445,24 +445,25 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         for (i = 0; i < x; i++) r = r s
         return "S" r
     }
+    # LEFT$'s and RIGHT$'s count, MID$'s position and its count are bytes
+    # by the ROM's rule (2568H and 2AADH -> 2B1CH): rounded down, ?OV
+    # outside the integer range, then ?FC unless 0-255 (byteconv, p80).
+    # Until 2026-09-25 any count was taken, so LEFT$(A$,256) was A$.
     if (name == "LEFT$") {
-        s = strarg2(a1, na); x = intarg2(a2, na); if (E) return "N0"
-        if (x < 0) { raise(5); return "N0" }
+        s = strarg2(a1, na); x = bytearg2(a2, na); if (E) return "N0"
         return "S" substr(s, 1, x)
     }
     if (name == "RIGHT$") {
-        s = strarg2(a1, na); x = intarg2(a2, na); if (E) return "N0"
-        if (x < 0) { raise(5); return "N0" }
+        s = strarg2(a1, na); x = bytearg2(a2, na); if (E) return "N0"
         if (x > length(s)) x = length(s)
         return "S" (x == 0 ? "" : substr(s, length(s) - x + 1))
     }
     if (name == "MID$") {
-        s = strarg2(a1, na); x = intarg2(a2, na); if (E) return "N0"
-        if (x < 1) { raise(5); return "N0" }
+        s = strarg2(a1, na); x = bytearg2(a2, na); if (E) return "N0"
+        if (x < 1) { raise(5); return "N0" }              # 2AA1H
         if (na >= 3) {
             if (!isN(a3)) { raise(13); return "N0" }
-            i = bfloor(num(a3))
-            if (i < 0) { raise(5); return "N0" }
+            i = byteconv(num(a3)); if (E) return "N0"
             return "S" substr(s, x, i)
         }
         return "S" substr(s, x)
@@ -544,10 +545,10 @@ function strarg2(a, na) {
     if (isN(a)) { raise(13); return "" }
     return vstr(a)
 }
-function intarg2(a, na) {
+function bytearg2(a, na) {
     if (na < 2) { raise(2); return 0 }
     if (!isN(a)) { raise(13); return 0 }
-    return bfloor(num(a))
+    return byteconv(num(a))
 }
 
 # ---- USR call frame ---------------------------------------------------------
