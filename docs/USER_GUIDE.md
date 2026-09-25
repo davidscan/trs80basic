@@ -564,6 +564,10 @@ Honest list, stated as current behavior:
   source, VAL, DATA and INPUT.
 - Semigraphics POKE codes 192–255 draw as 128–191 (bit 6 ignored), while
   *printing* them space-compresses — both authentic, and both surprising.
+- The documented ROM bugs are followed where a program can see them in
+  its output or error codes. In 32-character mode a number that does not
+  fit is split at the right edge rather than moved to the next line: the
+  ROM measures the column against a line size it never updates from 64.
 
 ---
 
@@ -592,7 +596,10 @@ PRINT [items]   display values on the screen
   (a '-' for negative) and always one trailing space.  So PRINT 1;2
   gives " 1  2 ", not "12".  A leading 0 is dropped: -0.5 prints as -.5.
   A number is never split at the right edge: if it would not fit on the
-  line it starts the next one (a string simply wraps).
+  line it starts the next one (a string simply wraps).  Except in
+  32-character mode: the ROM measures the column against a line size it
+  never updates from 64, so there a number IS split -- a documented ROM
+  bug, kept.
   A trailing ; or , at the end of the line suppresses the newline, so the
   next PRINT continues on the same line; so does a trailing TAB(n), as
   on the machine.

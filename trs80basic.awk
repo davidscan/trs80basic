@@ -5734,14 +5734,15 @@ function st_print(   sep, ty, tx, v, tgt, col, t) {
         if (isN(v)) {
             # a number is never split across two lines: the ROM adds its
             # length (sign and digits, not the blank that follows) to the
-            # cursor's column and sends a carriage return first when that
-            # reaches the line size (20DD-20E6 -> 20FEH).  Strings wrap.
-            # This still measures the display byte: the ROM measures 40A6H
-            # against 409DH, which it never updates for 32 characters
-            # (trs-80.com ROM bug 1: a number is split there), and whether
-            # to carry that bug awaits the user's ruling (AUDIT.md, M-4).
+            # cursor's column (40A6H, VCOL) and sends a carriage return
+            # first when that reaches the line size in 409DH (20DD-20E6 ->
+            # 20FEH).  Strings wrap.  409DH is 64 and the ROM never updates
+            # it for 32 characters, where 40A6H counts characters (0-31):
+            # the test never fires there and a number IS split at the edge
+            # (trs-80.com ROM bug 1, present in every revision; kept, ruled
+            # 2026-09-25: the documented bugs are followed).
             t = fmtnum(num(v))
-            if (CUR % 64 + length(t) - 1 >= 64) s_nl()
+            if (VCOL + length(t) - 1 >= 64) s_nl()
             s_puts(t)
         }
         else s_puts(vstr(v))

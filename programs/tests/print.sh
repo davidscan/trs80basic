@@ -110,12 +110,25 @@ out=$(run)
 # cursor address, rotated right and masked to 0-31 in that mode
 # (032AH-0355H), while PRINT @ stores its byte offset AND 3FH as it is
 # (2086H-2089H).  The screen is read back through PEEK, two bytes per
-# character (M-4).  The number fit against 409DH is NOT in here: the ROM
-# never updates 409DH for 32 characters (trs-80.com ROM bug 1), and that
-# half waits on the bug-compatibility ruling.
+# character (M-4).
 printf '10 CLS:PRINT CHR$(23);"ABC";TAB(10);"X";:P=POS(0):PRINT\n20 PRINT "AB","C"\n30 PRINT @70,TAB(10);"Y"\n40 PRINT CHR$(28);PEEK(15380);PEEK(15456);PEEK(15438);P\n' > "$tmp"
 out=$(run)
 case "$out" in *" 88  67  89  11 "*) ;; *) fail "the 32-character column (TAB, comma, PRINT @ then TAB, POS)" "$out" ;; esac
+
+# the number fit (20DD-20E6): 40A6H plus the number's length (sign and
+# digits) against 409DH, a carriage return first when that reaches 64.
+# In 32-character mode 40A6H counts characters and 409DH stays 64 -- the
+# ROM never updates it -- so the test cannot fire and a number IS split
+# at the right edge (trs-80.com ROM bug 1, in every revision; followed,
+# ruled 2026-09-25).  Read back through PEEK: 123456 after 30 characters
+# has its 1 at byte 62, its 2 at byte 64 (the start of the next row) and
+# its 6 at byte 72.
+# Until 2026-09-25 the display byte was measured, so that number moved
+# to a line of its own.  In 64-character mode " 123" after 60 characters
+# is the last that does not fit (60 + 4 = 64) and " 12" the first that does.
+printf '10 CLS:PRINT CHR$(23);STRING$(30,"X");123456;\n20 A=PEEK(15422):B=PEEK(15424):C=PEEK(15432)\n30 PRINT CHR$(28);:CLS:PRINT STRING$(60,"X");123;\n40 D=PEEK(15425):CLS:PRINT STRING$(60,"X");12;\n50 E=PEEK(15421):F=PEEK(15424):CLS:PRINT A;B;C;D;E;F\n' > "$tmp"
+out=$(run)
+case "$out" in *" 49  50  54  49  49  32 "*) ;; *) fail "the number fit is 40A6H against 409DH (64, never updated for 32 characters)" "$out" ;; esac
 
 rm -f "$tmp" "$lp"
 echo "PRINT OK"
