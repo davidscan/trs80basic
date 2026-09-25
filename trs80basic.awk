@@ -2132,9 +2132,12 @@ function st_cload(   f, verify) {
 # Why it cannot break a period program: every listing that reaches SYSTEM
 # stopped with ?SN before; the corpus holds seven, all waiting for a tape
 # or a DOS that is not there.
-function st_system(   line, a) {
+function st_system(   line, a, s) {
     if (TY[CK, CP] == "s") {
-        diag_err("SYSTEM \"" TK[CK, CP] "\": a DOS command; no DOS is served here (?FC)")
+        # the program's own bytes go into the message: a control byte is a
+        # full stop, never raw to the terminal (the 2026-09-23 audit, L-8)
+        s = TK[CK, CP]; gsub(/[^ -~]/, ".", s)
+        diag_err("SYSTEM \"" s "\": a DOS command; no DOS is served here (?FC)")
         raise(5); return
     }
     if (!(TY[CK, CP] == "" || TY[CK, CP] == "e")) { raise(2); return }

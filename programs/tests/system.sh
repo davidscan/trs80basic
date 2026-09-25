@@ -36,6 +36,7 @@ b = bytearray(open('programs/tests/syshi.cas', 'rb').read()); b[270] ^= 1
 open('$bad.cas', 'wb').write(b)" 2>/dev/null || cp programs/tests/syshi.cas "$bad.cas"
 
 # ---- part 1: the loads, with the stub ----------------------------------------
+esc=$(printf '\033')
 TRS80_Z80= run <<EOF
 
 SYSTEM
@@ -48,6 +49,8 @@ programs/tests/sysrdy.cmd
 PRINT "B";PEEK(32256);PEEK(32257);PEEK(32263)
 SYSTEM "I"
 PRINT "PASSFC"
+SYSTEM "I${esc}[2KZ"
+PRINT "PASSESC"
 SYSTEM
 nosuchfile
 PRINT "PASSFD"
@@ -60,6 +63,11 @@ grep -q "A 33  0  60  201" "$tmp" || fail "the tape's bytes did not land at 7D00
 grep -q "B 62  9  26" "$tmp" || fail "the load module's bytes did not land at 7E00H" "$(cat "$tmp")"
 grep -q "?FC ERROR" "$tmp" || fail "SYSTEM \"I\" (a DOS command) must be ?FC" "$(cat "$tmp")"
 grep -q "^PASSFC" "$tmp" || fail "?FC did not let the next line run" "$(cat "$tmp")"
+# the ?FC message quotes the program's own bytes: a control byte in them is
+# shown as a full stop, never sent raw to the terminal (the 2026-09-23 audit, L-8)
+grep -q "^PASSESC" "$tmp" || fail "SYSTEM with an ESC byte in the string did not let the next line run" "$(cat "$tmp")"
+LC_ALL=C grep -q "$esc" "$tmp.err" && fail "a raw ESC byte from SYSTEM's string reached stderr" "$(LC_ALL=C od -c "$tmp.err" | head -20)"
+grep -q 'SYSTEM "I.\[2KZ"' "$tmp.err" || fail "the control byte in SYSTEM's string must show as a full stop" "$(cat "$tmp.err")"
 grep -q "?FD ERROR" "$tmp" || fail "a name that is not a file must be ?FD" "$(cat "$tmp")"
 grep -q "^PASSFD" "$tmp" || fail "?FD did not let the next line run" "$(cat "$tmp")"
 grep -q "^C$" "$tmp" || fail "a bad checksum must print C at the prompt" "$(cat "$tmp")"
