@@ -85,6 +85,9 @@ PRINT [#n,] USING f$; items   format items through picture f$
   older listings.
   The variable's type must match the value: assigning a number to a
   string name (or the reverse) raises ?TM.
+  A name is read as the machine reads it: a reserved word inside it ends
+  it (TOTAL is TO TAL, and ?SN), and blanks inside it are nothing (A B
+  is AB, A 1 is A1, A $ is A$).
   Example: LET X=5
   Example: X=5              (identical, and the usual form)
 

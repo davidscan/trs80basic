@@ -55,6 +55,22 @@ want '10 PRINT "TOTAL";:REM TOTAL
 20 DATA TOTAL:READ A$:PRINT A$' 'TOTALTOTAL|' 'a string, a REM and DATA are not crunched'
 want '10 X=1:X=X TO' '?SN ERROR IN 10|' 'a bare TO after a name'
 
+# a name is read through RST 10H after its first letter (261AH-2623H):
+# blanks inside are nothing, the suffix is found past them (2631H-2640H),
+# and a keyword after a blank ends it as the cruncher put a token there.
+# FIELD's AS: Disk BASIC looks for the letters AS before it reads the
+# name, so a name never joins onto AS (the one guard).
+want '10 A B=3:PRINT AB' ' 3 |' 'A B is AB'
+want '10 AB=4:PRINT A B' ' 4 |' 'PRINT A B is one item'
+want '10 A 1=5:PRINT A1;A 1' ' 5  5 |' 'A 1 is A1'
+want '10 S UM$="Q":PRINT SUM$' 'Q|' 'S UM$ is SUM$'
+want '10 A $="Q":PRINT A$' 'Q|' 'the $ is found past a blank'
+want '10 A TO=1' '?SN ERROR IN 10|' 'a keyword after the blank ends the name'
+want '10 DEF FN A B(X)=X*2:PRINT FNAB(2)' ' 4 |' 'FN A B is FNAB'
+rm -f "$tmp.r"
+want "10 OPEN \"R\",1,\"$tmp.r\":FIELD 1,4 AS A\$:LSET A\$=\"AB\":PRINT A\$:CLOSE" 'AB  |' 'FIELD 1,4 AS A$ keeps AS apart from A$'
+rm -f "$tmp.r"
+
 # M-2: a number is read through RST 10H
 want '10 A=1 2:PRINT A' ' 12 |' 'A=1 2 is 12'
 want '10 PRINT 12 34' ' 1234 |' 'PRINT 12 34 is 1234'

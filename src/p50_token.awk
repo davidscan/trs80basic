@@ -73,18 +73,20 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
                     i = j
                     continue
                 }
-                if (!(s == "FN" && substr(text, i, 1) ~ /[A-Za-z]/)) {
+                if (s == "FN") { j = i; while (substr(text, j, 1) ~ /^[ \t]$/) j++ }
+                if (!(s == "FN" && substr(text, j, 1) ~ /^[A-Za-z]$/)) {
                     k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0; TKW[key, k] = 1
                     continue
                 }
-                # FNAB: the name behind the FN token is carried in ONE
-                # identifier, FNAB, as before -- e_prim (p60) makes it a
-                # call only once a DEF has run for it, else a variable
-                # (three period listings use FN* names as arrays)
-                j = tk_name(text, up, i); s = "FN" substr(up, i, j - i); i = j
+                # FNAB: the name behind the FN token (read through RST 10H,
+                # so FN AB and FN A B as well) is carried in ONE identifier,
+                # FNAB, as before -- e_prim (p60) makes it a call only once
+                # a DEF has run for it, else a variable (three period
+                # listings use FN* names as arrays)
+                i = tk_name(text, up, j); s = "FN" TKNAME
             } else {
                 # a name: the letters and digits up to the next keyword
-                j = tk_name(text, up, i); s = substr(up, i, j - i); i = j
+                i = tk_name(text, up, i); s = TKNAME
             }
             if (substr(text, i, 1) == "$") { s = s "$"; i++ }
             # the type suffix is dropped from the name (G% is G) but kept
@@ -135,14 +137,27 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
     TCN[key] = k; TOKD[key] = 1
 }
 
-# the end of a name that begins at i: letters and digits, up to the first
-# letter where a keyword matches (ROM 1BF5-1C3C tries the table at every
-# letter and stores a digit without a try, 1BEC-1BF2)
-function tk_name(text, up, i,   c) {
-    for (i++; ; i++) {
-        c = substr(text, i, 1)
-        if (c !~ /^[A-Za-z0-9]$/) return i
-        if (c ~ /^[A-Za-z]$/ && kw_at(up, i) != "") return i
+# A name that begins at i, as the ROM's name reader takes it (260DH):
+# letters and digits, every one after the first fetched through RST 10H
+# (261AH, 2623H), which skips blanks and tabs (1D78-1D88) -- so A B is
+# AB, A 1 is A1, S UM is SUM -- and the type suffix is found past blanks
+# too (2631H-2640H: A $ is A$).  A keyword ends the name wherever it
+# begins, since the cruncher put a token there (1BF5-1C3C tries the table
+# at every letter and stores a digit without a try, 1BEC-1BF2).  ONE
+# GUARD: a name never joins onto AS, because Disk BASIC's FIELD looks for
+# the letters AS before it reads the variable (FIELD 1,4 AS A$), and
+# here the tokenizer runs first.  Until 2026-09-25 a blank ended a name
+# (ruled the same day: follow the ROM).
+# Sets TKNAME, the name in upper case with the blanks gone; returns the
+# index of the first character behind it that is not a blank.
+function tk_name(text, up, i,   c, j) {
+    TKNAME = substr(up, i, 1)
+    for (j = i + 1; ; j++) {
+        c = substr(text, j, 1)
+        if (c ~ /^[ \t]$/) { if (TKNAME == "AS") return j; continue }
+        if (c !~ /^[A-Za-z0-9]$/) return j
+        if (c ~ /^[A-Za-z]$/ && kw_at(up, j) != "") return j
+        TKNAME = TKNAME toupper(c)
     }
 }
 

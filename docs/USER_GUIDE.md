@@ -525,7 +525,10 @@ Honest list, stated as current behavior:
   still shows the names as typed. A reserved word inside a name ends the
   name with or without it, as on the machine: `TOTAL` is `TO TAL`, and a
   line reads as the ROM's cruncher reads it, so `IFA=1THEN100` and
-  `FORX=1TO10` run and `SCORE=5` is `?SN ERROR`.
+  `FORX=1TO10` run and `SCORE=5` is `?SN ERROR`. Blanks inside a name are
+  skipped as the ROM's name reader skips them: `A B` is `AB`, `A 1` is
+  `A1`. One guard: a name never joins onto `AS`, so `FIELD 1,4 AS A$`
+  reads as Disk BASIC reads it.
 - **`ext on` (EXT gate).** Three things that valid Level II rejects, or
   never does, are accepted only when switched on (`ext on` or
   `TRS80_EXT=1`): the bare `INPUT"PRESS ENTER";` pause idiom, `DIM` of
@@ -663,6 +666,9 @@ PRINT [#n,] USING f$; items   format items through picture f$
   older listings.
   The variable's type must match the value: assigning a number to a
   string name (or the reverse) raises ?TM.
+  A name is read as the machine reads it: a reserved word inside it ends
+  it (TOTAL is TO TAL, and ?SN), and blanks inside it are nothing (A B
+  is AB, A 1 is A1, A $ is A$).
   Example: LET X=5
   Example: X=5              (identical, and the usual form)
 ```

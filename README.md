@@ -304,8 +304,9 @@ before `--update`.
   `SCORE=5` to work; actually they are `?SN ERROR`, because the machine reads
   every letter against its keyword table and `TOTAL` is `TO TAL`, `SCORE` is
   `SC OR E`. The same rule is what makes `FORX=1TO10` and `IFA=1THEN100`
-  run. `detok.py -s` spaces a listing out for reading; the interpreter does
-  not need it.
+  run. Blanks inside a name are nothing, also as on the machine: `A B` is
+  the variable `AB`, and `PRINT A B` prints one value. `detok.py -s` spaces
+  a listing out for reading; the interpreter does not need it.
 - **Metacommands are lowercase.** `dir`, `man`, `help`, `fullscreen` are
   metacommands; `DIR` or `MAN` reach BASIC and give `?SN ERROR`. This keeps
   the two namespaces apart.
