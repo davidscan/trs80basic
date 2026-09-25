@@ -593,6 +593,9 @@ NAME [n[,[m][,i]]]   renumber the program (Disk BASIC)
   What CANNOT be fixed is a line number held in a variable or compared
   against ERL, since those are data rather than references; check any
   ERL test by hand after renumbering.
+  An ON ERROR GOTO already in force follows its line too.  The FOR and
+  GOSUB stacks are dropped and CONT is off, as after any change to the
+  program.
   ?FC if the new numbering would overlap existing lines or pass 65529.
   Example: NAME                 (renumber everything 10,20,30...)
   Example: NAME 100,,20         (from 100, in steps of 20)

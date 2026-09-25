@@ -846,6 +846,13 @@ function st_name(   n, m, i, j, cnt, ln, maxbelow, newn, map, newprog, wa, wn, w
     for (ln in newprog) prog[ln] = newprog[ln]
     rebuild()
     if (LASTLN in map) LASTLN = map[LASTLN]
+    # the live ON ERROR target follows its line as the reference in the
+    # text does (until 2026-09-25 it kept the old number, so the next
+    # trapped error ran whatever line had it, or was ?UL); the FOR and
+    # GOSUB stacks go, as with every change to the program (ROM 1B5DH):
+    # their frames name lines that are no longer there
+    if (EHANDLER in map) EHANDLER = map[EHANDLER]
+    FSN = 0; GSN = 0
     DATADIRTY = 1; CONTOK = 0
     if (NAMEWARN != "") {
         wn = split(NAMEWARN, wa, "\n")
