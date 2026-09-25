@@ -9,17 +9,18 @@ tmp=$(mktemp) || exit 2
 {
   # the checks run first (low line numbers); the bulk follows and is what
   # overflows: 1200 records of 57 bytes = 68,400 > the 48,407 that fit
-  printf '1 F=0:E=PEEK(16633)+256*PEEK(16634)\n'
+  # FNP: PEEK by a positive address (the period idiom: an address is the ROM's integer, negative above 32767)
+  printf '1 F=0:E=PEEK(16633)+256*PEEK(16634):DEF FNP(X)=PEEK(X+65536*(X>32767))\n'
   printf '2 IF E>65536 THEN PRINT "FAIL 40F9H above the address space";E:F=1\n'
   printf '3 A=17129:N=0:L=0\n'
-  printf '4 NX=PEEK(A)+256*PEEK(A+1):IF NX=0 THEN 7\n'
-  printf '5 N=N+1:L=PEEK(A+2)+256*PEEK(A+3):IF NX<=A OR NX>65535 THEN PRINT "FAIL bad link";A;NX:F=1:GOTO 7\n'
+  printf '4 NX=FNP(A)+256*FNP(A+1):IF NX=0 THEN 7\n'
+  printf '5 N=N+1:L=FNP(A+2)+256*FNP(A+3):IF NX<=A OR NX>65535 THEN PRINT "FAIL bad link";A;NX:F=1:GOTO 7\n'
   printf '6 A=NX:GOTO 4\n'
   printf '7 IF A+2<>E THEN PRINT "FAIL terminator not where 40F9H says";A;E:F=1\n'
   printf '8 IF N<10 OR N>=1207 THEN PRINT "FAIL line count";N:F=1\n'
   printf '9 IF L>=1200 THEN PRINT "FAIL last line kept";L:F=1\n'
-  printf '10 IF PEEK(65535)<>255 THEN PRINT "FAIL byte at RAMTOP";PEEK(65535):F=1\n'
-  printf '11 IF PEEK(E)<>255 THEN PRINT "FAIL byte past the end";PEEK(E):F=1\n'
+  printf '10 IF PEEK(-1)<>255 THEN PRINT "FAIL byte at RAMTOP";PEEK(-1):F=1\n'
+  printf '11 IF FNP(E)<>255 THEN PRINT "FAIL byte past the end";FNP(E):F=1\n'
   printf '12 IF A>65533 THEN PRINT "FAIL terminator crosses RAMTOP";A:F=1\n'
   printf '13 IF F THEN ERROR 1\n'
   printf '14 PRINT "LINES";N;"LAST";L;"END";E:END\n'

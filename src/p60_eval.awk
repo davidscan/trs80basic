@@ -352,10 +352,13 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "RND") {
         # authentic ROM sequence (rnd_next/sngl, p90): RND(0) = seed'/2^24,
         # RND(n) = INT(RND(0)*n + 1) with the multiply rounded to single
-        # precision.  RND(neg) = ?FC (the ROM does NOT reseed on negative).
+        # precision.  The argument goes through CINT first (14C9H -> 0A7FH:
+        # rounded down, ?OV outside -32768..32767, so RND(32768) is ?OV);
+        # then a negative one is ?FC at 14CEH (the ROM does NOT reseed on
+        # negative).  Until 2026-09-25 RND(32768) returned a number.
         x = numarg(a1, na); if (E) return "N0"
-        i = int(x)
-        if (x < 0) { raise(5); return "N0" }
+        i = to16(x); if (E) return "N0"
+        if (i < 0) { raise(5); return "N0" }
         x = rnd_next()
         if (i == 0) return "N" x
         return "N" (int(sngl(x * i)) + 1)
@@ -366,7 +369,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         return "N" x
     }
     if (name == "CSNG" || name == "CDBL") { x = numarg(a1, na); if (E) return "N0"; return "N" x }
-    if (name == "PEEK") { x = numarg(a1, na); if (E) return "N0"; return "N" dopeek(x) }
+    if (name == "PEEK") { x = numarg(a1, na); if (E) return "N0"; x = addrarg(x); if (E) return "N0"; return "N" dopeek(x) }
     # INP(p): read Z80 port p (0-255, else ?FC).  Until 2026-09-11 INP had no
     # body, so INP(255) fell through to the array path and died with ?BS --
     # 96 corpus listings.  Port FFH is the Model I cassette/video-mode port

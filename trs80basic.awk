@@ -3330,10 +3330,13 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "RND") {
         # authentic ROM sequence (rnd_next/sngl, p90): RND(0) = seed'/2^24,
         # RND(n) = INT(RND(0)*n + 1) with the multiply rounded to single
-        # precision.  RND(neg) = ?FC (the ROM does NOT reseed on negative).
+        # precision.  The argument goes through CINT first (14C9H -> 0A7FH:
+        # rounded down, ?OV outside -32768..32767, so RND(32768) is ?OV);
+        # then a negative one is ?FC at 14CEH (the ROM does NOT reseed on
+        # negative).  Until 2026-09-25 RND(32768) returned a number.
         x = numarg(a1, na); if (E) return "N0"
-        i = int(x)
-        if (x < 0) { raise(5); return "N0" }
+        i = to16(x); if (E) return "N0"
+        if (i < 0) { raise(5); return "N0" }
         x = rnd_next()
         if (i == 0) return "N" x
         return "N" (int(sngl(x * i)) + 1)
@@ -3344,7 +3347,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         return "N" x
     }
     if (name == "CSNG" || name == "CDBL") { x = numarg(a1, na); if (E) return "N0"; return "N" x }
-    if (name == "PEEK") { x = numarg(a1, na); if (E) return "N0"; return "N" dopeek(x) }
+    if (name == "PEEK") { x = numarg(a1, na); if (E) return "N0"; x = addrarg(x); if (E) return "N0"; return "N" dopeek(x) }
     # INP(p): read Z80 port p (0-255, else ?FC).  Until 2026-09-11 INP had no
     # body, so INP(255) fell through to the array path and died with ?BS --
     # 96 corpus listings.  Port FFH is the Model I cassette/video-mode port
@@ -3873,7 +3876,7 @@ function st_defusr_tail(baredigit, slot,   v, a) {
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    a = addrconv(num(v)); if (E) return          # ?FC outside -65535..65535, negatives wrap
+    a = addrarg(num(v)); if (E) return           # an integer: ?OV outside -32768..32767, a negative wraps (p80)
     USRDEF[(slot == "") ? 0 : slot + 0] = a
 }
 
@@ -6437,11 +6440,15 @@ function st_dim(   name, nd, i, v, sz) {
 }
 
 # ---- PEEK / POKE -----------------------------------------------------------
-# Negative addresses wrap (the Microsoft convention: POKE -1 is 65535).
-# NOTE the 65535 bound here is the SECOND place the machine size lives -- the
-# first is RAMTOP (p10 init_tables).  They agree today, which is why dopeek's
-# `a > RAMTOP` test is unreachable; if a 16K/32K machine is ever modelled,
-# both have to change together.
+# An address a PROGRAM gives is the ROM's integer: PEEK (2CAAH), POKE
+# (2CB1H -> 2B02H) and DEFUSR convert it through CINT at 0A7FH, so
+# outside -32768..32767 it is ?OV, and the top 32K is reached by its
+# negative number (POKE -1 is 65535, the period idiom IF D>32767 THEN
+# D=D-65536): addrarg below.  Until 2026-09-25 a positive 32768-65535 was
+# taken and a negative below -32768 wrapped again, so POKE -40000,7
+# stored at 25536 (the 2026-09-23 audit, M-11).  addrconv itself is the
+# plain 16-bit wrap, and stays so: the core, the USR frame and the string
+# space call it with positive addresses of their own.
 # A byte argument, the way the ROM takes one (2B1C-2B22: the value of
 # POKE, both arguments of OUT): convert to an integer, rounding down --
 # ?OV outside -32768..32767 -- then ?FC unless the high byte is zero.
@@ -6454,6 +6461,11 @@ function byteconv(x) {
     if (x < -32768 || x > 32767) { raise(6); return -1 }
     if (x < 0 || x > 255) { raise(5); return -1 }
     return x
+}
+
+function addrarg(x) {
+    x = to16(x); if (E) return -1           # rounds DOWN; ?OV outside the integer range (p90)
+    return addrconv(x)
 }
 
 function addrconv(x) {
@@ -6504,7 +6516,7 @@ function dopeek(x,   a) {
 function st_poke(   v, a, b) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    a = addrconv(num(v)); if (E) return
+    a = addrarg(num(v)); if (E) return
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
     v = e_or(); if (E) return

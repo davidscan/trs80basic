@@ -264,7 +264,7 @@ function st_defusr_tail(baredigit, slot,   v, a) {
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    a = addrconv(num(v)); if (E) return          # ?FC outside -65535..65535, negatives wrap
+    a = addrarg(num(v)); if (E) return           # an integer: ?OV outside -32768..32767, a negative wraps (p80)
     USRDEF[(slot == "") ? 0 : slot + 0] = a
 }
 

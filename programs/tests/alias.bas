@@ -3,7 +3,7 @@
 30 DIM Z(1):F=0
 40 REM --- read direction: alias onto video RAM and read the screen into the string
 50 POKE 15360,72:POKE 15361,69:POKE 15362,76:POKE 15363,76:POKE 15364,79
-60 A$="     ":V=VARPTR(A$):IF V<0 THEN V=V+65536:REM the ROM's integer is negative above 32767 (L-43)
+60 A$="     ":V=VARPTR(A$):REM the ROM's integer, negative above 32767 (L-43); PEEK and POKE take only that form (M-11)
 70 POKE V+1,0:POKE V+2,60
 80 IF A$<>"HELLO" THEN PRINT "FAIL read screen through alias: ";A$:F=1
 90 IF PEEK(V+1)<>0 OR PEEK(V+2)<>60 THEN PRINT "FAIL poked cells read back";PEEK(V+1);PEEK(V+2):F=1
@@ -28,12 +28,13 @@
 280 IF A$<>"NEW" THEN PRINT "FAIL assign after alias: ";A$:F=1
 290 IF PEEK(15360)<>32 OR PEEK(15364)<>66 THEN PRINT "FAIL assignment touched the screen":F=1
 300 D=PEEK(V+1)+256*PEEK(V+2):IF D=15360 THEN PRINT "FAIL cells still point at video":F=1
+305 D=D+65536*(D>32767):REM the period idiom: a composed address back to the integer
 310 IF PEEK(D)<>78 THEN PRINT "FAIL cells point at own data";D;PEEK(D):F=1
-320 V2=VARPTR(A$):IF V2<0 THEN V2=V2+65536
+320 V2=VARPTR(A$)
 322 IF V2<>V THEN PRINT "FAIL VARPTR moved":F=1
 330 REM --- indirect form and an array element, onto system RAM (4010H)
 340 POKE 16400,65:POKE 16401,66:POKE 16402,67
-350 DIM B$(2):B$(1)="..."+"":W=VARPTR(B$(1)):IF W<0 THEN W=W+65536
+350 DIM B$(2):B$(1)="..."+"":W=VARPTR(B$(1))
 360 L=16400-INT(16400/256)*256:H=INT(16400/256)
 370 POKE W+1,L:POKE W+2,H
 380 IF B$(1)<>"ABC" THEN PRINT "FAIL array element alias: ";B$(1):F=1
@@ -41,11 +42,10 @@
 400 LSET B$(1)="xyz"
 410 IF PEEK(16400)<>120 OR PEEK(16402)<>122 THEN PRINT "FAIL array element write-through":F=1
 420 REM --- poking the cells back to the own data clears the alias
-430 E=W-3:POKE W+1,E-INT(E/256)*256:POKE W+2,INT(E/256)
+430 E=W-3:E=E-65536*(E<0):POKE W+1,E-INT(E/256)*256:POKE W+2,INT(E/256)
 440 IF B$(1)<>"..." THEN PRINT "FAIL alias cleared by repoint: ";B$(1):F=1
 450 REM --- alias onto a packed string: contract rule 4 resolves it
-460 P$="PACKED":Q$="      ":PV=VARPTR(P$):QV=VARPTR(Q$):IF PV<0 THEN PV=PV+65536
-462 IF QV<0 THEN QV=QV+65536
+460 P$="PACKED":Q$="      ":PV=VARPTR(P$):QV=VARPTR(Q$)
 470 PD=PEEK(PV+1)+256*PEEK(PV+2)
 480 POKE QV+1,PD-INT(PD/256)*256:POKE QV+2,INT(PD/256)
 490 IF Q$<>"PACKED" THEN PRINT "FAIL alias onto packed string: ";Q$:F=1

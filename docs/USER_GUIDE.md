@@ -1027,6 +1027,8 @@ POKE addr,byte   store a single byte (0-255) into memory
   15360,191 lights a whole cell.
   Writing the screen this way is much faster than PRINT and is the usual
   period technique for animation.
+  addr is an integer, -32768..32767, else ?OV and nothing is stored:
+  the top 32K is addressed by its negative number (POKE -1,0 is 65535).
   A byte outside 0-255, or a missing value, is ?FC and nothing is
   stored -- POKE A,256 and POKE A,-1 alike, as on the machine.  A program
   that makes a high byte signed (IF H>127 THEN H=H-256) and then POKEs it
@@ -1592,12 +1594,15 @@ VARPTR(var)   address of a variable's storage
   (LET, READ, INPUT) moves the descriptor and ends the alias.
   Numeric: address of the value's 4 Microsoft-single bytes, also live.
   The address is the ROM's 16-bit integer, so above 32767 it is NEGATIVE
-  (65533 is -3), as on the machine; PEEK and POKE take it either way, and
-  USR needs it that way (its argument must be -32768..32767, else ?OV).
+  (65533 is -3), as on the machine; PEEK, POKE and USR all need it that
+  way (their argument must be -32768..32767, else ?OV).
   The period idiom for a data address: IF D>32767 THEN D=D-65536.
   Example: D=VARPTR(A$):M=PEEK(D+1)+256*PEEK(D+2):POKE M,191
 
 PEEK(addr)   read a memory byte (unset = 255)
+  addr is an integer, -32768..32767, else ?OV: the top 32K is addressed
+  by its negative number (PEEK(-1) is 65535; the period idiom is IF
+  D>32767 THEN D=D-65536), as on the machine.
   System variables are LIVE (and POKE moves them): 16416/16417 the cursor
   position (15360 + cell), 16418 the cursor character (POKE 16418,0
   hides the cursor), 16424 printer lines per page + 1, 16425 lines
@@ -2084,8 +2089,9 @@ RND(n)   a random number: n>0 gives an integer 1..n, RND(0) gives a
   fraction 0 <= r < 1
   Use RND(6) for a die and RND(0) when you need a proportion.  RND(1) is
   always exactly 1, since 1..1 has only one value -- a common surprise
-  when RND(1) was meant to be the fractional form.  A negative argument
-  is ?FC.
+  when RND(1) was meant to be the fractional form.  The argument is
+  taken as an integer (rounded down; past 32767 is ?OV), and a negative
+  one is ?FC.
   The sequence repeats identically on every run unless RANDOM is called
   first, which is ideal for testing and wrong for a game.
   This is the authentic ROM 24-bit generator; its seed sits at
