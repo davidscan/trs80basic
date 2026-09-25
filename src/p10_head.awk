@@ -189,7 +189,7 @@ function init_tables(   i, c, m, n) {
     # FFFFH (1A36), so a typed statement and a real line 0 are distinct
     DIRECTLN = 65535
     CLN = DIRECTLN
-    CUR = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
+    CUR = 0; VCOL = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
     FSN = 0; GSN = 0; CONTOK = 0; TRACE = 0
     EHANDLER = 0; INHANDLER = 0; ERRV = 0; ERLV = 0
     E = 0; RLCANCEL = 0; EOFQUIT = 0; PENDBRK = 0

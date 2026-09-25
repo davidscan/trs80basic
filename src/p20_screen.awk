@@ -235,7 +235,7 @@ function redraw_all(   r, c, s, p, g) {
 function s_cls(   i) {
     for (i = 0; i < 1024; i++) SCR[i] = 32
     delete CCOL
-    CUR = 0
+    CUR = 0; VCOL = 0                       # CLS goes through 033AH: 40A6H is 0 after it
     LATCH = 0                               # CLS returns to 64 chars per line: the ROM clears
     poke_byte(16445, and(MEM[16445], 247))  # bit 3 of its 403DH image (WIDE follows, p80) and writes the latch
     if (!DUMB) { printf "\033[H\033[2J"; t_sep() }
@@ -279,7 +279,7 @@ function s_nl(   i) {
     # so LF alone won't return the carriage -- emit CR+LF when streaming.
     if (DUMB) printf (TTYIN ? "\r\n" : "\n")
     CUR = int(CUR / 64) * 64 + 64
-    if (CUR > 1023) { s_scroll(); CUR = 960; return }   # the line scrolled in is blank
+    if (CUR > 1023) { s_scroll(); CUR = 960; vcol_sync(); return }   # the line scrolled in is blank
     # The ROM's carriage return does not just move down: it falls into the
     # erase-line loop and BLANKS the line it lands on (0564-058BH).  A
     # program that homes the cursor and reprints shorter lines -- the
@@ -288,10 +288,27 @@ function s_nl(   i) {
     # end of a line is not a CR and erases nothing: s_putc just steps on.)
     for (i = CUR; i < CUR + 64; i++)
         if (SCR[i] != 32 || (i in CCOL)) setcell(i, 32)
+    vcol_sync()
 }
 
 # output one byte with LEVEL II display-control semantics
-function s_putc(b,   n, r) {
+# VCOL is the ROM's 40A6H, the cursor column PRINT measures TAB, the comma
+# and POS by (2153H, 2127H, 27F5H).  032AH-0342H recompute it after EVERY
+# byte sent to the video driver, from the cursor address: in 32-character
+# mode (403DH bit 3, WIDE) the address is rotated right and masked to
+# 0-31, the CHARACTER column, not the display byte (0348H-0355H).  Two
+# places set it another way and do so themselves: PRINT @ stores its byte
+# offset AND 3FH (2086H-2089H, p80), and the keyboard input routine zeroes
+# it (0365H, p30 rl_read).  Until 2026-09-25 the column was the display
+# byte, so in 32-character mode TAB(10) landed at character 5 and POS(0)
+# read double (the 2026-09-23 audit, M-4).
+function vcol_sync() {
+    VCOL = WIDE ? int((CUR % 64) / 2) : CUR % 64
+}
+
+function s_putc(b) { s_putc_drv(b); vcol_sync() }
+
+function s_putc_drv(b,   n, r) {
     if (VIDTOLP) {                          # video vector -> the ROM printer driver (p80 dv_update)
         if (b == 13) lp_nl(); else if (b >= 32) lp_puts(CHR[b])
         return

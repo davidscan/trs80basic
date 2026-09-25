@@ -89,5 +89,33 @@ printf '10 CLS\n20 PRINT CHR$(28);"LINE A"\n30 PRINT "LONGER TEXT HERE"\n40 PRIN
 out=$(run | tail -1 | sed "s/.*\[/[/")
 [ "$out" = "[SHORT               ]" ] || fail "CHR\$(11) blanks the line it lands on" "$out"
 
+# a PRINT that ends in TAB(n) ends WITHOUT a carriage return, like one
+# that ends in ; or ,: the TAB path rejoins the loop at 20A0H, past the CR
+# call at 209DH (2164H-2166H).  LPRINT is the same routine (the 2026-09-23
+# audit, M-3).
+printf '10 PRINT "A";TAB(5)\n20 PRINT "B"\n30 PRINT TAB(3)\n40 PRINT "C"\n50 LPRINT "D";TAB(5)\n60 LPRINT "E"\n' > "$tmp"
+out=$(run); p=$(cat "$lp" 2>/dev/null)
+[ "$out" = "A    B
+   C" ] || fail "a trailing TAB printed a carriage return" "$out"
+[ "$p" = "D    E" ] || fail "a trailing TAB printed a carriage return on the printer" "$p"
+
+# a bare REM token in the item list is ?SN, as on the ROM, where the item
+# evaluator meets it (20B9H -> 2337H); PRINT# already had it (L-10)
+printf '10 ON ERROR GOTO 100:N=0\n20 S=1:PRINT REM X\n30 S=2:LPRINT REM X\n40 S=3:PRINT USING "#";REM X\n50 S=4:LPRINT USING "#";REM X\n60 PRINT "SN";N\n70 END\n100 IF ERR/2+1=2 THEN N=N+1 ELSE PRINT "STEP";S;"ERR";ERR/2+1\n110 RESUME NEXT\n' > "$tmp"
+out=$(run)
+[ "$out" = "SN 4 " ] || fail "a bare REM in a PRINT list must be ?SN" "$out"
+
+# in 32-character mode the column TAB, the comma and POS measure by is the
+# CHARACTER column: the ROM recomputes 40A6H after every byte from the
+# cursor address, rotated right and masked to 0-31 in that mode
+# (032AH-0355H), while PRINT @ stores its byte offset AND 3FH as it is
+# (2086H-2089H).  The screen is read back through PEEK, two bytes per
+# character (M-4).  The number fit against 409DH is NOT in here: the ROM
+# never updates 409DH for 32 characters (trs-80.com ROM bug 1), and that
+# half waits on the bug-compatibility ruling.
+printf '10 CLS:PRINT CHR$(23);"ABC";TAB(10);"X";:P=POS(0):PRINT\n20 PRINT "AB","C"\n30 PRINT @70,TAB(10);"Y"\n40 PRINT CHR$(28);PEEK(15380);PEEK(15456);PEEK(15438);P\n' > "$tmp"
+out=$(run)
+case "$out" in *" 88  67  89  11 "*) ;; *) fail "the 32-character column (TAB, comma, PRINT @ then TAB, POS)" "$out" ;; esac
+
 rm -f "$tmp" "$lp"
 echo "PRINT OK"

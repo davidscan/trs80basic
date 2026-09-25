@@ -9,6 +9,7 @@ function st_print(   sep, ty, tx, v, tgt, col, t) {
         tgt = bfloor(num(v))
         if (tgt < 0 || tgt > 1023) { raise(5); return }
         CUR = tgt
+        VCOL = tgt % 64                     # 2086H-2089H: the byte offset, even in 32-character mode
         # ROM 208DH: RST 08H against "," -- the position is followed by a
         # comma and nothing else; PRINT @5;"X" and PRINT @5 "X" are ?SN.
         # Until 2026-09-24 a ";" or nothing passed (the 2026-09-23 audit, L-2).
@@ -22,7 +23,9 @@ function st_print(   sep, ty, tx, v, tgt, col, t) {
         if (ty == "" || ty == "e") break
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
-        if (ty == "i" && (tx == "ELSE" || tx == "REM")) break
+        # a bare REM token is an item: the evaluator meets it and says ?SN,
+        # as at 20B9H -> 2337H (the 2026-09-23 audit, L-10); ' is :REM
+        if (ty == "i" && tx == "ELSE") break
         if (ty == "i" && tx == "USING") { CP++; pr_using(); return }
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
@@ -32,7 +35,9 @@ function st_print(   sep, ty, tx, v, tgt, col, t) {
             # the cursor: the gap overwrites what was there, reaches the
             # printer when video is routed to it, and is in the text stream.
             # From column 48 on there is no zone left: a carriage return.
-            col = CUR % 64
+            # The column is 40A6H (VCOL, p20): in 32-character mode the
+            # character column, so the zones are 16 characters there too.
+            col = VCOL
             if (col >= 48) s_nl()
             else for (t = 16 - (col % 16); t > 0; t--) s_putc(32)
             CP++
@@ -49,9 +54,14 @@ function st_print(   sep, ty, tx, v, tgt, col, t) {
             t = bfloor(num(v))
             if (t < 0 || t > 255) { raise(5); return }
             t = t % 64
-            col = CUR % 64
+            # 2153H-2162H: the blanks are counted from 40A6H once, each
+            # one a character (two display bytes in 32-character mode)
+            col = VCOL
             while (col < t) { s_putc(32); col++ }
-            sep = 0
+            # the TAB path rejoins at 20A0H, past the carriage return of
+            # 209DH (2164H-2166H): a list ending in TAB(n) ends without
+            # one, as after ; or , (the 2026-09-23 audit, M-3)
+            sep = 1
             continue
         }
         v = e_or(); if (E) return
@@ -60,6 +70,10 @@ function st_print(   sep, ty, tx, v, tgt, col, t) {
             # length (sign and digits, not the blank that follows) to the
             # cursor's column and sends a carriage return first when that
             # reaches the line size (20DD-20E6 -> 20FEH).  Strings wrap.
+            # This still measures the display byte: the ROM measures 40A6H
+            # against 409DH, which it never updates for 32 characters
+            # (trs-80.com ROM bug 1: a number is split there), and whether
+            # to carry that bug awaits the user's ruling (AUDIT.md, M-4).
             t = fmtnum(num(v))
             if (CUR % 64 + length(t) - 1 >= 64) s_nl()
             s_puts(t)
@@ -88,7 +102,7 @@ function pr_using(   sep, ty, tx, v, fmt) {
         if (ty == "" || ty == "e") break
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
-        if (ty == "i" && (tx == "ELSE" || tx == "REM")) break
+        if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
         if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
         v = e_or(); if (E) return
         PUV[++PUN] = v
@@ -156,7 +170,7 @@ function st_lprint(   sep, ty, tx, v, t) {
         if (ty == "" || ty == "e") break
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
-        if (ty == "i" && (tx == "ELSE" || tx == "REM")) break
+        if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
         if (ty == "i" && tx == "USING") { CP++; lp_using(); return }
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
@@ -180,7 +194,7 @@ function st_lprint(   sep, ty, tx, v, t) {
             if (t < 0 || t > 255) { raise(5); return }
             t = t % 64                        # the ROM masks it, as PRINT's (213AH)
             while (LPCOL < t) lp_puts(" ")
-            sep = 0
+            sep = 1                           # no carriage return after a trailing TAB (M-3)
             continue
         }
         v = e_or(); if (E) return
@@ -210,7 +224,7 @@ function lp_using(   sep, ty, tx, v, fmt) {
         if (ty == "" || ty == "e") break
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
-        if (ty == "i" && (tx == "ELSE" || tx == "REM")) break
+        if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
         if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
         v = e_or(); if (E) return
         PUV[++PUN] = v

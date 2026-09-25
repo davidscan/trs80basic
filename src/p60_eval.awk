@@ -162,6 +162,13 @@ function e_prim(   t, s, v, key) {
         # relationals and the arithmetic), so 5+NOT 0+1 is 5+(NOT 1).
         # It is never a variable named NOT.
         if (s == "NOT")    return e_not()
+        # a REM token where an operand is expected is ?SN, as at 2337H:
+        # PRINT A REM X used to print A and take the REM as the list's
+        # end, and here REM would read as a variable (the 2026-09-23
+        # audit, L-10).  ' is :REM, so a remark after a colon is untouched.
+        # The other statement keywords as operands are the keyword-
+        # crunching rule's business (M-2), not this line's.
+        if (s == "REM")    { raise(2); return "N0" }
         if (s == "ERR")    { CP++; return "N" ERRV }
         if (s == "ERL")    { CP++; return "N" ERLV }
         if (s == "MEM")    { CP++; return "N" 15572 }
@@ -398,7 +405,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         x = z80_usr(x); if (E) return "N0"        # the core (p77), or the stub
         return "N" x
     }
-    if (name == "POS") { x = numarg(a1, na); if (E) return "N0"; return "N" (CUR % 64) }
+    if (name == "POS") { x = numarg(a1, na); if (E) return "N0"; return "N" VCOL }   # 27F5H: 40A6H (p20)
     if (name == "FRE") { if (na < 1) { raise(2); return "N0" }; return "N" 15572 }
     if (name == "LEN") { s = strarg(a1, na); if (E) return "N0"; return "N" length(s) }
     if (name == "ASC") {

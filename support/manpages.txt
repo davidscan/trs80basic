@@ -33,7 +33,8 @@ PRINT [items]   display values on the screen
   A number is never split at the right edge: if it would not fit on the
   line it starts the next one (a string simply wraps).
   A trailing ; or , at the end of the line suppresses the newline, so the
-  next PRINT continues on the same line.
+  next PRINT continues on the same line; so does a trailing TAB(n), as
+  on the machine.
   The newline that ends a PRINT also BLANKS the screen line it moves to,
   as the ROM's carriage return does.  That is what lets a program home
   the cursor and reprint shorter lines without CLS -- and why a PRINT on
@@ -1069,6 +1070,7 @@ PEEK(addr)   read a memory byte (unset = 255)
 :POS
 POS(n)   the column the cursor is currently on, counting from 0
   The argument is required but ignored; POS(0) is the conventional form.
+  In 32-character mode it is the character column, 0-31.
   Useful for deciding whether the next item still fits on the line, and
   for lining columns up after items of unknown width.
   Example: PRINT "AB";POS(0)            -> AB 2
@@ -1332,7 +1334,8 @@ TAB(n)   inside PRINT, pad with spaces out to column n
   Columns count from 0, so TAB(10) leaves the next item starting at
   column 10.  It only ever moves the cursor FORWARD: if printing has
   already passed column n, TAB does nothing rather than starting a new
-  line.
+  line.  In 32-character mode (CHR$(23)) the columns are characters,
+  0-31, as the ROM counts them, and so are the comma's zones.
   Valid only within a PRINT (or LPRINT) list, not as a statement.
   Compare PRINT@, which sets an absolute screen position including the
   row, while TAB works within the current line.

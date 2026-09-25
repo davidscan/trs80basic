@@ -650,6 +650,7 @@ function kb_matrix(sel,   out, r) {
 # Ctrl-U erase line, left/right arrows, BS/DEL.  With repl=1 (the ">" prompt
 # only): up/down history, TAB filename completion, Ctrl-L = CLEAR key.
 function rl_read(repl,   c, r, s, oldl, oldp) {
+    VCOL = 0                                # 0365H: the input routine zeroes 40A6H (p20)
     RLCANCEL = 0
     RLWAIT = 1                              # a waiting read shows the cursor
     sync_cursor()
