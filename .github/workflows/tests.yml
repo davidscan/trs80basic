@@ -25,6 +25,10 @@ jobs:
       - name: Install gawk
         run: sudo apt-get update -q && sudo apt-get install -y -q gawk
       - name: Versions
-        run: gawk --version | head -1 && python3 --version && git -C trs80_z80_core log --oneline -1
+        run: |
+          gawk --version | head -1 && python3 --version && git -C trs80_z80_core log --oneline -1
+          # what this gawk says when the time extension loads (the launcher
+          # loads it only when this prints nothing; speed.sh loads it itself)
+          gawk -l time 'BEGIN { print "time extension: gettimeofday", gettimeofday() > 0 }' 2>&1 || true
       - name: Run the suite
         run: cd trs80basic && TRS80_REQUIRE_CORE=1 sh programs/tests/run_all.sh
