@@ -15,7 +15,7 @@ run() { ( cd "$tmp" && TRS80_Z80= perl -e 'alarm 20; exec @ARGV' "$here/basic" "
 # VAL: the limit itself passes, D exponents count, the sign does not matter
 cat > "$tmp/val.bas" <<'BAS'
 10 ON ERROR GOTO 100
-20 PRINT VAL("1E38");VAL("-1.5D38")
+20 PRINT VAL("1E38");VAL("-1.5D38"):REM the D exponent makes it a double, printed with D (2026-09-26, L-16)
 30 X=7:X=VAL("1E39")
 40 X=VAL("-1D39")
 50 X=VAL("1E400")
@@ -23,7 +23,7 @@ cat > "$tmp/val.bas" <<'BAS'
 100 PRINT "ERR";ERR/2+1;"IN";ERL:RESUME NEXT
 BAS
 out=$(run "$tmp/val.bas")
-want=" 1E+38 -1.5E+38 
+want=" 1E+38 -1.5D+38 
 ERR 6 IN 30 
 ERR 6 IN 40 
 ERR 6 IN 50 

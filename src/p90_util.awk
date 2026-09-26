@@ -43,16 +43,30 @@ function report_err(   c, msg) {
 }
 
 # LEVEL II-style number formatting: leading space or -, trailing space,
-# 6 significant digits, no leading zero on fractions, E notation for extremes.
-# (Deviation: exact integers are printed in full up to 15 digits.)
-# The sixth digit is rounded HALF UP on the magnitude: the ROM scales the
+# BY TYPE, since 2026-09-26 (L-16): an integer in full; a single to 6
+# significant digits, no leading zero on a fraction, E notation for the
+# extremes (so a single 1000000 is 1E+06, as on the machine); a double
+# to 16 significant digits with D as its exponent letter (the manual:
+# "stored with 17 digits but printed out with only 16"; Barden shows
+# 1.23456789D+18).  Until then every exact integer below 1e15 printed
+# in full, because values carried no type.
+# The last digit is rounded HALF UP on the magnitude: the ROM scales the
 # value to six integer digits, adds .5 and truncates (12EA-12F0).  sprintf
 # rounds an exact tie to even (100000.5 -> 100000, 1/512 -> .00195312), so
-# a seventh digit of 5 is rounded here, on the decimal digits.
-function fmtnum(x,   s, ax, t) {
+# a following digit of 5 is rounded here, on the decimal digits; the
+# double path does the same at its seventeenth.
+function fmtnum(x, ty,   s, ax, t) {
     ax = (x < 0) ? -x : x
-    if (x == int(x) && ax < 1e15) s = sprintf("%.0f", x)
-    else {
+    if (ty == "I") s = sprintf("%d", x)
+    else if (ty == "D") {
+        t = sprintf("%.16e", ax)                 # d.dddddddddddddddde+xx: 17 digits
+        if (substr(t, 18, 1) == "5")
+            x = (x < 0 ? -1 : 1) * (((substr(t, 1, 1) substr(t, 3, 15)) + 1) "e" (substr(t, 20) - 15))
+        s = sprintf("%.16g", x)
+        sub(/e/, "D", s)
+        sub(/^0\./, ".", s)
+        sub(/^-0\./, "-.", s)
+    } else {
         t = sprintf("%.16e", ax)                 # d.dddddddddddddddde+xx
         if (substr(t, 8, 1) == "5")
             x = (x < 0 ? -1 : 1) * (((substr(t, 1, 1) substr(t, 3, 5)) + 1) "e" (substr(t, 20) - 5))
@@ -83,8 +97,8 @@ function fmtnum(x,   s, ax, t) {
 #     a variable's precision is not tracked here, so they never do.
 # Lower-case e/d is kept as an exponent: the Model I keyboard had no
 # lower case to type, a terminal types nothing else.
-function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x) {
-    i = 1; m = ""; ex = ""; isint = !dp
+function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, sig, sx) {
+    i = 1; m = ""; ex = ""; isint = !dp; expd = 0; sx = ""
     c = substr(s, 1, 1)
     if (c == "-" || c == "+") { sg = c; i = 2 }
     for (;;) {
@@ -96,7 +110,7 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x) {
             dot = 1; isint = 0; m = m c; i++; continue
         }
         if (c ~ /^[EeDd]$/) {
-            i++
+            expd = (c ~ /^[Dd]$/); i++
             while (substr(s, i, 1) ~ /^[ \t\n]$/) i++
             c = substr(s, i, 1)
             if (c == "-" || c == "+") { exs = c; i++ }
@@ -110,11 +124,21 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x) {
         }
         if (c == "%") {
             if (!isint || m + 0 > 32767) { raise(2); return 0 }
-            i++
-        } else if (c == "#" || c == "!") i++
+            sx = "I"; i++
+        } else if (c == "#" || c == "!") { sx = (c == "#") ? "D" : "S"; i++ }
         break
     }
     NUMEND = i; NUMSTR = s
+    # VALTYPE: the type the reader gives the number (VAL returns it), by
+    # tk_number's rule (p50): I while there is no point or exponent and it
+    # fits 15 bits, D from the eighth significant digit or a D exponent
+    if (sx != "") VALTYPE = sx
+    else {
+        sig = m; sub(/\./, "", sig); sub(/^0+/, "", sig)
+        if (isint && !dot && ex == "" && !expd && m + 0 <= 32767 && m != "") VALTYPE = "I"
+        else if (expd || length(sig) > 7) VALTYPE = "D"
+        else VALTYPE = "S"
+    }
     if (m == "" || m == ".") m = "0"
     x = numconv(sg m "E" exs (ex == "" ? "0" : ex))
     return x

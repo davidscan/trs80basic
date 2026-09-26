@@ -123,6 +123,7 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
                 # more than 16 bits overflows -- a huge token makes eval
                 # raise ?OV exactly like an out-of-range decimal literal
                 TK[key, k] = (j > 65535) ? "1E99" : "" toS(j)
+                TSX[key, k] = (j > 65535) ? "S" : "I"    # an integer (16 bits); the overflow token is a single, ?OV at e_prim
                 continue
             }
         }
@@ -173,9 +174,9 @@ function tk_name(text, up, i,   c, j) {
 # ends: 1END is 1 then END, 100 ELSE 200 is two numbers.  valnum (p90) is
 # the same reader for VAL, READ and INPUT, over text no cruncher has seen.
 # Returns the index behind the number; TKNUM is its text in awk's form
-# (the blanks gone, D as E), TKSX its suffix.
-function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint) {
-    m = ""; ex = ""; exs = ""; dot = 0; hasexp = 0; isint = 1; TKSX = ""
+# (the blanks gone, D as E), TKSX its TYPE (I, S, D, or %SN).
+function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) {
+    m = ""; ex = ""; exs = ""; dot = 0; hasexp = 0; isint = 1; expd = 0; TKSX = ""
     for (;;) {
         while (substr(text, i, 1) ~ /^[ \t]$/) i++
         c = substr(text, i, 1)
@@ -185,7 +186,7 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint) {
             dot = 1; isint = 0; m = m c; i++; continue
         }
         if (c ~ /^[EeDd]$/ && kw_at(up, i) == "") {
-            hasexp = 1; isint = 0; i++
+            hasexp = 1; isint = 0; expd = (c ~ /^[Dd]$/); i++
             while (substr(text, i, 1) ~ /^[ \t]$/) i++
             c = substr(text, i, 1)
             if (c == "+" || c == "-") { exs = c; i++ }
@@ -200,6 +201,22 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint) {
         if (c == "%") { TKSX = (isint && m + 0 <= 32767) ? "%" : "%SN"; i++ }
         else if (c == "!" || c == "#") { TKSX = c; i++ }
         break
+    }
+    # The literal's TYPE, as the reader at 0E6CH decides it: % ! # force
+    # it (0E92H, 0E9CH, 0E97H); a D exponent makes it double (0EA1H); with
+    # no marker, an integer while it has no point or exponent and fits 15
+    # bits (0F4BH: past 2^15 it becomes a single), and a single until the
+    # EIGHTH significant digit, which makes it double (0F65H-0F74H: the
+    # value so far is compared with 1,000,000 before each digit is added).
+    # TSX carries it as I, S or D (or %SN, ?SN at e_prim).
+    if (TKSX == "%") TKSX = "I"
+    else if (TKSX == "!") TKSX = "S"
+    else if (TKSX == "#") TKSX = "D"
+    else if (TKSX == "") {
+        sig = m; sub(/\./, "", sig); sub(/^0+/, "", sig)
+        if (isint && m + 0 <= 32767) TKSX = "I"
+        else if (expd || length(sig) > 7) TKSX = "D"
+        else TKSX = "S"
     }
     TKNUM = m (hasexp ? "E" exs (ex == "" ? "0" : ex) : "")
     return i

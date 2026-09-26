@@ -614,12 +614,12 @@ function sp_sets(tgt, s,   key) {
 }
 function sp_getn(tgt,   key) {
     key = substr(tgt, 2)
-    if (substr(tgt, 1, 1) == "A") return (key in VA) ? substr(VA[key], 2) + 0 : 0
+    if (substr(tgt, 1, 1) == "A") return (key in VA) ? VA[key] + 0 : 0
     return NV[key] + 0
 }
 function sp_setn(tgt, x,   key) {
     key = substr(tgt, 2)
-    if (substr(tgt, 1, 1) == "A") VA[key] = "N" x
+    if (substr(tgt, 1, 1) == "A") VA[key] = x
     else NV[key] = x
 }
 
@@ -689,16 +689,16 @@ function sp_poke(a, b,   t, tgt, v, j) {
 # VARPTR(var) -- parse a variable REFERENCE (scalar or array element), not
 # an expression; called from e_prim
 function fn_varptr(   name, key, tgt) {
-    if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "N0" }
+    if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
     CP++
-    if (TY[CK, CP] != "i") { raise(2); return "N0" }
+    if (TY[CK, CP] != "i") { raise(2); return "NI0" }
     name = TK[CK, CP]; CP++
     key = ""
-    if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return "N0" }
-    if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return "N0" }
+    if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return "NI0" }
+    if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return "NI0" }
     CP++
     tgt = (key != "") ? "A" key : "V" name
-    key = sp_materialize(tgt, strname(name)); if (E) return "N0"
+    key = sp_materialize(tgt, strname(name)); if (E) return "NI0"
     # the ROM hands the address to 0A9AH as an INTEGER (24FAH), so above
     # 32767 VARPTR is negative: 65533 is -3, and V=VARPTR(A$):IF V<0 THEN
     # V=V+65536 is the period idiom (280 corpus lines).  PEEK and POKE take
@@ -706,7 +706,7 @@ function fn_varptr(   name, key, tgt) {
     # core's 0A7FH trap, which is the ROM's CINT and would ?OV the positive
     # form (the 2026-09-19 audit, L-43; ruled 2026-09-21).  Internal callers
     # keep sp_materialize's positive address.
-    return "N" (key > 32767 ? key - 65536 : key)
+    return "NI" (key > 32767 ? key - 65536 : key)
 }
 
 # ===================== the SYSTEM VARIABLE WINDOW ============================

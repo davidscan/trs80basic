@@ -284,7 +284,7 @@ function st_input_file(   n, nlv, name, key, i, x) {
             # the item is evaluated "by a routine just like the BASIC VAL
             # function" (Disk manual, INPUT#): A12 is 0, 5X is 5, never ?TM
             x = valnum(FIO_IT, 0); if (E) return   # ?OV: nothing stored
-            assignv(name, key, "N" x)
+            assignv(name, key, "NS" x)
         }
         if (E) return
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
@@ -400,7 +400,7 @@ function st_print_file(   n, s, sep, ty, tx, v, x) {
             continue
         }
         v = e_or(); if (E) return
-        s = s (isN(v) ? fmtnum(num(v)) : vstr(v))
+        s = s (isN(v) ? fmtnum(num(v), vtype(v)) : vstr(v))
         sep = 0
     }
     fio_pr_out(n, s, sep)

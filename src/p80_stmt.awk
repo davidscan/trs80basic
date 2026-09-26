@@ -84,7 +84,7 @@ function st_print(   sep, ty, tx, v, col, t) {
             # the test never fires there and a number IS split at the edge
             # (trs-80.com ROM bug 1, present in every revision; kept, ruled
             # 2026-09-25: the documented bugs are followed).
-            t = fmtnum(num(v))
+            t = fmtnum(num(v), vtype(v))
             if (VCOL + length(t) - 1 >= 64) s_nl()
             s_puts(t)
         }
@@ -211,7 +211,7 @@ function st_lprint(   sep, ty, tx, v, t) {
         if (isN(v)) {
             # the printer's twin of PRINT's rule, against 132 columns
             # (20D5-20DB: column + length >= 84H)
-            v = fmtnum(num(v))
+            v = fmtnum(num(v), vtype(v))
             if (LPCOL + length(v) - 1 >= 132) lp_nl()
             lp_puts(v)
         }
@@ -434,7 +434,7 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         w += 4
         id = PU_IP - ((PU_PLUS || PU_TS != "") ? 0 : 1)    # digits before the point
         nd = id + PU_DP                                     # significant digits
-        if (nd < 1) return pu_ovf(x)
+        if (nd < 1) return pu_ovf(x, vtype(v))
         if (ax == 0) { k = id; p = 0 }
         else {
             k = bfloor(log(ax) / log(10)) + 1               # digits in the integer part
@@ -452,7 +452,7 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         if (ist == "" && length(lead "0" body) <= w) ist = "0"
         core = lead ist body
     } else {
-        if (ax >= 1e16) return pu_ovf(x) pu_tsign(neg)
+        if (ax >= 1e16) return pu_ovf(x, vtype(v)) pu_tsign(neg)
         ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
         while (length(ds) < PU_DP + 1) ds = "0" ds
         ist = substr(ds, 1, length(ds) - PU_DP)
@@ -489,8 +489,8 @@ function pu_str(v, w,   s) {
 }
 
 # field overflow: % then the number as plain PRINT would show it
-function pu_ovf(x,   t) {
-    t = fmtnum(x)
+function pu_ovf(x, ty,   t) {
+    t = fmtnum(x, ty)
     gsub(/^ +| +$/, "", t)
     return "%" t
 }
@@ -584,7 +584,7 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
                     sub(/^[ \t\n]+/, "", x)
                     x = valnum(x, 0); if (E) return   # ?OV, or ?SN for a bad %: not ?REDO
                     if (!numrest()) { ok = 0; break }
-                    assignv(name, key, "N" x)
+                    assignv(name, key, "NS" x)
                 }
                 # a store that fails (?OV into an integer, 1F33H -> 0A7FH)
                 # ends the INPUT: the items behind it are not assigned
@@ -749,7 +749,7 @@ function st_read_items(   name, key, x) {
                 ERR_AT = DLINE[DP]; ERLV = DLINE[DP]; LASTLN = DLINE[DP]
                 return
             }
-            assignv(name, key, "N" x)
+            assignv(name, key, "NS" x)
         }
         if (E) return                       # ?OV at the store: nothing stored
         DP++

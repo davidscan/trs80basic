@@ -336,6 +336,19 @@ function lvname(   s) {
     return s
 }
 
+# The type a NAME gives a value read or stored: the suffix at the
+# reference (% I, ! S, # D), else the DEF table's letter (2 I, 8 D), else
+# single -- as the ROM's variable lookup types it.  % ! # are not part of
+# the name here (G% is G, the 2026-08 ruling), so the reference decides.
+function ntype(name, sx,   l, c) {
+    if (sx == "%") return "I"
+    if (sx == "#") return "D"
+    if (sx == "!") return "S"
+    l = substr(name, 1, 1)
+    if (l in DEFT) { c = DEFT[l]; return (c == 2) ? "I" : (c == 8) ? "D" : "S" }   # membership first
+    return "S"
+}
+
 function intvar(name, sx) {
     if (name ~ /\$$/ || sx == "!" || sx == "#") return 0
     return sx == "%" || DEFI[substr(name, 1, 1)]
@@ -377,7 +390,7 @@ function assignv(name, key, v,   isint, tgt, n) {
         if (!isN(v)) { raise(13); return }
         v = isint ? intstore(num(v)) : num(v)
         if (E) return
-        if (key != "") VA[key] = "N" v; else NV[name] = v
+        if (key != "") VA[key] = v; else NV[name] = v   # raw: the type is the name's (ntype)
     }
 }
 

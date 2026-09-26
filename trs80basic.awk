@@ -3016,6 +3016,7 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
                 # more than 16 bits overflows -- a huge token makes eval
                 # raise ?OV exactly like an out-of-range decimal literal
                 TK[key, k] = (j > 65535) ? "1E99" : "" toS(j)
+                TSX[key, k] = (j > 65535) ? "S" : "I"    # an integer (16 bits); the overflow token is a single, ?OV at e_prim
                 continue
             }
         }
@@ -3066,9 +3067,9 @@ function tk_name(text, up, i,   c, j) {
 # ends: 1END is 1 then END, 100 ELSE 200 is two numbers.  valnum (p90) is
 # the same reader for VAL, READ and INPUT, over text no cruncher has seen.
 # Returns the index behind the number; TKNUM is its text in awk's form
-# (the blanks gone, D as E), TKSX its suffix.
-function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint) {
-    m = ""; ex = ""; exs = ""; dot = 0; hasexp = 0; isint = 1; TKSX = ""
+# (the blanks gone, D as E), TKSX its TYPE (I, S, D, or %SN).
+function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) {
+    m = ""; ex = ""; exs = ""; dot = 0; hasexp = 0; isint = 1; expd = 0; TKSX = ""
     for (;;) {
         while (substr(text, i, 1) ~ /^[ \t]$/) i++
         c = substr(text, i, 1)
@@ -3078,7 +3079,7 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint) {
             dot = 1; isint = 0; m = m c; i++; continue
         }
         if (c ~ /^[EeDd]$/ && kw_at(up, i) == "") {
-            hasexp = 1; isint = 0; i++
+            hasexp = 1; isint = 0; expd = (c ~ /^[Dd]$/); i++
             while (substr(text, i, 1) ~ /^[ \t]$/) i++
             c = substr(text, i, 1)
             if (c == "+" || c == "-") { exs = c; i++ }
@@ -3093,6 +3094,22 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint) {
         if (c == "%") { TKSX = (isint && m + 0 <= 32767) ? "%" : "%SN"; i++ }
         else if (c == "!" || c == "#") { TKSX = c; i++ }
         break
+    }
+    # The literal's TYPE, as the reader at 0E6CH decides it: % ! # force
+    # it (0E92H, 0E9CH, 0E97H); a D exponent makes it double (0EA1H); with
+    # no marker, an integer while it has no point or exponent and fits 15
+    # bits (0F4BH: past 2^15 it becomes a single), and a single until the
+    # EIGHTH significant digit, which makes it double (0F65H-0F74H: the
+    # value so far is compared with 1,000,000 before each digit is added).
+    # TSX carries it as I, S or D (or %SN, ?SN at e_prim).
+    if (TKSX == "%") TKSX = "I"
+    else if (TKSX == "!") TKSX = "S"
+    else if (TKSX == "#") TKSX = "D"
+    else if (TKSX == "") {
+        sig = m; sub(/\./, "", sig); sub(/^0+/, "", sig)
+        if (isint && m + 0 <= 32767) TKSX = "I"
+        else if (expd || length(sig) > 7) TKSX = "D"
+        else TKSX = "S"
     }
     TKNUM = m (hasexp ? "E" exs (ex == "" ? "0" : ex) : "")
     return i
@@ -3125,10 +3142,23 @@ function inval_cache_key(k,   i) {
     }
 }
 # ===================== expression evaluator =================================
-# Values: "N<number>" or "S<string>".  Precedence (LEVEL II):
+# Values: "N<t><number>" or "S<string>", where t is the number's TYPE as
+# the ROM holds it: I integer (16 bits), S single (24-bit mantissa), D
+# double (56 bits; IEEE's 53 here, ruled 2026-09-26).  Since 2026-09-26
+# (the 2026-09-23 audit, M-15 and L-16: printing and arithmetic go by
+# type).  A literal is typed by the ROM's reader (tk_number, p50); a
+# variable by its NAME at the reference (ntype, p70: the suffix, else the
+# DEF table, else single); an operation by the wider operand, I < S < D
+# (ptype), except that / and ^ are never integer.  NV[] and VA[] hold raw
+# numbers: the type is the name's.  Precedence (LEVEL II):
 #   ^  unary-  * /  + -  relational  NOT  AND  OR
 
-function num(v) { return substr(v, 2) + 0 }
+function num(v) { return substr(v, 3) + 0 }
+function vtype(v) { return substr(v, 2, 1) }
+function ptype(a, b,   ta, tb) {
+    ta = substr(a, 2, 1); tb = substr(b, 2, 1)
+    return (ta == "D" || tb == "D") ? "D" : (ta == "S" || tb == "S") ? "S" : "I"
+}
 function vstr(v) { return substr(v, 2) }
 function isN(v) { return substr(v, 1, 1) == "N" }
 
@@ -3136,7 +3166,7 @@ function e_or(   v, r) {
     v = e_and()
     while (!E && TY[CK, CP] == "i" && TK[CK, CP] == "OR") {
         CP++; r = e_and(); if (E) return v
-        v = "N" bor16(v, r)
+        v = "NI" bor16(v, r)
     }
     return v
 }
@@ -3145,7 +3175,7 @@ function e_and(   v, r) {
     v = e_not()
     while (!E && TY[CK, CP] == "i" && TK[CK, CP] == "AND") {
         CP++; r = e_not(); if (E) return v
-        v = "N" band16(v, r)
+        v = "NI" band16(v, r)
     }
     return v
 }
@@ -3155,7 +3185,7 @@ function e_not(   v) {
         CP++
         v = e_not(); if (E) return v
         if (!isN(v)) { raise(13); return v }
-        return "N" (-(to16(num(v)) + 1))
+        return "NI" (-(to16(num(v)) + 1))
     }
     return e_rel()
 }
@@ -3175,7 +3205,7 @@ function e_rel(   v, r, op, a, b, c) {
         else if (op == "<=") c = (a <= b)
         else if (op == ">=") c = (a >= b)
         else c = (a != b)
-        v = "N" (c ? -1 : 0)
+        v = "NI" (c ? -1 : 0)
     }
     return v
 }
@@ -3202,12 +3232,12 @@ function e_add(   v, r, op, x) {
             x = num(v) - num(r)
         }
         if (x >= FMAX || x <= -FMAX) { raise(6); return v }
-        v = "N" x
+        v = "N" ptype(v, r) x
     }
     return v
 }
 
-function e_mul(   v, r, op, x, d) {
+function e_mul(   v, r, op, x, d, t) {
     v = e_un()
     while (!E && TY[CK, CP] == "o" && (TK[CK, CP] == "*" || TK[CK, CP] == "/")) {
         op = TK[CK, CP]; CP++
@@ -3220,7 +3250,9 @@ function e_mul(   v, r, op, x, d) {
             x = num(v) / d
         }
         if (x >= FMAX || x <= -FMAX) { raise(6); return v }
-        v = "N" x
+        t = ptype(v, r)
+        if (op == "/" && t == "I") t = "S"      # division is never integer: both are converted to single (0BD2H's family)
+        v = "N" t x
     }
     return v
 }
@@ -3230,7 +3262,7 @@ function e_un(   v) {
         CP++
         v = e_un(); if (E) return v
         if (!isN(v)) { raise(13); return v }
-        return "N" (-num(v))
+        return "N" vtype(v) (-num(v))
     }
     if (TY[CK, CP] == "o" && TK[CK, CP] == "+") { CP++; return e_un() }
     return e_pow()
@@ -3247,7 +3279,7 @@ function e_pow(   v, r, a, b, x) {
         if (a == 0 && b < 0) { raise(11); return v }
         x = a ^ b
         if (x >= FMAX || x <= -FMAX) { raise(6); return v }
-        v = "N" x
+        v = "NS" x                              # ^ works in single (13F2H converts an integer base); the double case is VERIFIED in the function-types commit
     }
     return v
 }
@@ -3265,15 +3297,15 @@ function e_powrhs(   v) {
     return e_prim()
 }
 
-function e_prim(   t, s, v, key) {
+function e_prim(   t, s, v, key, sx) {
     t = TY[CK, CP]
     if (t == "n") {
         # 1.5% and 32768%: % is taken only behind an integer (tk_number,
         # p50; ROM 0EEE-0EEF, JP P,1997H)
-        if (TSX[CK, CP] == "%SN") { raise(2); return "N0" }
-        s = TK[CK, CP] + 0; CP++
-        if (s >= FMAX || s <= -FMAX) { raise(6); return "N0" }   # 1.70142E38, 1E39 (p10 FMAX)
-        return "N" s
+        if (TSX[CK, CP] == "%SN") { raise(2); return "NI0" }
+        s = TK[CK, CP] + 0; t = TSX[CK, CP]; CP++    # t: the literal's type, as 0E6CH read it (tk_number)
+        if (s >= FMAX || s <= -FMAX) { raise(6); return "NI0" }   # 1.70142E38, 1E39 (p10 FMAX)
+        return "N" t s
     }
     if (t == "s") { v = "S" TK[CK, CP]; CP++; return v }
     if (t == "o" && TK[CK, CP] == "(") {
@@ -3297,10 +3329,10 @@ function e_prim(   t, s, v, key) {
         # audit, L-10).  ' is :REM, so a remark after a colon is untouched.
         # The other statement keywords as operands are the keyword-
         # crunching rule's business (M-2), not this line's.
-        if (s == "REM")    { raise(2); return "N0" }
-        if (s == "ERR")    { CP++; return "N" ERRV }
-        if (s == "ERL")    { CP++; return "N" ERLV }
-        if (s == "MEM")    { CP++; return "N" mem_free() }           # 27C9H (p75)
+        if (s == "REM")    { raise(2); return "NI0" }
+        if (s == "ERR")    { CP++; return "NI" ERRV }
+        if (s == "ERL")    { CP++; return "NI" ERLV }
+        if (s == "MEM")    { CP++; return "NI" mem_free() }           # 27C9H (p75)
         if (s == "TIME$")  { CP++; return "S" strftime("%m/%d/%y %H:%M:%S") }
         if (s == "INKEY$") { CP++; return fn_inkey() }
         # USR: ML stub, never a variable.  When the spelling carries no
@@ -3335,19 +3367,19 @@ function e_prim(   t, s, v, key) {
         # keyword, since the tokenizer takes the keyword out of the name
         # (TOTAL is TO TAL, p50).  It read as a variable of that name
         # before 2026-09-25 (the L-10 remainder).
-        if (TKW[CK, CP]) { raise(2); return "N0" }
-        CP++
+        if (TKW[CK, CP]) { raise(2); return "NI0" }
+        sx = TSX[CK, CP]; CP++                    # the name's suffix types the value read (ntype, p70)
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
-            key = aref(s); if (E) return "N0"
+            key = aref(s); if (E) return "NI0"
             if (ALN && (("A" key) in ALIAS)) return "S" al_read("A" key)   # finding 7 (p75)
-            if (key in VA) return VA[key]
-            return strname(s) ? "S" : "N0"
+            if (strname(s)) return (key in VA) ? VA[key] : "S"
+            return "N" ntype(s, sx) ((key in VA) ? VA[key] : 0)
         }
         if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : SV[s])
-        return "N" (NV[s] + 0)
+        return "N" ntype(s, sx) (NV[s] + 0)
     }
     raise(2)
-    return "N0"
+    return "NI0"
 }
 
 # ---- array reference: at "(", returns storage key; auto-DIM 10 -------------
@@ -3400,22 +3432,22 @@ function fn_user(name,   n, i, p, v, r, sk, sp, av, osn, osv) {
     CP++
     n = FNPAR[name]
     if (n > 0) {
-        if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "N0" }
+        if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
         CP++
         for (i = 1; i <= n; i++) {
-            v = e_or(); if (E) return "N0"
+            v = e_or(); if (E) return "NI0"
             av[i] = v
             if (i < n) {
-                if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return "N0" }
+                if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return "NI0" }
                 CP++
             }
         }
-        if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return "N0" }
+        if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return "NI0" }
         CP++
     }
     for (i = 1; i <= n; i++)                # type-check BEFORE binding, so
-        if (strname(FNPARM[name, i]) != !isN(av[i])) { raise(13); return "N0" }
-    if (++FNDEPTH > 50) { FNDEPTH--; raise(7); return "N0" }
+        if (strname(FNPARM[name, i]) != !isN(av[i])) { raise(13); return "NI0" }
+    if (++FNDEPTH > 50) { FNDEPTH--; raise(7); return "NI0" }
     for (i = 1; i <= n; i++) {
         p = FNPARM[name, i]
         if (strname(p)) { osv[i] = SV[p]; SV[p] = substr(av[i], 2) }
@@ -3431,44 +3463,44 @@ function fn_user(name,   n, i, p, v, r, sk, sp, av, osn, osv) {
         else            NV[p] = osn[i]
     }
     FNDEPTH--
-    if (E) return "N0"
-    if (strname(name) != !isN(r)) { raise(13); return "N0" }
+    if (E) return "NI0"
+    if (strname(name) != !isN(r)) { raise(13); return "NI0" }
     return r
 }
 
 # ---- built-in functions ----------------------------------------------------
 function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     CP++
-    if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "N0" }
+    if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
     CP++
     na = 0
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) {
-        a1 = e_or(); if (E) return "N0"
+        a1 = e_or(); if (E) return "NI0"
         na = 1
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
-            CP++; a2 = e_or(); if (E) return "N0"
+            CP++; a2 = e_or(); if (E) return "NI0"
             na = 2
             if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
-                CP++; a3 = e_or(); if (E) return "N0"
+                CP++; a3 = e_or(); if (E) return "NI0"
                 na = 3
             }
         }
     }
     if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
-    else { raise(2); return "N0" }
+    else { raise(2); return "NI0" }
 
-    if (name == "ABS") { x = numarg(a1, na); if (E) return "N0"; return "N" (x < 0 ? -x : x) }
-    if (name == "INT") { x = numarg(a1, na); if (E) return "N0"; return "N" bfloor(x) }
-    if (name == "FIX") { x = numarg(a1, na); if (E) return "N0"; return "N" int(x) }
-    if (name == "SGN") { x = numarg(a1, na); if (E) return "N0"; return "N" (x > 0 ? 1 : (x < 0 ? -1 : 0)) }
-    if (name == "SQR") { x = numarg(a1, na); if (E) return "N0"; if (x < 0) { raise(5); return "N0" }; return "N" sqrt(x) }
-    if (name == "SIN") { x = numarg(a1, na); if (E) return "N0"; return "N" sin(x) }
-    if (name == "COS") { x = numarg(a1, na); if (E) return "N0"; return "N" cos(x) }
-    if (name == "TAN") { x = numarg(a1, na); if (E) return "N0"; return "N" (sin(x) / cos(x)) }
-    if (name == "ATN") { x = numarg(a1, na); if (E) return "N0"; return "N" atan2(x, 1) }
-    if (name == "LOG") { x = numarg(a1, na); if (E) return "N0"; if (x <= 0) { raise(5); return "N0" }; return "N" log(x) }
+    if (name == "ABS") { x = numarg(a1, na); if (E) return "NI0"; return "N" vtype(a1) (x < 0 ? -x : x) }
+    if (name == "INT") { x = numarg(a1, na); if (E) return "NI0"; return "N" vtype(a1) bfloor(x) }
+    if (name == "FIX") { x = numarg(a1, na); if (E) return "NI0"; return "N" vtype(a1) int(x) }
+    if (name == "SGN") { x = numarg(a1, na); if (E) return "NI0"; return "NI" (x > 0 ? 1 : (x < 0 ? -1 : 0)) }
+    if (name == "SQR") { x = numarg(a1, na); if (E) return "NI0"; if (x < 0) { raise(5); return "NI0" }; return "NS" sqrt(x) }
+    if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sin(x) }
+    if (name == "COS") { x = numarg(a1, na); if (E) return "NI0"; return "NS" cos(x) }
+    if (name == "TAN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" (sin(x) / cos(x)) }
+    if (name == "ATN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" atan2(x, 1) }
+    if (name == "LOG") { x = numarg(a1, na); if (E) return "NI0"; if (x <= 0) { raise(5); return "NI0" }; return "NS" log(x) }
     if (name == "EXP") {
-        x = numarg(a1, na); if (E) return "N0"
+        x = numarg(a1, na); if (E) return "NI0"
         # ROM 1439-1454.  EXP works on t = x * 1/ln 2 and overflows twice
         # over: at 144A when the exponent byte of that product has reached
         # 88H, which is |t| >= 128; and at 1454 when INT(t) has reached
@@ -3484,9 +3516,9 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         # quiet 0.  (The L-24 fix made it ?OV for a day: it followed 144A
         # to 0931H and did not read what 0931H does.)
         r = x / 0.6931471805599453
-        if (r <= -128) return "N0"
-        if (bfloor(r) >= 126) { raise(6); return "N0" }
-        return "N" exp(x)
+        if (r <= -128) return "NI0"
+        if (bfloor(r) >= 126) { raise(6); return "NI0" }
+        return "NS" exp(x)
     }
     if (name == "RND") {
         # authentic ROM sequence (rnd_next/sngl, p90): RND(0) = seed'/2^24,
@@ -3495,20 +3527,21 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         # rounded down, ?OV outside -32768..32767, so RND(32768) is ?OV);
         # then a negative one is ?FC at 14CEH (the ROM does NOT reseed on
         # negative).  Until 2026-09-25 RND(32768) returned a number.
-        x = numarg(a1, na); if (E) return "N0"
-        i = to16(x); if (E) return "N0"
-        if (i < 0) { raise(5); return "N0" }
+        x = numarg(a1, na); if (E) return "NI0"
+        i = to16(x); if (E) return "NI0"
+        if (i < 0) { raise(5); return "NI0" }
         x = rnd_next()
-        if (i == 0) return "N" x
-        return "N" (int(sngl(x * i)) + 1)
+        if (i == 0) return "NS" x
+        return "NS" (int(sngl(x * i)) + 1)
     }
     if (name == "CINT") {
-        x = numarg(a1, na); if (E) return "N0"
-        x = to16(x); if (E) return "N0"           # rounds DOWN (p90 to16)
-        return "N" x
+        x = numarg(a1, na); if (E) return "NI0"
+        x = to16(x); if (E) return "NI0"           # rounds DOWN (p90 to16)
+        return "NI" x
     }
-    if (name == "CSNG" || name == "CDBL") { x = numarg(a1, na); if (E) return "N0"; return "N" x }
-    if (name == "PEEK") { x = numarg(a1, na); if (E) return "N0"; x = addrarg(x); if (E) return "N0"; return "N" dopeek(x) }
+    if (name == "CSNG") { x = numarg(a1, na); if (E) return "NI0"; return "NS" x }
+    if (name == "CDBL") { x = numarg(a1, na); if (E) return "NI0"; return "ND" x }
+    if (name == "PEEK") { x = numarg(a1, na); if (E) return "NI0"; x = addrarg(x); if (E) return "NI0"; return "NI" dopeek(x) }
     # INP(p): read Z80 port p (0-255, else ?FC).  Until 2026-09-11 INP had no
     # body, so INP(255) fell through to the array path and died with ?BS --
     # 96 corpus listings.  Port FFH is the Model I cassette/video-mode port
@@ -3520,10 +3553,10 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     # "not present" branch instead of erroring.  OUT (st_out, p80) is its
     # twin: only port 255 bit 3 does anything there.
     if (name == "INP") {
-        x = numarg(a1, na); if (E) return "N0"
+        x = numarg(a1, na); if (E) return "NI0"
         x = bfloor(x)
-        if (x < 0 || x > 255) { raise(5); return "N0" }
-        return "N" ((x == 255) ? (LATCH ? 63 : 127) : 255)
+        if (x < 0 || x > 255) { raise(5); return "NI0" }
+        return "NI" ((x == 255) ? (LATCH ? 63 : 127) : 255)
     }
     # USR/USR0-9: with a core (TRS80_Z80, p77) the routine RUNS; without
     # one this is the STUB, which evaluates and returns its argument.
@@ -3542,48 +3575,48 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     # TRS80_USR=strict raises ?FC on the call instead, for a sweep that
     # wants the run to fail visibly.
     if (name ~ /^USR[0-9]?$/) {
-        x = numarg(a1, na); if (E) return "N0"
+        x = numarg(a1, na); if (E) return "NI0"
         usr_resolve(name, x)
-        x = z80_usr(x); if (E) return "N0"        # the core (p77), or the stub
-        return "N" x
+        x = z80_usr(x); if (E) return "NI0"        # the core (p77), or the stub
+        return "NI" x
     }
-    if (name == "POS") { x = numarg(a1, na); if (E) return "N0"; return "N" VCOL }   # 27F5H: 40A6H (p20)
+    if (name == "POS") { x = numarg(a1, na); if (E) return "NI0"; return "NI" VCOL }   # 27F5H: 40A6H (p20)
     if (name == "FRE") {                    # 27D4H: a number asks about free memory, a string about the string area (p75)
-        if (na < 1) { raise(2); return "N0" }
-        return "N" (isN(a1) ? mem_free() : mem_strfree())
+        if (na < 1) { raise(2); return "NI0" }
+        return "NI" (isN(a1) ? mem_free() : mem_strfree())
     }
-    if (name == "LEN") { s = strarg(a1, na); if (E) return "N0"; return "N" length(s) }
+    if (name == "LEN") { s = strarg(a1, na); if (E) return "NI0"; return "NI" length(s) }
     if (name == "ASC") {
-        s = strarg(a1, na); if (E) return "N0"
-        if (s == "") { raise(5); return "N0" }
+        s = strarg(a1, na); if (E) return "NI0"
+        if (s == "") { raise(5); return "NI0" }
         s = substr(s, 1, 1)
-        return "N" ((s in ORD) ? ORD[s] : 63)
+        return "NI" ((s in ORD) ? ORD[s] : 63)
     }
-    if (name == "VAL") { s = strarg(a1, na); if (E) return "N0"; x = valnum(s, 1); if (E) return "N0"; return "N" x }
+    if (name == "VAL") { s = strarg(a1, na); if (E) return "NI0"; x = valnum(s, 1); if (E) return "NI0"; return "N" VALTYPE x }
     if (name == "CHR$") {
-        x = numarg(a1, na); if (E) return "N0"
+        x = numarg(a1, na); if (E) return "NI0"
         x = bfloor(x)
-        if (x < 0 || x > 255) { raise(5); return "N0" }
+        if (x < 0 || x > 255) { raise(5); return "NI0" }
         return "S" CHR[x]
     }
     if (name == "STR$") {
-        x = numarg(a1, na); if (E) return "N0"
-        s = fmtnum(x)
+        x = numarg(a1, na); if (E) return "NI0"
+        s = fmtnum(x, vtype(a1))
         sub(/ $/, "", s)
         return "S" s
     }
     if (name == "STRING$") {
-        if (na < 2) { raise(2); return "N0" }
-        if (!isN(a1)) { raise(13); return "N0" }
+        if (na < 2) { raise(2); return "NI0" }
+        if (!isN(a1)) { raise(13); return "NI0" }
         x = bfloor(num(a1))
-        if (x < 0 || x > 255) { raise(5); return "N0" }
+        if (x < 0 || x > 255) { raise(5); return "NI0" }
         if (isN(a2)) {
             i = bfloor(num(a2))
-            if (i < 0 || i > 255) { raise(5); return "N0" }
+            if (i < 0 || i > 255) { raise(5); return "NI0" }
             s = CHR[i]
         } else {
             s = vstr(a2)
-            if (s == "") { raise(5); return "N0" }
+            if (s == "") { raise(5); return "NI0" }
             s = substr(s, 1, 1)
         }
         r = ""
@@ -3595,20 +3628,20 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     # outside the integer range, then ?FC unless 0-255 (byteconv, p80).
     # Until 2026-09-25 any count was taken, so LEFT$(A$,256) was A$.
     if (name == "LEFT$") {
-        s = strarg2(a1, na); x = bytearg2(a2, na); if (E) return "N0"
+        s = strarg2(a1, na); x = bytearg2(a2, na); if (E) return "NI0"
         return "S" substr(s, 1, x)
     }
     if (name == "RIGHT$") {
-        s = strarg2(a1, na); x = bytearg2(a2, na); if (E) return "N0"
+        s = strarg2(a1, na); x = bytearg2(a2, na); if (E) return "NI0"
         if (x > length(s)) x = length(s)
         return "S" (x == 0 ? "" : substr(s, length(s) - x + 1))
     }
     if (name == "MID$") {
-        s = strarg2(a1, na); x = bytearg2(a2, na); if (E) return "N0"
-        if (x < 1) { raise(5); return "N0" }              # 2AA1H
+        s = strarg2(a1, na); x = bytearg2(a2, na); if (E) return "NI0"
+        if (x < 1) { raise(5); return "NI0" }              # 2AA1H
         if (na >= 3) {
-            if (!isN(a3)) { raise(13); return "N0" }
-            i = byteconv(num(a3)); if (E) return "N0"
+            if (!isN(a3)) { raise(13); return "NI0" }
+            i = byteconv(num(a3)); if (E) return "NI0"
             return "S" substr(s, x, i)
         }
         return "S" substr(s, x)
@@ -3616,35 +3649,35 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "INSTR") {          # INSTR([n,]a$,b$) -- Disk BASIC
         if (na == 2) { x = 1; s = a1; r = a2 }
         else if (na == 3) {
-            if (!isN(a1)) { raise(13); return "N0" }
+            if (!isN(a1)) { raise(13); return "NI0" }
             x = bfloor(num(a1)); s = a2; r = a3
-        } else { raise(2); return "N0" }
-        if (isN(s) || isN(r)) { raise(13); return "N0" }
+        } else { raise(2); return "NI0" }
+        if (isN(s) || isN(r)) { raise(13); return "NI0" }
         s = vstr(s); r = vstr(r)
-        if (x < 1 || x > 255) { raise(5); return "N0" }
-        if (x > length(s)) return "N0"
-        if (r == "") return "N" x
+        if (x < 1 || x > 255) { raise(5); return "NI0" }
+        if (x > length(s)) return "NI0"
+        if (r == "") return "NI" x
         i = index(substr(s, x), r)
-        return "N" (i ? i + x - 1 : 0)
+        return "NI" (i ? i + x - 1 : 0)
     }
     if (name == "POINT") {
-        if (na < 2) { raise(2); return "N0" }
-        if (!isN(a1) || !isN(a2)) { raise(13); return "N0" }
-        return "N" gpoint(bfloor(num(a1)), bfloor(num(a2)))
+        if (na < 2) { raise(2); return "NI0" }
+        if (!isN(a1) || !isN(a2)) { raise(13); return "NI0" }
+        return "NI" gpoint(bfloor(num(a1)), bfloor(num(a2)))
     }
     if (name == "EOF") {
-        x = numarg(a1, na); if (E) return "N0"
-        i = fio_fnchan(x); if (E) return "N0"
-        if (FH_MODE[i] == "I") return "N" (FH_PENDHAS[i] ? 0 : (fio_fill(i) ? 0 : -1))
-        if (FH_MODE[i] == "R") return "N" ((FH_LOC[i] >= FH_NREC[i]) ? -1 : 0)
+        x = numarg(a1, na); if (E) return "NI0"
+        i = fio_fnchan(x); if (E) return "NI0"
+        if (FH_MODE[i] == "I") return "NI" (FH_PENDHAS[i] ? 0 : (fio_fill(i) ? 0 : -1))
+        if (FH_MODE[i] == "R") return "NI" ((FH_LOC[i] >= FH_NREC[i]) ? -1 : 0)
         # "A": reports the reply buffer only -- never triggers a send
-        if (FH_MODE[i] == "A") return "N" ((FH_PENDHAS[i] || AI_RHAS[i]) ? 0 : -1)
-        raise(55); return "N0"
+        if (FH_MODE[i] == "A") return "NI" ((FH_PENDHAS[i] || AI_RHAS[i]) ? 0 : -1)
+        raise(55); return "NI0"
     }
     if (name == "LOF") {
-        x = numarg(a1, na); if (E) return "N0"
-        i = fio_fnchan(x); if (E) return "N0"
-        if (FH_MODE[i] == "R") return "N" (FH_NREC[i] + 0)
+        x = numarg(a1, na); if (E) return "NI0"
+        i = fio_fnchan(x); if (E) return "NI0"
+        if (FH_MODE[i] == "R") return "NI" (FH_NREC[i] + 0)
         # Disk manual, LOF: "the number of the last, i.e., highest numbered,
         # record in a file.  It is useful for both sequential and random
         # access."  A sequential file's records are the 256-byte physical
@@ -3653,26 +3686,26 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         if (FH_MODE[i] == "I" || FH_MODE[i] == "O" || FH_MODE[i] == "E") {
             if (FH_MODE[i] != "I") fflush(FH_NAME[i])    # our own writes first
             j = host_size(FH_NAME[i])
-            if (j < 0) { raise(55); return "N0" }
-            return "N" int((j + 255) / 256)
+            if (j < 0) { raise(55); return "NI0" }
+            return "NI" int((j + 255) / 256)
         }
-        raise(55); return "N0"                  # "A": the AI link has no records
+        raise(55); return "NI0"                  # "A": the AI link has no records
     }
     if (name == "LOC") {
-        x = numarg(a1, na); if (E) return "N0"
-        i = fio_fnchan(x); if (E) return "N0"
-        if (FH_MODE[i] == "A") return "N" (AI_NMSG[i] + 0)
-        return "N" (FH_LOC[i] + 0)
+        x = numarg(a1, na); if (E) return "NI0"
+        i = fio_fnchan(x); if (E) return "NI0"
+        if (FH_MODE[i] == "A") return "NI" (AI_NMSG[i] + 0)
+        return "NI" (FH_LOC[i] + 0)
     }
-    if (name == "MKI$") { x = numarg(a1, na); if (E) return "N0"; s = fio_mki(x); if (E) return "N0"; return "S" s }
-    if (name == "MKS$") { x = numarg(a1, na); if (E) return "N0"; s = fio_mkf(x, 4); if (E) return "N0"; return "S" s }
-    if (name == "MKD$") { x = numarg(a1, na); if (E) return "N0"; s = fio_mkf(x, 8); if (E) return "N0"; return "S" s }
-    if (name == "CVI") { s = strarg(a1, na); if (E) return "N0"; x = fio_cvi(s); if (E) return "N0"; return "N" x }
-    if (name == "CVS") { s = strarg(a1, na); if (E) return "N0"; x = fio_cvf(s, 4); if (E) return "N0"; return "N" x }
-    if (name == "CVD") { s = strarg(a1, na); if (E) return "N0"; x = fio_cvf(s, 8); if (E) return "N0"; return "N" x }
-    if (name == "TAB") { raise(2); return "N0" }
+    if (name == "MKI$") { x = numarg(a1, na); if (E) return "NI0"; s = fio_mki(x); if (E) return "NI0"; return "S" s }
+    if (name == "MKS$") { x = numarg(a1, na); if (E) return "NI0"; s = fio_mkf(x, 4); if (E) return "NI0"; return "S" s }
+    if (name == "MKD$") { x = numarg(a1, na); if (E) return "NI0"; s = fio_mkf(x, 8); if (E) return "NI0"; return "S" s }
+    if (name == "CVI") { s = strarg(a1, na); if (E) return "NI0"; x = fio_cvi(s); if (E) return "NI0"; return "NI" x }
+    if (name == "CVS") { s = strarg(a1, na); if (E) return "NI0"; x = fio_cvf(s, 4); if (E) return "NI0"; return "NS" x }
+    if (name == "CVD") { s = strarg(a1, na); if (E) return "NI0"; x = fio_cvf(s, 8); if (E) return "NI0"; return "ND" x }
+    if (name == "TAB") { raise(2); return "NI0" }
     raise(2)
-    return "N0"
+    return "NI0"
 }
 
 function numarg(a, na) {
@@ -4116,6 +4149,19 @@ function lvname(   s) {
     return s
 }
 
+# The type a NAME gives a value read or stored: the suffix at the
+# reference (% I, ! S, # D), else the DEF table's letter (2 I, 8 D), else
+# single -- as the ROM's variable lookup types it.  % ! # are not part of
+# the name here (G% is G, the 2026-08 ruling), so the reference decides.
+function ntype(name, sx,   l, c) {
+    if (sx == "%") return "I"
+    if (sx == "#") return "D"
+    if (sx == "!") return "S"
+    l = substr(name, 1, 1)
+    if (l in DEFT) { c = DEFT[l]; return (c == 2) ? "I" : (c == 8) ? "D" : "S" }   # membership first
+    return "S"
+}
+
 function intvar(name, sx) {
     if (name ~ /\$$/ || sx == "!" || sx == "#") return 0
     return sx == "%" || DEFI[substr(name, 1, 1)]
@@ -4157,7 +4203,7 @@ function assignv(name, key, v,   isint, tgt, n) {
         if (!isN(v)) { raise(13); return }
         v = isint ? intstore(num(v)) : num(v)
         if (E) return
-        if (key != "") VA[key] = "N" v; else NV[name] = v
+        if (key != "") VA[key] = v; else NV[name] = v   # raw: the type is the name's (ntype)
     }
 }
 
@@ -5164,12 +5210,12 @@ function sp_sets(tgt, s,   key) {
 }
 function sp_getn(tgt,   key) {
     key = substr(tgt, 2)
-    if (substr(tgt, 1, 1) == "A") return (key in VA) ? substr(VA[key], 2) + 0 : 0
+    if (substr(tgt, 1, 1) == "A") return (key in VA) ? VA[key] + 0 : 0
     return NV[key] + 0
 }
 function sp_setn(tgt, x,   key) {
     key = substr(tgt, 2)
-    if (substr(tgt, 1, 1) == "A") VA[key] = "N" x
+    if (substr(tgt, 1, 1) == "A") VA[key] = x
     else NV[key] = x
 }
 
@@ -5239,16 +5285,16 @@ function sp_poke(a, b,   t, tgt, v, j) {
 # VARPTR(var) -- parse a variable REFERENCE (scalar or array element), not
 # an expression; called from e_prim
 function fn_varptr(   name, key, tgt) {
-    if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "N0" }
+    if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
     CP++
-    if (TY[CK, CP] != "i") { raise(2); return "N0" }
+    if (TY[CK, CP] != "i") { raise(2); return "NI0" }
     name = TK[CK, CP]; CP++
     key = ""
-    if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return "N0" }
-    if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return "N0" }
+    if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return "NI0" }
+    if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return "NI0" }
     CP++
     tgt = (key != "") ? "A" key : "V" name
-    key = sp_materialize(tgt, strname(name)); if (E) return "N0"
+    key = sp_materialize(tgt, strname(name)); if (E) return "NI0"
     # the ROM hands the address to 0A9AH as an INTEGER (24FAH), so above
     # 32767 VARPTR is negative: 65533 is -3, and V=VARPTR(A$):IF V<0 THEN
     # V=V+65536 is the period idiom (280 corpus lines).  PEEK and POKE take
@@ -5256,7 +5302,7 @@ function fn_varptr(   name, key, tgt) {
     # core's 0A7FH trap, which is the ROM's CINT and would ?OV the positive
     # form (the 2026-09-19 audit, L-43; ruled 2026-09-21).  Internal callers
     # keep sp_materialize's positive address.
-    return "N" (key > 32767 ? key - 65536 : key)
+    return "NI" (key > 32767 ? key - 65536 : key)
 }
 
 # ===================== the SYSTEM VARIABLE WINDOW ============================
@@ -6137,7 +6183,7 @@ function st_print(   sep, ty, tx, v, col, t) {
             # the test never fires there and a number IS split at the edge
             # (trs-80.com ROM bug 1, present in every revision; kept, ruled
             # 2026-09-25: the documented bugs are followed).
-            t = fmtnum(num(v))
+            t = fmtnum(num(v), vtype(v))
             if (VCOL + length(t) - 1 >= 64) s_nl()
             s_puts(t)
         }
@@ -6264,7 +6310,7 @@ function st_lprint(   sep, ty, tx, v, t) {
         if (isN(v)) {
             # the printer's twin of PRINT's rule, against 132 columns
             # (20D5-20DB: column + length >= 84H)
-            v = fmtnum(num(v))
+            v = fmtnum(num(v), vtype(v))
             if (LPCOL + length(v) - 1 >= 132) lp_nl()
             lp_puts(v)
         }
@@ -6487,7 +6533,7 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         w += 4
         id = PU_IP - ((PU_PLUS || PU_TS != "") ? 0 : 1)    # digits before the point
         nd = id + PU_DP                                     # significant digits
-        if (nd < 1) return pu_ovf(x)
+        if (nd < 1) return pu_ovf(x, vtype(v))
         if (ax == 0) { k = id; p = 0 }
         else {
             k = bfloor(log(ax) / log(10)) + 1               # digits in the integer part
@@ -6505,7 +6551,7 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         if (ist == "" && length(lead "0" body) <= w) ist = "0"
         core = lead ist body
     } else {
-        if (ax >= 1e16) return pu_ovf(x) pu_tsign(neg)
+        if (ax >= 1e16) return pu_ovf(x, vtype(v)) pu_tsign(neg)
         ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
         while (length(ds) < PU_DP + 1) ds = "0" ds
         ist = substr(ds, 1, length(ds) - PU_DP)
@@ -6542,8 +6588,8 @@ function pu_str(v, w,   s) {
 }
 
 # field overflow: % then the number as plain PRINT would show it
-function pu_ovf(x,   t) {
-    t = fmtnum(x)
+function pu_ovf(x, ty,   t) {
+    t = fmtnum(x, ty)
     gsub(/^ +| +$/, "", t)
     return "%" t
 }
@@ -6637,7 +6683,7 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
                     sub(/^[ \t\n]+/, "", x)
                     x = valnum(x, 0); if (E) return   # ?OV, or ?SN for a bad %: not ?REDO
                     if (!numrest()) { ok = 0; break }
-                    assignv(name, key, "N" x)
+                    assignv(name, key, "NS" x)
                 }
                 # a store that fails (?OV into an integer, 1F33H -> 0A7FH)
                 # ends the INPUT: the items behind it are not assigned
@@ -6802,7 +6848,7 @@ function st_read_items(   name, key, x) {
                 ERR_AT = DLINE[DP]; ERLV = DLINE[DP]; LASTLN = DLINE[DP]
                 return
             }
-            assignv(name, key, "N" x)
+            assignv(name, key, "NS" x)
         }
         if (E) return                       # ?OV at the store: nothing stored
         DP++
@@ -7370,7 +7416,7 @@ function st_input_file(   n, nlv, name, key, i, x) {
             # the item is evaluated "by a routine just like the BASIC VAL
             # function" (Disk manual, INPUT#): A12 is 0, 5X is 5, never ?TM
             x = valnum(FIO_IT, 0); if (E) return   # ?OV: nothing stored
-            assignv(name, key, "N" x)
+            assignv(name, key, "NS" x)
         }
         if (E) return
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
@@ -7486,7 +7532,7 @@ function st_print_file(   n, s, sep, ty, tx, v, x) {
             continue
         }
         v = e_or(); if (E) return
-        s = s (isN(v) ? fmtnum(num(v)) : vstr(v))
+        s = s (isN(v) ? fmtnum(num(v), vtype(v)) : vstr(v))
         sep = 0
     }
     fio_pr_out(n, s, sep)
@@ -8141,16 +8187,30 @@ function report_err(   c, msg) {
 }
 
 # LEVEL II-style number formatting: leading space or -, trailing space,
-# 6 significant digits, no leading zero on fractions, E notation for extremes.
-# (Deviation: exact integers are printed in full up to 15 digits.)
-# The sixth digit is rounded HALF UP on the magnitude: the ROM scales the
+# BY TYPE, since 2026-09-26 (L-16): an integer in full; a single to 6
+# significant digits, no leading zero on a fraction, E notation for the
+# extremes (so a single 1000000 is 1E+06, as on the machine); a double
+# to 16 significant digits with D as its exponent letter (the manual:
+# "stored with 17 digits but printed out with only 16"; Barden shows
+# 1.23456789D+18).  Until then every exact integer below 1e15 printed
+# in full, because values carried no type.
+# The last digit is rounded HALF UP on the magnitude: the ROM scales the
 # value to six integer digits, adds .5 and truncates (12EA-12F0).  sprintf
 # rounds an exact tie to even (100000.5 -> 100000, 1/512 -> .00195312), so
-# a seventh digit of 5 is rounded here, on the decimal digits.
-function fmtnum(x,   s, ax, t) {
+# a following digit of 5 is rounded here, on the decimal digits; the
+# double path does the same at its seventeenth.
+function fmtnum(x, ty,   s, ax, t) {
     ax = (x < 0) ? -x : x
-    if (x == int(x) && ax < 1e15) s = sprintf("%.0f", x)
-    else {
+    if (ty == "I") s = sprintf("%d", x)
+    else if (ty == "D") {
+        t = sprintf("%.16e", ax)                 # d.dddddddddddddddde+xx: 17 digits
+        if (substr(t, 18, 1) == "5")
+            x = (x < 0 ? -1 : 1) * (((substr(t, 1, 1) substr(t, 3, 15)) + 1) "e" (substr(t, 20) - 15))
+        s = sprintf("%.16g", x)
+        sub(/e/, "D", s)
+        sub(/^0\./, ".", s)
+        sub(/^-0\./, "-.", s)
+    } else {
         t = sprintf("%.16e", ax)                 # d.dddddddddddddddde+xx
         if (substr(t, 8, 1) == "5")
             x = (x < 0 ? -1 : 1) * (((substr(t, 1, 1) substr(t, 3, 5)) + 1) "e" (substr(t, 20) - 5))
@@ -8181,8 +8241,8 @@ function fmtnum(x,   s, ax, t) {
 #     a variable's precision is not tracked here, so they never do.
 # Lower-case e/d is kept as an exponent: the Model I keyboard had no
 # lower case to type, a terminal types nothing else.
-function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x) {
-    i = 1; m = ""; ex = ""; isint = !dp
+function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, sig, sx) {
+    i = 1; m = ""; ex = ""; isint = !dp; expd = 0; sx = ""
     c = substr(s, 1, 1)
     if (c == "-" || c == "+") { sg = c; i = 2 }
     for (;;) {
@@ -8194,7 +8254,7 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x) {
             dot = 1; isint = 0; m = m c; i++; continue
         }
         if (c ~ /^[EeDd]$/) {
-            i++
+            expd = (c ~ /^[Dd]$/); i++
             while (substr(s, i, 1) ~ /^[ \t\n]$/) i++
             c = substr(s, i, 1)
             if (c == "-" || c == "+") { exs = c; i++ }
@@ -8208,11 +8268,21 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x) {
         }
         if (c == "%") {
             if (!isint || m + 0 > 32767) { raise(2); return 0 }
-            i++
-        } else if (c == "#" || c == "!") i++
+            sx = "I"; i++
+        } else if (c == "#" || c == "!") { sx = (c == "#") ? "D" : "S"; i++ }
         break
     }
     NUMEND = i; NUMSTR = s
+    # VALTYPE: the type the reader gives the number (VAL returns it), by
+    # tk_number's rule (p50): I while there is no point or exponent and it
+    # fits 15 bits, D from the eighth significant digit or a D exponent
+    if (sx != "") VALTYPE = sx
+    else {
+        sig = m; sub(/\./, "", sig); sub(/^0+/, "", sig)
+        if (isint && !dot && ex == "" && !expd && m + 0 <= 32767 && m != "") VALTYPE = "I"
+        else if (expd || length(sig) > 7) VALTYPE = "D"
+        else VALTYPE = "S"
+    }
     if (m == "" || m == ".") m = "0"
     x = numconv(sg m "E" exs (ex == "" ? "0" : ex))
     return x
