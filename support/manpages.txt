@@ -354,8 +354,12 @@ CLEAR [n]   reset all variables; optionally set string space to n bytes
   The optional n sets the string space to n bytes, taken from the top of
   memory (50 at power-on, and a CLEAR without a number keeps the current
   size).  Period programs that build many or long strings raise it
-  (CLEAR 1000) before running out: FRE("") reports what is left.  As on
-  the machine, n is an integer (?OV past 32767), a negative n is ?FC,
+  (CLEAR 1000) before running out: FRE("") reports what is left, and a
+  string that no longer fits is ?OS (Out of String Space, code 14), as
+  on the machine -- a literal in a program line takes none, a string an
+  expression built takes its length, and the old value of the variable
+  being assigned still counts while the new one is made.  As on the
+  machine, n is an integer (?OV past 32767), a negative n is ?FC,
   and an n that would push the string space down onto the program is
   ?OM; those errors leave the variables as they were.
   Like RUN, it also resets the DEFINT/DEFSTR letter types, the DATA

@@ -4087,6 +4087,12 @@ function assignv(name, key, v,   isint, tgt, n) {
         # none for a literal left in its line (LITSTORE); the old value's
         # bytes are given back
         n = LITSTORE ? 0 : length(v) - 1
+        # ROM 28C0H-28DDH: the new string is allocated while the old one is
+        # still the variable's, so both must fit; past the area's end, a
+        # collection (28E6H) and then ?OS, and nothing is stored.  Until
+        # 2026-09-25 the string area had no end here (the 2026-09-23
+        # audit, L-15's cluster).
+        if (STRUSED + n > mem_strsz()) { raise(14); return }
         STRUSED += n - ((tgt in STRCNT) ? STRCNT[tgt] : 0); STRCNT[tgt] = n
         if (ALN) al_clear(name, key)            # the descriptor moves (p75, finding 7)
         delete LITA[tgt]                        # a literal it noted (p75)

@@ -4,7 +4,7 @@
 40 REM so the program can branch on it; the prose follows on later lines.
 50 REM Needs Ollama running locally and TRS80_OLLAMA_MODEL set (or name the
 55 REM model in the OPEN: "OLLAMA:llama3.2").  The test runner uses a stub.
-60 CLS: PRINT "THE ORACLE IS LISTENING."
+60 CLEAR 2000: CLS: PRINT "THE ORACLE IS LISTENING."
 70 ON ERROR GOTO 500
 80 OPEN "O",1,"OLLAMA"
 100 PRINT #1,"@THINK 0"

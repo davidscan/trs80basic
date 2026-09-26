@@ -307,6 +307,11 @@ before `--update`.
   run. Blanks inside a name are nothing, also as on the machine: `A B` is
   the variable `AB`, and `PRINT A B` prints one value. `detok.py -s` spaces
   a listing out for reading; the interpreter does not need it.
+- **String space is 50 bytes until `CLEAR n`.** You might expect strings to
+  grow without limit; actually a program that builds more than 50 bytes
+  of strings without a `CLEAR n` stops with `?OS ERROR`, as it did on the
+  machine, and `FRE("")` says how much is left. Literals in program lines
+  take none of it.
 - **A statement ends at a colon, or the line does.** You might expect
   `X=1END` or `X=1 Y=2` to run both parts; actually they are `?SN ERROR`,
   because the machine tests the byte behind every completed statement and

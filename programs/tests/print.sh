@@ -26,7 +26,7 @@ A               B"
 [ "$out" = "$want" ] || fail "commas in the text stream" "$out"
 
 # the blanks overwrite what was on the screen
-printf '10 CLS:PRINT@0,STRING$(40,"X");:PRINT@0,"A","B";\n20 S$="":FOR I=15360 TO 15360+39:S$=S$+CHR$(PEEK(I)):NEXT\n30 PRINT@128,"[";S$;"]"\n' > "$tmp"
+printf '10 CLEAR 500:CLS:PRINT@0,STRING$(40,"X");:PRINT@0,"A","B";\n20 S$="":FOR I=15360 TO 15360+39:S$=S$+CHR$(PEEK(I)):NEXT\n30 PRINT@128,"[";S$;"]"\n' > "$tmp"
 out=$(run | tail -1 | sed "s/.*\[/[/")
 [ "$out" = "[A               BXXXXXXXXXXXXXXXXXXXXXXX]" ] || fail "a comma did not blank the stale cells" "$out"
 
@@ -51,7 +51,7 @@ out=$(run | tail -1 | sed "s/.*\[/[/")
 # (sign and digits, not the blank after it) reaches 64 the ROM sends a
 # carriage return first (20DD-20E6); a string just wraps.  LPRINT has the
 # same rule against 132 columns (20D5-20DB).
-printf '10 PRINT STRING$(59,"X");1234\n20 PRINT STRING$(60,"X");1234\n30 PRINT STRING$(60,"X");"ABCDEFGH"\n40 FOR I=1001 TO 1012:PRINT I;:NEXT:PRINT\n50 FOR I=1001 TO 1024:LPRINT I;:NEXT:LPRINT\n' > "$tmp"
+printf '10 CLEAR 500:PRINT STRING$(59,"X");1234\n20 PRINT STRING$(60,"X");1234\n30 PRINT STRING$(60,"X");"ABCDEFGH"\n40 FOR I=1001 TO 1012:PRINT I;:NEXT:PRINT\n50 FOR I=1001 TO 1024:LPRINT I;:NEXT:LPRINT\n' > "$tmp"
 out=$(run); p=$(cat "$lp" 2>/dev/null)
 want="XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
  1234 

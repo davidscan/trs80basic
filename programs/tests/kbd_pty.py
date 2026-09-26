@@ -608,7 +608,7 @@ def main():
     check('[A.B]' in out, 'INPUT returns a line with a period; Delete erased the X', out)
 
     # 4b. the line editor refuses the 241st character (the ROM's 0361H limit)
-    b.send('NEW\r10 INPUT A$:PRINT "LEN";LEN(A$)\rRUN\r', 0.6)
+    b.send('NEW\r10 CLEAR 500:INPUT A$:PRINT "LEN";LEN(A$)\rRUN\r', 0.6)   # 240 bytes of string space, as on the machine
     b.drain(0.3)
     for i in range(5):
         b.send('Z' * 50, 0.15)                         # 250 keys, 240 taken

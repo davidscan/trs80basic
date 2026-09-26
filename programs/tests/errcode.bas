@@ -1,7 +1,7 @@
 10 REM ERROR n takes its code through the ROM's byte evaluator (1FF4 ->
 20 REM 2B1CH), so a code outside 0-255 is ?FC and one outside the integer
 30 REM range is ?OV; 0 is ?FC at 1FF9; a code past the table is ?UE at 2003.
-40 F=0:ON ERROR GOTO 900
+40 CLEAR 2000:F=0:ON ERROR GOTO 900
 50 S=1:ERROR 0
 60 IF S<>2 THEN PRINT "FAIL: ERROR 0 WAS NOT ?FC  S=";S:F=1
 70 S=3:ERROR -1

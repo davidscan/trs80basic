@@ -71,7 +71,7 @@ open(os.path.join(d, "ITEM.TXT"), "w").write("X" * 300 + ",TAIL\n")
 open(os.path.join(d, "QUOT.TXT"), "w").write('"' + "Q" * 300 + '",Z\n')
 PYEOF
 cat > "$dir/len.bas" <<'BAS'
-10 OPEN "I",1,"LONG.TXT"
+10 CLEAR 1000:OPEN "I",1,"LONG.TXT"
 20 LINE INPUT#1,A$:PRINT LEN(A$);LEFT$(A$,1);"."
 30 LINE INPUT#1,A$:PRINT LEN(A$);LEFT$(A$,1);"."
 40 LINE INPUT#1,A$:PRINT LEN(A$);LEFT$(A$,1);".":CLOSE

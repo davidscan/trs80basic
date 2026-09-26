@@ -1,6 +1,6 @@
 10 REM VARPTR IS STABLE AND STRING SPACE DOES NOT LEAK (fixed 2026-09-10)
 20 REM self-checking batch fixture: ./basic programs/tests/varptr.bas exits 1 on any mismatch
-30 DIM Z(1):F=0
+30 CLEAR 2000:DIM Z(1):F=0
 35 REM the values are joined (+) so they live in string space: a lone literal stays in its line (literal.bas)
 40 A$="ABCDEFGHIJ"+""
 50 IF VARPTR(A$)<>VARPTR(A$) THEN PRINT "FAIL idempotent":F=1

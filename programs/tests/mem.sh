@@ -83,4 +83,32 @@ READY
 >'
 [ "$out" = "$want" ] || fail "MEM's arithmetic inside a program" "$out"
 
+# ?OS: a string that does not fit the area is Out of String Space (28C0H-
+# 28DDH), and the old value still counts while the new one is made; a
+# literal in a program line, and a READ from DATA, take none of it
+out=$(repl 32767 'CLEAR 10:A$=STRING$(20,"X")\nPRINT LEN(A$)\nCLEAR 30:A$=STRING$(20,"X"):A$=STRING$(20,"X")\nPRINT LEN(A$);FRE("")\n10 CLEAR 30:A$="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789":READ B$:PRINT FRE("")\n20 ON ERROR GOTO 100:C$=A$+"X"\n30 PRINT "NOT REACHED"\n90 DATA "0123456789012345678901234567890123456789"\n100 PRINT ERR/2+1;ERL;LEN(C$):END\nRUN\n')
+want='>CLEAR 10:A$=STRING$(20,"X")
+?OS ERROR
+READY
+>PRINT LEN(A$)
+ 0 
+READY
+>CLEAR 30:A$=STRING$(20,"X"):A$=STRING$(20,"X")
+?OS ERROR
+READY
+>PRINT LEN(A$);FRE("")
+ 20  10 
+READY
+>10 CLEAR 30:A$="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789":READ B$:PRINT FRE("")
+>20 ON ERROR GOTO 100:C$=A$+"X"
+>30 PRINT "NOT REACHED"
+>90 DATA "0123456789012345678901234567890123456789"
+>100 PRINT ERR/2+1;ERL;LEN(C$):END
+>RUN
+ 30 
+ 14  20  0 
+READY
+>'
+[ "$out" = "$want" ] || fail "?OS" "$out"
+
 echo "MEM OK"

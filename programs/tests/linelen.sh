@@ -29,7 +29,7 @@ n=$(grep -c 'INPUT LINE CUT AT 240' "$err")
 [ "$n" -eq 1 ] || fail "the cut was reported $n times, not once" "$(cat "$err")"
 
 # an answer to INPUT is a keyboard line too
-out=$(printf '\n10 INPUT A$:PRINT LEN(A$)\nRUN\n%s\n' "$(rep 250 Y)" | run)
+out=$(printf '\n10 CLEAR 500:INPUT A$:PRINT LEN(A$)\nRUN\n%s\n' "$(rep 250 Y)" | run)
 case $out in *" 240 "*) ;; *) fail "an INPUT answer was not cut at 240" "$out" ;; esac
 
 # a listing loaded from a file is not typed: a 250-character line loads whole

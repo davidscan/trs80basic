@@ -2,7 +2,7 @@
 20 REM SET/RESET draw each cell as a 2x2 block; POINT reads one back.
 30 REM Run it interactively to watch; in batch mode only the text
 40 REM snapshots below appear, since the screen is not streamed.
-50 CLS: W=32: H=16: DIM A(W,H),B(W,H),S$(6)
+50 CLEAR 1000: CLS: W=32: H=16: DIM A(W,H),B(W,H),S$(6)
 55 PRINT@768,"";: REM park the cursor below the board (row 12)
 60 REM a glider (moves one cell diagonally every 4 generations) and a blinker
 70 A(2,1)=1: A(3,2)=1: A(1,3)=1: A(2,3)=1: A(3,3)=1

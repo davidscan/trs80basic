@@ -1,7 +1,7 @@
 10 REM LOGBOOK -- a ship's log kept in a text file.
 20 REM Sequential I/O: OPEN "O"/"E"/"I", PRINT#, LINE INPUT#, EOF, LOC,
 30 REM plus ON ERROR to notice the file is missing on the first run.
-40 F$="LOGBOOK.TXT": CLS
+40 CLEAR 1000: F$="LOGBOOK.TXT": CLS
 50 ON ERROR GOTO 400
 60 OPEN "I",1,F$: CLOSE 1: PRINT "OPENING EXISTING LOG.": GOTO 100
 100 ON ERROR GOTO 0
