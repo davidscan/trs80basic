@@ -14,8 +14,8 @@ d=$(mktemp -d) || exit 2
 trap 'rm -rf "$d"' EXIT
 fail() { echo "NOTTY FAILED: $1"; printf '%s\n' "$2"; exit 1; }
 
-# stderr only, stdout thrown away, stdin not a terminal
-err() { TRS80_Z80= "$here/basic" "$@" </dev/null 2>"$d/e" >/dev/null; cat "$d/e"; }
+# stderr only; stdout kept in $d/o so the run is also seen to have happened
+err() { TRS80_Z80= "$here/basic" "$@" </dev/null 2>"$d/e" >"$d/o"; cat "$d/e"; }
 
 out=$(err --screen)
 [ -z "$out" ] || fail "--screen off a terminal wrote to stderr" "$out"
@@ -26,11 +26,13 @@ out=$(err --screen "$d/p.bas")
 
 out=$(err "$d/p.bas")
 [ -z "$out" ] || fail "a batch run wrote to stderr" "$out"
+[ "$(cat "$d/o")" = "HI" ] || fail "the batch run did not print HI" "$(cat "$d/o")"
 
 # a piped transcript: the same, and the terminal size probe is reached by
 # anything that draws the below-grid window
 out=$(printf '\nPRINT "HI"\nman PRINT\n' | TRS80_DUMB=1 TRS80_Z80= \
-        gawk -b -f "$here/trs80basic.awk" 2>"$d/e" >/dev/null; cat "$d/e")
+        gawk -b -f "$here/trs80basic.awk" 2>"$d/e" >"$d/o"; cat "$d/e")
 [ -z "$out" ] || fail "a piped transcript wrote to stderr" "$out"
+grep -q '^HI$' "$d/o" && grep -q 'PRINT \[items\]' "$d/o" || fail "the piped transcript did not run" "$(cat "$d/o")"
 
 echo "NOTTY OK"

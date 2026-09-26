@@ -27,7 +27,11 @@ a5=$(mktemp) || exit 2
 ne=$(mktemp) || exit 2
 trap 'rm -f "$tmp" "$tmp.err" "$bad" "$bad.cas" "$a5" "$a5.cmd" "$ne" "$ne.cas" "$ne.cmd"' EXIT
 fail() { echo "SYSTEM FAILED: $1"; [ -n "$2" ] && printf '%s\n' "$2"; exit 1; }
-run() { TRS80_DUMB=1 gawk -b -f trs80basic.awk >"$tmp" 2>"$tmp.err"; }
+# $1 is the core command ("" = the stub).  It is set on gawk itself, not on
+# the function: under POSIX sh an assignment in front of a function call
+# outlives it, and `TRS80_Z80= run` left part 2 blind to a core named in
+# the environment (the 2026-09-23 audit's NIT)
+run() { TRS80_DUMB=1 TRS80_Z80="$1" gawk -b -f trs80basic.awk >"$tmp" 2>"$tmp.err"; }
 
 # a copy of the tape with one data byte flipped: a checksum error
 mv "$bad" "$bad.cas"
@@ -37,7 +41,7 @@ open('$bad.cas', 'wb').write(b)" 2>/dev/null || cp programs/tests/syshi.cas "$ba
 
 # ---- part 1: the loads, with the stub ----------------------------------------
 esc=$(printf '\033')
-TRS80_Z80= run <<EOF
+run "" <<EOF
 
 SYSTEM
 programs/tests/syshi
@@ -85,7 +89,7 @@ grep -q "(7D00H x1)" "$tmp.err" && grep -q "(7E00H x1)" "$tmp.err" \
 # first byte (no extension).
 printf '\005\006SYSA5 \001\013\000\177\041\245\125\076\005\062\100\177\311\002\002\000\177' > "$a5.cmd"
 cp "$a5.cmd" "$a5"
-TRS80_Z80= run <<EOF
+run "" <<EOF
 
 SYSTEM
 $a5.cmd
@@ -139,7 +143,7 @@ r1a=$(mktemp) || exit 2
 printf '\020\002AA\001\010\000\177\076\007\062\100\177\311\002\002\000\177' > "$r10"
 printf '\032\002AA\001\010\000\177\076\007\062\100\177\311\002\002\000\177' > "$r1a"
 for f in "$r10" "$r1a"; do
-    TRS80_Z80= run <<EOF
+    run "" <<EOF
 
 SYSTEM
 $f
@@ -162,7 +166,7 @@ rm -f "$r10" "$r1a"
 size=$(wc -c < programs/tests/syshi.cas)
 head -c $((size - 3)) programs/tests/syshi.cas > "$ne.cas"
 head -c 21 "$a5.cmd" > "$ne.cmd"
-TRS80_Z80= run <<EOF
+run "" <<EOF
 
 SYSTEM
 programs/tests/sysrdy
@@ -183,7 +187,7 @@ grep -q "(7F00H x1)" "$tmp.err" || fail "a load module with no 02H record runs a
 core=${TRS80_Z80:-"python3 $here/../trs80_z80_core/core.py"}
 set -- $core
 if [ ! -f "$2" ]; then echo "SYSTEM: loads OK; runs SKIPPED (no core at $2)"; exit 0; fi
-TRS80_Z80="$core" run <<EOF
+run "$core" <<EOF
 
 SYSTEM
 programs/tests/syshi
@@ -220,7 +224,7 @@ grep -q "D 9" "$tmp" || fail "a program's SYSTEM did not run the load module" "$
 if grep -q "^RANON" "$tmp"; then fail "JP 1A19H inside a program did not end it at READY" "$(cat "$tmp"; cat "$tmp.err")"; fi
 grep -q "E 7" "$tmp" || fail "after a RET, a program's SYSTEM did not go on to its next statement" "$(cat "$tmp"; cat "$tmp.err")"
 grep -q "USR STUB" "$tmp.err" && fail "the core was not used" "$(cat "$tmp.err")"
-TRS80_Z80="$core" run <<EOF
+run "$core" <<EOF
 
 SYSTEM
 $a5.cmd

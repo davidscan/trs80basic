@@ -41,6 +41,8 @@ esac
 n=$(printf '%s\n' "$err" | grep -c '^PROGRAM IMAGE TRUNCATED: LINE [0-9]* AND AFTER DO NOT FIT BELOW 65535; PEEK AND MACHINE CODE SEE A CHAIN ENDING AT [0-9]*$')
 if [ "$n" != "1" ]; then echo "PMTRUNC FIXTURE FAILED: expected exactly one truncation note, got $n"; echo "$err"; exit 1; fi
 # a program that fits prints no note at all
-none=$(printf '\n10 PRINT PEEK(17129)\nRUN\nBYE\n' | TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 >/dev/null | grep -c 'TRUNCATED')
-if [ "$none" != "0" ]; then echo "PMTRUNC FIXTURE FAILED: note without overflow"; exit 1; fi
+none=$(printf '\n10 PRINT "RAN";PEEK(17129)\nRUN\nBYE\n' | TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>"$tmp.err")
+if grep -q 'TRUNCATED' "$tmp.err"; then echo "PMTRUNC FIXTURE FAILED: note without overflow"; cat "$tmp.err"; exit 1; fi
+case "$none" in *"RAN "[0-9]*) ;; *) echo "PMTRUNC FIXTURE FAILED: the small program did not run"; echo "$none"; exit 1 ;; esac
+rm -f "$tmp.err"
 echo "PMTRUNC FIXTURE OK ($out)"

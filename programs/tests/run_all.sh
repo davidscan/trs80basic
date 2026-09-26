@@ -99,6 +99,9 @@ if command -v python3 >/dev/null 2>&1; then
         || { bad "tools/test_*.py"; show "tools/test_*.py"; }
     # 7. the interactive keyboard, through a pseudo-terminal
     python3 programs/tests/kbd_pty.py >"$log" 2>&1 || { bad "kbd_pty.py"; show "kbd_pty.py"; }
+else
+    # counted like a missing core, and a failure under TRS80_REQUIRE_CORE
+    echo "SKIPPED: tools/test_*.py and kbd_pty.py (no python3)" >"$log"; skip_check "python3 suites"
 fi
 
 if [ $fail -eq 0 ]; then echo "run_all: all passed, $skipped skipped"; exit 0; fi
