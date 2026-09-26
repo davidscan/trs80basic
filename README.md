@@ -324,6 +324,16 @@ before `--update`.
   types it for you, and a batch run that stops with `?OS` says so on
   stderr. A listing whose own `CLEAR n` is too small fails the same way on
   the machine, and no option helps: the program's `CLEAR` wins.
+- **Numbers have the machine's three types.** You might expect `PRINT 1000000`
+  to print 1000000; actually it prints `1E+06`, because a literal up to 7
+  digits is a single and a single prints to 6 digits, as on the machine.
+  An 8-digit literal, a D exponent or a `#` makes a double, which prints
+  16 digits with a D exponent. `A#=1/3` holds the single quotient
+  (.3333333432674408) because `1/3` is single division; write `1#/3` for a
+  double one. Singles are 24 bits, so `FOR X=0 TO 1 STEP .1` makes 10
+  passes, as the machine does. One documented limit: a double holds 53
+  bits here against the machine's 56, so the 16th printed digit of a long
+  fraction can differ (`man CDBL`).
 - **`CLEAR MEM-n` is a 16K or 32K listing.** You might expect it to run
   anywhere; actually on the 64K map `MEM` exceeds 32767 and `CLEAR`'s count
   is an integer, so it is `?OV ERROR`, as it would be on a 48K machine.
