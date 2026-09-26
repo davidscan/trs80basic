@@ -105,6 +105,20 @@ def flat(s):
     return ' '.join(s.replace('\r\n', '\n').split())
 
 
+def played(echo):
+    """The line a dumb terminal shows after these bytes: backspace steps
+    left, anything else overwrites and steps right."""
+    line, col = [], 0
+    for ch in echo:
+        if ch == '\b':
+            col = max(col - 1, 0)
+        else:
+            if col == len(line): line.append(ch)
+            else: line[col] = ch
+            col += 1
+    return ''.join(line).rstrip()
+
+
 CSI = re.compile(r'\x1b\[[0-9;:?<>]*[A-Za-z]')
 
 
@@ -606,6 +620,22 @@ def main():
     b.send('A.BX\x7f\r', 0.5)                          # ... and Delete still backspaces
     out = b.drain()
     check('[A.B]' in out, 'INPUT returns a line with a period; Delete erased the X', out)
+
+    # 4c. the editor repaints from the key typed, not the whole line: the
+    # echo of an answer edited with three backspaces is a few bytes a key.
+    # Until 2026-09-26 every key repainted the line from its start, the
+    # square of its length in output (the 2026-09-23 audit, L-14).  What
+    # the bytes draw is checked by playing them as a terminal would: a
+    # backspace steps left, a character overwrites.
+    b.send('NEW\r10 INPUT A$:PRINT "["A$"]"\rRUN\r', 0.6)
+    b.drain(0.3)
+    b.send('ABCDEFGH' + '\x7f' * 3 + 'XYZ', 0.5)
+    echo = b.drain(0.3)
+    b.send('\r', 0.5)
+    out = b.drain()
+    check('[ABCDEXYZ]' in out, 'the answer edited with backspaces', out)
+    check(played(echo) == 'ABCDEXYZ', 'the echo draws the edited line', echo)
+    check(len(echo) <= 40, 'the echo is a few bytes a key, not a repaint per key (%d bytes)' % len(echo), echo)
 
     # 4b. the line editor refuses the 241st character (the ROM's 0361H limit)
     b.send('NEW\r10 CLEAR 500:INPUT A$:PRINT "LEN";LEN(A$)\rRUN\r', 0.6)   # 240 bytes of string space, as on the machine

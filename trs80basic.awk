@@ -1485,7 +1485,7 @@ function rl_read(repl,   c, r, s, oldl, oldp) {
             if (RLP > 0) {
                 RLS = substr(RLS, 1, RLP - 1) substr(RLS, RLP + 1)
                 RLP--
-                rl_draw(oldl, oldp)
+                rl_draw(oldl, oldp, RLP)
             }
             continue
         }
@@ -1500,20 +1500,27 @@ function rl_read(repl,   c, r, s, oldl, oldp) {
         if (c >= 32 && c < 127 && oldl < RLMAX) {
             RLS = substr(RLS, 1, RLP) CHR[c] substr(RLS, RLP + 1)
             RLP++
-            rl_draw(oldl, oldp)
+            rl_draw(oldl, oldp, RLP - 1)
         }
     }
 }
 
-# repaint the input line after an edit.  Grid mode: repaint from the RLSTART
-# anchor (tracking any scroll it causes).  Fullscreen tty mode: plain
-# backspace/overprint -- fine up to the terminal width (240-char lines that
-# wrap are a documented cosmetic limitation there).
-function rl_draw(oldl, oldp,   i, nn, pre, top) {
+# repaint the input line after an edit, from character `from` (0-based; at
+# or left of the old cursor, so the DUMB branch backspaces to it) -- the
+# key just typed or deleted at the cursor, and nothing before it.  Until
+# 2026-09-26 every keystroke repainted the whole line from its start, so
+# a pasted line cost the square of its length in output (the 2026-09-23
+# audit, L-14).  The other callers (Ctrl-A/E/U, the arrows, history,
+# completion, Ctrl-L) pass nothing: from 0, the whole line, as before.
+# Grid mode: repaint from the RLSTART anchor (tracking any scroll it
+# causes).  Fullscreen tty mode: plain backspace/overprint -- fine up to
+# the terminal width (240-char lines that wrap are a documented cosmetic
+# limitation there).
+function rl_draw(oldl, oldp, from,   i, nn, pre, top) {
     nn = length(RLS)
     if (DUMB) {
-        for (i = 0; i < oldp; i++) printf "\b"
-        printf "%s", RLS
+        for (i = oldp; i > from; i--) printf "\b"
+        printf "%s", substr(RLS, from + 1)
         for (i = nn; i < oldl; i++) printf " "
         top = (nn > oldl) ? nn : oldl
         for (i = top; i > RLP; i--) printf "\b"
@@ -1521,8 +1528,8 @@ function rl_draw(oldl, oldp,   i, nn, pre, top) {
         return
     }
     pre = SCROLLS
-    CUR = RLSTART
-    s_puts(RLS)
+    CUR = RLSTART + from
+    s_puts(substr(RLS, from + 1))
     for (i = nn; i < oldl; i++) s_putc(32)
     if (SCROLLS > pre) RLSTART -= 64 * (SCROLLS - pre)
     if (RLSTART < 0) RLSTART = 0
@@ -1776,13 +1783,26 @@ function st_history(   i, from, out) {
 }
 
 function storeline(ln, text) {
+    ln += 0
     prog[ln] = text
     delete ESC[ln]                  # a typed line is text again (R1 escrow)
     LASTLN = ln
     inval_cache(ln)
-    rebuild()
+    index_add(ln)
     DATADIRTY = 1
     run_reset()
+}
+
+# the line index after a store: a replaced line keeps its place, a line
+# past the last appends -- the order a listing is typed or pasted in --
+# and only a line in between re-sorts the whole index (rebuild).  Until
+# 2026-09-26 every stored line re-sorted it, so a pasted listing cost the
+# square of its length (the 2026-09-23 audit, L-14: 3000 lines 1.9 s, now
+# 0.7 s).  PROGDIRTY as rebuild sets it: the image has a new line.
+function index_add(ln) {
+    if (ln in LIDX) { PROGDIRTY = 1; return }
+    if (NL == 0 || ln > LNS[NL]) { NL++; LNS[NL] = ln; LIDX[ln] = NL; PROGDIRTY = 1; return }
+    rebuild()
 }
 
 function delline(ln) {

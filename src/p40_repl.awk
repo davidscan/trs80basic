@@ -121,13 +121,26 @@ function st_history(   i, from, out) {
 }
 
 function storeline(ln, text) {
+    ln += 0
     prog[ln] = text
     delete ESC[ln]                  # a typed line is text again (R1 escrow)
     LASTLN = ln
     inval_cache(ln)
-    rebuild()
+    index_add(ln)
     DATADIRTY = 1
     run_reset()
+}
+
+# the line index after a store: a replaced line keeps its place, a line
+# past the last appends -- the order a listing is typed or pasted in --
+# and only a line in between re-sorts the whole index (rebuild).  Until
+# 2026-09-26 every stored line re-sorted it, so a pasted listing cost the
+# square of its length (the 2026-09-23 audit, L-14: 3000 lines 1.9 s, now
+# 0.7 s).  PROGDIRTY as rebuild sets it: the image has a new line.
+function index_add(ln) {
+    if (ln in LIDX) { PROGDIRTY = 1; return }
+    if (NL == 0 || ln > LNS[NL]) { NL++; LNS[NL] = ln; LIDX[ln] = NL; PROGDIRTY = 1; return }
+    rebuild()
 }
 
 function delline(ln) {
