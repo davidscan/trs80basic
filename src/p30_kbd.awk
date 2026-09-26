@@ -240,7 +240,7 @@ function kp_release_all(   r) {
 # The reader must match KBMODE: a getline under "line" hangs, dd under
 # "poll" returns at once with nothing.
 function kb_fill() {
-    return (KBMODE == "poll") ? kb_fill_tty() : kb_fill_pipe()
+    return (KBMODE == "poll") ? kb_fill_tty() : kb_fill_line()
 }
 
 function kb_fill_tty(   save, r, i, n, line) {
@@ -264,7 +264,11 @@ function kb_fill_tty(   save, r, i, n, line) {
 # never came on, the release was never applied (the 2026-09-19 audit,
 # H-15 and L-7).  Returns the bytes READ, not the bytes queued: a read
 # the filter emptied is not the end of input kb_get counts to three.
-function kb_fill_pipe(   cmd, ln, a, n, i, got, s) {
+# Line mode at a TERMINAL: the editor's blocking read of /dev/tty (dd | od),
+# which kb_fill_stdin below mirrors for piped stdin.  Until 2026-09-26 the
+# two were kb_fill_pipe and kb_pipe_fill, one word apart, reading
+# different devices (the 2026-09-23 audit's NIT).
+function kb_fill_line(   cmd, ln, a, n, i, got, s) {
     cmd = "dd if=/dev/tty bs=256 count=1 2>/dev/null | od -A n -t u1 -v"
     got = 0; s = ""
     while ((cmd | getline ln) > 0) {
@@ -279,14 +283,14 @@ function kb_fill_pipe(   cmd, ln, a, n, i, got, s) {
 }
 
 # pipe mode: pull the next stdin line into the queue as chars + CR
-function kb_pipe_fill(   r, line) {
+function kb_fill_stdin(   r, line, ch) {
     fflush()                    # prompt text must land before we block on stdin
     r = (getline line < "/dev/stdin")
     if (r <= 0) { EOFQUIT = 1; return 0 }
     sub(/\r$/, "", line)
     for (r = 1; r <= length(line); r++) {
-        line2 = substr(line, r, 1)
-        KBQ[++KT] = (line2 in ORD) ? ORD[line2] : 63
+        ch = substr(line, r, 1)
+        KBQ[++KT] = (ch in ORD) ? ORD[ch] : 63
     }
     KBQ[++KT] = 13
     return 1
@@ -295,7 +299,7 @@ function kb_pipe_fill(   r, line) {
 # blocking single byte (tty mode)
 function kb_get(   tries) {
     if (!TTYIN) {
-        if (KH >= KT && !kb_pipe_fill()) return -1
+        if (KH >= KT && !kb_fill_stdin()) return -1
         return KBQ[++KH]
     }
     kb_mode("line")
@@ -319,7 +323,7 @@ function kb_poll1() {
     if (!TTYIN) {
         if (KH >= KT) {
             if (EOFQUIT || ++INKEYEOF > 200000) { kbe_diag(); PENDBRK = 1; return -1 }
-            if (!kb_pipe_fill()) { kbe_diag(); return -1 }
+            if (!kb_fill_stdin()) { kbe_diag(); return -1 }
         }
         return KBQ[++KH]
     }
@@ -388,18 +392,6 @@ function pollbrk(   i, c, j) {
 }
 
 function kb_flush() { KH = 0; KT = 0; KSCAN = 0 }
-
-# swallow the remainder of an ESC sequence (arrow keys etc.)
-function kb_esc(   c, i) {
-    c = kb_poll_wait(30)
-    if (c == 91 || c == 79) {           # '[' or 'O'
-        for (i = 0; i < 8; i++) {
-            c = kb_poll_wait(30)
-            if (c < 0 || (c >= 64 && c <= 126)) break
-        }
-    }
-    kb_mode("line")
-}
 
 function kb_poll_wait(tries,   i, c) {
     for (i = 0; i < tries; i++) {
@@ -567,7 +559,7 @@ function km_pump(   c) {
     if (TTYIN) { kb_mode("poll"); if (KH >= KT) kb_fill() }
     else if (KH >= KT) {
         if (EOFQUIT || ++INKEYEOF > 200000) { kbe_diag(); PENDBRK = 1; KMR = -1; return }
-        if (!kb_pipe_fill()) { kbe_diag(); KMR = -1; return }
+        if (!kb_fill_stdin()) { kbe_diag(); KMR = -1; return }
     }
     if (KBPROTO) {
         while (KH < KT) kp_byte(KBQ[++KH])

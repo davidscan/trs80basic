@@ -169,7 +169,7 @@
 #      The bytes themselves are ordinary MEM[] (seeded 88,4, 141,5 and 0
 #      in init).
 #
-# FOUR ASYMMETRIES AGAINST THE READ SIDE.  Each is a range the read side
+# THREE ASYMMETRIES AGAINST THE READ SIDE.  Each is a range the read side
 # projects from somewhere other than MEM[], so a write there lands in MEM[]
 # and NOTHING CAN EVER OBSERVE IT:
 #   * 3800-38FFH keyboard (read rule 1) -- no write branch.
@@ -177,19 +177,18 @@
 #   * 40A4/40A5H and 40F9/40FAH (read rule 3) -- no write branch.  40B1/40B2H
 #     is the ONLY writable member; rule 3 above is where that finally gets
 #     said on the write side, having been stated only on the read side.
-#   * the tokenized program image, a >= 17129 && a < PMEND -- rule 6 stores
-#     MEM[a] and read rule 5 NOW READS IT BACK (writable since 2026-09-12,
-#     superseding FINDING 23's read-only shadow: the Dancing Demon keeps its
-#     score buffer inside its own image at 6B9BH and needs the write to
-#     stick).  Not an asymmetry any more; no image-specific write branch is
-#     needed because rule 6 already stores it and rule 5 reads it.
+# The tokenized program image, a >= 17129 && a < PMEND, was the fourth
+# until 2026-09-12: rule 6 stores MEM[a] and read rule 5 reads it back
+# (writable, superseding FINDING 23's read-only shadow: the Dancing Demon
+# keeps its score buffer inside its own image at 6B9BH and needs the
+# write to stick).  No image-specific write branch is needed.
 #
 # THOSE BYTES ARE UNDEFINED -- not zero, not absent.  If this side and the
-# core ever diff their memory images, the four ranges above are OUT OF SCOPE
+# core ever diff their memory images, the three ranges above are OUT OF SCOPE
 # for the comparison: identical observable behaviour, deliberately different
 # stores.  Do not "fix" either side to agree there, and do not turn rule 6
 # into a discard for them -- the store is unobservable either way, and a
-# discard would cost four address tests in the hot POKE path to buy nothing.
+# discard would cost three address tests in the hot POKE path to buy nothing.
 #
 # NO ORDERING HAZARD MIRRORING READ RULES 4/5.  SPK outranks the program image
 # on READ because a packed string inside the image range must win.  On write

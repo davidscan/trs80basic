@@ -904,7 +904,7 @@ function name_rewrite(text, oldln, map,   t, ty, tx, out, last, o, len, val, lis
 # (MERGE) keeps the current program: file lines overwrite/interleave instead
 # of replacing it.  Returns 0 if the file can't be opened; sets LOADBAD=1 if
 # any line was rejected.
-function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen, ok, pln, rpt, ra, ri, nn, data, fl, nfl) {
+function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen, ok, pln, rpt, ra, ri, nn, data, fl, nfl, ncr, nlf) {
     LOADBAD = 0
     # R1 (2026-09-12): a TOKENIZED image -- the 0xFF-headed cassette/disk
     # form every archived TRS-80 program is in -- loads directly.  The file
@@ -940,7 +940,8 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
     # 1AH end mark): that is not a line.
     data = SLURPED; SLURPED = ""
     sub(/[\000\032]+$/, "", data)
-    if (data !~ /\r\n/ && gsub(/\r/, "\r", data) > gsub(/\n/, "\n", data)) {
+    ncr = split(data, fl, "\r") - 1; nlf = split(data, fl, "\n") - 1   # counts; split is linear, gsub was not
+    if (data !~ /\r\n/ && ncr > nlf) {
         sub(/\r$/, "", data)
         nfl = (data == "") ? 0 : split(data, fl, "\r")
     } else {

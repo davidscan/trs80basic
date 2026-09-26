@@ -132,7 +132,7 @@ function z80_start(   w) {
                    ", this interpreter speaks " Z80PROTO "; USR is the stub for this session")
         z80_close(); return
     }
-    Z80NAME = z80_field("name"); Z80PID = z80_field("pid") + 0
+    Z80PID = z80_field("pid") + 0
     Z80STATE = "up"
     Z80WAVGOING = w
     fr_reset()                                    # the first frame is full

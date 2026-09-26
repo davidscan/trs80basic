@@ -218,7 +218,7 @@ function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok,
         if (WINNATIVE)
             cmd = "curl -s --max-time " tmo " -X POST http://" host "/api/chat -d @\"" bf "\""
         else
-            cmd = "curl -s --max-time " tmo " -X POST 'http://" host "/api/chat' -d @" shq(bf)
+            cmd = "curl -s --max-time " tmo " -X POST " shq("http://" host "/api/chat") " -d @" shq(bf)
     }
     resp = ""
     while ((cmd | getline line) > 0) resp = resp line "\n"

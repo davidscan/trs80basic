@@ -850,7 +850,7 @@ function dopeek(x,   a) {
     if (a == 14312 || a == 14313) return 63
     # 40AA-40ACH: the ROM RND seed, live and POKEable (rnd_* in p90)
     if (a >= 16554 && a <= 16556) return rnd_peek(a - 16554)
-    # live system pointers + the read-only tokenized program image (p75)
+    # live system pointers + the tokenized program image (p75; writable since 2026-09-12)
     if (a == 16548 || a == 16549 || a == 16561 || a == 16562 || a == 16633 || a == 16634)
         return pm_sysptr(a)
     if (a >= 16416 && a <= 16667 && (a in SVW)) return sv_peek(a)   # system variable window (p75)
@@ -911,7 +911,7 @@ function poke_byte(a, b) {
         # date first, so the byte belongs to the line it lands in (p75 pm_build)
         if (PROGDIRTY && a >= 17129) pm_sync()
         MEM[a] = b; if (FRTRACK) FRDIRTY[a] = 1
-        if (a >= 16414 && a <= 16423) dv_update()   # the device vectors (side effect only)
+        if ((a >= 16414 && a <= 16415) || (a >= 16422 && a <= 16423)) dv_update()   # the driver addresses 401E/401FH, 4026/4027H (side effect only)
         if (a == 16445) WIDE = int(b / 8) % 2       # 403DH: the ROM's 32-column print flag (side effect only)
     }
 }

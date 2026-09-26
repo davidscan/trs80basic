@@ -987,7 +987,7 @@ function kp_release_all(   r) {
 # The reader must match KBMODE: a getline under "line" hangs, dd under
 # "poll" returns at once with nothing.
 function kb_fill() {
-    return (KBMODE == "poll") ? kb_fill_tty() : kb_fill_pipe()
+    return (KBMODE == "poll") ? kb_fill_tty() : kb_fill_line()
 }
 
 function kb_fill_tty(   save, r, i, n, line) {
@@ -1011,7 +1011,11 @@ function kb_fill_tty(   save, r, i, n, line) {
 # never came on, the release was never applied (the 2026-09-19 audit,
 # H-15 and L-7).  Returns the bytes READ, not the bytes queued: a read
 # the filter emptied is not the end of input kb_get counts to three.
-function kb_fill_pipe(   cmd, ln, a, n, i, got, s) {
+# Line mode at a TERMINAL: the editor's blocking read of /dev/tty (dd | od),
+# which kb_fill_stdin below mirrors for piped stdin.  Until 2026-09-26 the
+# two were kb_fill_pipe and kb_pipe_fill, one word apart, reading
+# different devices (the 2026-09-23 audit's NIT).
+function kb_fill_line(   cmd, ln, a, n, i, got, s) {
     cmd = "dd if=/dev/tty bs=256 count=1 2>/dev/null | od -A n -t u1 -v"
     got = 0; s = ""
     while ((cmd | getline ln) > 0) {
@@ -1026,14 +1030,14 @@ function kb_fill_pipe(   cmd, ln, a, n, i, got, s) {
 }
 
 # pipe mode: pull the next stdin line into the queue as chars + CR
-function kb_pipe_fill(   r, line) {
+function kb_fill_stdin(   r, line, ch) {
     fflush()                    # prompt text must land before we block on stdin
     r = (getline line < "/dev/stdin")
     if (r <= 0) { EOFQUIT = 1; return 0 }
     sub(/\r$/, "", line)
     for (r = 1; r <= length(line); r++) {
-        line2 = substr(line, r, 1)
-        KBQ[++KT] = (line2 in ORD) ? ORD[line2] : 63
+        ch = substr(line, r, 1)
+        KBQ[++KT] = (ch in ORD) ? ORD[ch] : 63
     }
     KBQ[++KT] = 13
     return 1
@@ -1042,7 +1046,7 @@ function kb_pipe_fill(   r, line) {
 # blocking single byte (tty mode)
 function kb_get(   tries) {
     if (!TTYIN) {
-        if (KH >= KT && !kb_pipe_fill()) return -1
+        if (KH >= KT && !kb_fill_stdin()) return -1
         return KBQ[++KH]
     }
     kb_mode("line")
@@ -1066,7 +1070,7 @@ function kb_poll1() {
     if (!TTYIN) {
         if (KH >= KT) {
             if (EOFQUIT || ++INKEYEOF > 200000) { kbe_diag(); PENDBRK = 1; return -1 }
-            if (!kb_pipe_fill()) { kbe_diag(); return -1 }
+            if (!kb_fill_stdin()) { kbe_diag(); return -1 }
         }
         return KBQ[++KH]
     }
@@ -1135,18 +1139,6 @@ function pollbrk(   i, c, j) {
 }
 
 function kb_flush() { KH = 0; KT = 0; KSCAN = 0 }
-
-# swallow the remainder of an ESC sequence (arrow keys etc.)
-function kb_esc(   c, i) {
-    c = kb_poll_wait(30)
-    if (c == 91 || c == 79) {           # '[' or 'O'
-        for (i = 0; i < 8; i++) {
-            c = kb_poll_wait(30)
-            if (c < 0 || (c >= 64 && c <= 126)) break
-        }
-    }
-    kb_mode("line")
-}
 
 function kb_poll_wait(tries,   i, c) {
     for (i = 0; i < tries; i++) {
@@ -1314,7 +1306,7 @@ function km_pump(   c) {
     if (TTYIN) { kb_mode("poll"); if (KH >= KT) kb_fill() }
     else if (KH >= KT) {
         if (EOFQUIT || ++INKEYEOF > 200000) { kbe_diag(); PENDBRK = 1; KMR = -1; return }
-        if (!kb_pipe_fill()) { kbe_diag(); KMR = -1; return }
+        if (!kb_fill_stdin()) { kbe_diag(); KMR = -1; return }
     }
     if (KBPROTO) {
         while (KH < KT) kp_byte(KBQ[++KH])
@@ -2508,7 +2500,7 @@ function name_rewrite(text, oldln, map,   t, ty, tx, out, last, o, len, val, lis
 # (MERGE) keeps the current program: file lines overwrite/interleave instead
 # of replacing it.  Returns 0 if the file can't be opened; sets LOADBAD=1 if
 # any line was rejected.
-function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen, ok, pln, rpt, ra, ri, nn, data, fl, nfl) {
+function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen, ok, pln, rpt, ra, ri, nn, data, fl, nfl, ncr, nlf) {
     LOADBAD = 0
     # R1 (2026-09-12): a TOKENIZED image -- the 0xFF-headed cassette/disk
     # form every archived TRS-80 program is in -- loads directly.  The file
@@ -2544,7 +2536,8 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
     # 1AH end mark): that is not a line.
     data = SLURPED; SLURPED = ""
     sub(/[\000\032]+$/, "", data)
-    if (data !~ /\r\n/ && gsub(/\r/, "\r", data) > gsub(/\n/, "\n", data)) {
+    ncr = split(data, fl, "\r") - 1; nlf = split(data, fl, "\n") - 1   # counts; split is linear, gsub was not
+    if (data !~ /\r\n/ && ncr > nlf) {
         sub(/\r$/, "", data)
         nfl = (data == "") ? 0 : split(data, fl, "\r")
     } else {
@@ -4726,7 +4719,7 @@ function st_resume(   p, ty, tx) {
 #      The bytes themselves are ordinary MEM[] (seeded 88,4, 141,5 and 0
 #      in init).
 #
-# FOUR ASYMMETRIES AGAINST THE READ SIDE.  Each is a range the read side
+# THREE ASYMMETRIES AGAINST THE READ SIDE.  Each is a range the read side
 # projects from somewhere other than MEM[], so a write there lands in MEM[]
 # and NOTHING CAN EVER OBSERVE IT:
 #   * 3800-38FFH keyboard (read rule 1) -- no write branch.
@@ -4734,19 +4727,18 @@ function st_resume(   p, ty, tx) {
 #   * 40A4/40A5H and 40F9/40FAH (read rule 3) -- no write branch.  40B1/40B2H
 #     is the ONLY writable member; rule 3 above is where that finally gets
 #     said on the write side, having been stated only on the read side.
-#   * the tokenized program image, a >= 17129 && a < PMEND -- rule 6 stores
-#     MEM[a] and read rule 5 NOW READS IT BACK (writable since 2026-09-12,
-#     superseding FINDING 23's read-only shadow: the Dancing Demon keeps its
-#     score buffer inside its own image at 6B9BH and needs the write to
-#     stick).  Not an asymmetry any more; no image-specific write branch is
-#     needed because rule 6 already stores it and rule 5 reads it.
+# The tokenized program image, a >= 17129 && a < PMEND, was the fourth
+# until 2026-09-12: rule 6 stores MEM[a] and read rule 5 reads it back
+# (writable, superseding FINDING 23's read-only shadow: the Dancing Demon
+# keeps its score buffer inside its own image at 6B9BH and needs the
+# write to stick).  No image-specific write branch is needed.
 #
 # THOSE BYTES ARE UNDEFINED -- not zero, not absent.  If this side and the
-# core ever diff their memory images, the four ranges above are OUT OF SCOPE
+# core ever diff their memory images, the three ranges above are OUT OF SCOPE
 # for the comparison: identical observable behaviour, deliberately different
 # stores.  Do not "fix" either side to agree there, and do not turn rule 6
 # into a discard for them -- the store is unobservable either way, and a
-# discard would cost four address tests in the hot POKE path to buy nothing.
+# discard would cost three address tests in the hot POKE path to buy nothing.
 #
 # NO ORDERING HAZARD MIRRORING READ RULES 4/5.  SPK outranks the program image
 # on READ because a packed string inside the image range must win.  On write
@@ -5890,7 +5882,7 @@ function z80_start(   w) {
                    ", this interpreter speaks " Z80PROTO "; USR is the stub for this session")
         z80_close(); return
     }
-    Z80NAME = z80_field("name"); Z80PID = z80_field("pid") + 0
+    Z80PID = z80_field("pid") + 0
     Z80STATE = "up"
     Z80WAVGOING = w
     fr_reset()                                    # the first frame is full
@@ -6911,7 +6903,7 @@ function dopeek(x,   a) {
     if (a == 14312 || a == 14313) return 63
     # 40AA-40ACH: the ROM RND seed, live and POKEable (rnd_* in p90)
     if (a >= 16554 && a <= 16556) return rnd_peek(a - 16554)
-    # live system pointers + the read-only tokenized program image (p75)
+    # live system pointers + the tokenized program image (p75; writable since 2026-09-12)
     if (a == 16548 || a == 16549 || a == 16561 || a == 16562 || a == 16633 || a == 16634)
         return pm_sysptr(a)
     if (a >= 16416 && a <= 16667 && (a in SVW)) return sv_peek(a)   # system variable window (p75)
@@ -6972,7 +6964,7 @@ function poke_byte(a, b) {
         # date first, so the byte belongs to the line it lands in (p75 pm_build)
         if (PROGDIRTY && a >= 17129) pm_sync()
         MEM[a] = b; if (FRTRACK) FRDIRTY[a] = 1
-        if (a >= 16414 && a <= 16423) dv_update()   # the device vectors (side effect only)
+        if ((a >= 16414 && a <= 16415) || (a >= 16422 && a <= 16423)) dv_update()   # the driver addresses 401E/401FH, 4026/4027H (side effect only)
         if (a == 16445) WIDE = int(b / 8) % 2       # 403DH: the ROM's 32-column print flag (side effect only)
     }
 }
@@ -7998,7 +7990,7 @@ function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok,
         if (WINNATIVE)
             cmd = "curl -s --max-time " tmo " -X POST http://" host "/api/chat -d @\"" bf "\""
         else
-            cmd = "curl -s --max-time " tmo " -X POST 'http://" host "/api/chat' -d @" shq(bf)
+            cmd = "curl -s --max-time " tmo " -X POST " shq("http://" host "/api/chat") " -d @" shq(bf)
     }
     resp = ""
     while ((cmd | getline line) > 0) resp = resp line "\n"
