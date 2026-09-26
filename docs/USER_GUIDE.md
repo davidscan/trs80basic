@@ -203,6 +203,7 @@ printf '5\n10\n' | ./basic prog.bas   # stdin answers the INPUTs
 ./basic --seed 42 prog.bas     # repeatable RND
 ./basic --clear 1000 prog.bas  # CLEAR 1000 typed before RUN, as on the machine
 ./basic --memsize 32767 prog.bas   # a 16K machine, for a listing that needs one
+./basic --memory host prog.bas     # new code: no 64K, string space, 255-byte or 32767 limits (man memory)
 ```
 
 Exit status: **0** clean, **1** uncaught BASIC error (also on stderr in the
@@ -217,7 +218,9 @@ reach stderr on an exit-0 run: `USR STUB: n CALLS NOT EXECUTED ...` when
 two errors batch mode adds a `basic:` line on stderr that names the
 keystroke the listing assumed: `?OS` with no `CLEAR n` (`--clear 1000`,
 see `man OS`) and `?OV` at `CLEAR MEM-n` on the 64K map (`--memsize
-32767`). The message, the output and the exit status stay the machine's.
+32767`); behind a limit that `--memory host` lifts (`?OM`, a subscript
+past 32767, `?LS`) it names that option. The message, the output and the
+exit status stay the machine's.
 
 **Batch mode has no keyboard.** It turns the raw keyboard off, so `INKEY$`
 reads whole lines from stdin rather than single keypresses. A program whose
@@ -933,8 +936,9 @@ REM text   a remark; the rest of the line is ignored
   target a REM line, which is the usual way to label a subroutine.
   EXT (needs `ext on` / TRS80_EXT=1): a REM beginning META: carries a
   metacommand, which runs when execution REACHES that line -- so a
-  program can ask for the display it wants, or change the throttle
-  part-way through.  Only two are allowed, `speed` and `fullscreen`,
+  program can ask for the display it wants, change the throttle
+  part-way through, or declare that it needs the host's memory.  Only
+  three are allowed, `speed`, `fullscreen` and `memory` (man memory),
   spelled exactly as at the prompt; anything else after META: is ignored
   in silence, and a file can never reach `dir`, `cat` or the filesystem.
   Inside a loop it re-fires every pass, which is harmless for both.
@@ -944,6 +948,7 @@ REM text   a remark; the rest of the line is ignored
   Example: 10 A=5:REM SET THE COUNTER
   Example: 10 REM META:fullscreen on
   Example: 500 REM META:speed 1.77
+  Example: 10 REM META:memory host
 ```
 
 #### END
@@ -1030,6 +1035,8 @@ CLEAR [n]   reset all variables; optionally set string space to n bytes
   `./basic --clear 1000`, which types it (man OS has the rule).
   CLEAR MEM-n is ?OV on the 64K map, MEM being past 32767: the
   listing is a 16K or 32K one, and --memsize 32767 is that machine.
+  New code that needs more than the machine has: `memory host` (EXT,
+  man memory) takes any count and never says ?OS or ?OM.
   Example: CLEAR
   Example: CLEAR 1000
 ```
@@ -1563,6 +1570,8 @@ RESUME [0 | NEXT | n]   carry on after an ON ERROR handler
   `./basic --clear 1000`, which types it.  A listing whose own CLEAR n
   is too small stops on the machine too; raise the number in the line.
   In batch mode the run says which case it is, on stderr.
+  A program written for this interpreter rather than the machine can
+  have the host's memory instead: `memory host` (EXT, man memory).
   Example: CLEAR 1000
   Example: PRINT FRE("")
 ```
@@ -2433,6 +2442,8 @@ MEM   the number of bytes of program and variable space still free
   When it runs out, ?OM: a GOSUB or FOR with fewer than about 60 bytes
   left, or a DIM that does not fit, stops as on the machine -- so a
   subroutine that calls itself without end is ?OM ERROR, not a hang.
+  Under `memory host` (EXT, man memory) the same count runs against a
+  top of 2147483647, so MEM still says what the program uses.
   Example: PRINT MEM
 ```
 
@@ -2546,6 +2557,39 @@ ext            report the current state
   Metacommand: lowercase only.
   Example: ext on
   Example: ext            -> EXT OFF (gated: ...)
+```
+
+#### memory
+
+```text
+memory host | rom   the host's memory, or the machine's (the default)
+memory              report the current state
+  EXT.  The machine's capacity limits, lifted at once for a program
+  written for this interpreter rather than for a TRS-80: the 64K
+  arithmetic behind MEM, FRE and ?OM; CLEAR n's string space (?OS); the
+  255-character string (?LS) and the 255 counts of LEFT$, RIGHT$, MID$,
+  STRING$ and INSTR; subscripts, DIM bounds and CLEAR counts past 32767
+  (?OV); the 255-byte cut of INPUT# and LINE INPUT#; the 240-byte piped
+  INPUT line.  Under `host` none of those errors happens for size, a
+  file's line is read whole, and MEM and FRE count what the program uses
+  against a top of 2147483647.  Under `rom` -- the default -- every one
+  is the machine's, so a period listing behaves as it did.
+  What stays the machine's either way: PEEK, POKE, VARPTR, USR and the
+  program image see the 64K map; a string longer than 255 shows a length
+  byte of 255 there, its first 255 bytes packed; the interactive line
+  editor takes 240 characters.
+  Turn it on from the shell with `./basic --memory host` (it cannot be
+  combined with --memsize) or TRS80_MEMORY=host, at the prompt with
+  `memory host`, or in the listing with 10 REM META:memory host, which
+  needs `ext on` like every META: directive.  No BASIC keyword sets it.
+  In batch mode a run that stops at one of those limits says so on
+  stderr, naming the option; the program's output is untouched.
+  It is for new code, not for rescuing a period listing: one that sizes
+  itself by MEM or FRE (PL%=FRE(A$)/63, POKE MEM-n) overflows under
+  `host`, where those say about two thousand million.
+  Metacommand: lowercase only.
+  Example: memory host
+  Example: memory            -> MEMORY ROM (the machine: ...)
 ```
 
 #### fullscreen

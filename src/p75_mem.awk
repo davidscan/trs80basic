@@ -554,6 +554,7 @@ function sp_materialize(tgt, isstr,   len, need, base, j, dbase) {
         return base
     }
     len = length(sp_gets(tgt))
+    if (len > 255) len = 255                      # `memory host` (EXT): the map packs a long string's first 255 bytes
     if (tgt in VPDESC) {
         dbase = VPDESC[tgt]
         if (len <= VPCAP[tgt]) return dbase       # still fits: nothing moves
@@ -653,7 +654,7 @@ function sp_peek(a,   t, tgt, v) {
     # value is a copy each time (the 2026-09-23 audit, M-12: O(len^2))
     if (FRCACHE) { if (tgt != FRCT) { FRCT = tgt; FRCV = sp_gets(tgt) }; v = FRCV }
     else v = sp_gets(tgt)
-    if (t == "L") return length(v) % 256
+    if (t == "L") return (length(v) > 255) ? 255 : length(v)   # past 255 only under `memory host` (EXT): the byte says 255
     if (t + 1 <= length(v)) return ORD[substr(v, t + 1, 1)]
     return (a in SPX) ? SPX[a] : 32               # past the live length: RAM
 }
@@ -1182,19 +1183,22 @@ function mem_varbytes(   n, k, i, e) {
     }
     return VBYTES
 }
-# SP - (40FDH): what MEM and FRE(n) say (27D4H-27DDH, 27ECH-27F2H)
+# SP - (40FDH): what MEM and FRE(n) say (27D4H-27DDH, 27ECH-27F2H).
+# Under `memory host` (EXT, p10) the same count runs against HOSTTOP: the
+# figure stays a measure of what the program uses, and ?OM comes only past
+# 2^31 bytes of it.
 function mem_free() {
     pm_sync(); pm_truncnote()
-    return mem_strlo() - 14 - 6 * GSN - 17 * FSN - (PMEND + mem_varbytes())
+    return (HOSTMEM ? HOSTTOP : mem_strlo()) - 14 - 6 * GSN - 17 * FSN - (PMEND + mem_varbytes())
 }
 # (40D6H) - (40A0H) after the collection: FRE(a$)
-function mem_strfree() { return mem_strsz() - STRUSED }
+function mem_strfree() { return (HOSTMEM ? HOSTTOP : mem_strsz()) - STRUSED }
 # ROM 1963H-197AH: a frame or an array of n bytes fits when the free
 # memory holds it and 58 more (FFC6H), else ?OM.  GOSUB asks for 6
 # (1EB1H), FOR for 16 (1CB6H), DIM for its array.  Until 2026-09-25 a
 # GOSUB that called itself ran until the host ran out of memory (the
 # 2026-09-23 audit, M-9).
 function mem_need(n) {
-    if (mem_free() < n + 58) { raise(7); return 0 }
+    if (mem_free() < n + 58) { raise_host(7); return 0 }
     return 1
 }

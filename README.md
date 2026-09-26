@@ -130,6 +130,7 @@ own. Whatever the BASIC program `OPEN`s, `CSAVE`s or `SAVE`s lands relative to
 | `--seed N` | time-based | seeds `RND`; `RANDOM` re-applies N | repeatable runs, transcripts you can diff |
 | `--memsize N` | 65535 | answers `MEM SIZE?` with N (17280-65535), in batch and at the prompt | a program that only ran on a 16K machine: it POKEs an address byte it made signed (`IF H>127 THEN H=H-256`), which is `?FC` above 32767 on the hardware too; `--memsize 32767` is that machine |
 | `--clear N` | none (string space stays 50 bytes) | types `CLEAR N` before `RUN` (after LOAD in batch, at the first `READY` at the prompt); N is 0-32767 | a listing that stops with `?OS ERROR`: it was written for a machine where `CLEAR 1000` had been typed before `RUN`, outside the listing. The program's own `CLEAR n` still wins, and `FRE("")` reports the space |
+| `--memory host` | `rom` (the machine) | EXT: lifts the machine's capacity limits at once: the 64K behind `MEM`/`?OM`, `CLEAR n` string space (`?OS`), the 255-character string and its counts (`?LS`), subscripts, `DIM` bounds and `CLEAR` counts past 32767, the 255-byte `INPUT#` cut and the 240-byte piped line. `PEEK`, `POKE`, `VARPTR` and `USR` keep the 64K machine. Also `TRS80_MEMORY=host`, the `memory` metacommand, or `REM META: memory host` under `ext on` | new code written for this interpreter rather than for the machine: a program whose tables or prose would never fit a TRS-80 |
 | `--screen` | off | keep the TRS-80 cursor/screen control codes in batch output | capturing what the 64x16 screen looked like rather than a text transcript |
 | `--` | | end of options | a program file whose name starts with `-` |
 | `-h`, `--help` | | usage and exit status meanings | |
@@ -138,7 +139,9 @@ Exit status: **0** clean run, **1** uncaught BASIC error (also printed to
 stderr as `?SN ERROR IN 40`), **2** bad invocation or unreadable file.
 Behind two of those errors batch mode adds one `basic:` line on stderr:
 `?OS` with string space never `CLEAR`ed names `--clear`, and `?OV` at a
-`CLEAR MEM-n` on the 64K map names `--memsize 32767`. The message, the
+`CLEAR MEM-n` on the 64K map names `--memsize 32767`; and behind a limit
+that `--memory host` lifts (`?OM`, a subscript or `DIM` past 32767, `?LS`,
+a string count past 255) the note names that option. The message, the
 output and the exit status are the machine's; the prompt shows the
 message alone.
 Running out of stdin while a program is at `INPUT` is a BASIC error
@@ -339,6 +342,17 @@ before `--update`.
   is an integer, so it is `?OV ERROR`, as it would be on a 48K machine.
   `--memsize 32767` is the machine it was written for, and the batch run
   says so on stderr.
+- **New code can have the host's memory.** You might expect `DIM A(100000)`
+  or a 2,000-character string to work on a modern machine; actually they
+  are `?OV` and `?LS`, because the default is the TRS-80's limits, so a
+  period listing behaves as it did. `--memory host` (or `TRS80_MEMORY=host`,
+  the `memory host` metacommand, `REM META: memory host` under `ext on`)
+  lifts them all at once for a program written for this interpreter:
+  no `?OM`, `?OS` or `?LS`, any subscript or `CLEAR` count, file lines
+  read whole. `MEM` and `FRE` still count what the program uses, against
+  a 2 GB top. `PEEK`, `POKE`, `VARPTR` and `USR` keep the 64K machine, so
+  a long string shows a length byte of 255 there. A batch run that hits
+  one of those limits says so on stderr.
 - **A statement ends at a colon, or the line does.** You might expect
   `X=1END` or `X=1 Y=2` to run both parts; actually they are `?SN ERROR`,
   because the machine tests the byte behind every completed statement and

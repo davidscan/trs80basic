@@ -365,6 +365,18 @@ function intstore(x,   r) {
     if (r > 32767 || r < -32768) { raise(6); return 0 }
     return r
 }
+# a subscript, a DIM bound or CLEAR's count: the ROM's integer (intstore),
+# or under `memory host` (EXT, p10) any integer that fits a double's
+# exactness, rounded down as 0A7FH rounds
+function bigint(x,   r) {
+    if (HOSTMEM) {
+        r = bfloor(x)
+        if (r > 9007199254740991 || r < -9007199254740991) { raise(6); return 0 }
+        return r
+    }
+    r = intstore(x); if (E) HINTHOST = 1  # batch mode's note names the mode (p45)
+    return r
+}
 
 function assignv(name, key, v,   isint, tgt, n, ty) {
     isint = LVI; LVI = 0
@@ -382,7 +394,7 @@ function assignv(name, key, v,   isint, tgt, n, ty) {
         # collection (28E6H) and then ?OS, and nothing is stored.  Until
         # 2026-09-25 the string area had no end here (the 2026-09-23
         # audit, L-15's cluster).
-        if (STRUSED + n > mem_strsz()) { raise(14); return }
+        if (!HOSTMEM && STRUSED + n > mem_strsz()) { raise(14); return }   # never under `memory host` (EXT)
         STRUSED += n - ((tgt in STRCNT) ? STRCNT[tgt] : 0); STRCNT[tgt] = n
         if (ALN) al_clear(name, key)            # the descriptor moves (p75, finding 7)
         delete LITA[tgt]                        # a literal it noted (p75)
@@ -708,12 +720,14 @@ function st_clear(   v, ty, tx, n) {
         # initializer at 1B61H is joined only afterwards (1EA0H).  Until
         # 2026-09-25 n was evaluated and thrown away (the 2026-09-23 audit,
         # L-4).
-        n = intstore(num(v)); if (E) return
+        n = bigint(num(v)); if (E) return
         if (n < 0) { raise(5); return }
-        if (n > HIMEM) { raise(7); return }
-        pm_sync(); pm_truncnote()
-        if (PMEND + 40 >= HIMEM - n) { raise(7); return }
-        STRLO = HIMEM - n; STRLO_SET = 1
+        if (!HOSTMEM) {                     # `memory host` (EXT): no string area to place, any count
+            if (n > HIMEM) { raise_host(7); return }
+            pm_sync(); pm_truncnote()
+            if (PMEND + 40 >= HIMEM - n) { raise_host(7); return }
+            STRLO = HIMEM - n; STRLO_SET = 1
+        }
         # who set the space, for batch mode's ?OS note (batch_hint, p45):
         # a program line, or "I" for one typed at READY (--clear)
         CLEARSRC = (CK == "I") ? "I" : CLN ""; CLEARN = n

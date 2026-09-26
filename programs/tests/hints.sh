@@ -31,7 +31,7 @@ out=$(run --clear 100);  [ "$out" = "$want" ] || fail "--clear too small" "$out"
 # the program's own CLEAR is too small: --clear cannot help
 printf '10 CLEAR 60\n20 A$=STRING$(100,"A"):B$=STRING$(100,"B")\n' > "$tmp"
 want='?OS ERROR IN 20
-basic: the program'"'"'s own CLEAR 60 in line 10 is too small for its strings; --clear cannot help, the program'"'"'s CLEAR wins'
+basic: the program'"'"'s own CLEAR 60 in line 10 is too small for its strings; --clear cannot help, the program'"'"'s CLEAR wins -- or try --memory host (EXT: no string space limit)'
 out=$(run);              [ "$out" = "$want" ] || fail "the program's own CLEAR" "$out"
 out=$(run --clear 1000); [ "$out" = "$want" ] || fail "the program's own CLEAR under --clear" "$out"
 
@@ -40,15 +40,17 @@ printf '10 A$=STRING$(100,"A")\n20 CLEAR 500\n' > "$tmp"
 out=$(run); case $out in "?OS ERROR IN 10"*"try --clear 1000") ;; *) fail "a CLEAR that comes too late" "$out" ;; esac
 
 # ?OV at CLEAR MEM-n on the 64K map: the note says --memsize 32767; on a
-# 16K map the same line runs, and any other ?OV gets no note
+# 16K map the same line runs.  A count past 32767 on any map is a ceiling
+# `memory host` lifts (EXT), so that note names it; any other ?OV gets none
 printf '10 CLEAR MEM-1000\n20 PRINT "RAN"\n' > "$tmp"
 want='?OV ERROR IN 10
-basic: CLEAR'"'"'s count is an integer (?OV past 32767) and MEM exceeds 32767 on this memory map: the listing was written for a 16K or 32K machine, try --memsize 32767'
+basic: CLEAR'"'"'s count is an integer (?OV past 32767) and MEM exceeds 32767 on this memory map: the listing was written for a 16K or 32K machine, try --memsize 32767 (or, for new code, try --memory host)'
 out=$(run); rc=$?
 [ $rc -eq 1 ] && [ "$out" = "$want" ] || fail "?OV at CLEAR MEM-n (rc=$rc)" "$out"
 out=$(run --memsize 32767); [ "$out" = "RAN" ] || fail "CLEAR MEM-n under --memsize 32767" "$out"
 printf '10 CLEAR 40000\n' > "$tmp"
-out=$(run --memsize 32767); [ "$out" = "?OV ERROR IN 10" ] || fail "?OV at CLEAR on a 16K map has no note" "$out"
+out=$(run --memsize 32767); case $out in "?OV ERROR IN 10
+basic: a subscript, DIM bound or CLEAR count past 32767"*"--memory host"*) ;; *) fail "?OV at CLEAR 40000 on a 16K map names --memory host, not --memsize" "$out" ;; esac
 printf '10 X%%=40000\n' > "$tmp"
 out=$(run); [ "$out" = "?OV ERROR IN 10" ] || fail "another ?OV has no note" "$out"
 

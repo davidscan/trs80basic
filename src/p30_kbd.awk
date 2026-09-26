@@ -656,7 +656,7 @@ function rl_read(repl,   c, r, s, oldl, oldp) {
         sub(/\r$/, "", s)
         # no cursor stops a piped line at the limit, so the cut is said out
         # loud, once: a transcript's long line must not lose its tail silently
-        if (length(s) > RLMAX) {
+        if (!HOSTMEM && length(s) > RLMAX) {    # whole under `memory host` (EXT); the editor keeps 240
             s = substr(s, 1, RLMAX)
             if (!RLCUTSAID++) diag_err("INPUT LINE CUT AT " RLMAX " CHARACTERS (the Level II keyboard limit)")
         }

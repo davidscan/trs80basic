@@ -79,7 +79,7 @@ function e_add(   v, r, op, x) {
                 # the store never happens.  Until 2026-09-24 strings grew
                 # without bound, so the VARPTR length byte held the length
                 # mod 256 and a handler written for ?LS never fired (H-2).
-                if (length(v) + length(r) - 2 > 255) { raise(15); return v }
+                if (!HOSTMEM && length(v) + length(r) - 2 > 255) { raise_host(15); return v }   # unbounded under `memory host` (EXT)
                 v = "S" vstr(v) vstr(r); continue
             }
             if (isN(v) != isN(r)) { raise(13); return v }
@@ -269,7 +269,7 @@ function aref(name,   nd, i, v, idx, key, idxs) {
         # one is ?FC there and then, before the dimension count or the
         # bound is looked at.  So A(40000) is ?OV, never ?BS (the 2026-09-23
         # audit's NIT; until 2026-09-26 it was ?BS).
-        idx = intstore(num(v)); if (E) return ""
+        idx = bigint(num(v)); if (E) return ""    # any integer under `memory host` (EXT, p70)
         if (idx < 0) { raise(5); return "" }
         nd++; idxs[nd] = idx
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
@@ -480,7 +480,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         if (na < 2) { raise(2); return "NI0" }
         if (!isN(a1)) { raise(13); return "NI0" }
         x = bfloor(num(a1))
-        if (x < 0 || x > 255) { raise(5); return "NI0" }
+        if (x < 0 || (!HOSTMEM && x > 255)) { raise_host(5); return "NI0" }   # any count under `memory host` (EXT)
         if (isN(a2)) {
             i = bfloor(num(a2))
             if (i < 0 || i > 255) { raise(5); return "NI0" }
@@ -512,7 +512,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         if (x < 1) { raise(5); return "NI0" }              # 2AA1H
         if (na >= 3) {
             if (!isN(a3)) { raise(13); return "NI0" }
-            i = byteconv(num(a3)); if (E) return "NI0"
+            i = lenconv(num(a3)); if (E) return "NI0"   # a byte, or any count under `memory host` (p80)
             return "S" substr(s, x, i)
         }
         return "S" substr(s, x)
@@ -525,7 +525,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         } else { raise(2); return "NI0" }
         if (isN(s) || isN(r)) { raise(13); return "NI0" }
         s = vstr(s); r = vstr(r)
-        if (x < 1 || x > 255) { raise(5); return "NI0" }
+        if (x < 1 || (!HOSTMEM && x > 255)) { raise_host(5); return "NI0" }   # any start under `memory host` (EXT)
         if (x > length(s)) return "NI0"
         if (r == "") return "NI" x
         i = index(substr(s, x), r)
@@ -594,10 +594,10 @@ function strarg2(a, na) {
     if (isN(a)) { raise(13); return "" }
     return vstr(a)
 }
-function bytearg2(a, na) {
+function bytearg2(a, na) {                # a string count or position (LEFT$, RIGHT$, MID$)
     if (na < 2) { raise(2); return 0 }
     if (!isN(a)) { raise(13); return 0 }
-    return byteconv(num(a))
+    return lenconv(num(a))                  # a byte, or any count under `memory host` (p80)
 }
 
 # ---- USR call frame ---------------------------------------------------------

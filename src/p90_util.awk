@@ -9,6 +9,7 @@ function inln(n) { return (n == DIRECTLN) ? "" : " IN " n }
 
 function raise(c) {
     if (E) return
+    HINTHOST = 0                            # this error is not (yet) a host-mode ceiling (batch_hint, p45)
     E = c
     ERR_AT = CLN
     ERRV = (c - 1) * 2
@@ -41,6 +42,10 @@ function report_err(   c, msg) {
     s_puts(msg); s_nl()
     sync_cursor()
 }
+
+# a raise at a ceiling that `memory host` lifts (EXT): batch mode's note
+# names the option (batch_hint, p45).  The flag belongs to THIS raise only.
+function raise_host(c) { if (E) return; raise(c); HINTHOST = 1 }
 
 # LEVEL II-style number formatting: leading space or -, trailing space,
 # BY TYPE, since 2026-09-26 (L-16): an integer in full; a single to 6

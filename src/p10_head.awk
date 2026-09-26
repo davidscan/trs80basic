@@ -142,6 +142,22 @@ function init_tables(   i, c, m, n) {
     # accepted when this is on -- `ext on` metacommand or TRS80_EXT=1 --
     # so the interpreter stays a strict ?SN oracle by default.
     EXTON = ("TRS80_EXT" in ENVIRON && ENVIRON["TRS80_EXT"] != "" && ENVIRON["TRS80_EXT"] != "0")
+    # EXT, `memory host` (2026-09-26): the machine's capacity ceilings lifted
+    # for new code written for this interpreter -- the 64K arithmetic behind
+    # MEM/FRE/?OM, CLEAR n's string space (?OS), the 255-character string
+    # (?LS, and the counts of LEFT$/RIGHT$/MID$/STRING$/INSTR), subscripts,
+    # DIM bounds and CLEAR counts past 32767, INPUT#/LINE INPUT#'s 255-byte
+    # cut and a piped INPUT line's 240.  PEEK, POKE, VARPTR, USR and the
+    # program image stay the 64K machine (a long string shows a length byte
+    # of 255 there, sp_peek).  Off by default, and no BASIC keyword turns it
+    # on, so a period listing cannot: TRS80_MEMORY=host, --memory host (which
+    # overrides the environment either way), the `memory` metacommand, or
+    # REM META: memory host under the ext gate.  MEM and FRE count the ROM's
+    # bytes against HOSTTOP so a program can still watch what it uses.
+    # programs/tests/hostmem.sh pins it.
+    HOSTMEM = ("TRS80_MEMORY" in ENVIRON && ENVIRON["TRS80_MEMORY"] == "host")
+    if (OPT_MEMORY != "") HOSTMEM = (OPT_MEMORY == "host")
+    HOSTTOP = 2147483647
     # TRS80_VARNAMES=2: the ROM's two-character variable names (SUM is SU),
     # applied by the tokenizer (vn_cut, p50).  Unset -- the default, the
     # user's 2026-08-07 ruling -- every character of a name counts.

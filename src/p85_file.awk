@@ -255,7 +255,7 @@ function fio_next_item(n, isnum,   l, i, len, j, c, item, ist) {
     # than that was returned whole here (the 2026-09-19 audit, L-41).  The
     # 255th character IS the terminator, so the next read resumes right
     # after it -- no comma is consumed, because none was reached.
-    if (length(item) > 255) {
+    if (!HOSTMEM && length(item) > 255) {   # whole under `memory host` (EXT)
         item = substr(item, 1, 255)
         i = ist + 255
     } else if (i <= len && substr(l, i, 1) == ",") i++
@@ -316,7 +316,7 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         # as a string longer than one can hold (the 2026-09-19 audit, L-41).
         # What is left stays for the next read, as a terminator would leave it.
         line = FH_PEND[n]
-        if (length(line) > 255) {
+        if (!HOSTMEM && length(line) > 255) {   # whole under `memory host` (EXT)
             FH_PEND[n] = substr(line, 256)
             line = substr(line, 1, 255)
         } else FH_PENDHAS[n] = 0

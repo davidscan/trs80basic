@@ -295,7 +295,7 @@ function st_midset(   name, key, n, m, v, s, r, cnt) {
         v = e_or(); if (E) return
         if (!isN(v)) { raise(13); return }
         m = bfloor(num(v))
-        if (m < 0 || m > 255) { raise(5); return }
+        if (m < 0 || (!HOSTMEM && m > 255)) { raise_host(5); return }   # any count under `memory host` (EXT)
     }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
     CP++
@@ -779,7 +779,7 @@ function st_dim(   name, nd, i, v, sz) {
             if (!isN(v)) { raise(13); return }
             # ROM 1E45-1E4C through 2B02H: CINT first (?OV outside the
             # integer range), then a negative bound is ?FC, not ?BS
-            sz = intstore(num(v)); if (E) return
+            sz = bigint(num(v)); if (E) return    # any bound under `memory host` (EXT, p70)
             if (sz < 0) { raise(5); return }
             nd++; DIMB[nd] = sz
             if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
@@ -819,6 +819,19 @@ function byteconv(x) {
     x = bfloor(x)
     if (x < -32768 || x > 32767) { raise(6); return -1 }
     if (x < 0 || x > 255) { raise(5); return -1 }
+    return x
+}
+# a string count or position: byteconv on the machine, any non-negative
+# integer under `memory host` (EXT, p10); batch mode's note names the mode
+# behind the byte's ?FC or ?OV (raise_host, p90)
+function lenconv(x,   e0) {
+    if (HOSTMEM) {
+        x = bfloor(x)
+        if (x < 0) { raise(5); return -1 }
+        return x
+    }
+    e0 = E; x = byteconv(x)
+    if (!e0 && E) HINTHOST = 1
     return x
 }
 

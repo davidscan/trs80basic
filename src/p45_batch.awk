@@ -10,11 +10,11 @@
 #               2 bad arguments, unreadable file, or unloadable source
 
 # parse ARGV; returns 0 on a usage error.  Sets BATCH/BATCHFILE, OPT_SCREEN,
-# SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_CLEAR, OPT_HELP.  gawk never reads the operands itself: the whole
+# SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_CLEAR, OPT_MEMORY, OPT_HELP.  gawk never reads the operands itself: the whole
 # interpreter lives in BEGIN and exits there.
 function parse_args(   i, a, nofl) {
     BATCH = 0; BATCHFILE = ""; OPT_SCREEN = 0; OPT_HELP = 0
-    SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; nofl = 0
+    SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; OPT_MEMORY = ""; nofl = 0
     for (i = 1; i < ARGC; i++) {
         a = ARGV[i]
         if (!nofl && a == "--") { nofl = 1; continue }
@@ -69,12 +69,24 @@ function parse_args(   i, a, nofl) {
             OPT_CLEAR = a + 0
             continue
         }
+        # --memory host|rom (EXT, p10 HOSTMEM): the machine's capacity
+        # ceilings lifted for new code, or kept (the default).  It says
+        # nothing about the 64K map itself, so it cannot be combined with
+        # --memsize, which sizes that map.
+        if (!nofl && (a == "--memory" || a ~ /^--memory=/)) {
+            if (a == "--memory") a = (++i < ARGC) ? ARGV[i] : ""
+            else a = substr(a, 10)
+            if (a != "host" && a != "rom") { ARGMSG = "--memory takes host or rom"; return 0 }
+            OPT_MEMORY = a
+            continue
+        }
         if (!nofl && a == "--screen") { OPT_SCREEN = 1; continue }
         if (!nofl && (a == "-h" || a == "--help")) { OPT_HELP = 1; return 1 }
         if (!nofl && a ~ /^-./) { ARGMSG = "unknown option " a; return 0 }
         if (BATCHFILE != "") { ARGMSG = "only one program file may be given"; return 0 }
         BATCHFILE = a; BATCH = 1
     }
+    if (OPT_MEMORY == "host" && OPT_MEMSIZE) { ARGMSG = "--memory host and --memsize cannot be combined"; return 0 }
     return 1
 }
 
@@ -90,6 +102,9 @@ function usage(dest,   t) {
         "               16K machine, for programs that only ran on one\n" \
         "  --clear N    type CLEAR N before RUN: string space is 50 bytes\n" \
         "               until then, and a listing that assumed it stops ?OS\n" \
+        "  --memory M   host: lift the machine's capacity limits for new code\n" \
+        "               (64K, string space, 255-byte strings, subscripts to\n" \
+        "               32767); rom (the default) keeps them\n" \
         "  --screen     keep the TRS-80 screen/cursor control codes\n" \
         "               (output is plain text by default without a tty)\n" \
         "  -h, --help   show this message\n" \
@@ -136,6 +151,12 @@ function batch_main() {
 # of BASIC: the screen, the program's output, the error message and the
 # exit status are what the machine gave, and no program can read stderr.
 # At the prompt the ROM's message stands alone, as on the machine.
+# And behind a ceiling that `memory host` lifts (EXT, 2026-09-26) -- ?OM,
+# ?OV at a subscript, DIM bound or CLEAR count, ?LS, ?FC at a string count,
+# and the ?OS that --clear cannot help -- the note names that option, for
+# new code rather than a period listing.  HINTHOST is set by the site that
+# raised (raise_host, p90) and cleared by every raise, so an unrelated ?OV
+# never gets the note.
 function batch_hint(c) {
     if (c == 14) {                                          # ?OS
         if (CLEARSRC == "")
@@ -143,9 +164,16 @@ function batch_hint(c) {
         else if (CLEARSRC == "I")
             diag_err("basic: --clear " CLEARN " is too small for this program's strings: raise it")
         else
-            diag_err("basic: the program's own CLEAR " CLEARN " in line " CLEARSRC " is too small for its strings; --clear cannot help, the program's CLEAR wins")
+            diag_err("basic: the program's own CLEAR " CLEARN " in line " CLEARSRC " is too small for its strings; --clear cannot help, the program's CLEAR wins -- or try --memory host (EXT: no string space limit)")
     } else if (c == 6 && HIMEM > 32767 && TY[SK, SCP] == "i" && TK[SK, SCP] == "CLEAR")
-        diag_err("basic: CLEAR's count is an integer (?OV past 32767) and MEM exceeds 32767 on this memory map: the listing was written for a 16K or 32K machine, try --memsize 32767")
+        diag_err("basic: CLEAR's count is an integer (?OV past 32767) and MEM exceeds 32767 on this memory map: the listing was written for a 16K or 32K machine, try --memsize 32767 (or, for new code, try --memory host)")
+    else if (HINTHOST && !HOSTMEM) {
+        if (c == 7)       diag_err("basic: this program needs more than the machine's 64K: try --memory host (EXT: no memory limit)")
+        else if (c == 6)  diag_err("basic: a subscript, DIM bound or CLEAR count past 32767 is ?OV on the machine: try --memory host (EXT)")
+        else if (c == 15) diag_err("basic: a string is at most 255 characters on the machine: try --memory host (EXT)")
+        else if (c == 5)  diag_err("basic: a string count or position past 255 is ?FC on the machine: try --memory host (EXT)")
+    }
+    HINTHOST = 0
 }
 
 # an interpreter message (not program output): stderr in batch, the simulated

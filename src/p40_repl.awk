@@ -73,6 +73,11 @@ function handle_line(line,   s, ln, rest) {
         st_ext(rest)
         return 1
     }
+    if (s ~ /^memory($|[ \t])/) {
+        rest = substr(s, 7); sub(/^[ \t]+/, "", rest); sub(/[ \t]+$/, "", rest)
+        st_memory(rest)
+        return 1
+    }
     if (s ~ /^(history|h)[ \t]*$/) { st_history(); return 1 }
     if (s ~ /^[0-9]/) {
         match(s, /^[0-9]+/)
@@ -344,11 +349,12 @@ function st_fullscreen(arg) {
 # --- REM META: directives (EXT, gated by `ext on` / TRS80_EXT) --------------
 # A REM whose payload starts with META: carries a metacommand that fires when
 # execution REACHES the line, so a listing can state its own display needs
-# (10 REM META:fullscreen on) or change the throttle part-way through
-# (500 REM META:speed 1.77).  In a loop it re-fires every pass; both knobs are
-# idempotent, which is why only they are allowed.
+# (10 REM META:fullscreen on), change the throttle part-way through
+# (500 REM META:speed 1.77) or declare that it needs the host's memory
+# (10 REM META:memory host, EXT 2026-09-26).  In a loop it re-fires every
+# pass; all three knobs are idempotent, which is why only they are allowed.
 #
-# The whitelist is display/feel knobs ONLY -- never dir/cat (shell
+# The whitelist is display/feel/capacity knobs ONLY -- never dir/cat (shell
 # passthroughs), never anything touching the filesystem.  Metacommands
 # otherwise reach us only from the keyboard; the moment a FILE can fire one, a
 # downloaded .bas would be a shell-execution vector on LOAD.  That constraint
@@ -375,7 +381,24 @@ function rem_meta(   s, cmd, arg) {
     } else if (cmd == "fullscreen") {
         if (arg == "on" || arg == "off" || arg == "1" || arg == "0")
             st_fullscreen(arg)              # silent for these four; bare is not
+    } else if (cmd == "memory") {
+        if (arg == "host" || arg == "rom") HOSTMEM = (arg == "host")   # silent; bare is not
     }
+}
+
+# --- memory metacommand: the machine's capacity ceilings, or the host's ----
+# EXT (p10, HOSTMEM): `memory host` lifts the 64K arithmetic, CLEAR n's
+# string space, the 255-character string and its counts, and the 32767
+# subscript, DIM bound and CLEAR count, at once; `memory rom` -- the
+# default -- is the machine.  PEEK/POKE/VARPTR/USR keep the 64K map.
+function st_memory(arg) {
+    if (arg == "") {
+        t_man("MEMORY " (HOSTMEM ? "HOST (EXT: no 64K, string space, 255-character or 32767 limits; PEEK/POKE/VARPTR still see the 64K machine)" \
+                                 : "ROM (the machine: 64K, CLEAR n string space, 255-character strings, subscripts to 32767)"))
+        return
+    }
+    if (arg == "host" || arg == "rom") { HOSTMEM = (arg == "host"); return }
+    t_man("USAGE: memory host|rom")
 }
 
 # --- ext metacommand: gate for extensions that damaged OCR could spell ------
@@ -414,6 +437,7 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  fullscreen on|off     stream vs 64x16 grid (bare: show state)\n" \
               "  history | h           list this session's typed commands\n" \
               "  man <KEYWORD>         syntax + example for a BASIC command\n" \
+              "  memory host|rom       lift the machine's capacity limits, or keep them (bare: show state)\n" \
               "  help meta             this list\n" \
               "  help keys             terminal key bindings\n" \
               "  help <text>           search BASIC commands\n" \
@@ -421,8 +445,8 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  sound on|off          machine-code sound through the Z80 core\n" \
               "  sound wav <path>|off  ...and/or capture it to a WAV file (bare: state)\n" \
               "  @dump                 dump the screen buffer (debug)\n" \
-              "IN A PROGRAM (needs ext on): a REM fires speed/fullscreen when\n" \
-              "execution reaches it --  10 REM META:fullscreen on")
+              "IN A PROGRAM (needs ext on): a REM fires speed/fullscreen/memory\n" \
+              "when execution reaches it --  10 REM META:fullscreen on")
         return
     }
     if (arg == "keys") {

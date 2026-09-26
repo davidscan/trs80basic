@@ -142,6 +142,22 @@ function init_tables(   i, c, m, n) {
     # accepted when this is on -- `ext on` metacommand or TRS80_EXT=1 --
     # so the interpreter stays a strict ?SN oracle by default.
     EXTON = ("TRS80_EXT" in ENVIRON && ENVIRON["TRS80_EXT"] != "" && ENVIRON["TRS80_EXT"] != "0")
+    # EXT, `memory host` (2026-09-26): the machine's capacity ceilings lifted
+    # for new code written for this interpreter -- the 64K arithmetic behind
+    # MEM/FRE/?OM, CLEAR n's string space (?OS), the 255-character string
+    # (?LS, and the counts of LEFT$/RIGHT$/MID$/STRING$/INSTR), subscripts,
+    # DIM bounds and CLEAR counts past 32767, INPUT#/LINE INPUT#'s 255-byte
+    # cut and a piped INPUT line's 240.  PEEK, POKE, VARPTR, USR and the
+    # program image stay the 64K machine (a long string shows a length byte
+    # of 255 there, sp_peek).  Off by default, and no BASIC keyword turns it
+    # on, so a period listing cannot: TRS80_MEMORY=host, --memory host (which
+    # overrides the environment either way), the `memory` metacommand, or
+    # REM META: memory host under the ext gate.  MEM and FRE count the ROM's
+    # bytes against HOSTTOP so a program can still watch what it uses.
+    # programs/tests/hostmem.sh pins it.
+    HOSTMEM = ("TRS80_MEMORY" in ENVIRON && ENVIRON["TRS80_MEMORY"] == "host")
+    if (OPT_MEMORY != "") HOSTMEM = (OPT_MEMORY == "host")
+    HOSTTOP = 2147483647
     # TRS80_VARNAMES=2: the ROM's two-character variable names (SUM is SU),
     # applied by the tokenizer (vn_cut, p50).  Unset -- the default, the
     # user's 2026-08-07 ruling -- every character of a name counts.
@@ -1458,7 +1474,7 @@ function rl_read(repl,   c, r, s, oldl, oldp) {
         sub(/\r$/, "", s)
         # no cursor stops a piped line at the limit, so the cut is said out
         # loud, once: a transcript's long line must not lose its tail silently
-        if (length(s) > RLMAX) {
+        if (!HOSTMEM && length(s) > RLMAX) {    # whole under `memory host` (EXT); the editor keeps 240
             s = substr(s, 1, RLMAX)
             if (!RLCUTSAID++) diag_err("INPUT LINE CUT AT " RLMAX " CHARACTERS (the Level II keyboard limit)")
         }
@@ -1735,6 +1751,11 @@ function handle_line(line,   s, ln, rest) {
         st_ext(rest)
         return 1
     }
+    if (s ~ /^memory($|[ \t])/) {
+        rest = substr(s, 7); sub(/^[ \t]+/, "", rest); sub(/[ \t]+$/, "", rest)
+        st_memory(rest)
+        return 1
+    }
     if (s ~ /^(history|h)[ \t]*$/) { st_history(); return 1 }
     if (s ~ /^[0-9]/) {
         match(s, /^[0-9]+/)
@@ -2006,11 +2027,12 @@ function st_fullscreen(arg) {
 # --- REM META: directives (EXT, gated by `ext on` / TRS80_EXT) --------------
 # A REM whose payload starts with META: carries a metacommand that fires when
 # execution REACHES the line, so a listing can state its own display needs
-# (10 REM META:fullscreen on) or change the throttle part-way through
-# (500 REM META:speed 1.77).  In a loop it re-fires every pass; both knobs are
-# idempotent, which is why only they are allowed.
+# (10 REM META:fullscreen on), change the throttle part-way through
+# (500 REM META:speed 1.77) or declare that it needs the host's memory
+# (10 REM META:memory host, EXT 2026-09-26).  In a loop it re-fires every
+# pass; all three knobs are idempotent, which is why only they are allowed.
 #
-# The whitelist is display/feel knobs ONLY -- never dir/cat (shell
+# The whitelist is display/feel/capacity knobs ONLY -- never dir/cat (shell
 # passthroughs), never anything touching the filesystem.  Metacommands
 # otherwise reach us only from the keyboard; the moment a FILE can fire one, a
 # downloaded .bas would be a shell-execution vector on LOAD.  That constraint
@@ -2037,7 +2059,24 @@ function rem_meta(   s, cmd, arg) {
     } else if (cmd == "fullscreen") {
         if (arg == "on" || arg == "off" || arg == "1" || arg == "0")
             st_fullscreen(arg)              # silent for these four; bare is not
+    } else if (cmd == "memory") {
+        if (arg == "host" || arg == "rom") HOSTMEM = (arg == "host")   # silent; bare is not
     }
+}
+
+# --- memory metacommand: the machine's capacity ceilings, or the host's ----
+# EXT (p10, HOSTMEM): `memory host` lifts the 64K arithmetic, CLEAR n's
+# string space, the 255-character string and its counts, and the 32767
+# subscript, DIM bound and CLEAR count, at once; `memory rom` -- the
+# default -- is the machine.  PEEK/POKE/VARPTR/USR keep the 64K map.
+function st_memory(arg) {
+    if (arg == "") {
+        t_man("MEMORY " (HOSTMEM ? "HOST (EXT: no 64K, string space, 255-character or 32767 limits; PEEK/POKE/VARPTR still see the 64K machine)" \
+                                 : "ROM (the machine: 64K, CLEAR n string space, 255-character strings, subscripts to 32767)"))
+        return
+    }
+    if (arg == "host" || arg == "rom") { HOSTMEM = (arg == "host"); return }
+    t_man("USAGE: memory host|rom")
 }
 
 # --- ext metacommand: gate for extensions that damaged OCR could spell ------
@@ -2076,6 +2115,7 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  fullscreen on|off     stream vs 64x16 grid (bare: show state)\n" \
               "  history | h           list this session's typed commands\n" \
               "  man <KEYWORD>         syntax + example for a BASIC command\n" \
+              "  memory host|rom       lift the machine's capacity limits, or keep them (bare: show state)\n" \
               "  help meta             this list\n" \
               "  help keys             terminal key bindings\n" \
               "  help <text>           search BASIC commands\n" \
@@ -2083,8 +2123,8 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  sound on|off          machine-code sound through the Z80 core\n" \
               "  sound wav <path>|off  ...and/or capture it to a WAV file (bare: state)\n" \
               "  @dump                 dump the screen buffer (debug)\n" \
-              "IN A PROGRAM (needs ext on): a REM fires speed/fullscreen when\n" \
-              "execution reaches it --  10 REM META:fullscreen on")
+              "IN A PROGRAM (needs ext on): a REM fires speed/fullscreen/memory\n" \
+              "when execution reaches it --  10 REM META:fullscreen on")
         return
     }
     if (arg == "keys") {
@@ -2814,11 +2854,11 @@ function prog_load_tok(data, verify, keepfiles, merge,   n, pos, nxt, ln, z, bod
 #               2 bad arguments, unreadable file, or unloadable source
 
 # parse ARGV; returns 0 on a usage error.  Sets BATCH/BATCHFILE, OPT_SCREEN,
-# SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_CLEAR, OPT_HELP.  gawk never reads the operands itself: the whole
+# SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_CLEAR, OPT_MEMORY, OPT_HELP.  gawk never reads the operands itself: the whole
 # interpreter lives in BEGIN and exits there.
 function parse_args(   i, a, nofl) {
     BATCH = 0; BATCHFILE = ""; OPT_SCREEN = 0; OPT_HELP = 0
-    SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; nofl = 0
+    SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; OPT_MEMORY = ""; nofl = 0
     for (i = 1; i < ARGC; i++) {
         a = ARGV[i]
         if (!nofl && a == "--") { nofl = 1; continue }
@@ -2873,12 +2913,24 @@ function parse_args(   i, a, nofl) {
             OPT_CLEAR = a + 0
             continue
         }
+        # --memory host|rom (EXT, p10 HOSTMEM): the machine's capacity
+        # ceilings lifted for new code, or kept (the default).  It says
+        # nothing about the 64K map itself, so it cannot be combined with
+        # --memsize, which sizes that map.
+        if (!nofl && (a == "--memory" || a ~ /^--memory=/)) {
+            if (a == "--memory") a = (++i < ARGC) ? ARGV[i] : ""
+            else a = substr(a, 10)
+            if (a != "host" && a != "rom") { ARGMSG = "--memory takes host or rom"; return 0 }
+            OPT_MEMORY = a
+            continue
+        }
         if (!nofl && a == "--screen") { OPT_SCREEN = 1; continue }
         if (!nofl && (a == "-h" || a == "--help")) { OPT_HELP = 1; return 1 }
         if (!nofl && a ~ /^-./) { ARGMSG = "unknown option " a; return 0 }
         if (BATCHFILE != "") { ARGMSG = "only one program file may be given"; return 0 }
         BATCHFILE = a; BATCH = 1
     }
+    if (OPT_MEMORY == "host" && OPT_MEMSIZE) { ARGMSG = "--memory host and --memsize cannot be combined"; return 0 }
     return 1
 }
 
@@ -2894,6 +2946,9 @@ function usage(dest,   t) {
         "               16K machine, for programs that only ran on one\n" \
         "  --clear N    type CLEAR N before RUN: string space is 50 bytes\n" \
         "               until then, and a listing that assumed it stops ?OS\n" \
+        "  --memory M   host: lift the machine's capacity limits for new code\n" \
+        "               (64K, string space, 255-byte strings, subscripts to\n" \
+        "               32767); rom (the default) keeps them\n" \
         "  --screen     keep the TRS-80 screen/cursor control codes\n" \
         "               (output is plain text by default without a tty)\n" \
         "  -h, --help   show this message\n" \
@@ -2940,6 +2995,12 @@ function batch_main() {
 # of BASIC: the screen, the program's output, the error message and the
 # exit status are what the machine gave, and no program can read stderr.
 # At the prompt the ROM's message stands alone, as on the machine.
+# And behind a ceiling that `memory host` lifts (EXT, 2026-09-26) -- ?OM,
+# ?OV at a subscript, DIM bound or CLEAR count, ?LS, ?FC at a string count,
+# and the ?OS that --clear cannot help -- the note names that option, for
+# new code rather than a period listing.  HINTHOST is set by the site that
+# raised (raise_host, p90) and cleared by every raise, so an unrelated ?OV
+# never gets the note.
 function batch_hint(c) {
     if (c == 14) {                                          # ?OS
         if (CLEARSRC == "")
@@ -2947,9 +3008,16 @@ function batch_hint(c) {
         else if (CLEARSRC == "I")
             diag_err("basic: --clear " CLEARN " is too small for this program's strings: raise it")
         else
-            diag_err("basic: the program's own CLEAR " CLEARN " in line " CLEARSRC " is too small for its strings; --clear cannot help, the program's CLEAR wins")
+            diag_err("basic: the program's own CLEAR " CLEARN " in line " CLEARSRC " is too small for its strings; --clear cannot help, the program's CLEAR wins -- or try --memory host (EXT: no string space limit)")
     } else if (c == 6 && HIMEM > 32767 && TY[SK, SCP] == "i" && TK[SK, SCP] == "CLEAR")
-        diag_err("basic: CLEAR's count is an integer (?OV past 32767) and MEM exceeds 32767 on this memory map: the listing was written for a 16K or 32K machine, try --memsize 32767")
+        diag_err("basic: CLEAR's count is an integer (?OV past 32767) and MEM exceeds 32767 on this memory map: the listing was written for a 16K or 32K machine, try --memsize 32767 (or, for new code, try --memory host)")
+    else if (HINTHOST && !HOSTMEM) {
+        if (c == 7)       diag_err("basic: this program needs more than the machine's 64K: try --memory host (EXT: no memory limit)")
+        else if (c == 6)  diag_err("basic: a subscript, DIM bound or CLEAR count past 32767 is ?OV on the machine: try --memory host (EXT)")
+        else if (c == 15) diag_err("basic: a string is at most 255 characters on the machine: try --memory host (EXT)")
+        else if (c == 5)  diag_err("basic: a string count or position past 255 is ?FC on the machine: try --memory host (EXT)")
+    }
+    HINTHOST = 0
 }
 
 # an interpreter message (not program output): stderr in batch, the simulated
@@ -3301,7 +3369,7 @@ function e_add(   v, r, op, x) {
                 # the store never happens.  Until 2026-09-24 strings grew
                 # without bound, so the VARPTR length byte held the length
                 # mod 256 and a handler written for ?LS never fired (H-2).
-                if (length(v) + length(r) - 2 > 255) { raise(15); return v }
+                if (!HOSTMEM && length(v) + length(r) - 2 > 255) { raise_host(15); return v }   # unbounded under `memory host` (EXT)
                 v = "S" vstr(v) vstr(r); continue
             }
             if (isN(v) != isN(r)) { raise(13); return v }
@@ -3491,7 +3559,7 @@ function aref(name,   nd, i, v, idx, key, idxs) {
         # one is ?FC there and then, before the dimension count or the
         # bound is looked at.  So A(40000) is ?OV, never ?BS (the 2026-09-23
         # audit's NIT; until 2026-09-26 it was ?BS).
-        idx = intstore(num(v)); if (E) return ""
+        idx = bigint(num(v)); if (E) return ""    # any integer under `memory host` (EXT, p70)
         if (idx < 0) { raise(5); return "" }
         nd++; idxs[nd] = idx
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
@@ -3702,7 +3770,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         if (na < 2) { raise(2); return "NI0" }
         if (!isN(a1)) { raise(13); return "NI0" }
         x = bfloor(num(a1))
-        if (x < 0 || x > 255) { raise(5); return "NI0" }
+        if (x < 0 || (!HOSTMEM && x > 255)) { raise_host(5); return "NI0" }   # any count under `memory host` (EXT)
         if (isN(a2)) {
             i = bfloor(num(a2))
             if (i < 0 || i > 255) { raise(5); return "NI0" }
@@ -3734,7 +3802,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         if (x < 1) { raise(5); return "NI0" }              # 2AA1H
         if (na >= 3) {
             if (!isN(a3)) { raise(13); return "NI0" }
-            i = byteconv(num(a3)); if (E) return "NI0"
+            i = lenconv(num(a3)); if (E) return "NI0"   # a byte, or any count under `memory host` (p80)
             return "S" substr(s, x, i)
         }
         return "S" substr(s, x)
@@ -3747,7 +3815,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         } else { raise(2); return "NI0" }
         if (isN(s) || isN(r)) { raise(13); return "NI0" }
         s = vstr(s); r = vstr(r)
-        if (x < 1 || x > 255) { raise(5); return "NI0" }
+        if (x < 1 || (!HOSTMEM && x > 255)) { raise_host(5); return "NI0" }   # any start under `memory host` (EXT)
         if (x > length(s)) return "NI0"
         if (r == "") return "NI" x
         i = index(substr(s, x), r)
@@ -3816,10 +3884,10 @@ function strarg2(a, na) {
     if (isN(a)) { raise(13); return "" }
     return vstr(a)
 }
-function bytearg2(a, na) {
+function bytearg2(a, na) {                # a string count or position (LEFT$, RIGHT$, MID$)
     if (na < 2) { raise(2); return 0 }
     if (!isN(a)) { raise(13); return 0 }
-    return byteconv(num(a))
+    return lenconv(num(a))                  # a byte, or any count under `memory host` (p80)
 }
 
 # ---- USR call frame ---------------------------------------------------------
@@ -4271,6 +4339,18 @@ function intstore(x,   r) {
     if (r > 32767 || r < -32768) { raise(6); return 0 }
     return r
 }
+# a subscript, a DIM bound or CLEAR's count: the ROM's integer (intstore),
+# or under `memory host` (EXT, p10) any integer that fits a double's
+# exactness, rounded down as 0A7FH rounds
+function bigint(x,   r) {
+    if (HOSTMEM) {
+        r = bfloor(x)
+        if (r > 9007199254740991 || r < -9007199254740991) { raise(6); return 0 }
+        return r
+    }
+    r = intstore(x); if (E) HINTHOST = 1  # batch mode's note names the mode (p45)
+    return r
+}
 
 function assignv(name, key, v,   isint, tgt, n, ty) {
     isint = LVI; LVI = 0
@@ -4288,7 +4368,7 @@ function assignv(name, key, v,   isint, tgt, n, ty) {
         # collection (28E6H) and then ?OS, and nothing is stored.  Until
         # 2026-09-25 the string area had no end here (the 2026-09-23
         # audit, L-15's cluster).
-        if (STRUSED + n > mem_strsz()) { raise(14); return }
+        if (!HOSTMEM && STRUSED + n > mem_strsz()) { raise(14); return }   # never under `memory host` (EXT)
         STRUSED += n - ((tgt in STRCNT) ? STRCNT[tgt] : 0); STRCNT[tgt] = n
         if (ALN) al_clear(name, key)            # the descriptor moves (p75, finding 7)
         delete LITA[tgt]                        # a literal it noted (p75)
@@ -4614,12 +4694,14 @@ function st_clear(   v, ty, tx, n) {
         # initializer at 1B61H is joined only afterwards (1EA0H).  Until
         # 2026-09-25 n was evaluated and thrown away (the 2026-09-23 audit,
         # L-4).
-        n = intstore(num(v)); if (E) return
+        n = bigint(num(v)); if (E) return
         if (n < 0) { raise(5); return }
-        if (n > HIMEM) { raise(7); return }
-        pm_sync(); pm_truncnote()
-        if (PMEND + 40 >= HIMEM - n) { raise(7); return }
-        STRLO = HIMEM - n; STRLO_SET = 1
+        if (!HOSTMEM) {                     # `memory host` (EXT): no string area to place, any count
+            if (n > HIMEM) { raise_host(7); return }
+            pm_sync(); pm_truncnote()
+            if (PMEND + 40 >= HIMEM - n) { raise_host(7); return }
+            STRLO = HIMEM - n; STRLO_SET = 1
+        }
         # who set the space, for batch mode's ?OS note (batch_hint, p45):
         # a program line, or "I" for one typed at READY (--clear)
         CLEARSRC = (CK == "I") ? "I" : CLN ""; CLEARN = n
@@ -5255,6 +5337,7 @@ function sp_materialize(tgt, isstr,   len, need, base, j, dbase) {
         return base
     }
     len = length(sp_gets(tgt))
+    if (len > 255) len = 255                      # `memory host` (EXT): the map packs a long string's first 255 bytes
     if (tgt in VPDESC) {
         dbase = VPDESC[tgt]
         if (len <= VPCAP[tgt]) return dbase       # still fits: nothing moves
@@ -5354,7 +5437,7 @@ function sp_peek(a,   t, tgt, v) {
     # value is a copy each time (the 2026-09-23 audit, M-12: O(len^2))
     if (FRCACHE) { if (tgt != FRCT) { FRCT = tgt; FRCV = sp_gets(tgt) }; v = FRCV }
     else v = sp_gets(tgt)
-    if (t == "L") return length(v) % 256
+    if (t == "L") return (length(v) > 255) ? 255 : length(v)   # past 255 only under `memory host` (EXT): the byte says 255
     if (t + 1 <= length(v)) return ORD[substr(v, t + 1, 1)]
     return (a in SPX) ? SPX[a] : 32               # past the live length: RAM
 }
@@ -5883,20 +5966,23 @@ function mem_varbytes(   n, k, i, e) {
     }
     return VBYTES
 }
-# SP - (40FDH): what MEM and FRE(n) say (27D4H-27DDH, 27ECH-27F2H)
+# SP - (40FDH): what MEM and FRE(n) say (27D4H-27DDH, 27ECH-27F2H).
+# Under `memory host` (EXT, p10) the same count runs against HOSTTOP: the
+# figure stays a measure of what the program uses, and ?OM comes only past
+# 2^31 bytes of it.
 function mem_free() {
     pm_sync(); pm_truncnote()
-    return mem_strlo() - 14 - 6 * GSN - 17 * FSN - (PMEND + mem_varbytes())
+    return (HOSTMEM ? HOSTTOP : mem_strlo()) - 14 - 6 * GSN - 17 * FSN - (PMEND + mem_varbytes())
 }
 # (40D6H) - (40A0H) after the collection: FRE(a$)
-function mem_strfree() { return mem_strsz() - STRUSED }
+function mem_strfree() { return (HOSTMEM ? HOSTTOP : mem_strsz()) - STRUSED }
 # ROM 1963H-197AH: a frame or an array of n bytes fits when the free
 # memory holds it and 58 more (FFC6H), else ?OM.  GOSUB asks for 6
 # (1EB1H), FOR for 16 (1CB6H), DIM for its array.  Until 2026-09-25 a
 # GOSUB that called itself ran until the host ran out of memory (the
 # 2026-09-23 audit, M-9).
 function mem_need(n) {
-    if (mem_free() < n + 58) { raise(7); return 0 }
+    if (mem_free() < n + 58) { raise_host(7); return 0 }
     return 1
 }
 # ===================== p77: the Z80 coprocess -- USR routines executed =====
@@ -6499,7 +6585,7 @@ function st_midset(   name, key, n, m, v, s, r, cnt) {
         v = e_or(); if (E) return
         if (!isN(v)) { raise(13); return }
         m = bfloor(num(v))
-        if (m < 0 || m > 255) { raise(5); return }
+        if (m < 0 || (!HOSTMEM && m > 255)) { raise_host(5); return }   # any count under `memory host` (EXT)
     }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
     CP++
@@ -6983,7 +7069,7 @@ function st_dim(   name, nd, i, v, sz) {
             if (!isN(v)) { raise(13); return }
             # ROM 1E45-1E4C through 2B02H: CINT first (?OV outside the
             # integer range), then a negative bound is ?FC, not ?BS
-            sz = intstore(num(v)); if (E) return
+            sz = bigint(num(v)); if (E) return    # any bound under `memory host` (EXT, p70)
             if (sz < 0) { raise(5); return }
             nd++; DIMB[nd] = sz
             if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
@@ -7023,6 +7109,19 @@ function byteconv(x) {
     x = bfloor(x)
     if (x < -32768 || x > 32767) { raise(6); return -1 }
     if (x < 0 || x > 255) { raise(5); return -1 }
+    return x
+}
+# a string count or position: byteconv on the machine, any non-negative
+# integer under `memory host` (EXT, p10); batch mode's note names the mode
+# behind the byte's ?FC or ?OV (raise_host, p90)
+function lenconv(x,   e0) {
+    if (HOSTMEM) {
+        x = bfloor(x)
+        if (x < 0) { raise(5); return -1 }
+        return x
+    }
+    e0 = E; x = byteconv(x)
+    if (!e0 && E) HINTHOST = 1
     return x
 }
 
@@ -7492,7 +7591,7 @@ function fio_next_item(n, isnum,   l, i, len, j, c, item, ist) {
     # than that was returned whole here (the 2026-09-19 audit, L-41).  The
     # 255th character IS the terminator, so the next read resumes right
     # after it -- no comma is consumed, because none was reached.
-    if (length(item) > 255) {
+    if (!HOSTMEM && length(item) > 255) {   # whole under `memory host` (EXT)
         item = substr(item, 1, 255)
         i = ist + 255
     } else if (i <= len && substr(l, i, 1) == ",") i++
@@ -7553,7 +7652,7 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         # as a string longer than one can hold (the 2026-09-19 audit, L-41).
         # What is left stays for the next read, as a terminator would leave it.
         line = FH_PEND[n]
-        if (length(line) > 255) {
+        if (!HOSTMEM && length(line) > 255) {   # whole under `memory host` (EXT)
             FH_PEND[n] = substr(line, 256)
             line = substr(line, 1, 255)
         } else FH_PENDHAS[n] = 0
@@ -8258,6 +8357,7 @@ function inln(n) { return (n == DIRECTLN) ? "" : " IN " n }
 
 function raise(c) {
     if (E) return
+    HINTHOST = 0                            # this error is not (yet) a host-mode ceiling (batch_hint, p45)
     E = c
     ERR_AT = CLN
     ERRV = (c - 1) * 2
@@ -8290,6 +8390,10 @@ function report_err(   c, msg) {
     s_puts(msg); s_nl()
     sync_cursor()
 }
+
+# a raise at a ceiling that `memory host` lifts (EXT): batch mode's note
+# names the option (batch_hint, p45).  The flag belongs to THIS raise only.
+function raise_host(c) { if (E) return; raise(c); HINTHOST = 1 }
 
 # LEVEL II-style number formatting: leading space or -, trailing space,
 # BY TYPE, since 2026-09-26 (L-16): an integer in full; a single to 6
