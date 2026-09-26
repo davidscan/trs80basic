@@ -307,6 +307,13 @@ before `--update`.
   run. Blanks inside a name are nothing, also as on the machine: `A B` is
   the variable `AB`, and `PRINT A B` prints one value. `detok.py -s` spaces
   a listing out for reading; the interpreter does not need it.
+- **A statement ends at a colon, or the line does.** You might expect
+  `X=1END` or `X=1 Y=2` to run both parts; actually they are `?SN ERROR`,
+  because the machine tests the byte behind every completed statement and
+  takes only `:` or the end of the line. `END X`, `STOP X` and `RETURN X`
+  are `?SN` for the same reason. Two tails are never looked at, also as
+  on the machine: what follows a `GOTO`'s line number, and what follows a
+  `GOSUB`'s, which `RETURN` skips over.
 - **Metacommands are lowercase.** `dir`, `man`, `help`, `fullscreen` are
   metacommands; `DIR` or `MAN` reach BASIC and give `?SN ERROR`. This keeps
   the two namespaces apart.

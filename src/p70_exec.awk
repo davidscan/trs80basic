@@ -13,7 +13,7 @@ function exec_immediate(line) {
 function setline(i) {
     CLI = i; CLN = LNS[i]; CK = CLN ""
     if (!(CK in TOKD)) tokline(CK, runtext(CLN))
-    CP = 1
+    CP = 1; PLACED = 1
     if (TRACE) s_puts("<" CLN ">")
 }
 
@@ -44,8 +44,22 @@ function execloop(   ty, tx) {
             DACC += THROTTLE_D
             if (DACC >= 0.03) { system("sleep " DACC); DACC = 0 }
         }
+        PLACED = 0
         SK = CK; SLI = CLI; SCP = CP
         execstmt()
+        # ROM 1D2C-1D32: every verb returns to the driver, which reads the
+        # byte at the code pointer: ":" goes on to the next statement
+        # (1D5AH), 00 ends the line (1D35H), anything else is ?SN.  So
+        # X=1END and X=1 Y=2 are ?SN, not an END and two assignments
+        # (until 2026-09-25 the leftover started the next statement here,
+        # silently; ruled the same day: follow the ROM).  ELSE counts as
+        # an end because the cruncher stores it behind a ":" (p50 does
+        # not).  PLACED is set by the verbs that put the pointer somewhere
+        # of their own: a jump (setline), RETURN, NEXT's loop, RESUME,
+        # CONT, and IF, whose THEN statement the ROM dispatches directly
+        # (2053H -> 1D5FH).  END and STOP test their own byte (RET NZ at
+        # 1DAEH and 1DA9H) before they halt.
+        if (!E && !PLACED && !HALT && !STOPPED && !at_stmt_end()) raise(2)
         if (E) {
             # ROM 19C9H-19CDH: before the handler test, the error routine
             # saves the line and the statement that failed in 40F5H/40F7H
@@ -381,9 +395,15 @@ function st_gosub(   ln) {
     if (E) GSN--
 }
 
+# ROM 1EDEH opens with RET NZ: RETURN X is ?SN before anything is popped.
+# Then (1EFFH-1F05H) the pointer the GOSUB saved is scanned to the end of
+# ITS statement through the DATA routine, ":" or 00, so GOSUB 100 X=5 is
+# not an error and X=5 never runs: the rest of a GOSUB statement is skipped.
 function st_return() {
+    if (!at_stmt_end()) { raise(2); return }
     if (GSN == 0) { raise(3); return }
     CK = GS_K[GSN]; CLI = GS_LI[GSN]; CP = GS_P[GSN]
+    skipstmt(); PLACED = 1
     # discard FOR frames opened since the GOSUB (early RETURN out of a loop
     # is legal MS BASIC).  The subroutine cannot have touched a loop opened
     # before the call: FOR and NEXT stop their scan at this frame (for_floor)
@@ -474,6 +494,7 @@ function do_next(name,   j, v, fl, d) {
     if (((d > 0) - (d < 0)) != ((FS_S[j] > 0) - (FS_S[j] < 0))) {
         CK = FS_K[j]; CLI = FS_LI[j]; CP = FS_P[j]
         CLN = (CK == "I") ? DIRECTLN : CK + 0
+        PLACED = 1                          # 2321H: back to the driver at the FOR's own pointer
         return 1
     }
     FSN = j - 1
@@ -481,6 +502,7 @@ function do_next(name,   j, v, fl, d) {
 }
 
 function st_if(   v, truth, hadkw, d, p, ty, tx, ln) {
+    PLACED = 1                              # the statement behind THEN or ELSE is dispatched from here (2053H -> 1D5FH)
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     truth = (num(v) != 0)
@@ -559,6 +581,7 @@ function st_on(   v, n, mode, cnt, lst, retp) {
 }
 
 function st_end() {
+    if (!at_stmt_end()) { raise(2); return }    # 1DAEH: RET NZ, "syntax error if END XX"
     if (CK != "I") {
         CONT_K = CK; CONT_LI = CLI; CONT_P = CP
         CONTOK = 1
@@ -571,6 +594,7 @@ function st_end() {
 # (20F9H), then BREAK, then " IN n" unless the line is 65535 -- so a STOP
 # typed at the prompt prints a bare BREAK (until 2026-09-21: nothing).
 function st_stop() {
+    if (!at_stmt_end()) { raise(2); return }    # 1DA9H: RET NZ, as END
     if (BATCH) diag_err("BREAK" inln(CLN))  # not program output: stderr
     else { s_fresh(); s_puts("BREAK" inln(CLN)); s_nl() }
     if (CK != "I") {
@@ -586,6 +610,7 @@ function st_cont() {
     CK = CONT_K; CLI = CONT_LI; CP = CONT_P
     CLN = (CK == "I") ? DIRECTLN : CK + 0
     if (CK != "I" && !(CK in TOKD)) tokline(CK, runtext(CLN))
+    PLACED = 1                              # 1DE4H replaces the pointer: CONT X continues
 }
 
 function st_run(   n, f, keep, given) {
@@ -671,11 +696,17 @@ function st_error(   v, n) {
     raise(n)
 }
 
+# ROM 1FAFH: the error flag is cleared (1FB7H-1FBBH) before the form is read,
+# and a byte behind the form goes back to the driver's test (1FC4H after a
+# line number or none, 1FCEH after NEXT): RESUME X is ?SN, and a handler
+# ending in it is entered again for that ?SN, as on the machine.
 function st_resume(   p, ty, tx) {
     if (!INHANDLER) { raise(19); return }
     INHANDLER = 0
+    PLACED = 1
     if (TY[CK, CP] == "i" && TK[CK, CP] == "NEXT") {
         CP++
+        if (!at_stmt_end()) { raise(2); return }
         CK = ERR_K; CLI = ERR_LI; CP = ERR_CP
         CLN = (CK == "I") ? DIRECTLN : CK + 0
         for (;;) {
@@ -689,6 +720,7 @@ function st_resume(   p, ty, tx) {
     }
     if (TY[CK, CP] == "n") {
         p = TK[CK, CP] + 0; CP++
+        if (!at_stmt_end()) { raise(2); return }
         if (p == 0) {
             CK = ERR_K; CLI = ERR_LI; CP = ERR_CP
             CLN = (CK == "I") ? DIRECTLN : CK + 0
@@ -697,6 +729,7 @@ function st_resume(   p, ty, tx) {
         jumpline(p)
         return
     }
+    if (!at_stmt_end()) { raise(2); return }
     CK = ERR_K; CLI = ERR_LI; CP = ERR_CP
     CLN = (CK == "I") ? DIRECTLN : CK + 0
 }

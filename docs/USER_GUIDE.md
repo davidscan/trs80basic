@@ -571,6 +571,11 @@ Honest list, stated as current behavior:
   source, VAL, DATA and INPUT.
 - Semigraphics POKE codes 192–255 draw as 128–191 (bit 6 ignored), while
   *printing* them space-compresses — both authentic, and both surprising.
+- A byte behind a complete statement is `?SN ERROR`, as on the machine:
+  `X=1END` and `X=1 Y=2` stop at the leftover instead of running it,
+  `END X`, `STOP X` and `RETURN X` are `?SN`, and `RESUME X` in a handler
+  re-enters the handler with that `?SN`. A `GOTO`'s tail is never seen,
+  and `RETURN` skips a `GOSUB`'s.
 - The documented ROM bugs are followed where a program can see them in
   its output or error codes. In 32-character mode a number that does not
   fit is split at the right edge rather than moved to the next line: the
