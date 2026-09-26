@@ -369,6 +369,11 @@ CLEAR [n]   reset all variables; optionally set string space to n bytes
   DEFSTR A:CLEAR 500:A="X" is ?TM, and a CLEAR inside a subroutine makes
   its RETURN ?RG.
   CLEAR does not touch the program itself -- that is NEW.
+  A listing that stops with ?OS at once assumed a CLEAR n typed at
+  READY before RUN, outside the listing: type it, or start with
+  `./basic --clear 1000`, which types it (man OS has the rule).
+  CLEAR MEM-n is ?OV on the 64K map, MEM being past 32767: the
+  listing is a 16K or 32K one, and --memsize 32767 is that machine.
   Example: CLEAR
   Example: CLEAR 1000
 
@@ -1395,6 +1400,24 @@ TAB(n)   inside PRINT, pad with spaces out to column n
   row, while TAB works within the current line.
   Example: PRINT TAB(10);"X"
   Example: PRINT A$;TAB(20);B$;TAB(40);C$      (three columns)
+
+:OS
+?OS ERROR   Out of String Space (code 14): a string did not fit
+  String space is 50 bytes at power-on; CLEAR n sets it, and nothing
+  else grows it.  A string built by an expression takes its length
+  there (a literal in a program line takes none), the old value of the
+  variable being assigned still counts while the new one is made, and
+  when the two do not fit, even after the machine's garbage collection,
+  the store is ?OS and nothing is stored.  FRE("") reports what is left.
+  The Level II manual's rule, under CLEAR: the amount CLEARed must
+  equal or exceed the most characters held in string variables during
+  execution.  A listing that stops with ?OS and has no CLEAR n assumed
+  one typed at READY before RUN: type CLEAR 1000, or start with
+  `./basic --clear 1000`, which types it.  A listing whose own CLEAR n
+  is too small stops on the machine too; raise the number in the line.
+  In batch mode the run says which case it is, on stderr.
+  Example: CLEAR 1000
+  Example: PRINT FRE("")
 
 :ERR
 ERR   the last error's code, held as (code-1)*2

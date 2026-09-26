@@ -41,7 +41,7 @@ CATEGORIES = [
         "RANDOM",
     ]),
     ("Graphics", ["SET", "RESET", "POINT"]),
-    ("Error handling", ["ERROR", "RESUME", "ERR", "ERL"]),
+    ("Error handling", ["ERROR", "RESUME", "ERR", "ERL", "OS"]),
     ("Types and definitions", [
         "DEFINT", "DEFSNG", "DEFDBL", "DEFSTR", "FN", "DEFFN", "USR",
         "DEFUSR", "VARPTR",

@@ -136,6 +136,11 @@ own. Whatever the BASIC program `OPEN`s, `CSAVE`s or `SAVE`s lands relative to
 
 Exit status: **0** clean run, **1** uncaught BASIC error (also printed to
 stderr as `?SN ERROR IN 40`), **2** bad invocation or unreadable file.
+Behind two of those errors batch mode adds one `basic:` line on stderr:
+`?OS` with string space never `CLEAR`ed names `--clear`, and `?OV` at a
+`CLEAR MEM-n` on the 64K map names `--memsize 32767`. The message, the
+output and the exit status are the machine's; the prompt shows the
+message alone.
 Running out of stdin while a program is at `INPUT` is a BASIC error
 (`?BATCH: END OF INPUT`). Batch mode also has **no raw keyboard**: `INKEY$`
 reads whole lines from stdin instead of single keypresses, so a program
@@ -312,7 +317,18 @@ before `--update`.
   grow without limit; actually a program that builds more than 50 bytes
   of strings without a `CLEAR n` stops with `?OS ERROR`, as it did on the
   machine, and `FRE("")` says how much is left. Literals in program lines
-  take none of it.
+  take none of it. The Level II manual's rule (under CLEAR): the amount
+  cleared must equal or exceed the most characters held in string
+  variables during execution. Many period listings assumed you typed
+  `CLEAR 1000` at `READY` before `RUN`, outside the listing; `--clear 1000`
+  types it for you, and a batch run that stops with `?OS` says so on
+  stderr. A listing whose own `CLEAR n` is too small fails the same way on
+  the machine, and no option helps: the program's `CLEAR` wins.
+- **`CLEAR MEM-n` is a 16K or 32K listing.** You might expect it to run
+  anywhere; actually on the 64K map `MEM` exceeds 32767 and `CLEAR`'s count
+  is an integer, so it is `?OV ERROR`, as it would be on a 48K machine.
+  `--memsize 32767` is the machine it was written for, and the batch run
+  says so on stderr.
 - **A statement ends at a colon, or the line does.** You might expect
   `X=1END` or `X=1 Y=2` to run both parts; actually they are `?SN ERROR`,
   because the machine tests the byte behind every completed statement and

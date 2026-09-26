@@ -201,6 +201,8 @@ loader does for the text it shows. `tools/tok.py` is the inverse;
 ./basic prog.bas               # LOAD, RUN, exit
 printf '5\n10\n' | ./basic prog.bas   # stdin answers the INPUTs
 ./basic --seed 42 prog.bas     # repeatable RND
+./basic --clear 1000 prog.bas  # CLEAR 1000 typed before RUN, as on the machine
+./basic --memsize 32767 prog.bas   # a 16K machine, for a listing that needs one
 ```
 
 Exit status: **0** clean, **1** uncaught BASIC error (also on stderr in the
@@ -211,7 +213,11 @@ test can never hang on a prompt — but there is no loop guard, so wrap a
 possibly-non-halting program in `timeout`. Two advisory lines can also
 reach stderr on an exit-0 run: `USR STUB: n CALLS NOT EXECUTED ...` when
 `USR` was called with no Z80 core attached, and `PROGRAM IMAGE TRUNCATED:
-...` when the tokenized image did not fit below the top of memory.
+...` when the tokenized image did not fit below the top of memory. Behind
+two errors batch mode adds a `basic:` line on stderr that names the
+keystroke the listing assumed: `?OS` with no `CLEAR n` (`--clear 1000`,
+see `man OS`) and `?OV` at `CLEAR MEM-n` on the 64K map (`--memsize
+32767`). The message, the output and the exit status stay the machine's.
 
 **Batch mode has no keyboard.** It turns the raw keyboard off, so `INKEY$`
 reads whole lines from stdin rather than single keypresses. A program whose
@@ -1004,8 +1010,12 @@ CLEAR [n]   reset all variables; optionally set string space to n bytes
   The optional n sets the string space to n bytes, taken from the top of
   memory (50 at power-on, and a CLEAR without a number keeps the current
   size).  Period programs that build many or long strings raise it
-  (CLEAR 1000) before running out: FRE("") reports what is left.  As on
-  the machine, n is an integer (?OV past 32767), a negative n is ?FC,
+  (CLEAR 1000) before running out: FRE("") reports what is left, and a
+  string that no longer fits is ?OS (Out of String Space, code 14), as
+  on the machine -- a literal in a program line takes none, a string an
+  expression built takes its length, and the old value of the variable
+  being assigned still counts while the new one is made.  As on the
+  machine, n is an integer (?OV past 32767), a negative n is ?FC,
   and an n that would push the string space down onto the program is
   ?OM; those errors leave the variables as they were.
   Like RUN, it also resets the DEFINT/DEFSTR letter types, the DATA
@@ -1015,6 +1025,11 @@ CLEAR [n]   reset all variables; optionally set string space to n bytes
   DEFSTR A:CLEAR 500:A="X" is ?TM, and a CLEAR inside a subroutine makes
   its RETURN ?RG.
   CLEAR does not touch the program itself -- that is NEW.
+  A listing that stops with ?OS at once assumed a CLEAR n typed at
+  READY before RUN, outside the listing: type it, or start with
+  `./basic --clear 1000`, which types it (man OS has the rule).
+  CLEAR MEM-n is ?OV on the 64K map, MEM being past 32767: the
+  listing is a 16K or 32K one, and --memsize 32767 is that machine.
   Example: CLEAR
   Example: CLEAR 1000
 ```
@@ -1529,6 +1544,27 @@ RESUME [0 | NEXT | n]   carry on after an ON ERROR handler
   Example: RESUME NEXT
   Example: 900 IF ERR/2+1=54 THEN PRINT "NO FILE": RESUME 100
            (54 is ?FF, file not found -- see: man ERR for the codes)
+```
+
+#### OS
+
+```text
+?OS ERROR   Out of String Space (code 14): a string did not fit
+  String space is 50 bytes at power-on; CLEAR n sets it, and nothing
+  else grows it.  A string built by an expression takes its length
+  there (a literal in a program line takes none), the old value of the
+  variable being assigned still counts while the new one is made, and
+  when the two do not fit, even after the machine's garbage collection,
+  the store is ?OS and nothing is stored.  FRE("") reports what is left.
+  The Level II manual's rule, under CLEAR: the amount CLEARed must
+  equal or exceed the most characters held in string variables during
+  execution.  A listing that stops with ?OS and has no CLEAR n assumed
+  one typed at READY before RUN: type CLEAR 1000, or start with
+  `./basic --clear 1000`, which types it.  A listing whose own CLEAR n
+  is too small stops on the machine too; raise the number in the line.
+  In batch mode the run says which case it is, on stderr.
+  Example: CLEAR 1000
+  Example: PRINT FRE("")
 ```
 
 #### ERR
@@ -2380,6 +2416,9 @@ MEM   the number of bytes of program and variable space still free
   frames (17 and 6 bytes) are counted as the machine lays them out; an
   expression's temporaries are not.  On a 16K machine with no program
   (--memsize 32767) PRINT MEM says 15572, as the manual's example does.
+  When it runs out, ?OM: a GOSUB or FOR with fewer than about 60 bytes
+  left, or a DIM that does not fit, stops as on the machine -- so a
+  subroutine that calls itself without end is ?OM ERROR, not a hang.
   Example: PRINT MEM
 ```
 
