@@ -95,7 +95,9 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
             # CLOSE#1): the keyword's token ended before it.
             sx = ""; c = substr(text, i, 1)
             if (c == "!" || c == "%" || c == "#") { sx = c; i++ }
-            if (VARNAMES2 && length(s) > 2) s = vn_cut(s)
+            # the ROM's variable table holds two characters of a name (SUM
+            # is SU); under `memory host` (EXT, p10) every character counts
+            if (!HOSTMEM && length(s) > 2) s = vn_cut(s)
             k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0; TSX[key, k] = sx
             continue
         }
@@ -242,6 +244,11 @@ function vn_cut(s,   d, b) {
     return substr(b, 1, 2) d
 }
 
+# every cached line: the name rule changed with the memory mode (p40
+# st_memory, rem_meta), so each line is tokenized again when next reached
+function inval_cache_all(   k) {
+    for (k in TOKD) if (k != STALEK) inval_cache_key(k)
+}
 function inval_cache_key(k,   i) {
     if (k in TOKD) {
         for (i = 1; i <= TCN[k]; i++) { delete TK[k, i]; delete TY[k, i]; delete TPO[k, i]; delete TSX[k, i]; delete TKW[k, i] }

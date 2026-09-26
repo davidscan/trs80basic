@@ -383,7 +383,10 @@ function rem_meta(   s, cmd, arg) {
         if (arg == "on" || arg == "off" || arg == "1" || arg == "0")
             st_fullscreen(arg)              # silent for these four; bare is not
     } else if (cmd == "memory") {
-        if (arg == "host" || arg == "rom") HOSTMEM = (arg == "host")   # silent; bare is not
+        if ((arg == "host" || arg == "rom") && HOSTMEM != (arg == "host")) {   # silent; bare is not
+            HOSTMEM = (arg == "host")
+            STALEK = CK; inval_cache_all()  # the name rule changed: every other line is tokenized again when
+        }                                   # reached; this one at the next setline (p70), its tokens are live
     }
 }
 
@@ -394,11 +397,14 @@ function rem_meta(   s, cmd, arg) {
 # default -- is the machine.  PEEK/POKE/VARPTR/USR keep the 64K map.
 function st_memory(arg) {
     if (arg == "") {
-        t_man("MEMORY " (HOSTMEM ? "HOST (EXT: no 64K, string space, 255-character or 32767 limits; PEEK/POKE/VARPTR still see the 64K machine)" \
-                                 : "ROM (the machine: 64K, CLEAR n string space, 255-character strings, subscripts to 32767)"))
+        t_man("MEMORY " (HOSTMEM ? "HOST (EXT: no 64K, string space, 255-character or 32767 limits, every character of a name counts; PEEK/POKE/VARPTR still see the 64K machine)" \
+                                 : "ROM (the machine: 64K, CLEAR n string space, 255-character strings, subscripts to 32767, two-character names)"))
         return
     }
-    if (arg == "host" || arg == "rom") { HOSTMEM = (arg == "host"); return }
+    if (arg == "host" || arg == "rom") {
+        if (HOSTMEM != (arg == "host")) { HOSTMEM = (arg == "host"); inval_cache_all() }   # the name rule changed (p50)
+        return
+    }
     t_man("USAGE: memory host|rom")
 }
 

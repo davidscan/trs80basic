@@ -46,7 +46,7 @@ BEGIN {
     # what the launcher read from `git describe` in a checkout: the same
     # string at a tag, "v1.4-3-gabcdef0" three commits past it, so
     # --version and the `version` metacommand name the exact build.
-    VERSION = "v1.4"
+    VERSION = "v1.5"
     if (!parse_args()) { usage("/dev/stderr"); exit 2 }
     if (OPT_HELP) { usage(""); exit 0 }
     if (OPT_VERSION) { printf "%s\n", version_text(); exit 0 }
@@ -151,7 +151,8 @@ function init_tables(   i, c, m, n) {
     EXTON = ("TRS80_EXT" in ENVIRON && ENVIRON["TRS80_EXT"] != "" && ENVIRON["TRS80_EXT"] != "0")
     # EXT, `memory host` (2026-09-26): the machine's capacity ceilings lifted
     # for new code written for this interpreter -- the 64K arithmetic behind
-    # MEM/FRE/?OM, CLEAR n's string space (?OS), the 255-character string
+    # MEM/FRE/?OM, the two-character variable name (vn_cut, p50), CLEAR n's
+    # string space (?OS), the 255-character string
     # (?LS, and the counts of LEFT$/RIGHT$/MID$/STRING$/INSTR), subscripts,
     # DIM bounds and CLEAR counts past 32767, INPUT#/LINE INPUT#'s 255-byte
     # cut and a piped INPUT line's 240.  PEEK, POKE, VARPTR, USR and the
@@ -165,10 +166,11 @@ function init_tables(   i, c, m, n) {
     HOSTMEM = ("TRS80_MEMORY" in ENVIRON && ENVIRON["TRS80_MEMORY"] == "host")
     if (OPT_MEMORY != "") HOSTMEM = (OPT_MEMORY == "host")
     HOSTTOP = 2147483647
-    # TRS80_VARNAMES=2: the ROM's two-character variable names (SUM is SU),
-    # applied by the tokenizer (vn_cut, p50).  Unset -- the default, the
-    # user's 2026-08-07 ruling -- every character of a name counts.
-    VARNAMES2 = (ENVIRON["TRS80_VARNAMES"] == "2")
+    # Variable names are the ROM's two characters (SUM is SU: vn_cut, p50)
+    # unless `memory host` is on, when every character counts.  Ruled
+    # 2026-09-26 (14 of 4,339 corpus listings ran differently under the
+    # full-name default of 2026-08-07; TRS80_VARNAMES=2, the opt-in of
+    # 2026-09-23, is retired: it is now the default).
     # error codes 1..23 in the ROM's order (its table ends there: NERRC),
     # then the file errors at Disk BASIC's own numbers (Model III Disk
     # System manual p.156), sparse: 51 FO field overflow, 53 BN bad file
@@ -2068,7 +2070,10 @@ function rem_meta(   s, cmd, arg) {
         if (arg == "on" || arg == "off" || arg == "1" || arg == "0")
             st_fullscreen(arg)              # silent for these four; bare is not
     } else if (cmd == "memory") {
-        if (arg == "host" || arg == "rom") HOSTMEM = (arg == "host")   # silent; bare is not
+        if ((arg == "host" || arg == "rom") && HOSTMEM != (arg == "host")) {   # silent; bare is not
+            HOSTMEM = (arg == "host")
+            STALEK = CK; inval_cache_all()  # the name rule changed: every other line is tokenized again when
+        }                                   # reached; this one at the next setline (p70), its tokens are live
     }
 }
 
@@ -2079,11 +2084,14 @@ function rem_meta(   s, cmd, arg) {
 # default -- is the machine.  PEEK/POKE/VARPTR/USR keep the 64K map.
 function st_memory(arg) {
     if (arg == "") {
-        t_man("MEMORY " (HOSTMEM ? "HOST (EXT: no 64K, string space, 255-character or 32767 limits; PEEK/POKE/VARPTR still see the 64K machine)" \
-                                 : "ROM (the machine: 64K, CLEAR n string space, 255-character strings, subscripts to 32767)"))
+        t_man("MEMORY " (HOSTMEM ? "HOST (EXT: no 64K, string space, 255-character or 32767 limits, every character of a name counts; PEEK/POKE/VARPTR still see the 64K machine)" \
+                                 : "ROM (the machine: 64K, CLEAR n string space, 255-character strings, subscripts to 32767, two-character names)"))
         return
     }
-    if (arg == "host" || arg == "rom") { HOSTMEM = (arg == "host"); return }
+    if (arg == "host" || arg == "rom") {
+        if (HOSTMEM != (arg == "host")) { HOSTMEM = (arg == "host"); inval_cache_all() }   # the name rule changed (p50)
+        return
+    }
     t_man("USAGE: memory host|rom")
 }
 
@@ -3152,7 +3160,9 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
             # CLOSE#1): the keyword's token ended before it.
             sx = ""; c = substr(text, i, 1)
             if (c == "!" || c == "%" || c == "#") { sx = c; i++ }
-            if (VARNAMES2 && length(s) > 2) s = vn_cut(s)
+            # the ROM's variable table holds two characters of a name (SUM
+            # is SU); under `memory host` (EXT, p10) every character counts
+            if (!HOSTMEM && length(s) > 2) s = vn_cut(s)
             k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0; TSX[key, k] = sx
             continue
         }
@@ -3299,6 +3309,11 @@ function vn_cut(s,   d, b) {
     return substr(b, 1, 2) d
 }
 
+# every cached line: the name rule changed with the memory mode (p40
+# st_memory, rem_meta), so each line is tokenized again when next reached
+function inval_cache_all(   k) {
+    for (k in TOKD) if (k != STALEK) inval_cache_key(k)
+}
 function inval_cache_key(k,   i) {
     if (k in TOKD) {
         for (i = 1; i <= TCN[k]; i++) { delete TK[k, i]; delete TY[k, i]; delete TPO[k, i]; delete TSX[k, i]; delete TKW[k, i] }
@@ -4003,6 +4018,7 @@ function exec_immediate(line) {
 
 function setline(i) {
     CLI = i; CLN = LNS[i]; CK = CLN ""
+    if (STALEK != "") { inval_cache_key(STALEK); STALEK = "" }   # a REM META: memory changed the name rule mid-line (p40)
     if (!(CK in TOKD)) tokline(CK, runtext(CLN))
     CP = 1; PLACED = 1
     if (TRACE) s_puts("<" CLN ">")

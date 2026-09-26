@@ -46,7 +46,7 @@ BEGIN {
     # what the launcher read from `git describe` in a checkout: the same
     # string at a tag, "v1.4-3-gabcdef0" three commits past it, so
     # --version and the `version` metacommand name the exact build.
-    VERSION = "v1.4"
+    VERSION = "v1.5"
     if (!parse_args()) { usage("/dev/stderr"); exit 2 }
     if (OPT_HELP) { usage(""); exit 0 }
     if (OPT_VERSION) { printf "%s\n", version_text(); exit 0 }
@@ -151,7 +151,8 @@ function init_tables(   i, c, m, n) {
     EXTON = ("TRS80_EXT" in ENVIRON && ENVIRON["TRS80_EXT"] != "" && ENVIRON["TRS80_EXT"] != "0")
     # EXT, `memory host` (2026-09-26): the machine's capacity ceilings lifted
     # for new code written for this interpreter -- the 64K arithmetic behind
-    # MEM/FRE/?OM, CLEAR n's string space (?OS), the 255-character string
+    # MEM/FRE/?OM, the two-character variable name (vn_cut, p50), CLEAR n's
+    # string space (?OS), the 255-character string
     # (?LS, and the counts of LEFT$/RIGHT$/MID$/STRING$/INSTR), subscripts,
     # DIM bounds and CLEAR counts past 32767, INPUT#/LINE INPUT#'s 255-byte
     # cut and a piped INPUT line's 240.  PEEK, POKE, VARPTR, USR and the
@@ -165,10 +166,11 @@ function init_tables(   i, c, m, n) {
     HOSTMEM = ("TRS80_MEMORY" in ENVIRON && ENVIRON["TRS80_MEMORY"] == "host")
     if (OPT_MEMORY != "") HOSTMEM = (OPT_MEMORY == "host")
     HOSTTOP = 2147483647
-    # TRS80_VARNAMES=2: the ROM's two-character variable names (SUM is SU),
-    # applied by the tokenizer (vn_cut, p50).  Unset -- the default, the
-    # user's 2026-08-07 ruling -- every character of a name counts.
-    VARNAMES2 = (ENVIRON["TRS80_VARNAMES"] == "2")
+    # Variable names are the ROM's two characters (SUM is SU: vn_cut, p50)
+    # unless `memory host` is on, when every character counts.  Ruled
+    # 2026-09-26 (14 of 4,339 corpus listings ran differently under the
+    # full-name default of 2026-08-07; TRS80_VARNAMES=2, the opt-in of
+    # 2026-09-23, is retired: it is now the default).
     # error codes 1..23 in the ROM's order (its table ends there: NERRC),
     # then the file errors at Disk BASIC's own numbers (Model III Disk
     # System manual p.156), sparse: 51 FO field overflow, 53 BN bad file

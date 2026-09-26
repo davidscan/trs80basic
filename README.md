@@ -130,7 +130,7 @@ own. Whatever the BASIC program `OPEN`s, `CSAVE`s or `SAVE`s lands relative to
 | `--seed N` | time-based | seeds `RND`; `RANDOM` re-applies N | repeatable runs, transcripts you can diff |
 | `--memsize N` | 65535 | answers `MEM SIZE?` with N (17280-65535), in batch and at the prompt | a program that only ran on a 16K machine: it POKEs an address byte it made signed (`IF H>127 THEN H=H-256`), which is `?FC` above 32767 on the hardware too; `--memsize 32767` is that machine |
 | `--clear N` | none (string space stays 50 bytes) | types `CLEAR N` before `RUN` (after LOAD in batch, at the first `READY` at the prompt); N is 0-32767 | a listing that stops with `?OS ERROR`: it was written for a machine where `CLEAR 1000` had been typed before `RUN`, outside the listing. The program's own `CLEAR n` still wins, and `FRE("")` reports the space |
-| `--memory host` | `rom` (the machine) | EXT: lifts the machine's capacity limits at once: the 64K behind `MEM`/`?OM`, `CLEAR n` string space (`?OS`), the 255-character string and its counts (`?LS`), subscripts, `DIM` bounds and `CLEAR` counts past 32767, the 255-byte `INPUT#` cut and the 240-byte piped line. `PEEK`, `POKE`, `VARPTR` and `USR` keep the 64K machine. Also `TRS80_MEMORY=host`, the `memory` metacommand, or `REM META: memory host` under `ext on` | new code written for this interpreter rather than for the machine: a program whose tables or prose would never fit a TRS-80 |
+| `--memory host` | `rom` (the machine) | EXT: lifts the machine's capacity limits at once: the 64K behind `MEM`/`?OM`, `CLEAR n` string space (`?OS`), the 255-character string and its counts (`?LS`), subscripts, `DIM` bounds and `CLEAR` counts past 32767, the 255-byte `INPUT#` cut and the 240-byte piped line; and every character of a variable name counts (`SUM` and `SU` are two variables, where the machine folds them into one). `PEEK`, `POKE`, `VARPTR` and `USR` keep the 64K machine. Also `TRS80_MEMORY=host`, the `memory` metacommand, or `REM META: memory host` under `ext on` | new code written for this interpreter rather than for the machine: a program whose tables or prose would never fit a TRS-80 |
 | `--screen` | off | keep the TRS-80 cursor/screen control codes in batch output | capturing what the 64x16 screen looked like rather than a text transcript |
 | `--` | | end of options | a program file whose name starts with `-` |
 | `-h`, `--help` | | usage and exit status meanings | |
@@ -350,7 +350,9 @@ before `--update`.
   the `memory host` metacommand, `REM META: memory host` under `ext on`)
   lifts them all at once for a program written for this interpreter:
   no `?OM`, `?OS` or `?LS`, any subscript or `CLEAR` count, file lines
-  read whole. `MEM` and `FRE` still count what the program uses, against
+  read whole, and every character of a variable name counts (the machine
+  keeps two: `SUM` is `SU`, and so it is here by default, because period
+  listings rely on it). `MEM` and `FRE` still count what the program uses, against
   a 2 GB top. `PEEK`, `POKE`, `VARPTR` and `USR` keep the 64K machine, so
   a long string shows a length byte of 255 there. A batch run that hits
   one of those limits says so on stderr.

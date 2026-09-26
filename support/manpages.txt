@@ -1637,10 +1637,13 @@ memory              report the current state
   255-character string (?LS) and the 255 counts of LEFT$, RIGHT$, MID$,
   STRING$ and INSTR; subscripts, DIM bounds and CLEAR counts past 32767
   (?OV); the 255-byte cut of INPUT# and LINE INPUT#; the 240-byte piped
-  INPUT line.  Under `host` none of those errors happens for size, a
-  file's line is read whole, and MEM and FRE count what the program uses
-  against a top of 2147483647.  Under `rom` -- the default -- every one
-  is the machine's, so a period listing behaves as it did.
+  INPUT line; and the two-character variable name (SUM is SU).  Under
+  `host` none of those errors happens for size, a file's line is read
+  whole, every character of a name counts, and MEM and FRE count what
+  the program uses against a top of 2147483647.  Under `rom` -- the
+  default -- every one is the machine's, so a period listing behaves as
+  it did.  Switching at the prompt or from a REM META: re-reads every
+  line's names under the new rule when it is next reached.
   What stays the machine's either way: PEEK, POKE, VARPTR, USR and the
   program image see the 64K map; a string longer than 255 shows a length
   byte of 255 there, its first 255 bytes packed; the interactive line

@@ -12,6 +12,7 @@ function exec_immediate(line) {
 
 function setline(i) {
     CLI = i; CLN = LNS[i]; CK = CLN ""
+    if (STALEK != "") { inval_cache_key(STALEK); STALEK = "" }   # a REM META: memory changed the name rule mid-line (p40)
     if (!(CK in TOKD)) tokline(CK, runtext(CLN))
     CP = 1; PLACED = 1
     if (TRACE) s_puts("<" CLN ">")

@@ -63,7 +63,7 @@ II):
 | `TRS80_MHZ` | full speed | throttle to a period clock; the `speed` metacommand does the same |
 | `TRS80_PRINTER` | unset (discard) | file that `LPRINT`/`LLIST` append to |
 | `TRS80_EXT` | `0` | `1` turns on the EXT gate (Part IV); `ext on` does the same |
-| `TRS80_VARNAMES` | unset (every character counts) | `2` gives variables the ROM's two-character names: `SUM` and `SU` are one variable |
+| `TRS80_MEMORY` | `rom` (the machine) | `host` lifts the machine's capacity limits and makes every character of a variable name count (`man memory`); `--memory` overrides it |
 | `TRS80_MANFILE` | `support/manpages.txt` | where `man` reads its text |
 | `TRS80_KMHOLD` | `100` ms at a terminal, `4` polls in batch | how long one keypress holds its key on the keyboard matrix |
 | `TRS80_USR` | unset | `strict` makes a `USR` call raise `?FC` instead of returning its argument |
@@ -531,12 +531,11 @@ Honest list, stated as current behavior:
   honoured, everywhere). Consequence: exact integers print in
   full — `12345678` where real single-precision hardware shows
   `1.23457E+07` — and E vs D exponent forms carry no precision difference.
-- **Variable names are fully significant** by default. The ROM's
-  2-character rule is not enforced: `SUM` and `SU` are different
-  variables, and a period program that *relied* on the truncation
-  misbehaves. `TRS80_VARNAMES=2` applies the ROM's rule: `SUM` is `SU`,
+- **Variable names are the ROM's two characters.** `SUM` is `SU`,
   `FNABC` is `FNAB`, a `$` still keeps `AB$` apart from `AB`, and `LIST`
-  still shows the names as typed. A reserved word inside a name ends the
+  still shows the names as typed; a period program that relied on the
+  folding runs as it did (14 corpus listings do). Under `memory host`
+  every character counts, for new code. A reserved word inside a name ends the
   name with or without it, as on the machine: `TOTAL` is `TO TAL`, and a
   line reads as the ROM's cruncher reads it, so `IFA=1THEN100` and
   `FORX=1TO10` run and `SCORE=5` is `?SN ERROR`. Blanks inside a name are
@@ -2585,10 +2584,13 @@ memory              report the current state
   255-character string (?LS) and the 255 counts of LEFT$, RIGHT$, MID$,
   STRING$ and INSTR; subscripts, DIM bounds and CLEAR counts past 32767
   (?OV); the 255-byte cut of INPUT# and LINE INPUT#; the 240-byte piped
-  INPUT line.  Under `host` none of those errors happens for size, a
-  file's line is read whole, and MEM and FRE count what the program uses
-  against a top of 2147483647.  Under `rom` -- the default -- every one
-  is the machine's, so a period listing behaves as it did.
+  INPUT line; and the two-character variable name (SUM is SU).  Under
+  `host` none of those errors happens for size, a file's line is read
+  whole, every character of a name counts, and MEM and FRE count what
+  the program uses against a top of 2147483647.  Under `rom` -- the
+  default -- every one is the machine's, so a period listing behaves as
+  it did.  Switching at the prompt or from a REM META: re-reads every
+  line's names under the new rule when it is next reached.
   What stays the machine's either way: PEEK, POKE, VARPTR, USR and the
   program image see the 64K map; a string longer than 255 shows a length
   byte of 255 there, its first 255 bytes packed; the interactive line
