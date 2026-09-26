@@ -40,9 +40,9 @@ function execloop(   ty, tx) {
             BRKCTR = 0
             if (CK != "I" && pollbrk()) { dobreak(); return }
         }
-        if (THROTTLE_D > 0) {           # emulate a slow clock (see set_speed)
+        if (THROTTLE_D > 0) {           # emulate a slow clock (set_speed, thr_wait: p10)
             DACC += THROTTLE_D
-            if (DACC >= 0.03) { system("sleep " DACC); DACC = 0 }
+            if (DACC >= THR_SLICE) thr_wait()
         }
         PLACED = 0
         SK = CK; SLI = CLI; SCP = CP

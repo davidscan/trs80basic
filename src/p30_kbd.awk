@@ -453,6 +453,7 @@ function km_init(   i) {
     KMR_[25] = 6; KMB_[25] = 64; KMS_[25] = 1     # SHIFT + right
     KMR_[32] = 6; KMB_[32] = 128                  # SPACE
     KMCLOCK = ("gettimeofday" in FUNCTAB) ? "gettimeofday" : ""
+    THR_SLICE = (KMCLOCK != "") ? 0.01 : 0.03      # the throttle's slice (thr_wait, p10)
     KMHOLD = (ENVIRON["TRS80_KMHOLD"] + 0 > 0) ? ENVIRON["TRS80_KMHOLD"] + 0 : (KMCLOCK != "" ? 100 : 4)
     KMR = -1; KMSH = 0
     KBPROTO = 0; KPQUERIED = 0; KPPUSHED = 0; KPPART = ""; KPSHIFT = 0; KPLAST = 0

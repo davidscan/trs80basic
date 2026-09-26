@@ -2579,7 +2579,10 @@ speed         report the current setting
   `speed 0` removes the throttle and runs at full speed, which is the
   default.
   The figure is approximate: it paces execution, it does not emulate
-  Z80 instruction timing.
+  Z80 instruction timing.  Every statement counts as 1000 cycles, and
+  the pacing holds the wall clock to that rate when gawk's time
+  extension is loaded (the launcher loads it); without it the pace
+  runs somewhat slow.
   Metacommand: lowercase only.
   A program can change the throttle mid-run with 500 REM META:speed 1.77
   (see: man REM); that needs `ext on`.

@@ -218,9 +218,13 @@ function init_tables(   i, c, m, n) {
     BRKCTR = 0; BRKEVERY = 400
     FNLIST = " ABS INT FIX SGN SQR SIN COS TAN ATN LOG EXP RND CINT CSNG CDBL PEEK POS FRE LEN ASC VAL CHR$ STR$ STRING$ LEFT$ RIGHT$ MID$ INSTR POINT TAB EOF LOF LOC MKI$ MKS$ MKD$ CVI CVS CVD INP "
     # execution throttle: emulate a target Z80 clock (MHz).  A statement is
-    # charged CYCPERSTMT "cycles"; delay = CYCPERSTMT/(MHz*1e6) seconds, batched
-    # (see execloop).  MHz<=0 => full speed.  Tune the feel via TRS80_MHZ / speed.
-    CYCPERSTMT = 1000; DACC = 0; THROTTLE_D = 0
+    # charged CYCPERSTMT "cycles"; delay = CYCPERSTMT/(MHz*1e6) seconds, owed
+    # into DACC and paid in slices by thr_wait (execloop calls it).  MHz<=0
+    # => full speed.  Tune the feel via TRS80_MHZ / speed.
+    CYCPERSTMT = 1000; DACC = 0; THROTTLE_D = 0; TDUE = 0
+    # sleep() comes with gawk's time extension, as gettimeofday() does
+    # (km_init's KMCLOCK); reached by an indirect call for the same reason
+    THRSLEEP = ("sleep" in FUNCTAB) ? "sleep" : ""
     set_speed(ENVIRON["TRS80_MHZ"] + 0)
     # ROM RND seed (40AA-40ACH): boot writes only the middle byte, like the
     # real ROM's R-register init -- gawk rand() is the entropy source, so
@@ -261,7 +265,32 @@ function set_speed(mhz) {
     if ((mhz > 0 ? mhz : 0) != THROTTLE_MHZ) z80_recycle()   # the clock travels on HELLO (p77)
     THROTTLE_MHZ = (mhz > 0 ? mhz : 0)
     THROTTLE_D = (THROTTLE_MHZ > 0 ? CYCPERSTMT / (THROTTLE_MHZ * 1000000) : 0)
-    DACC = 0
+    DACC = 0; TDUE = 0
+}
+
+# Pay the time the statements since the last call owe (DACC seconds).
+# With a clock (the launcher loads gawk's time extension: KMCLOCK, p30)
+# the pacing is CLOSED-LOOP: TDUE is the wall-clock moment the emulated
+# machine would reach this statement, and the wait is whatever of it is
+# still ahead -- so the sleep's own overshoot, the statements' own cost
+# and the fork below no longer add up.  Until 2026-09-26 every slice
+# forked `sleep` for the whole of DACC, whatever the time already spent,
+# and a loop ran 40% slow at 1.77 MHz (the 2026-09-23 audit, L-13); with
+# the extension's sleep() nothing is forked.  A slice is 10 ms with the
+# clock, 30 ms without: the open loop keeps its fork count down.
+#   Falling BEHIND by more than a slice restarts the clock here and
+# forgives the debt: the machine was waiting for a key (INPUT), or the
+# host could not keep up, and either way the program must not race at
+# full speed afterwards to catch up.  Without a clock (a gawk without the
+# extension) the open loop stays: sleep the slice, as before.
+function thr_wait(   now, ahead, f) {
+    if (KMCLOCK == "") { system("sleep " DACC); DACC = 0; return }
+    now = km_now()
+    if (TDUE < now - THR_SLICE) TDUE = now
+    TDUE += DACC; DACC = 0
+    ahead = TDUE - now
+    if (ahead <= 0) return
+    if (THRSLEEP != "") { f = THRSLEEP; @f(ahead) } else system("sleep " ahead)
 }
 
 # load help text for the `man` metacommand from an editable text file
