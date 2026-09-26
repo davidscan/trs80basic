@@ -80,6 +80,14 @@ BEGIN {
     s_nl()
     s_puts("R/S L2 BASIC"); s_nl()
     show_banner()
+    # --clear N: the CLEAR N a period user typed at the first READY (p45).
+    # Shown as typed, so the transcript says what happened; its error, if
+    # any, is CLEAR's own and READY follows as at the keyboard.
+    if (OPT_CLEAR >= 0) {
+        s_fresh(); s_puts("READY"); s_nl()
+        s_putc(62); s_puts("CLEAR " OPT_CLEAR); s_nl()
+        exec_immediate("CLEAR " OPT_CLEAR)
+    }
     repl()
     fio_closeall()                          # flush any open files on exit
     t_done()
@@ -2734,11 +2742,11 @@ function prog_load_tok(data, verify, keepfiles, merge,   n, pos, nxt, ln, z, bod
 #               2 bad arguments, unreadable file, or unloadable source
 
 # parse ARGV; returns 0 on a usage error.  Sets BATCH/BATCHFILE, OPT_SCREEN,
-# SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_HELP.  gawk never reads the operands itself: the whole
+# SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_CLEAR, OPT_HELP.  gawk never reads the operands itself: the whole
 # interpreter lives in BEGIN and exits there.
 function parse_args(   i, a, nofl) {
     BATCH = 0; BATCHFILE = ""; OPT_SCREEN = 0; OPT_HELP = 0
-    SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; nofl = 0
+    SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; nofl = 0
     for (i = 1; i < ARGC; i++) {
         a = ARGV[i]
         if (!nofl && a == "--") { nofl = 1; continue }
@@ -2771,6 +2779,28 @@ function parse_args(   i, a, nofl) {
             OPT_MEMSIZE = a + 0
             continue
         }
+        # --clear N: the CLEAR N a period user typed at READY before RUN.
+        # String space is 50 bytes at power-on and CLEAR n sets it (the
+        # Level II manual: "the amount of string storage CLEARed must equal
+        # or exceed the greatest number of characters stored in string
+        # variables during execution; otherwise an Out of String Space
+        # error will occur").  Many listings assumed the CLEAR was typed
+        # first, outside the listing, and stop with ?OS here without it.
+        # The option is that typed statement: in batch it runs after LOAD
+        # and before RUN (CLOAD, CLEAR n, RUN); at the prompt it is entered
+        # at the first READY, so no program can tell it from the keyboard.
+        # N is CLEAR's own operand (an integer, 0-32767); its ?OM against
+        # the program's size is CLEAR's, and stops the run.
+        if (!nofl && (a == "--clear" || a ~ /^--clear=/)) {
+            if (a == "--clear") a = (++i < ARGC) ? ARGV[i] : ""
+            else a = substr(a, 9)
+            if (a !~ /^[0-9]+$/ || a + 0 > 32767) {
+                ARGMSG = "--clear needs a byte count from 0 to 32767"
+                return 0
+            }
+            OPT_CLEAR = a + 0
+            continue
+        }
         if (!nofl && a == "--screen") { OPT_SCREEN = 1; continue }
         if (!nofl && (a == "-h" || a == "--help")) { OPT_HELP = 1; return 1 }
         if (!nofl && a ~ /^-./) { ARGMSG = "unknown option " a; return 0 }
@@ -2790,6 +2820,8 @@ function usage(dest,   t) {
         "  --seed N     seed RND for repeatable runs (RANDOM re-applies N)\n" \
         "  --memsize N  answer MEM SIZE? with N (17280-65535); 32767 is a\n" \
         "               16K machine, for programs that only ran on one\n" \
+        "  --clear N    type CLEAR N before RUN: string space is 50 bytes\n" \
+        "               until then, and a listing that assumed it stops ?OS\n" \
         "  --screen     keep the TRS-80 screen/cursor control codes\n" \
         "               (output is plain text by default without a tty)\n" \
         "  -h, --help   show this message\n" \
@@ -2817,6 +2849,13 @@ function batch_main() {
         return 2
     }
     if (LOADBAD) return 2                   # ?FD lines already on stderr
+    if (OPT_CLEAR >= 0) {                   # --clear N: CLEAR N typed before RUN
+        exec_immediate("CLEAR " OPT_CLEAR)
+        if (BATCHERR) {                     # CLEAR's own ?OM: the space does not fit
+            diag_err("basic: --clear " OPT_CLEAR " does not fit below the program on this memory map")
+            return 2
+        }
+    }
     exec_immediate("RUN")                   # the same path as typing RUN
     return (BATCHERR ? 1 : 0)
 }

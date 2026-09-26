@@ -80,6 +80,14 @@ BEGIN {
     s_nl()
     s_puts("R/S L2 BASIC"); s_nl()
     show_banner()
+    # --clear N: the CLEAR N a period user typed at the first READY (p45).
+    # Shown as typed, so the transcript says what happened; its error, if
+    # any, is CLEAR's own and READY follows as at the keyboard.
+    if (OPT_CLEAR >= 0) {
+        s_fresh(); s_puts("READY"); s_nl()
+        s_putc(62); s_puts("CLEAR " OPT_CLEAR); s_nl()
+        exec_immediate("CLEAR " OPT_CLEAR)
+    }
     repl()
     fio_closeall()                          # flush any open files on exit
     t_done()
