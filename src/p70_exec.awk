@@ -203,7 +203,9 @@ function st_let(   name, key, v, lp, src, j, n) {
         CP++; if (at_stmt_end()) lp = CP - 1; CP--
     }
     v = e_or(); if (E) return
+    LITSTORE = (lp != 0)                    # takes no string space (p75, mem_*)
     assignv(name, key, v)
+    LITSTORE = 0
     if (lp && !E) {
         if (TY[CK, lp] == "s") {
             for (j = 1; j <= lp; j++) if (TY[CK, j] == "s") n++
@@ -350,12 +352,18 @@ function intstore(x,   r) {
     return r
 }
 
-function assignv(name, key, v,   isint) {
+function assignv(name, key, v,   isint, tgt, n) {
     isint = LVI; LVI = 0
     if (strname(name)) {
         if (isN(v)) { raise(13); return }
+        tgt = (key != "") ? "A" key : "V" name
+        # the string area's count (p75, mem_*): the new value's bytes,
+        # none for a literal left in its line (LITSTORE); the old value's
+        # bytes are given back
+        n = LITSTORE ? 0 : length(v) - 1
+        STRUSED += n - ((tgt in STRCNT) ? STRCNT[tgt] : 0); STRCNT[tgt] = n
         if (ALN) al_clear(name, key)            # the descriptor moves (p75, finding 7)
-        delete LITA[(key != "") ? "A" key : "V" name]   # a literal it noted (p75)
+        delete LITA[tgt]                        # a literal it noted (p75)
         if (FLDANY) fld_detach(name, key)       # ... and out of a FIELD's buffer (p85)
         if (key != "") VA[key] = v; else SV[name] = vstr(v)
         if (length(VPDATA)) sp_grown(name, key)  # a VARPTRed string that outgrew its cells (p75)
@@ -649,7 +657,7 @@ function run_start(n, keepfiles, given) {
     setline(1)
 }
 
-function st_clear(   v, ty, tx) {
+function st_clear(   v, ty, tx, n) {
     # CLEAR takes a full numeric expression (CLEAR M, CLEAR FR!-8000 --
     # period listings prove the real ROM evaluated one; conformance fix
     # 2026-08-12, previously literal-or-parenthesized only)
@@ -657,6 +665,21 @@ function st_clear(   v, ty, tx) {
     if (!(ty == "" || ty == "e" || (ty == "o" && tx == ":") || (ty == "i" && tx == "ELSE"))) {
         v = e_or(); if (E) return
         if (!isN(v)) { raise(13); return }
+        # ROM 1E7DH -> 1E46H: the count goes through 2B02H, so CINT (0A7FH,
+        # rounding down; ?OV past 32767), and a negative one is ?FC (1E49H).
+        # Then the string area is set n bytes below the top of memory
+        # (1E84H-1E9CH): ?OM when the top is nearer than that (1E8DH), or
+        # when the area would reach down to 40 bytes past the program's end
+        # (1E90H-1E98H).  Either error leaves the variables alone: the
+        # initializer at 1B61H is joined only afterwards (1EA0H).  Until
+        # 2026-09-25 n was evaluated and thrown away (the 2026-09-23 audit,
+        # L-4).
+        n = intstore(num(v)); if (E) return
+        if (n < 0) { raise(5); return }
+        if (n > HIMEM) { raise(7); return }
+        pm_sync(); pm_truncnote()
+        if (PMEND + 40 >= HIMEM - n) { raise(7); return }
+        STRLO = HIMEM - n; STRLO_SET = 1
     }
     # CLEAR is RUN's initializer without the jump (ROM 1B61-1B83): the
     # variables, the type table, the FOR/GOSUB stacks, the ON ERROR target

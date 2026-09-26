@@ -467,9 +467,10 @@ because period programs poke at it:
   48K Model I) is memory absent. HIMEM is also movable from BASIC the way
   hardware allows — `POKE 16561,lo : POKE 16562,hi : CLEAR n` — which is
   how a listing reserves its own space without asking the user to answer
-  the prompt. Nothing else is limited: program size and
-  string space are unbounded, and `MEM` and `FRE(0)` return a constant
-  15572 rather than a real count.
+  the prompt. `MEM`, `FRE(0)` and `FRE("")` are the ROM's arithmetic
+  over the program, the variables, the arrays, the FOR/GOSUB frames and
+  the string space `CLEAR n` sets (50 bytes at power-on): 15572 on a 16K
+  map with no program. Program size itself is not limited.
 - **LPRINT/LLIST** print to a host stream: set `TRS80_PRINTER=path` to
   append there; unset, output is discarded — the hardware analogue of no
   printer attached. The ROM driver vectors are honoured: `POKE 16414,141:
@@ -506,9 +507,12 @@ those three places and in the cassette and keyboard routines.
 
 Honest list, stated as current behavior:
 
-- **`MEM` and `FRE(0)` are constants** (15572). A program that loops
-  "until memory is low", or sizes an array from `MEM`, will not see the
-  number move — it would misbehave or never terminate.
+- **`MEM` and `FRE` count the ROM's layout, not this interpreter's.** The
+  figures move as the machine's would (a new single takes 7 bytes, a
+  GOSUB 6, a FOR 17), with the ROM's 2-character names and single
+  precision assumed, and without an expression's temporaries; a program
+  that loops "until memory is low" ends where the machine's would to
+  within a few bytes.
 - **All numerics are doubles.** There is no single/double/integer
   distinction; `%` `!` `#` suffixes are accepted and stripped (so `G%` and
   `G` are the same variable). `DEFSNG`/`DEFDBL` set no precision; `DEFINT`
@@ -997,10 +1001,13 @@ CLS   clear the screen and home the cursor
 CLEAR [n]   reset all variables; optionally set string space to n bytes
   Sets every numeric variable to 0 and every string to "", and discards
   arrays -- so a DIM may be issued again afterwards.
-  The optional n reserves string space.  Period programs that build many
-  or long strings raise it (CLEAR 1000) to avoid running out; this
-  interpreter does not impose the ROM's string-space limit, so the
-  number is accepted and harmless.
+  The optional n sets the string space to n bytes, taken from the top of
+  memory (50 at power-on, and a CLEAR without a number keeps the current
+  size).  Period programs that build many or long strings raise it
+  (CLEAR 1000) before running out: FRE("") reports what is left.  As on
+  the machine, n is an integer (?OV past 32767), a negative n is ?FC,
+  and an n that would push the string space down onto the program is
+  ?OM; those errors leave the variables as they were.
   Like RUN, it also resets the DEFINT/DEFSTR letter types, the DATA
   pointer (as RESTORE does), the ON ERROR GOTO target and the FOR and
   GOSUB stacks -- the ROM's CLEAR joins RUN's initializer.  So CLEAR
@@ -2345,9 +2352,15 @@ FRE(x)   free space; FRE("") reports free STRING space
   The argument decides which pool is reported: a numeric argument asks
   about general free memory, and a string argument (conventionally "")
   asks about the string pool.
+  FRE(0) is MEM: the free bytes between the end of the arrays and the
+  stack.  FRE("") is the string space (50 bytes at power-on, CLEAR n sets
+  it) less the strings that live in it -- a literal that LET or READ
+  left in its program line takes none, a string built by an expression
+  takes its length.
   On hardware, calling FRE("") also forces a garbage collection of
   discarded strings, which is why period programs call it when string
-  handling has slowed down.
+  handling has slowed down; the count here is what the collection would
+  leave.
   Example: PRINT FRE("")
   Example: PRINT FRE(0)
 ```
@@ -2359,8 +2372,14 @@ MEM   the number of bytes of program and variable space still free
   Reported as a single number; it falls as variables, arrays and strings
   are created and rises after CLEAR or NEW.
   Chiefly a period diagnostic -- listings print it to prove a program
-  fits.  Because this interpreter does not use the ROM's memory layout,
-  treat the figure as indicative rather than an exact hardware count.
+  fits, or size their arrays by it (IF MEM>28000 THEN CLEAR 20000).
+  The figure is the ROM's arithmetic: the string space's start, less the
+  stack, less the end of the arrays.  The program, the variables (7
+  bytes a single, 6 a string, 5 an integer, 11 a double), the arrays (a
+  6-byte header, 2 per dimension, the elements) and the FOR and GOSUB
+  frames (17 and 6 bytes) are counted as the machine lays them out; an
+  expression's temporaries are not.  On a 16K machine with no program
+  (--memsize 32767) PRINT MEM says 15572, as the manual's example does.
   Example: PRINT MEM
 ```
 

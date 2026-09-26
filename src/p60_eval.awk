@@ -174,7 +174,7 @@ function e_prim(   t, s, v, key) {
         if (s == "REM")    { raise(2); return "N0" }
         if (s == "ERR")    { CP++; return "N" ERRV }
         if (s == "ERL")    { CP++; return "N" ERLV }
-        if (s == "MEM")    { CP++; return "N" 15572 }
+        if (s == "MEM")    { CP++; return "N" mem_free() }           # 27C9H (p75)
         if (s == "TIME$")  { CP++; return "S" strftime("%m/%d/%y %H:%M:%S") }
         if (s == "INKEY$") { CP++; return fn_inkey() }
         # USR: ML stub, never a variable.  When the spelling carries no
@@ -420,7 +420,10 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         return "N" x
     }
     if (name == "POS") { x = numarg(a1, na); if (E) return "N0"; return "N" VCOL }   # 27F5H: 40A6H (p20)
-    if (name == "FRE") { if (na < 1) { raise(2); return "N0" }; return "N" 15572 }
+    if (name == "FRE") {                    # 27D4H: a number asks about free memory, a string about the string area (p75)
+        if (na < 1) { raise(2); return "N0" }
+        return "N" (isN(a1) ? mem_free() : mem_strfree())
+    }
     if (name == "LEN") { s = strarg(a1, na); if (E) return "N0"; return "N" length(s) }
     if (name == "ASC") {
         s = strarg(a1, na); if (E) return "N0"

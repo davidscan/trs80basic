@@ -1128,3 +1128,64 @@ function fr_dump(   i) {
     for (i = 1; i <= FRN; i++) printf "  %s\n", FRRUN[i] > "/dev/stderr"
     fflush("/dev/stderr")
 }
+
+# ===================== memory accounting: MEM, FRE, CLEAR n =================
+# The ROM's arithmetic over this interpreter's objects, not its bytes.  The
+# machine keeps five pointers (Farvour, the 40xxH table): 40A4H the
+# program's start, 40F9H its end (the simple variables begin there),
+# 40FBH the arrays, 40FDH the end of the arrays = the start of free
+# memory, 40A0H the string area's start, 40B1H the top of memory (the
+# MEM SIZE? answer).  The stack lives in the free memory, from 40A0H
+# down (1B9AH: SP = the string area's start at RUN).  MEM (27C9H) and
+# FRE(n) are SP - (40FDH), FRE(a$) is (40D6H) - (40A0H) after a garbage
+# collection: the string area's size less the strings that live in it
+# (27D4H-27F2H).  Power-on puts the string area 50 bytes below the top
+# (00EFH-00F6H); CLEAR n moves it n bytes below (1E7AH-1E9CH) and the
+# stack starts there again.
+#
+# What is counted, and how: the program's end is the image's (PMEND); a
+# simple variable is 3 bytes of header (type, two name characters) and
+# its value (2 an integer, 3 a string's descriptor, 4 single, 8 double:
+# the DEF-type table decides, a name is single without it); an array is
+# a 6-byte header, 2 per dimension and the elements (DIM allocates them
+# all); a GOSUB frame is 6 bytes (1EB1H-1EC1H) and a FOR frame 17 (the
+# pushes of 1CBBH-1D1DH); and the driver's own depth while a statement
+# runs is 14 bytes, the figure that makes PRINT MEM say 15572 on a 16K
+# machine with no program: 32767 - 50 - 17131 - 14.  Names longer than
+# two characters are counted as the ROM would count them, two.  Not
+# counted: the temporaries of an expression, the string data of a FIELD
+# buffer, and a string that LET or READ left pointing into its program
+# line (1F46H-1F57H), which takes no string space (STRUSED is kept per
+# locator in STRCNT so a re-assignment gives the old count back).
+# Until 2026-09-25 MEM and FRE were the constant 15572 and CLEAR n threw
+# n away (the 2026-09-23 audit, L-15 and L-4; ruled 2026-09-24: follow
+# the ROM, as a cluster).
+function mem_strlo() { return STRLO_SET ? STRLO : HIMEM - 50 }   # 40A0H
+function mem_strsz() { return HIMEM - mem_strlo() }                # the string area
+function mem_numsize(name,   c) {
+    c = DEFT[substr(name, 1, 1)]
+    return (c == 2) ? 2 : (c == 8) ? 8 : 4
+}
+# 40FDH - 40F9H: the variables and arrays, recounted when their number
+# changed (a value's change never moves the count)
+function mem_varbytes(   n, k, i, e) {
+    if (!MEMTYPED) { MEMTYPED = 1; delete NV[""]; delete SV[""]; delete ADIM[""] }   # arrays, even before the first store
+    n = length(NV) SUBSEP length(SV) SUBSEP length(ADIM)
+    if (n == VBSEEN) return VBYTES
+    VBSEEN = n; VBYTES = 0
+    for (k in NV) VBYTES += 3 + mem_numsize(k)
+    for (k in SV) VBYTES += 6
+    for (k in ADIM) {
+        e = 1
+        for (i = 1; i <= ADIM[k]; i++) e *= ASZ[k, i] + 1
+        VBYTES += 6 + 2 * ADIM[k] + e * (strname(k) ? 3 : mem_numsize(k))
+    }
+    return VBYTES
+}
+# SP - (40FDH): what MEM and FRE(n) say (27D4H-27DDH, 27ECH-27F2H)
+function mem_free() {
+    pm_sync(); pm_truncnote()
+    return mem_strlo() - 14 - 6 * GSN - 17 * FSN - (PMEND + mem_varbytes())
+}
+# (40D6H) - (40A0H) after the collection: FRE(a$)
+function mem_strfree() { return mem_strsz() - STRUSED }

@@ -309,6 +309,7 @@ function clear_vars(keepfiles) {
     # ?TM on the machine -- period programs CLEAR first, then DEFSTR
     delete DEFS; delete DEFI; delete DEFT
     sp_reset()                      # VARPTR string space empties with the vars
+    STRUSED = 0; delete STRCNT      # the string area's count (p75, mem_*)
     FSN = 0; GSN = 0
 }
 

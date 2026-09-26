@@ -1905,6 +1905,7 @@ function clear_vars(keepfiles) {
     # ?TM on the machine -- period programs CLEAR first, then DEFSTR
     delete DEFS; delete DEFI; delete DEFT
     sp_reset()                      # VARPTR string space empties with the vars
+    STRUSED = 0; delete STRCNT      # the string area's count (p75, mem_*)
     FSN = 0; GSN = 0
 }
 
@@ -3247,7 +3248,7 @@ function e_prim(   t, s, v, key) {
         if (s == "REM")    { raise(2); return "N0" }
         if (s == "ERR")    { CP++; return "N" ERRV }
         if (s == "ERL")    { CP++; return "N" ERLV }
-        if (s == "MEM")    { CP++; return "N" 15572 }
+        if (s == "MEM")    { CP++; return "N" mem_free() }           # 27C9H (p75)
         if (s == "TIME$")  { CP++; return "S" strftime("%m/%d/%y %H:%M:%S") }
         if (s == "INKEY$") { CP++; return fn_inkey() }
         # USR: ML stub, never a variable.  When the spelling carries no
@@ -3493,7 +3494,10 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         return "N" x
     }
     if (name == "POS") { x = numarg(a1, na); if (E) return "N0"; return "N" VCOL }   # 27F5H: 40A6H (p20)
-    if (name == "FRE") { if (na < 1) { raise(2); return "N0" }; return "N" 15572 }
+    if (name == "FRE") {                    # 27D4H: a number asks about free memory, a string about the string area (p75)
+        if (na < 1) { raise(2); return "N0" }
+        return "N" (isN(a1) ? mem_free() : mem_strfree())
+    }
     if (name == "LEN") { s = strarg(a1, na); if (E) return "N0"; return "N" length(s) }
     if (name == "ASC") {
         s = strarg(a1, na); if (E) return "N0"
@@ -3925,7 +3929,9 @@ function st_let(   name, key, v, lp, src, j, n) {
         CP++; if (at_stmt_end()) lp = CP - 1; CP--
     }
     v = e_or(); if (E) return
+    LITSTORE = (lp != 0)                    # takes no string space (p75, mem_*)
     assignv(name, key, v)
+    LITSTORE = 0
     if (lp && !E) {
         if (TY[CK, lp] == "s") {
             for (j = 1; j <= lp; j++) if (TY[CK, j] == "s") n++
@@ -4072,12 +4078,18 @@ function intstore(x,   r) {
     return r
 }
 
-function assignv(name, key, v,   isint) {
+function assignv(name, key, v,   isint, tgt, n) {
     isint = LVI; LVI = 0
     if (strname(name)) {
         if (isN(v)) { raise(13); return }
+        tgt = (key != "") ? "A" key : "V" name
+        # the string area's count (p75, mem_*): the new value's bytes,
+        # none for a literal left in its line (LITSTORE); the old value's
+        # bytes are given back
+        n = LITSTORE ? 0 : length(v) - 1
+        STRUSED += n - ((tgt in STRCNT) ? STRCNT[tgt] : 0); STRCNT[tgt] = n
         if (ALN) al_clear(name, key)            # the descriptor moves (p75, finding 7)
-        delete LITA[(key != "") ? "A" key : "V" name]   # a literal it noted (p75)
+        delete LITA[tgt]                        # a literal it noted (p75)
         if (FLDANY) fld_detach(name, key)       # ... and out of a FIELD's buffer (p85)
         if (key != "") VA[key] = v; else SV[name] = vstr(v)
         if (length(VPDATA)) sp_grown(name, key)  # a VARPTRed string that outgrew its cells (p75)
@@ -4371,7 +4383,7 @@ function run_start(n, keepfiles, given) {
     setline(1)
 }
 
-function st_clear(   v, ty, tx) {
+function st_clear(   v, ty, tx, n) {
     # CLEAR takes a full numeric expression (CLEAR M, CLEAR FR!-8000 --
     # period listings prove the real ROM evaluated one; conformance fix
     # 2026-08-12, previously literal-or-parenthesized only)
@@ -4379,6 +4391,21 @@ function st_clear(   v, ty, tx) {
     if (!(ty == "" || ty == "e" || (ty == "o" && tx == ":") || (ty == "i" && tx == "ELSE"))) {
         v = e_or(); if (E) return
         if (!isN(v)) { raise(13); return }
+        # ROM 1E7DH -> 1E46H: the count goes through 2B02H, so CINT (0A7FH,
+        # rounding down; ?OV past 32767), and a negative one is ?FC (1E49H).
+        # Then the string area is set n bytes below the top of memory
+        # (1E84H-1E9CH): ?OM when the top is nearer than that (1E8DH), or
+        # when the area would reach down to 40 bytes past the program's end
+        # (1E90H-1E98H).  Either error leaves the variables alone: the
+        # initializer at 1B61H is joined only afterwards (1EA0H).  Until
+        # 2026-09-25 n was evaluated and thrown away (the 2026-09-23 audit,
+        # L-4).
+        n = intstore(num(v)); if (E) return
+        if (n < 0) { raise(5); return }
+        if (n > HIMEM) { raise(7); return }
+        pm_sync(); pm_truncnote()
+        if (PMEND + 40 >= HIMEM - n) { raise(7); return }
+        STRLO = HIMEM - n; STRLO_SET = 1
     }
     # CLEAR is RUN's initializer without the jump (ROM 1B61-1B83): the
     # variables, the type table, the FOR/GOSUB stacks, the ON ERROR target
@@ -5585,6 +5612,67 @@ function fr_dump(   i) {
     for (i = 1; i <= FRN; i++) printf "  %s\n", FRRUN[i] > "/dev/stderr"
     fflush("/dev/stderr")
 }
+
+# ===================== memory accounting: MEM, FRE, CLEAR n =================
+# The ROM's arithmetic over this interpreter's objects, not its bytes.  The
+# machine keeps five pointers (Farvour, the 40xxH table): 40A4H the
+# program's start, 40F9H its end (the simple variables begin there),
+# 40FBH the arrays, 40FDH the end of the arrays = the start of free
+# memory, 40A0H the string area's start, 40B1H the top of memory (the
+# MEM SIZE? answer).  The stack lives in the free memory, from 40A0H
+# down (1B9AH: SP = the string area's start at RUN).  MEM (27C9H) and
+# FRE(n) are SP - (40FDH), FRE(a$) is (40D6H) - (40A0H) after a garbage
+# collection: the string area's size less the strings that live in it
+# (27D4H-27F2H).  Power-on puts the string area 50 bytes below the top
+# (00EFH-00F6H); CLEAR n moves it n bytes below (1E7AH-1E9CH) and the
+# stack starts there again.
+#
+# What is counted, and how: the program's end is the image's (PMEND); a
+# simple variable is 3 bytes of header (type, two name characters) and
+# its value (2 an integer, 3 a string's descriptor, 4 single, 8 double:
+# the DEF-type table decides, a name is single without it); an array is
+# a 6-byte header, 2 per dimension and the elements (DIM allocates them
+# all); a GOSUB frame is 6 bytes (1EB1H-1EC1H) and a FOR frame 17 (the
+# pushes of 1CBBH-1D1DH); and the driver's own depth while a statement
+# runs is 14 bytes, the figure that makes PRINT MEM say 15572 on a 16K
+# machine with no program: 32767 - 50 - 17131 - 14.  Names longer than
+# two characters are counted as the ROM would count them, two.  Not
+# counted: the temporaries of an expression, the string data of a FIELD
+# buffer, and a string that LET or READ left pointing into its program
+# line (1F46H-1F57H), which takes no string space (STRUSED is kept per
+# locator in STRCNT so a re-assignment gives the old count back).
+# Until 2026-09-25 MEM and FRE were the constant 15572 and CLEAR n threw
+# n away (the 2026-09-23 audit, L-15 and L-4; ruled 2026-09-24: follow
+# the ROM, as a cluster).
+function mem_strlo() { return STRLO_SET ? STRLO : HIMEM - 50 }   # 40A0H
+function mem_strsz() { return HIMEM - mem_strlo() }                # the string area
+function mem_numsize(name,   c) {
+    c = DEFT[substr(name, 1, 1)]
+    return (c == 2) ? 2 : (c == 8) ? 8 : 4
+}
+# 40FDH - 40F9H: the variables and arrays, recounted when their number
+# changed (a value's change never moves the count)
+function mem_varbytes(   n, k, i, e) {
+    if (!MEMTYPED) { MEMTYPED = 1; delete NV[""]; delete SV[""]; delete ADIM[""] }   # arrays, even before the first store
+    n = length(NV) SUBSEP length(SV) SUBSEP length(ADIM)
+    if (n == VBSEEN) return VBYTES
+    VBSEEN = n; VBYTES = 0
+    for (k in NV) VBYTES += 3 + mem_numsize(k)
+    for (k in SV) VBYTES += 6
+    for (k in ADIM) {
+        e = 1
+        for (i = 1; i <= ADIM[k]; i++) e *= ASZ[k, i] + 1
+        VBYTES += 6 + 2 * ADIM[k] + e * (strname(k) ? 3 : mem_numsize(k))
+    }
+    return VBYTES
+}
+# SP - (40FDH): what MEM and FRE(n) say (27D4H-27DDH, 27ECH-27F2H)
+function mem_free() {
+    pm_sync(); pm_truncnote()
+    return mem_strlo() - 14 - 6 * GSN - 17 * FSN - (PMEND + mem_varbytes())
+}
+# (40D6H) - (40A0H) after the collection: FRE(a$)
+function mem_strfree() { return mem_strsz() - STRUSED }
 # ===================== p77: the Z80 coprocess -- USR routines executed =====
 # The companion engine ../trs80_z80_core executes machine code; this shim
 # drives it over one persistent gawk |& coprocess per session.  PROTOCOL.md
@@ -6620,7 +6708,9 @@ function st_read_items(   name, key, x) {
             return
         }
         if (strname(name)) {
+            LITSTORE = 1                    # the item stays in its line: no string space (p75, mem_*)
             assignv(name, key, "S" DITEM[DP])
+            LITSTORE = 0
             lit_note((key != "") ? "A" key : "V" name, DLIT[DP])
         } else {
             # the ROM's reader takes what it can (valnum, p90); anything

@@ -730,7 +730,9 @@ function st_read_items(   name, key, x) {
             return
         }
         if (strname(name)) {
+            LITSTORE = 1                    # the item stays in its line: no string space (p75, mem_*)
             assignv(name, key, "S" DITEM[DP])
+            LITSTORE = 0
             lit_note((key != "") ? "A" key : "V" name, DLIT[DP])
         } else {
             # the ROM's reader takes what it can (valnum, p90); anything
