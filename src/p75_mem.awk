@@ -516,6 +516,7 @@ function pm_sethimem(a, b) {
 
 function sp_reset(   a) {
     if (FRTRACK) for (a in SPK) FRDIRTY[a] = 1   # the frame resends what these read as now
+    delete FRSIG
     delete SPK; delete SPT; delete SPV; delete VPDESC; delete VPDATA; delete VPCAP
     delete ALIAS; ALN = 0
     delete LITA; delete LITV; delete LITSPEC
@@ -643,19 +644,24 @@ function sp_nbytes(tgt,   x) {
 
 function sp_peek(a,   t, tgt, v) {
     t = SPT[a]; tgt = SPK[a]
-    if (t == "L") return length(sp_gets(tgt)) % 256
     if (t == "C") return SPV[a]
     if (substr(t, 1, 1) == "N") {
         v = sp_nbytes(tgt)
         return ORD[substr(v, substr(t, 2) + 1, 1)]
     }
-    v = sp_gets(tgt)                              # string byte, live
+    # the live value: fetched once per string while a frame is built, since
+    # the frame walks a string's cells in order and an array element's
+    # value is a copy each time (the 2026-09-23 audit, M-12: O(len^2))
+    if (FRCACHE) { if (tgt != FRCT) { FRCT = tgt; FRCV = sp_gets(tgt) }; v = FRCV }
+    else v = sp_gets(tgt)
+    if (t == "L") return length(v) % 256
     if (t + 1 <= length(v)) return ORD[substr(v, t + 1, 1)]
     return (a in SPX) ? SPX[a] : 32               # past the live length: RAM
 }
 
 function sp_poke(a, b,   t, tgt, v, j) {
     t = SPT[a]; tgt = SPK[a]
+    if (FRTRACK) FRDIRTY[a] = 1                   # a cell past the live length (SPX) has no signature
     if (t == "C") { al_repoint(a, b, tgt); return } # descriptor address cell (finding 7)
     if (t == "L") {                               # truncate, or grow over the cells
         v = sp_gets(tgt)
@@ -1002,12 +1008,21 @@ function lit_bind(tgt,   p, a, s, j, d, c) {
 # resends only what may have changed since the last one, so a listing that
 # calls a scroll routine thousands of times does not pay 14 ms per call.
 # What is resent and why:
-#   * the screen (1K), the 11 constant/pointer bytes and the 20 system
-#     variable window cells -- always; cheap, and written from many places
-#     (PRINT, scroll, CLS) with no chokepoint.
-#   * every SPK cell -- always; string VALUES change through ordinary
-#     assignment (SV[]/VA[]), not through a chokepoint, and the region is
-#     small (only what VARPTR materialised).
+#   * the 11 constant/pointer bytes and the 20 system variable window
+#     cells -- always; cheap.
+#   * the screen -- the cells written since the last frame (SCRDIRTY, set
+#     by setcell and s_poke in p20 while FRTRACK is on; a scroll or CLS
+#     sets SCRALL and the whole 1K goes).  The core's own video writes
+#     come back through s_poke during the call and are dropped afterwards
+#     (fr_sent): the core wrote them, it has them.  Until 2026-09-25 the
+#     screen went whole in every frame (the 2026-09-23 audit, M-12).
+#   * every VARPTR'd variable whose SIGNATURE changed: its value, where
+#     its data cells are and the descriptor's address bytes (FRSIG, kept
+#     per locator from the last frame).  A string's value changes through
+#     ordinary assignment with no chokepoint, so the frame compares
+#     instead of tracking: one string compare per variable, against a
+#     dopeek per cell before.  A store into a mapped cell (sp_poke) and an
+#     unmapping (sp_free_data, sp_reset) mark the cells dirty as well.
 #   * the program image -- when pm_build has run since the last frame
 #     (FRPMDIRTY), plus the range a SHRUNKEN image no longer covers, which
 #     now reads as MEM[] or 255.
@@ -1026,13 +1041,14 @@ function lit_bind(tgt,   p, a, s, j, d, c) {
 function fr_build(full,   a, e, n, run, last, lo, hi) {
     delete FRSET
     if (!FRTRACK) { full = 1 }
-    for (a = 15360; a <= 16383; a++) FRSET[a] = 1     # screen, always
+    if (full || SCRALL) { for (a = 15360; a <= 16383; a++) FRSET[a] = 1 }
+    else { for (a in SCRDIRTY) FRSET[a + 15360] = 1 }   # the screen: what changed
     FRSET[14312] = 1; FRSET[14313] = 1                 # printer status (63)
     for (a = 16554; a <= 16556; a++) FRSET[a] = 1     # RND seed
     FRSET[16548] = 1; FRSET[16549] = 1; FRSET[16561] = 1; FRSET[16562] = 1
     FRSET[16633] = 1; FRSET[16634] = 1                 # the live pointers
     for (a in SVW) FRSET[a] = 1                        # the system variable window
-    for (a in SPK) FRSET[a] = 1                        # packed strings, always
+    fr_strings(full)                                   # packed strings: what changed
     pm_sync(); pm_truncnote()
     if (full || FRPMDIRTY) {
         for (a = 17129; a < PMEND; a++) FRSET[a] = 1
@@ -1042,6 +1058,7 @@ function fr_build(full,   a, e, n, run, last, lo, hi) {
     if (full) { for (a in MEM) FRSET[a] = 1 }
     else       { for (a in FRDIRTY) FRSET[a] = 1 }
     delete FRRUN; FRN = 0; n = 0
+    FRCACHE = 1; FRCT = ""
     PROCINFO["sorted_in"] = "@ind_num_asc"
     last = -2; run = ""
     for (a in FRSET) {
@@ -1059,15 +1076,52 @@ function fr_build(full,   a, e, n, run, last, lo, hi) {
     }
     if (run != "") FRRUN[++FRN] = run
     delete PROCINFO["sorted_in"]
+    FRCACHE = 0; FRCT = ""; FRCV = ""
     FRGEN++; FRFULL = full ? 1 : 0
     FRHDR = "USR FRAME gen=" FRGEN " full=" FRFULL " slot=" USR_SLOT " entry=" USR_ENTRY \
             " arg=" USR_ARG " sp=" SSP " himem=" HIMEM " ramtop=" RAMTOP " bytes=" n " runs=" FRN
     delete FRDIRTY; FRPMDIRTY = 0; FRPMHI = PMEND; FRTRACK = 1
+    delete SCRDIRTY; SCRALL = 0
     delete FRSET
 }
 
+# The VARPTR'd variables whose cells may read differently from the last
+# frame.  A variable's signature is everything its cells are computed from
+# except what sp_poke marks itself: the value (and a numeric's raw bytes,
+# NRAW), the data region (VPDATA, VPCAP) and the descriptor's address bytes
+# (SPV).  Equal signature, equal bytes; a new locator, a changed one and a
+# full frame put every cell of the variable in the set: the descriptor
+# (3 cells for a string, 4 for a number) and the data cells when they are
+# mapped in SPK (a literal's are in the program image, which the image's
+# own rule resends).
+function fr_strings(full,   tgt, d, sig, a, e) {
+    for (tgt in VPDESC) {
+        d = VPDESC[tgt]
+        if (SPT[d] == "L") {
+            sig = ((tgt in VPDATA) ? VPDATA[tgt] SUBSEP VPCAP[tgt] : "") SUBSEP SPV[d + 1] SUBSEP SPV[d + 2] SUBSEP sp_gets(tgt)
+            e = d + 2
+        } else {
+            sig = sp_getn(tgt) SUBSEP ((tgt in NRAW) ? NRAW[tgt] : "")
+            e = d + 3
+        }
+        if (!full && (tgt in FRSIG) && FRSIG[tgt] == sig) continue
+        FRSIG[tgt] = sig
+        for (a = d; a <= e; a++) FRSET[a] = 1
+        # (test membership first: a bare SPK[x] read would create the key,
+        # and dopeek would then take the string-space path for an image byte)
+        if ((tgt in VPDATA) && (VPDATA[tgt] in SPK) && SPK[VPDATA[tgt]] == tgt) {
+            e = VPDATA[tgt] + VPCAP[tgt] - 1
+            for (a = VPDATA[tgt]; a <= e; a++) FRSET[a] = 1
+        }
+    }
+}
+
 # the coprocess (re)started, or the shim wants a clean slate: next frame full
-function fr_reset() { FRTRACK = 0; FRGEN = 0; delete FRDIRTY }
+function fr_reset() { FRTRACK = 0; FRGEN = 0; delete FRDIRTY; delete FRSIG; delete SCRDIRTY; SCRALL = 0 }
+
+# the call is over: the screen cells the core streamed back (V lines, applied
+# through s_poke) are its own, so they are not resent in the next frame
+function fr_sent() { delete SCRDIRTY }
 
 function fr_dump(   i) {
     printf "%s\n", FRHDR > "/dev/stderr"

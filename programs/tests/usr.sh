@@ -54,7 +54,9 @@ if [ "$rc" != "1" ] || [ "$out" != "?FC ERROR IN 10" ]; then
 fi
 # TRS80_USR_TRACE=2: the frame's memory image (p75 fr_build).  Frame 1 is
 # full; later frames are deltas -- a POKE shows up once, a packed string
-# always, and cells CLEAR unmapped come back as 255 (ruled 2026-09-11).
+# when its value or place changed, and cells CLEAR unmapped come back as
+# 255 (ruled 2026-09-11; the string and the screen by change since
+# 2026-09-25, M-12).
 # The strings are joined (+) so they live in string space: a lone literal
 # stays in its program line, as the ROM's LET leaves it (1F46H-1F57H).
 dump=$(printf '\n10 POKE 30000,7:A$="HEL"+"LO":V=VARPTR(A$)\n20 X=USR(1)\n30 POKE 30001,8:X=USR(2)\n40 A$="WORLD"+"S":X=USR(3)\n50 CLEAR:X=USR(4)\nRUN\nBYE\n' \
@@ -70,7 +72,8 @@ chk '^gen=1 17129:13,67,10,0,'              # the image: next pointer 430DH, lin
 chk '^gen=1 65528:72,69,76,76,79,5,248,255$'   # HELLO, then its descriptor
 chk '^USR FRAME gen=2 full=0 '
 chk '^gen=2 30001:8$'; nochk '^gen=2 30000:'; nochk '^gen=2 17129:'   # delta: only the new POKE
-chk '^gen=2 65528:72,69,76,76,79,5,248,255$'   # the string, always
+nochk '^gen=2 65528:'                          # the string, unchanged: not resent
+nochk '^gen=2 15360:'                          # nor the screen, untouched since frame 1
 # WORLDS outgrew HELLO's five cells: the assignment re-homed it below (FFF2H),
 # the old cells are unmapped and the descriptor names the new address
 chk '^USR FRAME gen=3 full=0 slot=0 entry=-1 arg=3 sp=65521 '
@@ -78,4 +81,32 @@ chk '^gen=3 65522:87,79,82,76,68,83,255,255,255,255,255,6,242,255$'
 chk '^USR FRAME gen=4 full=0 slot=0 entry=-1 arg=4 sp=65535 '   # CLEAR: SP back at HIMEM
 chk '^gen=4 65522:255,255,255,255,255,255$'                      # the unmapped cells read 255
 chk '^gen=4 65533:255,255,255$'                                  # and the descriptor's
+
+# A delta carries what changed since the last frame, and no more (the
+# 2026-09-23 audit, M-12; until 2026-09-25 the screen and every VARPTR'd
+# cell went in every frame).  A string assigned the same length in the same
+# place is resent for its value; untouched, it is not; a number the same;
+# a POKE into a mapped cell is resent once; a PRINT resends its cells and
+# a CLS the whole screen.
+dump=$(printf '\n10 A$="HEL"+"LO":V=VARPTR(A$):PRINT "X";:X=USR(1)\n20 X=USR(2)\n30 A$="JEL"+"LO":X=USR(3)\n40 PRINT@64,"Q";:X=USR(4)\n50 CLS:X=USR(5)\n60 B=7:W=VARPTR(B):X=USR(6)\n70 B=8:X=USR(7)\n80 POKE V+1,PEEK(V+1):X=USR(8)\nRUN\nBYE\n' \
+      | TRS80_USR_TRACE=2 TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 >/dev/null \
+      | awk '/^USR FRAME/ { g = $3; print; next } /^  / && g != "" { print g " " $1 }')
+chk '^gen=1 65528:72,69,76,76,79,5,248,255$'
+chk '^gen=1 15360:'
+nochk '^gen=2 65528:'; nochk '^gen=2 15[3-9][0-9][0-9]:'; nochk '^gen=2 16[0-3][0-9][0-9]:'   # nothing changed: neither the string nor a screen cell
+chk '^gen=3 65528:74,69,76,76,79,5,248,255$'                     # JELLO: same place, new value
+nochk '^gen=4 65528:'; chk '^gen=4 15424:81$'; nochk '^gen=4 15360:'   # PRINT@64,"Q": that cell alone
+chk '^gen=5 15360:32,32,32,32,32,32,32,32,'                      # CLS: the whole screen
+chk '^gen=6 65524:0,0,96,131$'; chk '^gen=7 65524:0,0,0,132$'; nochk '^gen=8 65524:'   # B: VARPTRed, changed, then untouched
+chk '^gen=8 65534:248$'                                          # the POKE of the same byte: resent once
+
+# The core's own video writes come back through the screen and are ITS
+# bytes: the next delta does not resend them (z80_stub.py paints HI at
+# 7000H); what BASIC prints in between is resent.
+dump=$(printf '\n10 DEFUSR0=&H7000:X=USR0(0):X=USR0(0):PRINT@384,"P";:X=USR0(0)\nRUN\nBYE\n' \
+      | TRS80_USR_TRACE=2 TRS80_DUMB=1 TRS80_Z80="python3 $here/programs/tests/z80_stub.py" gawk -b -f "$here/trs80basic.awk" 2>&1 >/dev/null \
+      | awk '/^USR FRAME/ { g = $3; print; next } /^  / && g != "" { print g " " $1 }')
+chk '^USR FRAME gen=3 full=0 '                 # the dump is the frame sent: gen 1, 2, 3, no NEED
+nochk '^gen=2 15360:'
+nochk '^gen=3 15360:'; chk '^gen=3 15744:80$'
 echo "USR FRAME FIXTURE OK"

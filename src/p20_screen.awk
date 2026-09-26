@@ -234,6 +234,7 @@ function redraw_all(   r, c, s, p, g) {
 
 function s_cls(   i) {
     for (i = 0; i < 1024; i++) SCR[i] = 32
+    SCRALL = 1                              # the USR frame resends the screen (fr_build, p75)
     delete CCOL
     CUR = 0; VCOL = 0                       # CLS goes through 033AH: 40A6H is 0 after it
     LATCH = 0                               # CLS returns to 64 chars per line: the ROM clears
@@ -243,6 +244,7 @@ function s_cls(   i) {
 
 function setcell(p, b) {
     SCR[p] = b
+    if (FRTRACK) SCRDIRTY[p] = 1            # the USR frame resends the cell (fr_build, p75)
     # character output always retires the cell's SET color (EXT)
     if (p in CCOL) delete CCOL[p]
     drawcell(p)
@@ -251,6 +253,7 @@ function setcell(p, b) {
 # raw store into display memory (POKE path: no control-code interpretation)
 function s_poke(p, b) {
     SCR[p] = b
+    if (FRTRACK) SCRDIRTY[p] = 1
     # a non-graphics byte retires the cell's SET color (EXT)
     if ((b < 128 || b > 191) && (p in CCOL)) delete CCOL[p]
     drawcell(p)
@@ -263,6 +266,7 @@ function s_scroll(   i) {
         if ((i + 64) in CCOL) CCOL[i] = CCOL[i + 64]; else delete CCOL[i]
     }
     for (i = 960; i < 1024; i++) { SCR[i] = 32; delete CCOL[i] }
+    SCRALL = 1
     redraw_all()
 }
 

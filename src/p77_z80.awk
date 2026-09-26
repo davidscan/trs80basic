@@ -161,6 +161,7 @@ function z80_apply(run, isvideo,   p, a, n, bs, j, b) {
 function z80_usr(x,   full, res) {
     z80_start()
     if (Z80STATE != "up") {                       # the shipped stub
+        if (USR_TRACE >= 2) { fr_build(0); fr_dump() }   # the frame it would send (p75 fr_*)
         if (USR_STRICT) { raise(5); return 0 }
         usr_stub_count()
         return x
@@ -169,6 +170,7 @@ function z80_usr(x,   full, res) {
     full = 0
     for (;;) {
         fr_build(full)
+        if (USR_TRACE >= 2) fr_dump()             # the frame as sent
         z80_sendframe()
         if (Z80WERR) { z80_gone(); return 0 }
         res = z80_run(x)
@@ -186,6 +188,7 @@ function z80_usr(x,   full, res) {
             Z80STATE = "up"; fr_reset(); full = 1
             continue
         }
+        if (Z80STATE == "up") fr_sent()
         return res
     }
 }

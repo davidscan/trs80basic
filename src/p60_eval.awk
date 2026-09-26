@@ -592,8 +592,13 @@ function usr_entry(slot,   lo, hi) {
 
 # TRS80_USR_TRACE=1 prints one line per call to stderr: the frame the shim
 # will send.  =2 also dumps the frame's memory image (p75 fr_build: full
-# the first time, deltas after).  Diagnostic only; programs/tests/usr.sh
-# asserts on both.
+# the first time, deltas after) -- the frame the shim SENDS, dumped by
+# z80_usr (p77) beside the send, or built for the dump alone when the
+# stub answers.  Until 2026-09-25 the dump built a frame of its own here,
+# ahead of the shim's: with a core that frame took a generation and the
+# dirty sets, so the wire carried gen 1, 3, 5 and an empty delta, and the
+# core answered NEED with a full frame every call.  Diagnostic only;
+# programs/tests/usr.sh asserts on both.
 # `entry`, when given, overrides the vector: SYSTEM's `/nnnnn` runs the
 # address the monitor was given, not a DEFUSR vector, and the trace has to
 # name what will actually run.  sys_exec used to resolve first and assign
@@ -608,7 +613,6 @@ function usr_resolve(name, arg, entry) {
         USR_STRICT = (ENVIRON["TRS80_USR"] == "strict")
     }
     if (USR_TRACE) printf "USR slot=%d entry=%s arg=%s\n", USR_SLOT, (USR_ENTRY < 0 ? "undefined" : USR_ENTRY), arg > "/dev/stderr"
-    if (USR_TRACE >= 2) { fr_build(0); fr_dump() }   # the frame's memory image (p75 fr_*)
 }
 
 # the stub's per-run tally: distinct entry addresses in first-call order.
