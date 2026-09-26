@@ -36,7 +36,7 @@ function report_err(   c, msg) {
     INHANDLER = 0
     # only UNCAUGHT errors reach here (ON ERROR GOTO is handled in execloop),
     # so this is the one place batch mode needs for its exit-1 status
-    if (BATCH) { BATCHERR = 1; diag_err(msg); return }
+    if (BATCH) { BATCHERR = 1; diag_err(msg); batch_hint(c); return }
     if (CUR % 64 != 0) s_nl()
     s_puts(msg); s_nl()
     sync_cursor()

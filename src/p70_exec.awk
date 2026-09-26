@@ -689,6 +689,9 @@ function st_clear(   v, ty, tx, n) {
         pm_sync(); pm_truncnote()
         if (PMEND + 40 >= HIMEM - n) { raise(7); return }
         STRLO = HIMEM - n; STRLO_SET = 1
+        # who set the space, for batch mode's ?OS note (batch_hint, p45):
+        # a program line, or "I" for one typed at READY (--clear)
+        CLEARSRC = (CK == "I") ? "I" : CLN ""; CLEARN = n
     }
     # CLEAR is RUN's initializer without the jump (ROM 1B61-1B83): the
     # variables, the type table, the FOR/GOSUB stacks, the ON ERROR target

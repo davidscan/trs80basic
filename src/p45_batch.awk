@@ -128,6 +128,26 @@ function batch_main() {
     return (BATCHERR ? 1 : 0)
 }
 
+# A note on stderr behind the ROM's error message, in batch mode only, for
+# the two errors a period listing meets here because a keystroke that lived
+# OUTSIDE the listing is missing: ?OS when string space was never CLEARed
+# (the Level II manual has CLEAR n typed before RUN), and ?OV at CLEAR MEM-n
+# on a map where MEM exceeds 32767 (a 16K/32K listing).  Not an extension
+# of BASIC: the screen, the program's output, the error message and the
+# exit status are what the machine gave, and no program can read stderr.
+# At the prompt the ROM's message stands alone, as on the machine.
+function batch_hint(c) {
+    if (c == 14) {                                          # ?OS
+        if (CLEARSRC == "")
+            diag_err("basic: string space is 50 bytes until CLEAR n (Level II manual, CLEAR); the listing assumed one typed before RUN: try --clear 1000")
+        else if (CLEARSRC == "I")
+            diag_err("basic: --clear " CLEARN " is too small for this program's strings: raise it")
+        else
+            diag_err("basic: the program's own CLEAR " CLEARN " in line " CLEARSRC " is too small for its strings; --clear cannot help, the program's CLEAR wins")
+    } else if (c == 6 && HIMEM > 32767 && TY[SK, SCP] == "i" && TK[SK, SCP] == "CLEAR")
+        diag_err("basic: CLEAR's count is an integer (?OV past 32767) and MEM exceeds 32767 on this memory map: the listing was written for a 16K or 32K machine, try --memsize 32767")
+}
+
 # an interpreter message (not program output): stderr in batch, the simulated
 # screen when interactive
 function diag(msg) {

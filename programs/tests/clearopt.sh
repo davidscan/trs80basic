@@ -15,7 +15,7 @@ run() { TRS80_Z80= "$here/basic" "$@" "$tmp" 2>&1 </dev/null; }
 # 200 bytes of strings and no CLEAR: ?OS without the option, runs with it
 printf '10 A$=STRING$(100,"A"):B$=STRING$(100,"B")\n20 PRINT "OK";LEN(A$+B$)\n' > "$tmp"
 out=$(run); rc=$?
-[ $rc -eq 1 ] && [ "$out" = "?OS ERROR IN 10" ] || fail "no CLEAR is ?OS (rc=$rc)" "$out"
+case $rc,$out in 1,"?OS ERROR IN 10"*) ;; *) fail "no CLEAR is ?OS (rc=$rc)" "$out" ;; esac
 out=$(run --clear 1000); rc=$?
 [ $rc -eq 0 ] && [ "$out" = "OK 200 " ] || fail "--clear 1000 (rc=$rc)" "$out"
 out=$(run --clear=1000); rc=$?
