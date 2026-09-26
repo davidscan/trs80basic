@@ -41,8 +41,15 @@ BEGIN {
     # TRS80_WINNATIVE=0/1 overrides the probe (branch-selection testing).
     if ("TRS80_WINNATIVE" in ENVIRON) WINNATIVE = ENVIRON["TRS80_WINNATIVE"] + 0
     else WINNATIVE = ("COMSPEC" in ENVIRON && !("SHELL" in ENVIRON))
+    # The release number, bumped in the commit that carries the tag (v1.4
+    # was the first, 2026-09-26; v1.0-v1.3 name earlier states).  BUILDID is
+    # what the launcher read from `git describe` in a checkout: the same
+    # string at a tag, "v1.4-3-gabcdef0" three commits past it, so
+    # --version and the `version` metacommand name the exact build.
+    VERSION = "v1.4"
     if (!parse_args()) { usage("/dev/stderr"); exit 2 }
     if (OPT_HELP) { usage(""); exit 0 }
+    if (OPT_VERSION) { printf "%s\n", version_text(); exit 0 }
     if (SEEDED) srand(OPT_SEED); else srand()
     # MUST precede the MEM SIZE? prompt below: that bound reads RAMTOP,
     # and an uninitialised RAMTOP would compare as "" in gawk, silently

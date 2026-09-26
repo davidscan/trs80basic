@@ -73,6 +73,7 @@ function handle_line(line,   s, ln, rest) {
         st_ext(rest)
         return 1
     }
+    if (s ~ /^version[ \t]*$/) { t_man(version_text()); return 1 }   # p45
     if (s ~ /^memory($|[ \t])/) {
         rest = substr(s, 7); sub(/^[ \t]+/, "", rest); sub(/[ \t]+$/, "", rest)
         st_memory(rest)
@@ -444,6 +445,7 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  speed <mhz>           throttle execution (0 = full speed)\n" \
               "  sound on|off          machine-code sound through the Z80 core\n" \
               "  sound wav <path>|off  ...and/or capture it to a WAV file (bare: state)\n" \
+              "  version               the interpreter's release and build\n" \
               "  @dump                 dump the screen buffer (debug)\n" \
               "IN A PROGRAM (needs ext on): a REM fires speed/fullscreen/memory\n" \
               "when execution reaches it --  10 REM META:fullscreen on")

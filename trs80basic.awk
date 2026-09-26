@@ -41,8 +41,15 @@ BEGIN {
     # TRS80_WINNATIVE=0/1 overrides the probe (branch-selection testing).
     if ("TRS80_WINNATIVE" in ENVIRON) WINNATIVE = ENVIRON["TRS80_WINNATIVE"] + 0
     else WINNATIVE = ("COMSPEC" in ENVIRON && !("SHELL" in ENVIRON))
+    # The release number, bumped in the commit that carries the tag (v1.4
+    # was the first, 2026-09-26; v1.0-v1.3 name earlier states).  BUILDID is
+    # what the launcher read from `git describe` in a checkout: the same
+    # string at a tag, "v1.4-3-gabcdef0" three commits past it, so
+    # --version and the `version` metacommand name the exact build.
+    VERSION = "v1.4"
     if (!parse_args()) { usage("/dev/stderr"); exit 2 }
     if (OPT_HELP) { usage(""); exit 0 }
+    if (OPT_VERSION) { printf "%s\n", version_text(); exit 0 }
     if (SEEDED) srand(OPT_SEED); else srand()
     # MUST precede the MEM SIZE? prompt below: that bound reads RAMTOP,
     # and an uninitialised RAMTOP would compare as "" in gawk, silently
@@ -1751,6 +1758,7 @@ function handle_line(line,   s, ln, rest) {
         st_ext(rest)
         return 1
     }
+    if (s ~ /^version[ \t]*$/) { t_man(version_text()); return 1 }   # p45
     if (s ~ /^memory($|[ \t])/) {
         rest = substr(s, 7); sub(/^[ \t]+/, "", rest); sub(/[ \t]+$/, "", rest)
         st_memory(rest)
@@ -2122,6 +2130,7 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  speed <mhz>           throttle execution (0 = full speed)\n" \
               "  sound on|off          machine-code sound through the Z80 core\n" \
               "  sound wav <path>|off  ...and/or capture it to a WAV file (bare: state)\n" \
+              "  version               the interpreter's release and build\n" \
               "  @dump                 dump the screen buffer (debug)\n" \
               "IN A PROGRAM (needs ext on): a REM fires speed/fullscreen/memory\n" \
               "when execution reaches it --  10 REM META:fullscreen on")
@@ -2854,10 +2863,10 @@ function prog_load_tok(data, verify, keepfiles, merge,   n, pos, nxt, ln, z, bod
 #               2 bad arguments, unreadable file, or unloadable source
 
 # parse ARGV; returns 0 on a usage error.  Sets BATCH/BATCHFILE, OPT_SCREEN,
-# SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_CLEAR, OPT_MEMORY, OPT_HELP.  gawk never reads the operands itself: the whole
+# SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_CLEAR, OPT_MEMORY, OPT_HELP, OPT_VERSION.  gawk never reads the operands itself: the whole
 # interpreter lives in BEGIN and exits there.
 function parse_args(   i, a, nofl) {
-    BATCH = 0; BATCHFILE = ""; OPT_SCREEN = 0; OPT_HELP = 0
+    BATCH = 0; BATCHFILE = ""; OPT_SCREEN = 0; OPT_HELP = 0; OPT_VERSION = 0
     SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; OPT_MEMORY = ""; nofl = 0
     for (i = 1; i < ARGC; i++) {
         a = ARGV[i]
@@ -2926,12 +2935,19 @@ function parse_args(   i, a, nofl) {
         }
         if (!nofl && a == "--screen") { OPT_SCREEN = 1; continue }
         if (!nofl && (a == "-h" || a == "--help")) { OPT_HELP = 1; return 1 }
+        if (!nofl && a == "--version") { OPT_VERSION = 1; return 1 }
         if (!nofl && a ~ /^-./) { ARGMSG = "unknown option " a; return 0 }
         if (BATCHFILE != "") { ARGMSG = "only one program file may be given"; return 0 }
         BATCHFILE = a; BATCH = 1
     }
     if (OPT_MEMORY == "host" && OPT_MEMSIZE) { ARGMSG = "--memory host and --memsize cannot be combined"; return 0 }
     return 1
+}
+
+# "trs80basic v1.4", with the build behind it when the launcher's git
+# describe said more than the tag (p10 VERSION, BUILDID)
+function version_text() {
+    return "trs80basic " VERSION ((BUILDID != "" && BUILDID != VERSION) ? " (build " BUILDID ")" : "")
 }
 
 # dest "" = stdout (--help), "/dev/stderr" = usage error (with the reason)
@@ -2952,6 +2968,7 @@ function usage(dest,   t) {
         "  --screen     keep the TRS-80 screen/cursor control codes\n" \
         "               (output is plain text by default without a tty)\n" \
         "  -h, --help   show this message\n" \
+        "  --version    print the release (and the exact build in a checkout)\n" \
         "  --           end of options\n" \
         "\n" \
         "Exit status: 0 clean run, 1 BASIC runtime error, 2 bad invocation.\n" \

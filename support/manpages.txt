@@ -1617,6 +1617,17 @@ ext            report the current state
   Example: ext on
   Example: ext            -> EXT OFF (gated: ...)
 
+:version
+version   the interpreter's release, and the exact build in a checkout
+  Prints "trs80basic v1.4", and behind it "(build v1.4-3-gabcdef0)" when
+  the launcher found a git checkout more than the tag: the number of
+  commits past it and the hash, "-dirty" with uncommitted edits.
+  `./basic --version` prints the same line from the shell.  A release
+  is an annotated tag on the public repository; the number is bumped in
+  the commit that carries the tag.
+  Metacommand: lowercase only.
+  Example: version            -> trs80basic v1.4
+
 :memory
 memory host | rom   the host's memory, or the machine's (the default)
 memory              report the current state

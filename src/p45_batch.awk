@@ -10,10 +10,10 @@
 #               2 bad arguments, unreadable file, or unloadable source
 
 # parse ARGV; returns 0 on a usage error.  Sets BATCH/BATCHFILE, OPT_SCREEN,
-# SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_CLEAR, OPT_MEMORY, OPT_HELP.  gawk never reads the operands itself: the whole
+# SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_CLEAR, OPT_MEMORY, OPT_HELP, OPT_VERSION.  gawk never reads the operands itself: the whole
 # interpreter lives in BEGIN and exits there.
 function parse_args(   i, a, nofl) {
-    BATCH = 0; BATCHFILE = ""; OPT_SCREEN = 0; OPT_HELP = 0
+    BATCH = 0; BATCHFILE = ""; OPT_SCREEN = 0; OPT_HELP = 0; OPT_VERSION = 0
     SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; OPT_MEMORY = ""; nofl = 0
     for (i = 1; i < ARGC; i++) {
         a = ARGV[i]
@@ -82,12 +82,19 @@ function parse_args(   i, a, nofl) {
         }
         if (!nofl && a == "--screen") { OPT_SCREEN = 1; continue }
         if (!nofl && (a == "-h" || a == "--help")) { OPT_HELP = 1; return 1 }
+        if (!nofl && a == "--version") { OPT_VERSION = 1; return 1 }
         if (!nofl && a ~ /^-./) { ARGMSG = "unknown option " a; return 0 }
         if (BATCHFILE != "") { ARGMSG = "only one program file may be given"; return 0 }
         BATCHFILE = a; BATCH = 1
     }
     if (OPT_MEMORY == "host" && OPT_MEMSIZE) { ARGMSG = "--memory host and --memsize cannot be combined"; return 0 }
     return 1
+}
+
+# "trs80basic v1.4", with the build behind it when the launcher's git
+# describe said more than the tag (p10 VERSION, BUILDID)
+function version_text() {
+    return "trs80basic " VERSION ((BUILDID != "" && BUILDID != VERSION) ? " (build " BUILDID ")" : "")
 }
 
 # dest "" = stdout (--help), "/dev/stderr" = usage error (with the reason)
@@ -108,6 +115,7 @@ function usage(dest,   t) {
         "  --screen     keep the TRS-80 screen/cursor control codes\n" \
         "               (output is plain text by default without a tty)\n" \
         "  -h, --help   show this message\n" \
+        "  --version    print the release (and the exact build in a checkout)\n" \
         "  --           end of options\n" \
         "\n" \
         "Exit status: 0 clean run, 1 BASIC runtime error, 2 bad invocation.\n" \

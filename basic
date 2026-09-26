@@ -73,8 +73,13 @@ done
 # exit 2 changes nothing.  Without a terminal on stdin it execs as before:
 # a caller's timeout or alarm must land on gawk itself, not on a shell
 # that would die and leave gawk running.
+# The exact build, for --version and the `version` metacommand: git's
+# describe in a checkout (the tag, or "v1.4-3-gabcdef0" past it, "-dirty"
+# with edits); outside one the interpreter names its release alone.
+bid=$(git -C "$here" describe --tags --always --dirty 2>/dev/null)
+
 if [ -t 0 ] && tty0=$(stty -g 2>/dev/null) && [ -n "$tty0" ]; then
-    gawk -b $tm -f "$here/trs80basic.awk" -- "$@"
+    gawk -b $tm -v "BUILDID=$bid" -f "$here/trs80basic.awk" -- "$@"
     rc=$?
     if [ "$rc" -ge 2 ]; then
         stty "$tty0" 2>/dev/null || stty sane 2>/dev/null
@@ -86,4 +91,4 @@ if [ -t 0 ] && tty0=$(stty -g 2>/dev/null) && [ -n "$tty0" ]; then
     fi
     exit "$rc"
 fi
-exec gawk -b $tm -f "$here/trs80basic.awk" -- "$@"
+exec gawk -b $tm -v "BUILDID=$bid" -f "$here/trs80basic.awk" -- "$@"

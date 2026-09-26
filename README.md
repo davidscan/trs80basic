@@ -134,6 +134,7 @@ own. Whatever the BASIC program `OPEN`s, `CSAVE`s or `SAVE`s lands relative to
 | `--screen` | off | keep the TRS-80 cursor/screen control codes in batch output | capturing what the 64x16 screen looked like rather than a text transcript |
 | `--` | | end of options | a program file whose name starts with `-` |
 | `-h`, `--help` | | usage and exit status meanings | |
+| `--version` | | prints the release, `trs80basic v1.4`, and in a git checkout the exact build behind it (`v1.4-3-gabcdef0`, `-dirty` with edits) | pinning which interpreter a program or a test baseline was built against; the `version` metacommand says the same at the prompt |
 
 Exit status: **0** clean run, **1** uncaught BASIC error (also printed to
 stderr as `?SN ERROR IN 40`), **2** bad invocation or unreadable file.

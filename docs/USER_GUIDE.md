@@ -204,6 +204,7 @@ printf '5\n10\n' | ./basic prog.bas   # stdin answers the INPUTs
 ./basic --clear 1000 prog.bas  # CLEAR 1000 typed before RUN, as on the machine
 ./basic --memsize 32767 prog.bas   # a 16K machine, for a listing that needs one
 ./basic --memory host prog.bas     # new code: no 64K, string space, 255-byte or 32767 limits (man memory)
+./basic --version              # the release (v1.4) and, in a checkout, the exact build
 ```
 
 Exit status: **0** clean, **1** uncaught BASIC error (also on stderr in the
@@ -2557,6 +2558,20 @@ ext            report the current state
   Metacommand: lowercase only.
   Example: ext on
   Example: ext            -> EXT OFF (gated: ...)
+```
+
+#### version
+
+```text
+version   the interpreter's release, and the exact build in a checkout
+  Prints "trs80basic v1.4", and behind it "(build v1.4-3-gabcdef0)" when
+  the launcher found a git checkout more than the tag: the number of
+  commits past it and the hash, "-dirty" with uncommitted edits.
+  `./basic --version` prints the same line from the shell.  A release
+  is an annotated tag on the public repository; the number is bumped in
+  the commit that carries the tag.
+  Metacommand: lowercase only.
+  Example: version            -> trs80basic v1.4
 ```
 
 #### memory
