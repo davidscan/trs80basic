@@ -303,6 +303,7 @@ function kb_get(   tries) {
         return KBQ[++KH]
     }
     kb_mode("line")
+    s_settle()                      # pending screen writes land before the wait
     tries = 0
     while (KH >= KT) {
         if (kb_fill() == 0) { if (++tries >= 3) { EOFQUIT = 1; return -1 } }
@@ -328,6 +329,7 @@ function kb_poll1() {
         return KBQ[++KH]
     }
     kb_mode("poll")
+    s_settle()                      # a program polling for a key is looking at the screen
     if (KH >= KT) kb_fill()
     if (KH >= KT) return -1
     return KBQ[++KH]
@@ -369,6 +371,7 @@ function brk_take() {
 # that sits there is looked at once, not on every poll.
 function pollbrk(   i, c, j) {
     if (PENDBRK) { PENDBRK = 0; kb_flush(); return 1 }
+    s_settle()                      # every BRKEVERY statements: pending screen writes land
     if (!TTYIN) return 0
     kb_mode("poll")
     kb_fill()
@@ -557,7 +560,7 @@ function kb_termkey(c) {
 # the down-set instead, and nothing ages: a key is up when its release
 # arrives (kp_filter), or when no event at all has come for KP_STUCK s.
 function km_pump(   c) {
-    if (TTYIN) { kb_mode("poll"); if (KH >= KT) kb_fill() }
+    if (TTYIN) { kb_mode("poll"); s_settle(); if (KH >= KT) kb_fill() }
     else if (KH >= KT) {
         if (EOFQUIT || ++INKEYEOF > 200000) { kbe_diag(); PENDBRK = 1; KMR = -1; return }
         if (!kb_fill_stdin()) { kbe_diag(); KMR = -1; return }

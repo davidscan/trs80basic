@@ -140,7 +140,7 @@
 # shim applying a Z80 write-set, and the string-alias write-through (finding
 # 7).  Highest precedence first:
 #
-#   1. 3C00-3FFFH (15360-16383) -> s_poke() + sync_cursor()
+#   1. 3C00-3FFFH (15360-16383) -> s_poke() + s_touch() (flushed at the next poll)
 #   2. 40AA-40ACH (16554-16556) -> rnd_poke(), the ROM RND seed
 #   3. 40B1/40B2H (16561/16562) -> pm_sethimem(), the one writable pointer
 #      the SYSTEM VARIABLE WINDOW (a in SVW) -> sv_poke(): cursor moves,

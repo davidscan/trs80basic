@@ -284,6 +284,7 @@ function set_speed(mhz) {
 # full speed afterwards to catch up.  Without a clock (a gawk without the
 # extension) the open loop stays: sleep the slice, as before.
 function thr_wait(   now, ahead, f) {
+    s_settle()                              # the screen is seen while the machine waits
     if (KMCLOCK == "") { system("sleep " DACC); DACC = 0; return }
     now = km_now()
     if (TDUE < now - THR_SLICE) TDUE = now
@@ -585,6 +586,21 @@ function sync_cursor(   vis) {
     fflush()
 }
 
+# A screen POKE or a SET draws its cell (drawcell) and marks the output
+# PENDING; the cursor is put back and the output flushed at the next
+# point the program can be seen waiting or looked at from the keyboard:
+# a key poll (kb_get, kb_poll1, km_pump), the BREAK poll every BRKEVERY
+# statements (pollbrk), the throttle's wait (thr_wait), and every PRINT
+# and read, which sync on their own.  Until 2026-09-26 each SET and each
+# POKE into video memory wrote its own cursor escape and flushed, a write
+# system call per cell (the 2026-09-23 audit, L-14), so a loop of SETs
+# reached the terminal as thousands of tiny writes.  The terminal's own
+# cursor is hidden while a program runs (sync_cursor), so where drawcell
+# leaves it is not seen; a program that showed it (CHR$(14)) sees it
+# settle within BRKEVERY statements.  Batch and DUMB draw nothing here.
+function s_touch() { OUTPEND = 1 }
+function s_settle() { if (OUTPEND) { OUTPEND = 0; sync_cursor() } }
+
 function redraw_all(   r, c, s, p, g) {
     if (DUMB) return
     for (r = 0; r < 16; r++) {
@@ -634,7 +650,15 @@ function s_scroll(   i) {
     }
     for (i = 960; i < 1024; i++) { SCR[i] = 32; delete CCOL[i] }
     SCRALL = 1
-    redraw_all()
+    # the terminal scrolls its rows 1-16 itself: a scrolling region over
+    # the grid (DECSTBM), a line feed on its last row, the region
+    # released -- some 20 bytes, and the colored cells (CCOL) travel with
+    # their rows as they do in SCR.  Until 2026-09-26 every scrolled line
+    # repainted the whole grid, 1.2 KB, and a listing pasted at READY or a
+    # program printing a page reached a real terminal as megabytes (the
+    # 2026-09-23 audit, L-14).  Every ANSI terminal has the region; DUMB
+    # streams and draws no grid.  Callers place the cursor afterwards.
+    if (!DUMB) printf "\033[1;16r\033[16;1H\n\033[r"
 }
 
 # ROM 20F9H: move to a new line unless the cursor already stands at the
@@ -1081,6 +1105,7 @@ function kb_get(   tries) {
         return KBQ[++KH]
     }
     kb_mode("line")
+    s_settle()                      # pending screen writes land before the wait
     tries = 0
     while (KH >= KT) {
         if (kb_fill() == 0) { if (++tries >= 3) { EOFQUIT = 1; return -1 } }
@@ -1106,6 +1131,7 @@ function kb_poll1() {
         return KBQ[++KH]
     }
     kb_mode("poll")
+    s_settle()                      # a program polling for a key is looking at the screen
     if (KH >= KT) kb_fill()
     if (KH >= KT) return -1
     return KBQ[++KH]
@@ -1147,6 +1173,7 @@ function brk_take() {
 # that sits there is looked at once, not on every poll.
 function pollbrk(   i, c, j) {
     if (PENDBRK) { PENDBRK = 0; kb_flush(); return 1 }
+    s_settle()                      # every BRKEVERY statements: pending screen writes land
     if (!TTYIN) return 0
     kb_mode("poll")
     kb_fill()
@@ -1335,7 +1362,7 @@ function kb_termkey(c) {
 # the down-set instead, and nothing ages: a key is up when its release
 # arrives (kp_filter), or when no event at all has come for KP_STUCK s.
 function km_pump(   c) {
-    if (TTYIN) { kb_mode("poll"); if (KH >= KT) kb_fill() }
+    if (TTYIN) { kb_mode("poll"); s_settle(); if (KH >= KT) kb_fill() }
     else if (KH >= KT) {
         if (EOFQUIT || ++INKEYEOF > 200000) { kbe_diag(); PENDBRK = 1; KMR = -1; return }
         if (!kb_fill_stdin()) { kbe_diag(); KMR = -1; return }
@@ -4794,7 +4821,7 @@ function st_resume(   p, ty, tx) {
 # shim applying a Z80 write-set, and the string-alias write-through (finding
 # 7).  Highest precedence first:
 #
-#   1. 3C00-3FFFH (15360-16383) -> s_poke() + sync_cursor()
+#   1. 3C00-3FFFH (15360-16383) -> s_poke() + s_touch() (flushed at the next poll)
 #   2. 40AA-40ACH (16554-16556) -> rnd_poke(), the ROM RND seed
 #   3. 40B1/40B2H (16561/16562) -> pm_sethimem(), the one writable pointer
 #      the SYSTEM VARIABLE WINDOW (a in SVW) -> sv_poke(): cursor moves,
@@ -7051,7 +7078,7 @@ function st_poke(   v, a, b) {
 # write-through (seam audit finding 7).  Marks the address dirty for the USR
 # frame's delta tracking (p75 fr_*).
 function poke_byte(a, b) {
-    if (a >= 15360 && a <= 16383) { s_poke(a - 15360, b); sync_cursor() }
+    if (a >= 15360 && a <= 16383) { s_poke(a - 15360, b); s_touch() }
     else if (a >= 16554 && a <= 16556) rnd_poke(a - 16554, b)
     else if (a == 16561 || a == 16562) pm_sethimem(a, b)   # move HIMEM (p75)
     else if (a >= 16416 && a <= 16667 && (a in SVW)) sv_poke(a, b)   # system variable window (p75)
@@ -7125,7 +7152,7 @@ function st_setreset(on,   v, x, y, col) {
     CP++
     if (x < 0 || x > 127 || y < 0 || y > 47) { raise(5); return }
     if (on) gset(x, y, col); else greset(x, y)
-    sync_cursor()
+    s_touch()                               # flushed at the next poll (s_settle, p20)
 }
 
 function gcell(x, y) { return int(y / 3) * 64 + int(x / 2) }

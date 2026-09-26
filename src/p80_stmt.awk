@@ -894,7 +894,7 @@ function st_poke(   v, a, b) {
 # write-through (seam audit finding 7).  Marks the address dirty for the USR
 # frame's delta tracking (p75 fr_*).
 function poke_byte(a, b) {
-    if (a >= 15360 && a <= 16383) { s_poke(a - 15360, b); sync_cursor() }
+    if (a >= 15360 && a <= 16383) { s_poke(a - 15360, b); s_touch() }
     else if (a >= 16554 && a <= 16556) rnd_poke(a - 16554, b)
     else if (a == 16561 || a == 16562) pm_sethimem(a, b)   # move HIMEM (p75)
     else if (a >= 16416 && a <= 16667 && (a in SVW)) sv_poke(a, b)   # system variable window (p75)
@@ -968,7 +968,7 @@ function st_setreset(on,   v, x, y, col) {
     CP++
     if (x < 0 || x > 127 || y < 0 || y > 47) { raise(5); return }
     if (on) gset(x, y, col); else greset(x, y)
-    sync_cursor()
+    s_touch()                               # flushed at the next poll (s_settle, p20)
 }
 
 function gcell(x, y) { return int(y / 3) * 64 + int(x / 2) }

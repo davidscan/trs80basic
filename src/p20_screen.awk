@@ -218,6 +218,21 @@ function sync_cursor(   vis) {
     fflush()
 }
 
+# A screen POKE or a SET draws its cell (drawcell) and marks the output
+# PENDING; the cursor is put back and the output flushed at the next
+# point the program can be seen waiting or looked at from the keyboard:
+# a key poll (kb_get, kb_poll1, km_pump), the BREAK poll every BRKEVERY
+# statements (pollbrk), the throttle's wait (thr_wait), and every PRINT
+# and read, which sync on their own.  Until 2026-09-26 each SET and each
+# POKE into video memory wrote its own cursor escape and flushed, a write
+# system call per cell (the 2026-09-23 audit, L-14), so a loop of SETs
+# reached the terminal as thousands of tiny writes.  The terminal's own
+# cursor is hidden while a program runs (sync_cursor), so where drawcell
+# leaves it is not seen; a program that showed it (CHR$(14)) sees it
+# settle within BRKEVERY statements.  Batch and DUMB draw nothing here.
+function s_touch() { OUTPEND = 1 }
+function s_settle() { if (OUTPEND) { OUTPEND = 0; sync_cursor() } }
+
 function redraw_all(   r, c, s, p, g) {
     if (DUMB) return
     for (r = 0; r < 16; r++) {
@@ -267,7 +282,15 @@ function s_scroll(   i) {
     }
     for (i = 960; i < 1024; i++) { SCR[i] = 32; delete CCOL[i] }
     SCRALL = 1
-    redraw_all()
+    # the terminal scrolls its rows 1-16 itself: a scrolling region over
+    # the grid (DECSTBM), a line feed on its last row, the region
+    # released -- some 20 bytes, and the colored cells (CCOL) travel with
+    # their rows as they do in SCR.  Until 2026-09-26 every scrolled line
+    # repainted the whole grid, 1.2 KB, and a listing pasted at READY or a
+    # program printing a page reached a real terminal as megabytes (the
+    # 2026-09-23 audit, L-14).  Every ANSI terminal has the region; DUMB
+    # streams and draws no grid.  Callers place the cursor afterwards.
+    if (!DUMB) printf "\033[1;16r\033[16;1H\n\033[r"
 }
 
 # ROM 20F9H: move to a new line unless the cursor already stands at the

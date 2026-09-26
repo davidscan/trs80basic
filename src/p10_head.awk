@@ -284,6 +284,7 @@ function set_speed(mhz) {
 # full speed afterwards to catch up.  Without a clock (a gawk without the
 # extension) the open loop stays: sleep the slice, as before.
 function thr_wait(   now, ahead, f) {
+    s_settle()                              # the screen is seen while the machine waits
     if (KMCLOCK == "") { system("sleep " DACC); DACC = 0; return }
     now = km_now()
     if (TDUE < now - THR_SLICE) TDUE = now
