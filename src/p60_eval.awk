@@ -234,12 +234,13 @@ function aref(name,   nd, i, v, idx, key, idxs) {
         # clobber the outer one's accumulated subscripts -- silently.
         v = e_or(); if (E) return ""
         if (!isN(v)) { raise(13); return "" }
-        idx = bfloor(num(v))
-        # ROM 1E45-1E4C: the subscript evaluator returns only for a POSITIVE
-        # value; a negative one is ?FC there and then, before the dimension
-        # count or the bound is looked at.  (Seen, not followed: 2B02H
-        # converts through CINT, so a subscript past 32767 is ?OV on the
-        # machine where it is ?BS here.)
+        # ROM 1E45-1E4C: the subscript goes through 2B02H, which converts
+        # through CINT (0A7FH: rounded down, ?OV outside -32768..32767),
+        # and the evaluator returns only for a POSITIVE value; a negative
+        # one is ?FC there and then, before the dimension count or the
+        # bound is looked at.  So A(40000) is ?OV, never ?BS (the 2026-09-23
+        # audit's NIT; until 2026-09-26 it was ?BS).
+        idx = intstore(num(v)); if (E) return ""
         if (idx < 0) { raise(5); return "" }
         nd++; idxs[nd] = idx
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
