@@ -248,6 +248,7 @@ function aref(name,   nd, i, v, idx, key, idxs) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
     else { raise(2); return "" }
     if (!(name in ADIM)) {
+        if (!mem_need(6 + 2 * nd + 11 ^ nd * (strname(name) ? 3 : mem_numsize(name)))) return ""   # ?OM (p75)
         ADIM[name] = nd
         for (i = 1; i <= nd; i++) ASZ[name, i] = 10
     }

@@ -1139,6 +1139,9 @@ MEM   the number of bytes of program and variable space still free
   frames (17 and 6 bytes) are counted as the machine lays them out; an
   expression's temporaries are not.  On a 16K machine with no program
   (--memsize 32767) PRINT MEM says 15572, as the manual's example does.
+  When it runs out, ?OM: a GOSUB or FOR with fewer than about 60 bytes
+  left, or a DIM that does not fit, stops as on the machine -- so a
+  subroutine that calls itself without end is ?OM ERROR, not a hang.
   Example: PRINT MEM
 
 :LEN

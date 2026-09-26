@@ -3322,6 +3322,7 @@ function aref(name,   nd, i, v, idx, key, idxs) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
     else { raise(2); return "" }
     if (!(name in ADIM)) {
+        if (!mem_need(6 + 2 * nd + 11 ^ nd * (strname(name) ? 3 : mem_numsize(name)))) return ""   # ?OM (p75)
         ADIM[name] = nd
         for (i = 1; i <= nd; i++) ASZ[name, i] = 10
     }
@@ -4129,6 +4130,7 @@ function st_goto(   ln) {
 
 function st_gosub(   ln) {
     ln = lineno_arg(); if (E) return
+    if (!mem_need(6)) return                # 1EB1H-1EB3H: six bytes, or ?OM (p75)
     GSN++
     GS_K[GSN] = CK; GS_LI[GSN] = CLI; GS_P[GSN] = CP; GS_F[GSN] = FSN
     jumpline(ln)
@@ -4184,6 +4186,7 @@ function st_for(   name, v0, v1, stp, j, v, isint) {
     }
     for (j = FSN; j > for_floor(); j--)
         if (FS_V[j] == name) { FSN = j - 1; break }
+    if (!mem_need(16)) return               # 1CB6H-1CB8H: sixteen bytes, or ?OM (p75)
     FSN++
     FS_V[FSN] = name; FS_L[FSN] = v1; FS_S[FSN] = stp; FS_I[FSN] = isint
     FS_K[FSN] = CK; FS_LI[FSN] = CLI; FS_P[FSN] = CP
@@ -4312,6 +4315,7 @@ function st_on(   v, n, mode, cnt, lst, retp) {
     }
     if (n >= 1 && n <= cnt) {
         if (mode == "GOSUB") {
+            if (!mem_need(6)) return        # through the GOSUB code (1FA4H -> 1D60H): ?OM (p75)
             GSN++
             GS_K[GSN] = CK; GS_LI[GSN] = CLI; GS_P[GSN] = CP; GS_F[GSN] = FSN
             jumpline(lst[n])
@@ -5652,8 +5656,9 @@ function fr_dump(   i) {
 # the ROM, as a cluster).
 function mem_strlo() { return STRLO_SET ? STRLO : HIMEM - 50 }   # 40A0H
 function mem_strsz() { return HIMEM - mem_strlo() }                # the string area
-function mem_numsize(name,   c) {
-    c = DEFT[substr(name, 1, 1)]
+function mem_numsize(name,   l, c) {
+    l = substr(name, 1, 1)
+    c = (l in DEFT) ? DEFT[l] : 4              # membership first: a bare read would create the entry, and 4101H reads it
     return (c == 2) ? 2 : (c == 8) ? 8 : 4
 }
 # 40FDH - 40F9H: the variables and arrays, recounted when their number
@@ -5679,6 +5684,15 @@ function mem_free() {
 }
 # (40D6H) - (40A0H) after the collection: FRE(a$)
 function mem_strfree() { return mem_strsz() - STRUSED }
+# ROM 1963H-197AH: a frame or an array of n bytes fits when the free
+# memory holds it and 58 more (FFC6H), else ?OM.  GOSUB asks for 6
+# (1EB1H), FOR for 16 (1CB6H), DIM for its array.  Until 2026-09-25 a
+# GOSUB that called itself ran until the host ran out of memory (the
+# 2026-09-23 audit, M-9).
+function mem_need(n) {
+    if (mem_free() < n + 58) { raise(7); return 0 }
+    return 1
+}
 # ===================== p77: the Z80 coprocess -- USR routines executed =====
 # The companion engine ../trs80_z80_core executes machine code; this shim
 # drives it over one persistent gawk |& coprocess per session.  PROTOCOL.md
@@ -6770,6 +6784,9 @@ function st_dim(   name, nd, i, v, sz) {
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
         CP++
         if (name in ADIM) { raise(10); return }
+        sz = 1
+        for (i = 1; i <= nd; i++) sz *= DIMB[i] + 1
+        if (!mem_need(6 + 2 * nd + sz * (strname(name) ? 3 : mem_numsize(name)))) return   # ?OM (p75)
         ADIM[name] = nd
         for (i = 1; i <= nd; i++) ASZ[name, i] = DIMB[i]
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }

@@ -1162,8 +1162,9 @@ function fr_dump(   i) {
 # the ROM, as a cluster).
 function mem_strlo() { return STRLO_SET ? STRLO : HIMEM - 50 }   # 40A0H
 function mem_strsz() { return HIMEM - mem_strlo() }                # the string area
-function mem_numsize(name,   c) {
-    c = DEFT[substr(name, 1, 1)]
+function mem_numsize(name,   l, c) {
+    l = substr(name, 1, 1)
+    c = (l in DEFT) ? DEFT[l] : 4              # membership first: a bare read would create the entry, and 4101H reads it
     return (c == 2) ? 2 : (c == 8) ? 8 : 4
 }
 # 40FDH - 40F9H: the variables and arrays, recounted when their number
@@ -1189,3 +1190,12 @@ function mem_free() {
 }
 # (40D6H) - (40A0H) after the collection: FRE(a$)
 function mem_strfree() { return mem_strsz() - STRUSED }
+# ROM 1963H-197AH: a frame or an array of n bytes fits when the free
+# memory holds it and 58 more (FFC6H), else ?OM.  GOSUB asks for 6
+# (1EB1H), FOR for 16 (1CB6H), DIM for its array.  Until 2026-09-25 a
+# GOSUB that called itself ran until the host ran out of memory (the
+# 2026-09-23 audit, M-9).
+function mem_need(n) {
+    if (mem_free() < n + 58) { raise(7); return 0 }
+    return 1
+}

@@ -111,4 +111,32 @@ READY
 >'
 [ "$out" = "$want" ] || fail "?OS" "$out"
 
+# ?OM: a GOSUB, a FOR or a DIM that the free memory cannot hold (1963H-
+# 197AH, with its 58-byte margin), so a runaway recursion ends; ERR/2+1
+# is 7, and the variables stay
+out=$(repl 32767 '10 N=N+1:GOSUB 10\nRUN\nPRINT N\nNEW\n10 ON ERROR GOTO 100\n20 D=D+1:IF D<2500 THEN GOSUB 20\n25 IF D=2500 THEN PRINT "DEPTH OK";D\n27 D=D-1:IF D>0 THEN RETURN\n30 DIM A(3000):PRINT "DIM OK":DIM B(5000)\n40 PRINT "NOT REACHED"\n100 PRINT ERR/2+1;ERL;MEM>0:END\nRUN\n')
+want='>10 N=N+1:GOSUB 10
+>RUN
+?OM ERROR IN 10
+READY
+>PRINT N
+ 2583 
+READY
+>NEW
+READY
+>10 ON ERROR GOTO 100
+>20 D=D+1:IF D<2500 THEN GOSUB 20
+>25 IF D=2500 THEN PRINT "DEPTH OK";D
+>27 D=D-1:IF D>0 THEN RETURN
+>30 DIM A(3000):PRINT "DIM OK":DIM B(5000)
+>40 PRINT "NOT REACHED"
+>100 PRINT ERR/2+1;ERL;MEM>0:END
+>RUN
+DEPTH OK 2500 
+DIM OK
+ 7  30 -1 
+READY
+>'
+[ "$out" = "$want" ] || fail "?OM" "$out"
+
 echo "MEM OK"

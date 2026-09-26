@@ -786,6 +786,9 @@ function st_dim(   name, nd, i, v, sz) {
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
         CP++
         if (name in ADIM) { raise(10); return }
+        sz = 1
+        for (i = 1; i <= nd; i++) sz *= DIMB[i] + 1
+        if (!mem_need(6 + 2 * nd + sz * (strname(name) ? 3 : mem_numsize(name)))) return   # ?OM (p75)
         ADIM[name] = nd
         for (i = 1; i <= nd; i++) ASZ[name, i] = DIMB[i]
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }

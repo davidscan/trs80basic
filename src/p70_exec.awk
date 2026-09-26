@@ -403,6 +403,7 @@ function st_goto(   ln) {
 
 function st_gosub(   ln) {
     ln = lineno_arg(); if (E) return
+    if (!mem_need(6)) return                # 1EB1H-1EB3H: six bytes, or ?OM (p75)
     GSN++
     GS_K[GSN] = CK; GS_LI[GSN] = CLI; GS_P[GSN] = CP; GS_F[GSN] = FSN
     jumpline(ln)
@@ -458,6 +459,7 @@ function st_for(   name, v0, v1, stp, j, v, isint) {
     }
     for (j = FSN; j > for_floor(); j--)
         if (FS_V[j] == name) { FSN = j - 1; break }
+    if (!mem_need(16)) return               # 1CB6H-1CB8H: sixteen bytes, or ?OM (p75)
     FSN++
     FS_V[FSN] = name; FS_L[FSN] = v1; FS_S[FSN] = stp; FS_I[FSN] = isint
     FS_K[FSN] = CK; FS_LI[FSN] = CLI; FS_P[FSN] = CP
@@ -586,6 +588,7 @@ function st_on(   v, n, mode, cnt, lst, retp) {
     }
     if (n >= 1 && n <= cnt) {
         if (mode == "GOSUB") {
+            if (!mem_need(6)) return        # through the GOSUB code (1FA4H -> 1D60H): ?OM (p75)
             GSN++
             GS_K[GSN] = CK; GS_LI[GSN] = CLI; GS_P[GSN] = CP; GS_F[GSN] = FSN
             jumpline(lst[n])
