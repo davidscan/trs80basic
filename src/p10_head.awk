@@ -208,6 +208,8 @@ function init_tables(   i, c, m, n) {
     # audit, M-10).  The p60 operators, a literal, numconv (p90) and the
     # MBF encoder (p85) all test against it.
     FMAX = 2^127 - 2^102
+    FMIN = 2^-128                           # the smallest exponent byte (1) is 2^-128; below it a result is 0 (0793H)
+    LN2 = log(2)
     CLN = DIRECTLN
     CUR = 0; VCOL = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
     FSN = 0; GSN = 0; CONTOK = 0; TRACE = 0

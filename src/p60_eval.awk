@@ -88,10 +88,24 @@ function e_add(   v, r, op, x) {
             if (!isN(v) || !isN(r)) { raise(13); return v }
             x = num(v) - num(r)
         }
-        if (x >= FMAX || x <= -FMAX) { raise(6); return v }
-        v = "N" ptype(v, r) x
+        v = "N" tresult(ptype(v, r), x); if (E) return v
     }
     return v
+}
+
+# The typed result of + - * (and unary minus): an INTEGER result that
+# leaves 16 bits is silently converted to single (0BD0H-0BDDH: "underflows
+# convert to SP"), never ?OV; a SINGLE result is rounded to 24 bits
+# (sround); a single or double result past FMAX is ?OV and below 2^-128
+# is 0 (frange).  Returns "<t><x>" behind the caller's "N".
+function tresult(t, x) {
+    if (t == "I") {
+        if (x <= 32767 && x >= -32768) return "I" x
+        t = "S"
+    }
+    x = frange(x); if (E) return "I0"
+    if (t == "S") x = sround(x)
+    return t x
 }
 
 function e_mul(   v, r, op, x, d, t) {
@@ -106,10 +120,9 @@ function e_mul(   v, r, op, x, d, t) {
             if (d == 0) { raise(11); return v }
             x = num(v) / d
         }
-        if (x >= FMAX || x <= -FMAX) { raise(6); return v }
         t = ptype(v, r)
         if (op == "/" && t == "I") t = "S"      # division is never integer: both are converted to single (0BD2H's family)
-        v = "N" t x
+        v = "N" tresult(t, x); if (E) return v
     }
     return v
 }
@@ -119,7 +132,7 @@ function e_un(   v) {
         CP++
         v = e_un(); if (E) return v
         if (!isN(v)) { raise(13); return v }
-        return "N" vtype(v) (-num(v))
+        return "N" tresult(vtype(v), -num(v))   # -(-32768) leaves 16 bits: a single
     }
     if (TY[CK, CP] == "o" && TK[CK, CP] == "+") { CP++; return e_un() }
     return e_pow()
@@ -135,8 +148,7 @@ function e_pow(   v, r, a, b, x) {
         if (a < 0 && b != int(b)) { raise(5); return v }
         if (a == 0 && b < 0) { raise(11); return v }
         x = a ^ b
-        if (x >= FMAX || x <= -FMAX) { raise(6); return v }
-        v = "NS" x                              # ^ works in single (13F2H converts an integer base); the double case is VERIFIED in the function-types commit
+        v = "N" tresult("S", x); if (E) return v   # ^ works in single (13F2H converts an integer base); the double case is VERIFIED in the function-types commit
     }
     return v
 }
@@ -161,7 +173,9 @@ function e_prim(   t, s, v, key, sx) {
         # p50; ROM 0EEE-0EEF, JP P,1997H)
         if (TSX[CK, CP] == "%SN") { raise(2); return "NI0" }
         s = TK[CK, CP] + 0; t = TSX[CK, CP]; CP++    # t: the literal's type, as 0E6CH read it (tk_number)
-        if (s >= FMAX || s <= -FMAX) { raise(6); return "NI0" }   # 1.70142E38, 1E39 (p10 FMAX)
+        if (t == "I") return "NI" s
+        s = frange(s); if (E) return "NI0"       # 1.70142E38, 1E39 ?OV (p10 FMAX); 1E-40 is 0
+        if (t == "S") s = sround(s)
         return "N" t s
     }
     if (t == "s") { v = "S" TK[CK, CP]; CP++; return v }
@@ -350,12 +364,12 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "INT") { x = numarg(a1, na); if (E) return "NI0"; return "N" vtype(a1) bfloor(x) }
     if (name == "FIX") { x = numarg(a1, na); if (E) return "NI0"; return "N" vtype(a1) int(x) }
     if (name == "SGN") { x = numarg(a1, na); if (E) return "NI0"; return "NI" (x > 0 ? 1 : (x < 0 ? -1 : 0)) }
-    if (name == "SQR") { x = numarg(a1, na); if (E) return "NI0"; if (x < 0) { raise(5); return "NI0" }; return "NS" sqrt(x) }
-    if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sin(x) }
-    if (name == "COS") { x = numarg(a1, na); if (E) return "NI0"; return "NS" cos(x) }
-    if (name == "TAN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" (sin(x) / cos(x)) }
-    if (name == "ATN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" atan2(x, 1) }
-    if (name == "LOG") { x = numarg(a1, na); if (E) return "NI0"; if (x <= 0) { raise(5); return "NI0" }; return "NS" log(x) }
+    if (name == "SQR") { x = numarg(a1, na); if (E) return "NI0"; if (x < 0) { raise(5); return "NI0" }; return "NS" sround(sqrt(x)) }
+    if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(sin(x)) }
+    if (name == "COS") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(cos(x)) }
+    if (name == "TAN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(sin(x) / cos(x)) }
+    if (name == "ATN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(atan2(x, 1)) }
+    if (name == "LOG") { x = numarg(a1, na); if (E) return "NI0"; if (x <= 0) { raise(5); return "NI0" }; return "NS" sround(log(x)) }
     if (name == "EXP") {
         x = numarg(a1, na); if (E) return "NI0"
         # ROM 1439-1454.  EXP works on t = x * 1/ln 2 and overflows twice
@@ -375,7 +389,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         r = x / 0.6931471805599453
         if (r <= -128) return "NI0"
         if (bfloor(r) >= 126) { raise(6); return "NI0" }
-        return "NS" exp(x)
+        return "NS" sround(exp(x))
     }
     if (name == "RND") {
         # authentic ROM sequence (rnd_next/sngl, p90): RND(0) = seed'/2^24,
@@ -396,7 +410,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         x = to16(x); if (E) return "NI0"           # rounds DOWN (p90 to16)
         return "NI" x
     }
-    if (name == "CSNG") { x = numarg(a1, na); if (E) return "NI0"; return "NS" x }
+    if (name == "CSNG") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(x) }
     if (name == "CDBL") { x = numarg(a1, na); if (E) return "NI0"; return "ND" x }
     if (name == "PEEK") { x = numarg(a1, na); if (E) return "NI0"; x = addrarg(x); if (E) return "NI0"; return "NI" dopeek(x) }
     # INP(p): read Z80 port p (0-255, else ?FC).  Until 2026-09-11 INP had no
@@ -449,7 +463,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         s = substr(s, 1, 1)
         return "NI" ((s in ORD) ? ORD[s] : 63)
     }
-    if (name == "VAL") { s = strarg(a1, na); if (E) return "NI0"; x = valnum(s, 1); if (E) return "NI0"; return "N" VALTYPE x }
+    if (name == "VAL") { s = strarg(a1, na); if (E) return "NI0"; x = valnum(s, 1); if (E) return "NI0"; return "N" VALTYPE ((VALTYPE == "S") ? sround(x) : x) }
     if (name == "CHR$") {
         x = numarg(a1, na); if (E) return "NI0"
         x = bfloor(x)

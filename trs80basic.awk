@@ -208,6 +208,8 @@ function init_tables(   i, c, m, n) {
     # audit, M-10).  The p60 operators, a literal, numconv (p90) and the
     # MBF encoder (p85) all test against it.
     FMAX = 2^127 - 2^102
+    FMIN = 2^-128                           # the smallest exponent byte (1) is 2^-128; below it a result is 0 (0793H)
+    LN2 = log(2)
     CLN = DIRECTLN
     CUR = 0; VCOL = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
     FSN = 0; GSN = 0; CONTOK = 0; TRACE = 0
@@ -3231,10 +3233,24 @@ function e_add(   v, r, op, x) {
             if (!isN(v) || !isN(r)) { raise(13); return v }
             x = num(v) - num(r)
         }
-        if (x >= FMAX || x <= -FMAX) { raise(6); return v }
-        v = "N" ptype(v, r) x
+        v = "N" tresult(ptype(v, r), x); if (E) return v
     }
     return v
+}
+
+# The typed result of + - * (and unary minus): an INTEGER result that
+# leaves 16 bits is silently converted to single (0BD0H-0BDDH: "underflows
+# convert to SP"), never ?OV; a SINGLE result is rounded to 24 bits
+# (sround); a single or double result past FMAX is ?OV and below 2^-128
+# is 0 (frange).  Returns "<t><x>" behind the caller's "N".
+function tresult(t, x) {
+    if (t == "I") {
+        if (x <= 32767 && x >= -32768) return "I" x
+        t = "S"
+    }
+    x = frange(x); if (E) return "I0"
+    if (t == "S") x = sround(x)
+    return t x
 }
 
 function e_mul(   v, r, op, x, d, t) {
@@ -3249,10 +3265,9 @@ function e_mul(   v, r, op, x, d, t) {
             if (d == 0) { raise(11); return v }
             x = num(v) / d
         }
-        if (x >= FMAX || x <= -FMAX) { raise(6); return v }
         t = ptype(v, r)
         if (op == "/" && t == "I") t = "S"      # division is never integer: both are converted to single (0BD2H's family)
-        v = "N" t x
+        v = "N" tresult(t, x); if (E) return v
     }
     return v
 }
@@ -3262,7 +3277,7 @@ function e_un(   v) {
         CP++
         v = e_un(); if (E) return v
         if (!isN(v)) { raise(13); return v }
-        return "N" vtype(v) (-num(v))
+        return "N" tresult(vtype(v), -num(v))   # -(-32768) leaves 16 bits: a single
     }
     if (TY[CK, CP] == "o" && TK[CK, CP] == "+") { CP++; return e_un() }
     return e_pow()
@@ -3278,8 +3293,7 @@ function e_pow(   v, r, a, b, x) {
         if (a < 0 && b != int(b)) { raise(5); return v }
         if (a == 0 && b < 0) { raise(11); return v }
         x = a ^ b
-        if (x >= FMAX || x <= -FMAX) { raise(6); return v }
-        v = "NS" x                              # ^ works in single (13F2H converts an integer base); the double case is VERIFIED in the function-types commit
+        v = "N" tresult("S", x); if (E) return v   # ^ works in single (13F2H converts an integer base); the double case is VERIFIED in the function-types commit
     }
     return v
 }
@@ -3304,7 +3318,9 @@ function e_prim(   t, s, v, key, sx) {
         # p50; ROM 0EEE-0EEF, JP P,1997H)
         if (TSX[CK, CP] == "%SN") { raise(2); return "NI0" }
         s = TK[CK, CP] + 0; t = TSX[CK, CP]; CP++    # t: the literal's type, as 0E6CH read it (tk_number)
-        if (s >= FMAX || s <= -FMAX) { raise(6); return "NI0" }   # 1.70142E38, 1E39 (p10 FMAX)
+        if (t == "I") return "NI" s
+        s = frange(s); if (E) return "NI0"       # 1.70142E38, 1E39 ?OV (p10 FMAX); 1E-40 is 0
+        if (t == "S") s = sround(s)
         return "N" t s
     }
     if (t == "s") { v = "S" TK[CK, CP]; CP++; return v }
@@ -3493,12 +3509,12 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "INT") { x = numarg(a1, na); if (E) return "NI0"; return "N" vtype(a1) bfloor(x) }
     if (name == "FIX") { x = numarg(a1, na); if (E) return "NI0"; return "N" vtype(a1) int(x) }
     if (name == "SGN") { x = numarg(a1, na); if (E) return "NI0"; return "NI" (x > 0 ? 1 : (x < 0 ? -1 : 0)) }
-    if (name == "SQR") { x = numarg(a1, na); if (E) return "NI0"; if (x < 0) { raise(5); return "NI0" }; return "NS" sqrt(x) }
-    if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sin(x) }
-    if (name == "COS") { x = numarg(a1, na); if (E) return "NI0"; return "NS" cos(x) }
-    if (name == "TAN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" (sin(x) / cos(x)) }
-    if (name == "ATN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" atan2(x, 1) }
-    if (name == "LOG") { x = numarg(a1, na); if (E) return "NI0"; if (x <= 0) { raise(5); return "NI0" }; return "NS" log(x) }
+    if (name == "SQR") { x = numarg(a1, na); if (E) return "NI0"; if (x < 0) { raise(5); return "NI0" }; return "NS" sround(sqrt(x)) }
+    if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(sin(x)) }
+    if (name == "COS") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(cos(x)) }
+    if (name == "TAN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(sin(x) / cos(x)) }
+    if (name == "ATN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(atan2(x, 1)) }
+    if (name == "LOG") { x = numarg(a1, na); if (E) return "NI0"; if (x <= 0) { raise(5); return "NI0" }; return "NS" sround(log(x)) }
     if (name == "EXP") {
         x = numarg(a1, na); if (E) return "NI0"
         # ROM 1439-1454.  EXP works on t = x * 1/ln 2 and overflows twice
@@ -3518,7 +3534,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         r = x / 0.6931471805599453
         if (r <= -128) return "NI0"
         if (bfloor(r) >= 126) { raise(6); return "NI0" }
-        return "NS" exp(x)
+        return "NS" sround(exp(x))
     }
     if (name == "RND") {
         # authentic ROM sequence (rnd_next/sngl, p90): RND(0) = seed'/2^24,
@@ -3539,7 +3555,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         x = to16(x); if (E) return "NI0"           # rounds DOWN (p90 to16)
         return "NI" x
     }
-    if (name == "CSNG") { x = numarg(a1, na); if (E) return "NI0"; return "NS" x }
+    if (name == "CSNG") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(x) }
     if (name == "CDBL") { x = numarg(a1, na); if (E) return "NI0"; return "ND" x }
     if (name == "PEEK") { x = numarg(a1, na); if (E) return "NI0"; x = addrarg(x); if (E) return "NI0"; return "NI" dopeek(x) }
     # INP(p): read Z80 port p (0-255, else ?FC).  Until 2026-09-11 INP had no
@@ -3592,7 +3608,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         s = substr(s, 1, 1)
         return "NI" ((s in ORD) ? ORD[s] : 63)
     }
-    if (name == "VAL") { s = strarg(a1, na); if (E) return "NI0"; x = valnum(s, 1); if (E) return "NI0"; return "N" VALTYPE x }
+    if (name == "VAL") { s = strarg(a1, na); if (E) return "NI0"; x = valnum(s, 1); if (E) return "NI0"; return "N" VALTYPE ((VALTYPE == "S") ? sround(x) : x) }
     if (name == "CHR$") {
         x = numarg(a1, na); if (E) return "NI0"
         x = bfloor(x)
@@ -4145,6 +4161,7 @@ function strname(name) {
 function lvname(   s) {
     s = TK[CK, CP]
     LVI = intvar(s, TSX[CK, CP])
+    LVT = ntype(s, TSX[CK, CP])             # the store's type: S rounds to 24 bits (assignv)
     CP++
     return s
 }
@@ -4178,8 +4195,10 @@ function intstore(x,   r) {
     return r
 }
 
-function assignv(name, key, v,   isint, tgt, n) {
+function assignv(name, key, v,   isint, tgt, n, ty) {
     isint = LVI; LVI = 0
+    ty = LVT; LVT = ""
+    if (ty == "") ty = isint ? "I" : ntype(name, "")   # a store that did not come through lvname (READ, INPUT, FOR)
     if (strname(name)) {
         if (isN(v)) { raise(13); return }
         tgt = (key != "") ? "A" key : "V" name
@@ -4201,7 +4220,11 @@ function assignv(name, key, v,   isint, tgt, n) {
         if (length(VPDATA)) sp_grown(name, key)  # a VARPTRed string that outgrew its cells (p75)
     } else {
         if (!isN(v)) { raise(13); return }
-        v = isint ? intstore(num(v)) : num(v)
+        # by the target's type: an integer through 0A7FH (?OV), a single
+        # rounded to 24 bits (0796H), a double as it is -- a single value
+        # stored into a double keeps its 24 bits, so A#=1/3 is
+        # .3333333432674408 as on the machine
+        v = isint ? intstore(num(v)) : (ty == "S") ? sround(num(v)) : num(v)
         if (E) return
         if (key != "") VA[key] = v; else NV[name] = v   # raw: the type is the name's (ntype)
     }
@@ -4253,11 +4276,12 @@ function st_return() {
     CLN = (CK == "I") ? DIRECTLN : CK + 0
 }
 
-function st_for(   name, v0, v1, stp, j, v, isint) {
+function st_for(   name, v0, v1, stp, j, v, isint, sng) {
     if (TY[CK, CP] != "i") { raise(2); return }
     name = TK[CK, CP]
     if (strname(name)) { raise(13); return }
     isint = intvar(name, TSX[CK, CP])
+    sng = (ntype(name, TSX[CK, CP]) == "S")   # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
     CP++
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
@@ -4268,6 +4292,7 @@ function st_for(   name, v0, v1, stp, j, v, isint) {
     # through 2B01H -- each rounded down, each ?OV out of range
     v0 = num(v)
     if (isint) { v0 = intstore(v0); if (E) return }
+    else if (sng) v0 = sround(v0)
     NV[name] = v0
     if (!(TY[CK, CP] == "i" && TK[CK, CP] == "TO")) { raise(2); return }
     CP++
@@ -4275,6 +4300,7 @@ function st_for(   name, v0, v1, stp, j, v, isint) {
     if (!isN(v)) { raise(13); return }
     v1 = num(v)
     if (isint) { v1 = intstore(v1); if (E) return }
+    else if (sng) v1 = sround(v1)
     stp = 1
     if (TY[CK, CP] == "i" && TK[CK, CP] == "STEP") {
         CP++
@@ -4282,12 +4308,13 @@ function st_for(   name, v0, v1, stp, j, v, isint) {
         if (!isN(v)) { raise(13); return }
         stp = num(v)
         if (isint) { stp = intstore(stp); if (E) return }
+        else if (sng) stp = sround(stp)
     }
     for (j = FSN; j > for_floor(); j--)
         if (FS_V[j] == name) { FSN = j - 1; break }
     if (!mem_need(16)) return               # 1CB6H-1CB8H: sixteen bytes, or ?OM (p75)
     FSN++
-    FS_V[FSN] = name; FS_L[FSN] = v1; FS_S[FSN] = stp; FS_I[FSN] = isint
+    FS_V[FSN] = name; FS_L[FSN] = v1; FS_S[FSN] = stp; FS_I[FSN] = isint; FS_SN[FSN] = sng
     FS_K[FSN] = CK; FS_LI[FSN] = CLI; FS_P[FSN] = CP
 }
 
@@ -4321,6 +4348,7 @@ function do_next(name,   j, v, fl, d) {
     }
     FSN = j
     v = NV[FS_V[j]] + FS_S[j]
+    if (FS_SN[j]) v = sround(v)                 # the add is the single add (0716H): 24 bits, so X=X+.1 drifts as on the machine
     # an integer index steps by integer addition (22F9H); a sum past
     # -32768..32767 is ?OV and the index keeps its value (2301H), so
     # FOR I%=32760 TO 32767 stops at the NEXT after 32767, as on the machine
@@ -8303,6 +8331,33 @@ function numconv(s,   x) {
     sub(/[Dd]/, "E", s)
     x = s + 0
     if (x >= FMAX || x <= -FMAX) { raise(6); return 0 }
+    return x
+}
+
+# A SINGLE'S 24-BIT ROUNDING (ROM 0796H-07A9H): every single-precision
+# result is normalized to a 24-bit mantissa, and the guard byte's top bit
+# bumps the least significant bit -- half up on the magnitude, never to
+# even.  Here the IEEE double result is rounded to the same 24 bits, so a
+# sum of singles drifts as the machine's does: FOR X=0 TO 1 STEP .1 makes
+# 10 passes, not 11 (the 2026-09-23 audit, M-15).  Since 2026-09-26.
+function sround(x,   ax, e, q, r) {
+    if (x == 0) return 0
+    ax = (x < 0) ? -x : x
+    e = int(log(ax) / LN2)
+    if (2 ^ e > ax) e--
+    else if (2 ^ (e + 1) <= ax) e++
+    q = 2 ^ (e - 23)                        # one unit of the 24-bit mantissa in this binade
+    r = int(ax / q + 0.5) * q
+    return (x < 0) ? -r : r
+}
+
+# The range of a single or double result: past FMAX it is ?OV (0796H's
+# overflow, 07B2H); below 2^-128 the exponent byte runs out and the
+# result is ZERO, silently (0793H JR NC,0778H).  Returns the value,
+# with E set for ?OV.  Since 2026-09-26 (M-10's underflow half).
+function frange(x) {
+    if (x >= FMAX || x <= -FMAX) { raise(6); return 0 }
+    if (x < FMIN && x > -FMIN) return 0
     return x
 }
 

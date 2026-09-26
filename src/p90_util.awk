@@ -162,6 +162,33 @@ function numconv(s,   x) {
     return x
 }
 
+# A SINGLE'S 24-BIT ROUNDING (ROM 0796H-07A9H): every single-precision
+# result is normalized to a 24-bit mantissa, and the guard byte's top bit
+# bumps the least significant bit -- half up on the magnitude, never to
+# even.  Here the IEEE double result is rounded to the same 24 bits, so a
+# sum of singles drifts as the machine's does: FOR X=0 TO 1 STEP .1 makes
+# 10 passes, not 11 (the 2026-09-23 audit, M-15).  Since 2026-09-26.
+function sround(x,   ax, e, q, r) {
+    if (x == 0) return 0
+    ax = (x < 0) ? -x : x
+    e = int(log(ax) / LN2)
+    if (2 ^ e > ax) e--
+    else if (2 ^ (e + 1) <= ax) e++
+    q = 2 ^ (e - 23)                        # one unit of the 24-bit mantissa in this binade
+    r = int(ax / q + 0.5) * q
+    return (x < 0) ? -r : r
+}
+
+# The range of a single or double result: past FMAX it is ?OV (0796H's
+# overflow, 07B2H); below 2^-128 the exponent byte runs out and the
+# result is ZERO, silently (0793H JR NC,0778H).  Returns the value,
+# with E set for ?OV.  Since 2026-09-26 (M-10's underflow half).
+function frange(x) {
+    if (x >= FMAX || x <= -FMAX) { raise(6); return 0 }
+    if (x < FMIN && x > -FMIN) return 0
+    return x
+}
+
 # BASIC INT(): floor
 function bfloor(x,   f) {
     f = int(x)

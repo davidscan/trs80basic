@@ -332,6 +332,7 @@ function strname(name) {
 function lvname(   s) {
     s = TK[CK, CP]
     LVI = intvar(s, TSX[CK, CP])
+    LVT = ntype(s, TSX[CK, CP])             # the store's type: S rounds to 24 bits (assignv)
     CP++
     return s
 }
@@ -365,8 +366,10 @@ function intstore(x,   r) {
     return r
 }
 
-function assignv(name, key, v,   isint, tgt, n) {
+function assignv(name, key, v,   isint, tgt, n, ty) {
     isint = LVI; LVI = 0
+    ty = LVT; LVT = ""
+    if (ty == "") ty = isint ? "I" : ntype(name, "")   # a store that did not come through lvname (READ, INPUT, FOR)
     if (strname(name)) {
         if (isN(v)) { raise(13); return }
         tgt = (key != "") ? "A" key : "V" name
@@ -388,7 +391,11 @@ function assignv(name, key, v,   isint, tgt, n) {
         if (length(VPDATA)) sp_grown(name, key)  # a VARPTRed string that outgrew its cells (p75)
     } else {
         if (!isN(v)) { raise(13); return }
-        v = isint ? intstore(num(v)) : num(v)
+        # by the target's type: an integer through 0A7FH (?OV), a single
+        # rounded to 24 bits (0796H), a double as it is -- a single value
+        # stored into a double keeps its 24 bits, so A#=1/3 is
+        # .3333333432674408 as on the machine
+        v = isint ? intstore(num(v)) : (ty == "S") ? sround(num(v)) : num(v)
         if (E) return
         if (key != "") VA[key] = v; else NV[name] = v   # raw: the type is the name's (ntype)
     }
@@ -440,11 +447,12 @@ function st_return() {
     CLN = (CK == "I") ? DIRECTLN : CK + 0
 }
 
-function st_for(   name, v0, v1, stp, j, v, isint) {
+function st_for(   name, v0, v1, stp, j, v, isint, sng) {
     if (TY[CK, CP] != "i") { raise(2); return }
     name = TK[CK, CP]
     if (strname(name)) { raise(13); return }
     isint = intvar(name, TSX[CK, CP])
+    sng = (ntype(name, TSX[CK, CP]) == "S")   # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
     CP++
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
@@ -455,6 +463,7 @@ function st_for(   name, v0, v1, stp, j, v, isint) {
     # through 2B01H -- each rounded down, each ?OV out of range
     v0 = num(v)
     if (isint) { v0 = intstore(v0); if (E) return }
+    else if (sng) v0 = sround(v0)
     NV[name] = v0
     if (!(TY[CK, CP] == "i" && TK[CK, CP] == "TO")) { raise(2); return }
     CP++
@@ -462,6 +471,7 @@ function st_for(   name, v0, v1, stp, j, v, isint) {
     if (!isN(v)) { raise(13); return }
     v1 = num(v)
     if (isint) { v1 = intstore(v1); if (E) return }
+    else if (sng) v1 = sround(v1)
     stp = 1
     if (TY[CK, CP] == "i" && TK[CK, CP] == "STEP") {
         CP++
@@ -469,12 +479,13 @@ function st_for(   name, v0, v1, stp, j, v, isint) {
         if (!isN(v)) { raise(13); return }
         stp = num(v)
         if (isint) { stp = intstore(stp); if (E) return }
+        else if (sng) stp = sround(stp)
     }
     for (j = FSN; j > for_floor(); j--)
         if (FS_V[j] == name) { FSN = j - 1; break }
     if (!mem_need(16)) return               # 1CB6H-1CB8H: sixteen bytes, or ?OM (p75)
     FSN++
-    FS_V[FSN] = name; FS_L[FSN] = v1; FS_S[FSN] = stp; FS_I[FSN] = isint
+    FS_V[FSN] = name; FS_L[FSN] = v1; FS_S[FSN] = stp; FS_I[FSN] = isint; FS_SN[FSN] = sng
     FS_K[FSN] = CK; FS_LI[FSN] = CLI; FS_P[FSN] = CP
 }
 
@@ -508,6 +519,7 @@ function do_next(name,   j, v, fl, d) {
     }
     FSN = j
     v = NV[FS_V[j]] + FS_S[j]
+    if (FS_SN[j]) v = sround(v)                 # the add is the single add (0716H): 24 bits, so X=X+.1 drifts as on the machine
     # an integer index steps by integer addition (22F9H); a sum past
     # -32768..32767 is ?OV and the index keeps its value (2301H), so
     # FOR I%=32760 TO 32767 stops at the NEXT after 32767, as on the machine
