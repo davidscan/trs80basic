@@ -45,7 +45,7 @@ import os
 import sys
 import time
 
-PROTO = os.environ.get("Z80_STUB_PROTO", "1")
+PROTO = os.environ.get("Z80_STUB_PROTO", "2")
 DIE_AFTER = int(os.environ.get("Z80_STUB_DIE_AFTER", "0"))
 DIE_ON_CALL = int(os.environ.get("Z80_STUB_DIE_ON_CALL", "0"))
 ALWAYS_NEED = os.environ.get("Z80_STUB_ALWAYS_NEED", "") not in ("", "0")

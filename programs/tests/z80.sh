@@ -169,8 +169,8 @@ want="USR CORE: cannot start '/nonexistent/z80core'; USR is the stub for this se
  4 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead"
 [ "$out" = "$want" ] || fail "cannot-start fallback" "$out"
-out=$(TRS80_Z80="$core" Z80_STUB_PROTO=2 "$here/basic" "$tmp" 2>&1 </dev/null)
-want="USR CORE: '$core' speaks protocol 2, this interpreter speaks 1; USR is the stub for this session
+out=$(TRS80_Z80="$core" Z80_STUB_PROTO=3 "$here/basic" "$tmp" 2>&1 </dev/null)
+want="USR CORE: '$core' speaks protocol 3, this interpreter speaks 2; USR is the stub for this session
  4 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead"
 [ "$out" = "$want" ] || fail "protocol mismatch fallback" "$out"

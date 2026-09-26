@@ -46,7 +46,7 @@ BEGIN {
     # what the launcher read from `git describe` in a checkout: the same
     # string at a tag, "v1.4-3-gabcdef0" three commits past it, so
     # --version and the `version` metacommand name the exact build.
-    VERSION = "v1.5"
+    VERSION = "v2.0"
     if (!parse_args()) { usage("/dev/stderr"); exit 2 }
     if (OPT_HELP) { usage(""); exit 0 }
     if (OPT_VERSION) { printf "%s\n", version_text(); exit 0 }

@@ -46,7 +46,7 @@ BEGIN {
     # what the launcher read from `git describe` in a checkout: the same
     # string at a tag, "v1.4-3-gabcdef0" three commits past it, so
     # --version and the `version` metacommand name the exact build.
-    VERSION = "v1.5"
+    VERSION = "v2.0"
     if (!parse_args()) { usage("/dev/stderr"); exit 2 }
     if (OPT_HELP) { usage(""); exit 0 }
     if (OPT_VERSION) { printf "%s\n", version_text(); exit 0 }
@@ -6060,7 +6060,7 @@ function mem_need(n) {
 function z80_init() {
     if (Z80INIT) return
     Z80INIT = 1
-    Z80PROTO = 1
+    Z80PROTO = 2
     Z80NAMED = ENVIRON["TRS80_Z80"]               # as the user wrote it, for notices
     # gawk runs a coprocess through `sh -c`.  Where sh keeps itself between us
     # and the core (Ubuntu's dash does; macOS's sh execs a simple command), the

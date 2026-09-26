@@ -1,4 +1,4 @@
-# The USR coprocess protocol, version 1
+# The USR coprocess protocol, version 2
 
 How `trs80basic` (the interpreter, GNU awk) drives `trs80_z80_core` (the Z80
 engine, Python) to execute a `USR` routine.  The interpreter's side is
@@ -35,11 +35,30 @@ when there is no core.
     found on the next `CALL`): dead for the rest of the session, `?FC` at
     that `USR` call, the stub afterwards.
 
+## Versions
+
+The `proto` number in `HELLO` and `Z80` moves with every change that a peer
+built for the previous number would misread; a change that only adds
+something both old and new peers handle keeps it.  The two sides then refuse
+each other at the handshake (see Fallback) instead of running a routine
+wrong.  The core's release carries the protocol number as its major version,
+and each interpreter release names the protocol it speaks and the core
+release it was tested with.
+
+*   **1** (2026-09-11): the first version, published with core v1.0.
+*   **2** (2026-09-26): every change since.  The delta frame carries only
+    what changed (the screen cells written, a string by its value); the
+    keyboard is never in a frame; a store into the program image reads
+    back; `arg` is converted as 0A7FH converts it, with `ERR ov`; `ready=1`
+    on the `RET` line; a failed routine's stores come as `W` lines ahead
+    of its `ERR`; a core that has exited is met as a timeout.  First
+    shipped by interpreter v2.0 and core v2.0.
+
 ## Session
 
 ```
-interpreter -> core   HELLO proto=1 mhz=<clock> ramtop=<addr>
-core -> interpreter   Z80 proto=1 name=<text>
+interpreter -> core   HELLO proto=2 mhz=<clock> ramtop=<addr>
+core -> interpreter   Z80 proto=2 name=<text>
 ...calls...
 interpreter -> core   BYE
 ```

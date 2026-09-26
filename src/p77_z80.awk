@@ -40,7 +40,7 @@
 function z80_init() {
     if (Z80INIT) return
     Z80INIT = 1
-    Z80PROTO = 1
+    Z80PROTO = 2
     Z80NAMED = ENVIRON["TRS80_Z80"]               # as the user wrote it, for notices
     # gawk runs a coprocess through `sh -c`.  Where sh keeps itself between us
     # and the core (Ubuntu's dash does; macOS's sh execs a simple command), the
