@@ -692,7 +692,7 @@ function sp_poke(a, b,   t, tgt, v, j) {
 function fn_varptr(   name, key, tgt) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
     CP++
-    if (TY[CK, CP] != "i") { raise(2); return "NI0" }
+    if (!at_name()) { raise(2); return "NI0" }
     name = TK[CK, CP]; CP++
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return "NI0" }

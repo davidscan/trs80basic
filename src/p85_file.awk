@@ -297,7 +297,7 @@ function st_input_file(   n, nlv, name, key, i, x) {
     # each target is resolved when its item is stored, after the
     # assignments before it (INPUT#1,I,A(I)), as INPUT and READ do
     for (;;) {
-        if (TY[CK, CP] != "i") { raise(2); return }
+        if (!at_name()) { raise(2); return }
         name = lvname()
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
@@ -326,7 +326,7 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         CP++
         if (!fio_isopen(n)) { raise(53); return }
         if (FH_MODE[n] != "I" && FH_MODE[n] != "A") { raise(55); return }
-        if (TY[CK, CP] != "i") { raise(2); return }
+        if (!at_name()) { raise(2); return }
         name = TK[CK, CP]; CP++
         if (!strname(name)) { raise(13); return }
         key = ""
@@ -360,7 +360,7 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         if (TY[CK, CP] == "o" && TK[CK, CP] == ";") CP++
         else { raise(2); return }
     }
-    if (TY[CK, CP] != "i") { raise(2); return }
+    if (!at_name()) { raise(2); return }
     name = TK[CK, CP]; CP++
     if (!strname(name)) { raise(13); return }
     key = ""
@@ -466,7 +466,7 @@ function st_field(   n, off, w, v, name, key, tgt, i, found) {
         if (w < 0) { raise(5); return }
         if (!(TY[CK, CP] == "i" && TK[CK, CP] == "AS")) { raise(2); return }
         CP++
-        if (TY[CK, CP] != "i") { raise(2); return }
+        if (!at_name()) { raise(2); return }
         name = TK[CK, CP]; CP++
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
@@ -530,7 +530,7 @@ function fio_just(s, w, left) {
 # LSET (left=1) / RSET (left=0): justify into a fielded var's buffer slice;
 # on a non-fielded string var, justify within its current length
 function st_lset(left,   name, key, v, s, tgt, cur) {
-    if (TY[CK, CP] != "i") { raise(2); return }
+    if (!at_name()) { raise(2); return }
     name = TK[CK, CP]; CP++
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }

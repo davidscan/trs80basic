@@ -4329,6 +4329,14 @@ function execstmt(   ty, tx) {
     raise(2)
 }
 
+# is the cursor at a variable NAME -- an identifier the cruncher did not
+# match as a keyword?  A keyword's byte (80H and up) is not a letter, so
+# the ROM's name reader refuses it (2612H-2615H, ?SN): ABS=3, TO=1, LET
+# PRINT=1, DIM SIN(5), FOR STEP=, READ ERR are all ?SN.  Every statement
+# that reads a target name asks here; until 2026-09-27 each took the
+# keyword as a variable of that name (the 2026-09-26 audit, L-1).
+function at_name() { return TY[CK, CP] == "i" && !TKW[CK, CP] }
+
 # is the token cursor at the end of the current statement?
 function at_stmt_end(   ty, tx) {
     ty = TY[CK, CP]; tx = TK[CK, CP]
@@ -4348,7 +4356,7 @@ function skipstmt(   ty, tx) {
 
 # ---- assignment ------------------------------------------------------------
 function st_let(   name, key, v, lp, src, j, n) {
-    if (TY[CK, CP] != "i") { raise(2); return }
+    if (!at_name()) { raise(2); return }
     name = lvname()
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
@@ -4468,7 +4476,7 @@ function st_deffn(name,   n, i) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
         CP++
         for (;;) {
-            if (TY[CK, CP] != "i") { raise(2); return }
+            if (!at_name()) { raise(2); return }
             FNTMP[++n] = TK[CK, CP]; CP++
             if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
             break
@@ -4645,7 +4653,7 @@ function st_return() {
 }
 
 function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
-    if (TY[CK, CP] != "i") { raise(2); return }
+    if (!at_name()) { raise(2); return }
     name = TK[CK, CP]
     if (strname(name)) { raise(13); return }
     isint = intvar(name, TSX[CK, CP])
@@ -5714,7 +5722,7 @@ function sp_poke(a, b,   t, tgt, v, j) {
 function fn_varptr(   name, key, tgt) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
     CP++
-    if (TY[CK, CP] != "i") { raise(2); return "NI0" }
+    if (!at_name()) { raise(2); return "NI0" }
     name = TK[CK, CP]; CP++
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return "NI0" }
@@ -6810,7 +6818,7 @@ function st_out(   v, p) {
 function st_midset(   name, key, n, m, v, s, r, cnt) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return }
     CP++
-    if (TY[CK, CP] != "i") { raise(2); return }
+    if (!at_name()) { raise(2); return }
     name = TK[CK, CP]; CP++
     if (!strname(name)) { raise(13); return }
     key = ""
@@ -7083,7 +7091,7 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
     # subscript was evaluated before the prompt, so that went to A(0).)
     nlv = 0
     for (;;) {
-        if (TY[CK, CP] != "i") { raise(2); return }
+        if (!at_name()) { raise(2); return }
         nlv++; LV_P[nlv] = CP; CP++
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
             d = 0
@@ -7261,7 +7269,7 @@ function st_read(   dp0) {
 
 function st_read_items(   name, key, x) {
     for (;;) {
-        if (TY[CK, CP] != "i") { raise(2); return }
+        if (!at_name()) { raise(2); return }
         name = lvname()
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
@@ -7306,7 +7314,7 @@ function st_read_items(   name, key, x) {
 # ---- DIM -------------------------------------------------------------------
 function st_dim(   name, nd, i, v, sz) {
     for (;;) {
-        if (TY[CK, CP] != "i") { raise(2); return }
+        if (!at_name()) { raise(2); return }
         name = TK[CK, CP]; CP++
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) {
             # DIM of a scalar (DIM Z!,V!,L$ declaration lists, the period
@@ -7899,7 +7907,7 @@ function st_input_file(   n, nlv, name, key, i, x) {
     # each target is resolved when its item is stored, after the
     # assignments before it (INPUT#1,I,A(I)), as INPUT and READ do
     for (;;) {
-        if (TY[CK, CP] != "i") { raise(2); return }
+        if (!at_name()) { raise(2); return }
         name = lvname()
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
@@ -7928,7 +7936,7 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         CP++
         if (!fio_isopen(n)) { raise(53); return }
         if (FH_MODE[n] != "I" && FH_MODE[n] != "A") { raise(55); return }
-        if (TY[CK, CP] != "i") { raise(2); return }
+        if (!at_name()) { raise(2); return }
         name = TK[CK, CP]; CP++
         if (!strname(name)) { raise(13); return }
         key = ""
@@ -7962,7 +7970,7 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         if (TY[CK, CP] == "o" && TK[CK, CP] == ";") CP++
         else { raise(2); return }
     }
-    if (TY[CK, CP] != "i") { raise(2); return }
+    if (!at_name()) { raise(2); return }
     name = TK[CK, CP]; CP++
     if (!strname(name)) { raise(13); return }
     key = ""
@@ -8068,7 +8076,7 @@ function st_field(   n, off, w, v, name, key, tgt, i, found) {
         if (w < 0) { raise(5); return }
         if (!(TY[CK, CP] == "i" && TK[CK, CP] == "AS")) { raise(2); return }
         CP++
-        if (TY[CK, CP] != "i") { raise(2); return }
+        if (!at_name()) { raise(2); return }
         name = TK[CK, CP]; CP++
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
@@ -8132,7 +8140,7 @@ function fio_just(s, w, left) {
 # LSET (left=1) / RSET (left=0): justify into a fielded var's buffer slice;
 # on a non-fielded string var, justify within its current length
 function st_lset(left,   name, key, v, s, tgt, cur) {
-    if (TY[CK, CP] != "i") { raise(2); return }
+    if (!at_name()) { raise(2); return }
     name = TK[CK, CP]; CP++
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }

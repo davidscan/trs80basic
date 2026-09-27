@@ -281,7 +281,7 @@ function st_out(   v, p) {
 function st_midset(   name, key, n, m, v, s, r, cnt) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return }
     CP++
-    if (TY[CK, CP] != "i") { raise(2); return }
+    if (!at_name()) { raise(2); return }
     name = TK[CK, CP]; CP++
     if (!strname(name)) { raise(13); return }
     key = ""
@@ -554,7 +554,7 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
     # subscript was evaluated before the prompt, so that went to A(0).)
     nlv = 0
     for (;;) {
-        if (TY[CK, CP] != "i") { raise(2); return }
+        if (!at_name()) { raise(2); return }
         nlv++; LV_P[nlv] = CP; CP++
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
             d = 0
@@ -732,7 +732,7 @@ function st_read(   dp0) {
 
 function st_read_items(   name, key, x) {
     for (;;) {
-        if (TY[CK, CP] != "i") { raise(2); return }
+        if (!at_name()) { raise(2); return }
         name = lvname()
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
@@ -777,7 +777,7 @@ function st_read_items(   name, key, x) {
 # ---- DIM -------------------------------------------------------------------
 function st_dim(   name, nd, i, v, sz) {
     for (;;) {
-        if (TY[CK, CP] != "i") { raise(2); return }
+        if (!at_name()) { raise(2); return }
         name = TK[CK, CP]; CP++
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) {
             # DIM of a scalar (DIM Z!,V!,L$ declaration lists, the period

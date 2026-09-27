@@ -196,6 +196,14 @@ function execstmt(   ty, tx) {
     raise(2)
 }
 
+# is the cursor at a variable NAME -- an identifier the cruncher did not
+# match as a keyword?  A keyword's byte (80H and up) is not a letter, so
+# the ROM's name reader refuses it (2612H-2615H, ?SN): ABS=3, TO=1, LET
+# PRINT=1, DIM SIN(5), FOR STEP=, READ ERR are all ?SN.  Every statement
+# that reads a target name asks here; until 2026-09-27 each took the
+# keyword as a variable of that name (the 2026-09-26 audit, L-1).
+function at_name() { return TY[CK, CP] == "i" && !TKW[CK, CP] }
+
 # is the token cursor at the end of the current statement?
 function at_stmt_end(   ty, tx) {
     ty = TY[CK, CP]; tx = TK[CK, CP]
@@ -215,7 +223,7 @@ function skipstmt(   ty, tx) {
 
 # ---- assignment ------------------------------------------------------------
 function st_let(   name, key, v, lp, src, j, n) {
-    if (TY[CK, CP] != "i") { raise(2); return }
+    if (!at_name()) { raise(2); return }
     name = lvname()
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
@@ -335,7 +343,7 @@ function st_deffn(name,   n, i) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
         CP++
         for (;;) {
-            if (TY[CK, CP] != "i") { raise(2); return }
+            if (!at_name()) { raise(2); return }
             FNTMP[++n] = TK[CK, CP]; CP++
             if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
             break
@@ -512,7 +520,7 @@ function st_return() {
 }
 
 function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
-    if (TY[CK, CP] != "i") { raise(2); return }
+    if (!at_name()) { raise(2); return }
     name = TK[CK, CP]
     if (strname(name)) { raise(13); return }
     isint = intvar(name, TSX[CK, CP])
