@@ -4446,10 +4446,18 @@ function assignv(name, key, v,   isint, tgt, n, ty) {
 # first byte that is not a digit, so a bare GOTO, or GOTO X, is GOTO 0;
 # and a value that would pass 65529 is ?SN (1E62H-1E66H), so GOTO 70000
 # is ?SN, never ?UL.  Until 2026-09-25 a bare GOTO was ?SN and GOTO 70000
-# was ?UL (the 2026-09-23 audit, L-5).
-function lineno_arg(   ln) {
+# was ?UL (the 2026-09-23 audit, L-5).  Only the DIGITS count: the number
+# token's text ends at a point or an exponent for 1E5AH, so GOTO 100.5 is
+# GOTO 100 and GOTO 1E2 is GOTO 1 (it took the whole value until
+# 2026-09-26, audit L-3).  LNREST says that text was left behind the
+# digits, which a caller that reads on (ON's skip) sees as the next byte.
+function lineno_arg(   ln, t) {
+    LNREST = 0
     if (TY[CK, CP] != "n") return 0
-    ln = TK[CK, CP] + 0; CP++
+    t = TK[CK, CP]; CP++
+    match(t, /^[0-9]*/)
+    LNREST = (RLENGTH < length(t))
+    ln = substr(t, 1, RLENGTH) + 0
     if (ln > 65529) { raise(2); return 0 }
     return ln
 }
@@ -4616,13 +4624,14 @@ function st_if(   v, truth, hadkw, d, p, ty, tx, ln) {
     }
 }
 
-function st_on(   v, n, mode, cnt, lst, retp) {
+function st_on(   v, n, mode, cnt, ln) {
     if (TY[CK, CP] == "i" && TK[CK, CP] == "ERROR") {
         CP++
         if (!(TY[CK, CP] == "i" && TK[CK, CP] == "GOTO")) { raise(2); return }
         CP++
-        if (TY[CK, CP] != "n") { raise(2); return }
-        n = TK[CK, CP] + 0; CP++
+        # 1F73H: the GOTO reader, so a bare ON ERROR GOTO is GOTO 0 (it
+        # disarms) and a number past 65529 is ?SN (audit M-14)
+        n = lineno_arg(); if (E) return
         # ROM 1F7A-1F80: a target other than 0 is looked up at 1B2AH WHEN
         # THE STATEMENT RUNS, and a line that is not there is ?UL then --
         # not later, when an error finally fires and the handler is wanted.
@@ -4642,22 +4651,29 @@ function st_on(   v, n, mode, cnt, lst, retp) {
     if (TY[CK, CP] == "i" && (TK[CK, CP] == "GOTO" || TK[CK, CP] == "GOSUB")) {
         mode = TK[CK, CP]; CP++
     } else { raise(2); return }
-    cnt = 0
+    # ROM 1FA1H-1FADH: count n down in a byte; at 0 the GOTO or GOSUB runs
+    # from the item in front (1D60H), so the items behind it are never
+    # read; each item skipped goes through 1E5BH and must be followed by
+    # a comma, or ON returns to the driver there (n past the list, or 0,
+    # which counts round from 255, falls through).  An empty item is line
+    # 0.  It read the whole list first until 2026-09-26, so ON Q GOTO 30,
+    # was ?SN and ON 2 GOTO 100,,200 too (audit M-14).
+    cnt = n
     for (;;) {
-        if (TY[CK, CP] != "n") { raise(2); return }
-        cnt++; lst[cnt] = TK[CK, CP] + 0; CP++
-        if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
-        break
+        cnt = (cnt + 255) % 256
+        if (cnt == 0) break
+        lineno_arg(); if (E) return
+        if (!LNREST && TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
+        return                              # the driver judges the byte here (?SN unless the end)
     }
-    if (n >= 1 && n <= cnt) {
-        if (mode == "GOSUB") {
-            if (!mem_need(6)) return        # through the GOSUB code (1FA4H -> 1D60H): ?OM (p75)
-            GSN++
-            GS_K[GSN] = CK; GS_LI[GSN] = CLI; GS_P[GSN] = CP; GS_F[GSN] = FSN
-            jumpline(lst[n])
-            if (E) GSN--
-        } else jumpline(lst[n])
-    }
+    ln = lineno_arg(); if (E) return
+    if (mode == "GOSUB") {
+        if (!mem_need(6)) return            # through the GOSUB code (1FA4H -> 1D60H): ?OM (p75)
+        GSN++
+        GS_K[GSN] = CK; GS_LI[GSN] = CLI; GS_P[GSN] = CP; GS_F[GSN] = FSN
+        jumpline(ln)
+        if (E) GSN--
+    } else jumpline(ln)
 }
 
 function st_end() {
@@ -4707,8 +4723,11 @@ function st_run(   n, f, keep, given) {
         run_start(0, keep)
         return
     }
+    # 1EA3H: anything behind RUN but the end goes to the GOTO code, so
+    # RUN X is RUN 0 (?UL without a line 0); it ran from the top until
+    # 2026-09-26 (audit L-3)
     n = 0; given = 0
-    if (TY[CK, CP] == "n") { given = 1; n = lineno_arg(); if (E) return }
+    if (!at_stmt_end()) { given = 1; n = lineno_arg(); if (E) return }
     run_start(n, 0, given)
 }
 

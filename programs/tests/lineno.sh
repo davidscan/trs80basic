@@ -70,4 +70,45 @@ D
 ?UL ERROR
 END'
 [ "$out" = "$want" ] || fail "GOTO, GOSUB, THEN and RUN line numbers" "$out"
+
+# only the DIGITS count: GOTO 30.5 is GOTO 30, GOTO 3E1 is GOTO 3, and
+# RUN X goes to the GOTO code as RUN 0 (1EA3H; audit L-3).  ON counts n
+# down and runs the GOTO from the item it lands on (1FA1H-1FADH), never
+# reading the items behind it: ON Q GOTO 30, is fine, an empty item is
+# line 0, ON n past the list falls through, and ON ERROR GOTO reads its
+# number the same way, bare = 0, 70000 = ?SN (audit M-14).
+out=$(repl <<'EOF'
+
+3 PRINT "L3":GOTO 30.5
+30 PRINT "L30":Q=1:ON Q GOTO 40,
+40 PRINT "L40":ON 3 GOTO 50,60
+45 PRINT "FELL":ON ERROR GOTO:ON 2 GOTO 50,,60
+50 PRINT "NO"
+60 END
+RUN
+0 PRINT "ZERO":END
+RUN
+10 GOTO 3E1
+RUN 10
+10 ON 1 GOTO 70000
+RUN 10
+10 X=5:RUN X
+DELETE 0
+RUN 10
+EOF
+)
+want='L3
+L30
+L40
+FELL
+?UL ERROR IN 45
+ZERO
+L3
+L30
+L40
+FELL
+ZERO
+?SN ERROR IN 10
+?UL ERROR IN 10'
+[ "$out" = "$want" ] || fail "digits only; ON reads to its item" "$out"
 echo "LINENO OK"
