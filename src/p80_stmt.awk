@@ -14,7 +14,7 @@ function pr_at(   v, tgt) {
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    tgt = bfloor(num(v))
+    tgt = to16(num(v)); if (E) return          # 2B01H: ?OV past 16 bits (0A7FH), then ?FC past 1023 or negative (208DH-2091H; L-7)
     if (tgt < 0 || tgt > 1023) { raise(5); return }
     CUR = tgt
     VCOL = tgt % 64
@@ -59,8 +59,7 @@ function st_print(   sep, ty, tx, v, col, t) {
             if (!isN(v)) { raise(13); return }
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
             CP++
-            t = bfloor(num(v))
-            if (t < 0 || t > 255) { raise(5); return }
+            t = byteconv(num(v)); if (E) return   # 2B1BH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
             t = t % 128                       # 213AH: AND 7FH in ROM 1.3 (3FH before it)
             # 2153H-2162H: the blanks are counted from 40A6H once, each
             # one a character (two display bytes in 32-character mode);
@@ -200,8 +199,7 @@ function st_lprint(   sep, ty, tx, v, t) {
             if (!isN(v)) { raise(13); return }
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
             CP++
-            t = bfloor(num(v))
-            if (t < 0 || t > 255) { raise(5); return }
+            t = byteconv(num(v)); if (E) return   # 2B1BH, as PRINT's TAB (L-7)
             t = t % 128                       # the ROM masks it, as PRINT's (213AH: 7FH in 1.3)
             while (LPCOL < t) lp_puts(" ")
             sep = 1                           # no carriage return after a trailing TAB (M-3)
@@ -976,12 +974,19 @@ function st_setreset(on,   v, x, y, col) {
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    x = bfloor(num(v))
+    # ROM 013DH-014DH: each coordinate is a byte (2B1CH: ?OV past 16
+    # bits, then ?FC outside 0-255), and x is tested against 128 as soon
+    # as it is read, before the comma and y; y against 48.  Until
+    # 2026-09-27 both were read first and every bad value was ?FC (the
+    # 2026-09-26 audit, L-7).
+    x = byteconv(num(v)); if (E) return
+    if (x > 127) { raise(5); return }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    y = bfloor(num(v))
+    y = byteconv(num(v)); if (E) return
+    if (y > 47) { raise(5); return }
     col = -1                                # -1 = no color given (textbook)
     if (on && TY[CK, CP] == "o" && TK[CK, CP] == ",") {
         # EXT: SET(x,y,c) -- optional CoCo-style color 0-8.  Valid Level II
@@ -995,7 +1000,6 @@ function st_setreset(on,   v, x, y, col) {
     }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
     CP++
-    if (x < 0 || x > 127 || y < 0 || y > 47) { raise(5); return }
     if (on) gset(x, y, col); else greset(x, y)
     s_touch()                               # flushed at the next poll (s_settle, p20)
 }

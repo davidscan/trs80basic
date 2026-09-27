@@ -458,8 +458,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     # twin: only port 255 bit 3 does anything there.
     if (name == "INP") {
         x = numarg(a1, na); if (E) return "NI0"
-        x = bfloor(x)
-        if (x < 0 || x > 255) { raise(5); return "NI0" }
+        x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits (0A7FH), then ?FC outside 0-255 (L-7)
         return "NI" ((x == 255) ? (LATCH ? 63 : 127) : 255)
     }
     # USR/USR0-9: with a core (TRS80_Z80, p77) the routine RUNS; without
@@ -499,8 +498,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "VAL") { s = strarg(a1, na); if (E) return "NI0"; x = valnum(s, 1); if (E) return "NI0"; return "N" VALTYPE ((VALTYPE == "S") ? sround(x) : x) }
     if (name == "CHR$") {
         x = numarg(a1, na); if (E) return "NI0"
-        x = bfloor(x)
-        if (x < 0 || x > 255) { raise(5); return "NI0" }
+        x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
         return "S" CHR[x]
     }
     if (name == "STR$") {
@@ -512,11 +510,10 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "STRING$") {
         if (na < 2) { raise(2); return "NI0" }
         if (!isN(a1)) { raise(13); return "NI0" }
-        x = bfloor(num(a1))
+        x = to16(num(a1)); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits first (L-7)
         if (x < 0 || (!HOSTMEM && x > 255)) { raise_host(5); return "NI0" }   # any count under `memory host` (EXT)
         if (isN(a2)) {
-            i = bfloor(num(a2))
-            if (i < 0 || i > 255) { raise(5); return "NI0" }
+            i = byteconv(num(a2)); if (E) return "NI0"
             s = CHR[i]
         } else {
             s = vstr(a2)
@@ -567,7 +564,14 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "POINT") {
         if (na < 2) { raise(2); return "NI0" }
         if (!isN(a1) || !isN(a2)) { raise(13); return "NI0" }
-        return "NI" gpoint(bfloor(num(a1)), bfloor(num(a2)))
+        # 0132H-014DH, shared with SET and RESET: each coordinate a byte
+        # (2B1CH: ?OV, then ?FC), x tested against 128 before y is read,
+        # y against 48 (L-7)
+        x = byteconv(num(a1)); if (E) return "NI0"
+        if (x > 127) { raise(5); return "NI0" }
+        i = byteconv(num(a2)); if (E) return "NI0"
+        if (i > 47) { raise(5); return "NI0" }
+        return "NI" gpoint(x, i)
     }
     if (name == "EOF") {
         x = numarg(a1, na); if (E) return "NI0"

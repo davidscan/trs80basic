@@ -649,8 +649,7 @@ function st_on(   v, n, mode, cnt, ln) {
     }
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    n = bfloor(num(v))
-    if (n < 0 || n > 255) { raise(5); return }
+    n = byteconv(num(v)); if (E) return    # 1F9BH -> 2B1CH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
     if (TY[CK, CP] == "i" && (TK[CK, CP] == "GOTO" || TK[CK, CP] == "GOSUB")) {
         mode = TK[CK, CP]; CP++
     } else { raise(2); return }

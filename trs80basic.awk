@@ -3862,8 +3862,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     # twin: only port 255 bit 3 does anything there.
     if (name == "INP") {
         x = numarg(a1, na); if (E) return "NI0"
-        x = bfloor(x)
-        if (x < 0 || x > 255) { raise(5); return "NI0" }
+        x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits (0A7FH), then ?FC outside 0-255 (L-7)
         return "NI" ((x == 255) ? (LATCH ? 63 : 127) : 255)
     }
     # USR/USR0-9: with a core (TRS80_Z80, p77) the routine RUNS; without
@@ -3903,8 +3902,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "VAL") { s = strarg(a1, na); if (E) return "NI0"; x = valnum(s, 1); if (E) return "NI0"; return "N" VALTYPE ((VALTYPE == "S") ? sround(x) : x) }
     if (name == "CHR$") {
         x = numarg(a1, na); if (E) return "NI0"
-        x = bfloor(x)
-        if (x < 0 || x > 255) { raise(5); return "NI0" }
+        x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
         return "S" CHR[x]
     }
     if (name == "STR$") {
@@ -3916,11 +3914,10 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "STRING$") {
         if (na < 2) { raise(2); return "NI0" }
         if (!isN(a1)) { raise(13); return "NI0" }
-        x = bfloor(num(a1))
+        x = to16(num(a1)); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits first (L-7)
         if (x < 0 || (!HOSTMEM && x > 255)) { raise_host(5); return "NI0" }   # any count under `memory host` (EXT)
         if (isN(a2)) {
-            i = bfloor(num(a2))
-            if (i < 0 || i > 255) { raise(5); return "NI0" }
+            i = byteconv(num(a2)); if (E) return "NI0"
             s = CHR[i]
         } else {
             s = vstr(a2)
@@ -3971,7 +3968,14 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "POINT") {
         if (na < 2) { raise(2); return "NI0" }
         if (!isN(a1) || !isN(a2)) { raise(13); return "NI0" }
-        return "NI" gpoint(bfloor(num(a1)), bfloor(num(a2)))
+        # 0132H-014DH, shared with SET and RESET: each coordinate a byte
+        # (2B1CH: ?OV, then ?FC), x tested against 128 before y is read,
+        # y against 48 (L-7)
+        x = byteconv(num(a1)); if (E) return "NI0"
+        if (x > 127) { raise(5); return "NI0" }
+        i = byteconv(num(a2)); if (E) return "NI0"
+        if (i > 47) { raise(5); return "NI0" }
+        return "NI" gpoint(x, i)
     }
     if (name == "EOF") {
         x = numarg(a1, na); if (E) return "NI0"
@@ -4770,8 +4774,7 @@ function st_on(   v, n, mode, cnt, ln) {
     }
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    n = bfloor(num(v))
-    if (n < 0 || n > 255) { raise(5); return }
+    n = byteconv(num(v)); if (E) return    # 1F9BH -> 2B1CH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
     if (TY[CK, CP] == "i" && (TK[CK, CP] == "GOTO" || TK[CK, CP] == "GOSUB")) {
         mode = TK[CK, CP]; CP++
     } else { raise(2); return }
@@ -6508,7 +6511,7 @@ function pr_at(   v, tgt) {
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    tgt = bfloor(num(v))
+    tgt = to16(num(v)); if (E) return          # 2B01H: ?OV past 16 bits (0A7FH), then ?FC past 1023 or negative (208DH-2091H; L-7)
     if (tgt < 0 || tgt > 1023) { raise(5); return }
     CUR = tgt
     VCOL = tgt % 64
@@ -6553,8 +6556,7 @@ function st_print(   sep, ty, tx, v, col, t) {
             if (!isN(v)) { raise(13); return }
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
             CP++
-            t = bfloor(num(v))
-            if (t < 0 || t > 255) { raise(5); return }
+            t = byteconv(num(v)); if (E) return   # 2B1BH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
             t = t % 128                       # 213AH: AND 7FH in ROM 1.3 (3FH before it)
             # 2153H-2162H: the blanks are counted from 40A6H once, each
             # one a character (two display bytes in 32-character mode);
@@ -6694,8 +6696,7 @@ function st_lprint(   sep, ty, tx, v, t) {
             if (!isN(v)) { raise(13); return }
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
             CP++
-            t = bfloor(num(v))
-            if (t < 0 || t > 255) { raise(5); return }
+            t = byteconv(num(v)); if (E) return   # 2B1BH, as PRINT's TAB (L-7)
             t = t % 128                       # the ROM masks it, as PRINT's (213AH: 7FH in 1.3)
             while (LPCOL < t) lp_puts(" ")
             sep = 1                           # no carriage return after a trailing TAB (M-3)
@@ -7470,12 +7471,19 @@ function st_setreset(on,   v, x, y, col) {
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    x = bfloor(num(v))
+    # ROM 013DH-014DH: each coordinate is a byte (2B1CH: ?OV past 16
+    # bits, then ?FC outside 0-255), and x is tested against 128 as soon
+    # as it is read, before the comma and y; y against 48.  Until
+    # 2026-09-27 both were read first and every bad value was ?FC (the
+    # 2026-09-26 audit, L-7).
+    x = byteconv(num(v)); if (E) return
+    if (x > 127) { raise(5); return }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    y = bfloor(num(v))
+    y = byteconv(num(v)); if (E) return
+    if (y > 47) { raise(5); return }
     col = -1                                # -1 = no color given (textbook)
     if (on && TY[CK, CP] == "o" && TK[CK, CP] == ",") {
         # EXT: SET(x,y,c) -- optional CoCo-style color 0-8.  Valid Level II
@@ -7489,7 +7497,6 @@ function st_setreset(on,   v, x, y, col) {
     }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
     CP++
-    if (x < 0 || x > 127 || y < 0 || y > 47) { raise(5); return }
     if (on) gset(x, y, col); else greset(x, y)
     s_touch()                               # flushed at the next poll (s_settle, p20)
 }
