@@ -47,6 +47,16 @@ out=$(printf '\n10 PRINT "X":AUTO 65518:PRINT "NOT REACHED"\nRUN\nREM A\n\nPRINT
 case $out in *"NOT REACHED"*) fail "AUTO in a program carried on" "$out" ;; esac
 case $out in *"X 65518 REM A 65528  READY AT THE PROMPT"*) ;; *) fail "AUTO in a program" "$out" ;; esac
 
+# --- LIST and LLIST parse their whole statement (ROM 1B1BH-1B25H: after
+# the range only the end of the statement may follow) and read their
+# numbers as 1E5AH does (past 65529 is ?SN): LIST 10 X, LIST 10-20 X,
+# LIST X, LIST 70000 and LLIST 10 X all list nothing (audit L-13)
+out=$(printf '\n10 REM A\nLIST 10 X\nLIST 10-20 X\nLIST X\nLIST 70000\nLLIST 10 X\nLIST 10-70000\nPRINT "AFTER"\n' | repl | tr '\n' ' ')
+n=$(printf '%s' "$out" | grep -o '?SN ERROR' | wc -l | tr -d ' ')
+[ "$n" -eq 6 ] || fail "LIST with a tail or a number past 65529: $n of 6 were ?SN" "$out"
+case $out in *"10 REM A"*) fail "a refused LIST still listed" "$out" ;; esac
+case $out in *"AFTER"*) ;; *) fail "the line after the refused LISTs" "$out" ;; esac
+
 # --- DELETE's range rules: every refusal leaves all four lines
 out=$(printf '\n10 REM\n20 REM\n30 REM\n40 REM\nDELETE 10-25\nDELETE -\nDELETE 10-\nDELETE\nDELETE 50\nDELETE 40-10\nDELETE 10,20\nLIST\n' | repl | tr '\n' ' ')
 n=$(printf '%s' "$out" | grep -o '?FC ERROR' | wc -l | tr -d ' ')

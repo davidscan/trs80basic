@@ -1922,8 +1922,13 @@ function parse_range(   any) {
 # LOAD through NEW's initializer (prog_load), and those clear it.
 function to_ready() { HALT = 1 }
 
+# Whatever follows the range is ?SN (1B1BH-1B25H: after the numbers the
+# byte must be the dash or the end of the statement), and a number past
+# 65529 is ?SN where it is read (1E62H); LIST 10 X and LIST 70000 listed
+# until 2026-09-27 (the 2026-09-26 audit, L-13).
 function st_list(   i, ln) {
     parse_range(); if (E) return
+    if (!at_stmt_end()) { raise(2); return }
     for (i = 1; i <= NL; i++) {
         ln = LNS[i]
         if (ln < RA) continue
@@ -1938,6 +1943,7 @@ function st_list(   i, ln) {
 # LLIST: LIST to the printer stream (all the same range forms)
 function st_llist(   i, ln) {
     parse_range(); if (E) return
+    if (!at_stmt_end()) { raise(2); return }        # as LIST (L-13)
     for (i = 1; i <= NL; i++) {
         ln = LNS[i]
         if (ln < RA) continue
