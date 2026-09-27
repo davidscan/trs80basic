@@ -4414,6 +4414,12 @@ function st_deftype(code,   a, b, c) {
             CP++
             if (TY[CK, CP] != "i" || TK[CK, CP] !~ /^[A-Z]$/) { raise(2); return }
             b = TK[CK, CP]; CP++
+            # a range that runs downward is ?SN (1E25H-1E27H: the second
+            # letter less the first, RET C); the ranges before it in the
+            # list stand, since each is applied as it is read (1E29H-
+            # 1E33H).  DEFINT C-A set nothing and went on until 2026-09-27
+            # (the 2026-09-26 audit, L-10).
+            if (ORD[b] < ORD[a]) { raise(2); return }
         }
         for (c = ORD[a]; c <= ORD[b]; c++) deftype(CHR[c], code)
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
