@@ -196,12 +196,28 @@ def split_lines(data):
     for raw in raws:
         if not raw.strip():
             continue
+        # The number as the ROM reads it (1A81H-1A95H): leading blanks are
+        # skipped, and so are blanks BETWEEN digits (1E5AH reads through
+        # RST 10H), so "1 5 CLS" is line 15; the number ends at its last
+        # digit.  prog_load (the interpreter) cuts the same way.
+        raw = raw.lstrip(b" \t")
         j = 0
-        while j < len(raw) and 0x30 <= raw[j] <= 0x39:
-            j += 1
-        if j == 0:
+        digits = bytearray()
+        while j < len(raw):
+            if 0x30 <= raw[j] <= 0x39:
+                digits.append(raw[j])
+                j += 1
+                continue
+            k = j
+            while k < len(raw) and raw[k] in (0x20, 0x09):
+                k += 1
+            if digits and k < len(raw) and 0x30 <= raw[k] <= 0x39:
+                j = k
+                continue
+            break
+        if not digits:
             raise TokError(f"line has no line number: {raw[:40]!r}")
-        number = int(raw[:j])
+        number = int(digits)
         if number > MAX_LINE:
             raise TokError(f"line number {number} exceeds the maximum {MAX_LINE}")
         # detok emits one space after the number unless the body supplied its

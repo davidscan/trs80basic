@@ -85,5 +85,20 @@ want='=A 0
 =B 20
 ?SN ERROR'
 [ "$out" = "$want" ] || fail "a line number followed only by blanks" "$out"
+
+# A line number with blanks inside: 1E5AH reads the digits through RST
+# 10H, which skips blanks, so 1 5 PRINT is line 15 -- typed, and loaded
+# from a text file (the same entry).  It stored line 1 with the body
+# "5 PRINT" until 2026-09-27 (the 2026-09-26 audit, L-14).
+printf '1 5 PRINT "=LOADED FIFTEEN"\n 2 0 PRINT "=LOADED TWENTY"\n' > "$dir/blank.bas"
+out=$(cd "$dir" && printf '\n1 5 PRINT "=FIFTEEN"\n10  PRINT "=TEN"\nLIST\nRUN\nLOAD "blank.bas"\nLIST\n' \
+    | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep -E '^([=?]|[0-9])')
+want='10  PRINT "=TEN"
+15 PRINT "=FIFTEEN"
+=TEN
+=FIFTEEN
+15 PRINT "=LOADED FIFTEEN"
+20 PRINT "=LOADED TWENTY"'
+[ "$out" = "$want" ] || fail "a line number with blanks inside" "$out"
 rm -rf "$dir"
 echo "LINEEDIT OK"

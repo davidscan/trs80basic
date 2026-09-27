@@ -81,9 +81,7 @@ function handle_line(line,   s, ln, rest) {
     }
     if (s ~ /^(history|h)[ \t]*$/) { st_history(); return 1 }
     if (s ~ /^[0-9]/) {
-        match(s, /^[0-9]+/)
-        ln = substr(s, 1, RLENGTH) + 0
-        rest = substr(s, RLENGTH + 1)
+        ln = cut_lineno(s); rest = LNBODY
         # These two errors belong to the Input Phase, where the ROM's
         # current-line cell holds FFFFH (1A36), so they carry no " IN n".
         # They used to set E by hand and report whatever line the LAST
@@ -91,12 +89,24 @@ function handle_line(line,   s, ln, rest) {
         # at the prompt, and after L-4 "?UL ERROR IN " with no number at
         # all when nothing had failed yet.  raise() notes the line.
         if (ln > 65529) { CLN = DIRECTLN; raise(2); report_err(); return 1 }
-        sub(/^ /, "", rest)
         enter_line(ln, rest)
         return 0
     }
     exec_immediate(line)
     return 1
+}
+
+# The number in front of a typed or loaded line (ROM 1A81H-1A95H): 1E5AH
+# reads the digits through RST 10H, which SKIPS BLANKS, so 1 5 PRINT is
+# line 15 (it stored line 1 until 2026-09-27: the 2026-09-26 audit,
+# L-14); then 1A8BH backs up to the last digit and ONE blank behind it is
+# dropped (1A93H-1A95H), the rest is the body, blanks and all.  The body
+# is left in LNBODY.  tools/tok.py cuts a listing the same way.
+function cut_lineno(s,   n) {
+    match(s, /^[0-9]+([ \t]+[0-9]+)*/)
+    n = substr(s, 1, RLENGTH); gsub(/[ \t]/, "", n)
+    LNBODY = substr(s, RLENGTH + 1); sub(/^ /, "", LNBODY)
+    return n + 0
 }
 
 # A line typed with its number (ROM 1AA7H-1AF5H; AUTO's entries come the
@@ -1069,10 +1079,7 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
         sub(/^[ \t]+/, "", l)
         if (l != "") {
             if (l ~ /^[0-9]+/) {
-                match(l, /^[0-9]+/)
-                ln = substr(l, 1, RLENGTH) + 0
-                rest = substr(l, RLENGTH + 1)
-                sub(/^ /, "", rest)
+                ln = cut_lineno(l); rest = LNBODY     # 1 5 PRINT is line 15 (L-14)
                 if (ln > 65529) { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " pln " (LINE NUMBER > 65529)\n" }
                 else if (rest == "") { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " pln " (EMPTY LINE BODY)\n" }
                 else if (verify) {

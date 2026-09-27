@@ -71,6 +71,7 @@ eq(split_lines(b"10 CLS\r20 END\r"), [(10, b"CLS"), (20, b"END")], "CR-only endi
 eq(split_lines(b'10 REM A\n   B\r20 END\r'), [(10, b"REM A\n   B"), (20, b"END")], "in a CR file an LF is the in-line line feed")
 eq(split_lines(b"10 CLS\r20 END\r\x00\x00\x00"), [(10, b"CLS"), (20, b"END")], "sector padding is not a line")
 eq(split_lines(b"10 CLS\r20 END\r\x1a"), [(10, b"CLS"), (20, b"END")], "nor is a 1AH end mark")
+eq(split_lines(b"1 5 CLS\n  20 END\n"), [(15, b"CLS"), (20, b"END")], "blanks inside the number are skipped (ROM 1E5AH), leading blanks too")
 raises(lambda: split_lines(b"CLS\n"), "no line number", "an unnumbered line is rejected")
 raises(lambda: split_lines(b"70000 CLS\n"), "exceeds the maximum", "a line number above 65529 is rejected")
 
