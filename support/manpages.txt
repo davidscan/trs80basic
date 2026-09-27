@@ -243,6 +243,8 @@ INPUT ["prompt";] var[,var...]   read values typed at the keyboard
   prompts and waits for ENTER, as the ROM does; anything typed before
   ENTER is ?SN.  EXT (needs `ext on` / TRS80_EXT=1): typed text is
   discarded instead, and INPUT "PRESS ENTER" with no ";" is taken too.
+  EXT: the prompt may be a string expression (INPUT ""+CHR$(10)+"X";A);
+  Level II takes only a quoted literal there.
   EXT (needs `ext on` / TRS80_EXT=1): INPUT "prompt",var -- the later
   Microsoft BASICs' form -- is taken and drops the "? ", for a prompt
   that ends in its own punctuation.  Level II has no such form.
@@ -279,7 +281,9 @@ RESTORE [n]   move the DATA pointer back so items can be re-read
   With no argument, resets to the very first DATA item in the program.
   With a line number, moves to the first item at or after line n, which
   lets one program hold several independent tables and choose between
-  them (Disk BASIC; ?UL if line n does not exist).
+  them (?UL if line n does not exist).  EXT: Level II's RESTORE takes
+  no line number (the machine says ?SN), so a period program that works
+  never uses it.
   Needed because READ never rewinds by itself -- without RESTORE a
   second pass over the data raises ?OD.
   Example: RESTORE

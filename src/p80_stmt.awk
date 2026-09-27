@@ -505,8 +505,13 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
         if (TY[CK, CP + 1] == "o" && (TK[CK, CP + 1] == ";" || TK[CK, CP + 1] == ",")) {
             prompt = TK[CK, CP]; CP++
         } else {
-            # Disk BASIC prompt expression: INPUT ""+CHR$(10)+"X";A.
-            # e_prim reads the leading literal, so just evaluate from here.
+            # EXT: a prompt expression, INPUT ""+CHR$(10)+"X";A.  The ROM
+            # takes a bare literal only (21D3H: anything else behind the
+            # quote is ?SN), so a listing that uses one stopped on the
+            # machine and taking it cannot change one that runs; many
+            # listings typed for later BASICs need it (audit R-4, ruled
+            # 2026-09-26).  e_prim reads the leading literal, so just
+            # evaluate from here.
             x = e_or(); if (E) return
             if (substr(x, 1, 1) != "S") { raise(13); return }
             prompt = substr(x, 2)

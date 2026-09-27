@@ -744,7 +744,11 @@ function st_clear(   v, ty, tx, n) {
 }
 
 # RESTORE [n]: reset the DATA pointer -- to the first item at or after line
-# n when given (Disk BASIC form; ?UL if the line does not exist)
+# n when given (?UL if the line does not exist).
+# EXT: the line number.  Level II's RESTORE takes none (a number behind
+# it is ?SN) and neither Model III manual documents it, so a period
+# listing that used it stopped on the machine: taking it cannot change
+# one that runs (audit R-3, ruled 2026-09-26).
 function st_restore(   n, i) {
     if (DATADIRTY) datascan()
     if (TY[CK, CP] == "n") {
