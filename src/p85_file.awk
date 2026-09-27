@@ -408,26 +408,9 @@ function st_print_file(   n, s, sep, ty, tx, v, x) {
 
 # PRINT# USING tail -- the file twin of pr_using(), same any-position rule;
 # `s` carries whatever the item list built before USING took over.
-function fio_pr_using(n, s,   sep, ty, tx, v, fmt) {
-    v = e_or(); if (E) return
-    if (isN(v)) { raise(13); return }
-    fmt = vstr(v)
-    if (TY[CK, CP] == "o" && (TK[CK, CP] == ";" || TK[CK, CP] == ",")) CP++
-    else { raise(2); return }
-    sep = 0; PUN = 0
-    for (;;) {                              # , and ; are pure separators here
-        ty = TY[CK, CP]
-        if (ty == "" || ty == "e") break
-        tx = TK[CK, CP]
-        if (ty == "o" && tx == ":") break
-        if (ty == "i" && tx == "ELSE") break
-        if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
-        v = e_or(); if (E) return
-        PUV[++PUN] = v
-        sep = 0
-    }
-    v = pu_output(fmt, PUN); if (E) return
-    fio_pr_out(n, s v, sep)
+function fio_pr_using(n, s,   sep) {
+    sep = pu_stmt(2); if (E) return         # the statement is pr_using's (p80); the text lands in PU_OUT
+    fio_pr_out(n, s PU_OUT, sep)
 }
 
 # finish a PRINT# statement: hold the partial line on a trailing separator,

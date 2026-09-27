@@ -99,28 +99,50 @@ function st_print(   sep, ty, tx, v, col, t) {
 # period idiom is PRINT TAB(57) USING X$;EC (Encyclopedia for the TRS-80
 # vol. 3; DEMON.bas line 30 too).  It formats the rest of the statement, so
 # whatever was already printed keeps its column and USING takes over here.
-function pr_using(   sep, ty, tx, v, fmt) {
-    v = e_or(); if (E) return
-    if (isN(v)) { raise(13); return }
-    fmt = vstr(v)
-    if (TY[CK, CP] == "o" && (TK[CK, CP] == ";" || TK[CK, CP] == ",")) CP++
-    else { raise(2); return }
-    sep = 0; PUN = 0
-    for (;;) {                              # , and ; are pure separators here
-        ty = TY[CK, CP]
-        if (ty == "" || ty == "e") break
-        tx = TK[CK, CP]
-        if (ty == "o" && tx == ":") break
-        if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
-        if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
-        v = e_or(); if (E) return
-        PUV[++PUN] = v
-        sep = 0
-    }
-    v = pu_output(fmt, PUN); if (E) return
-    s_puts(v)
+function pr_using(   sep) {
+    sep = pu_stmt(0); if (E) return
     if (!sep) s_nl()
     sync_cursor()
+}
+
+# PRINT USING's statement, ROM 2CBDH-2DF0H, for the screen (sink 0), the
+# printer (1) and PRINT# (2: the text is left in PU_OUT).  The format is
+# followed by ";" (2CC3H, RST 08H): a "," there is ?SN.  Each item is
+# formatted and PRINTED at once (2DCDH-2DD0H), so what stands in front
+# of a failing item is on the screen when its error comes; behind an item
+# comes ";" or "," or the end of the statement (2DD5H-2DE2H), anything
+# else is ?SN; the picture is rescanned from its start while items
+# remain (2DE6H), and behind the last item its text runs on to the next
+# field.  Until 2026-09-27 a "," after the format passed, "1 2" was two
+# items, and the whole line was built before any of it was printed (the
+# 2026-09-26 audit, L-18).  Returns 1 when the list ended in a separator
+# (no carriage return follows); E is set on an error.
+function pu_stmt(sink,   sep, ty, tx, v, n) {
+    PU_SINK = sink; PU_OUT = ""
+    v = e_or(); if (E) return 0
+    if (isN(v)) { raise(13); return 0 }
+    PU_FMT = vstr(v); PU_POS = 1; PU_GOT = 0
+    if (TY[CK, CP] == "o" && TK[CK, CP] == ";") CP++
+    else { raise(2); return 0 }
+    sep = 0; n = 0
+    for (;;) {
+        ty = TY[CK, CP]; tx = TK[CK, CP]
+        if (ty == "" || ty == "e" || (ty == "o" && tx == ":")) break
+        if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
+        if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
+        if (n && !sep) { raise(2); return 0 }            # 2DE2H
+        v = e_or(); if (E) return 0
+        pu_item(v); if (E) return 0
+        n++; sep = 0
+    }
+    if (n) pu_tail()
+    return sep
+}
+
+function pu_emit(s) {
+    if (PU_SINK == 1) lp_puts(s)
+    else if (PU_SINK == 2) PU_OUT = PU_OUT s
+    else s_puts(s)
 }
 
 # ---- LPRINT / LLIST --------------------------------------------------------
@@ -220,26 +242,8 @@ function st_lprint(   sep, ty, tx, v, t) {
 }
 
 # LPRINT USING tail -- the printer twin of pr_using(), same any-position rule.
-function lp_using(   sep, ty, tx, v, fmt) {
-    v = e_or(); if (E) return
-    if (isN(v)) { raise(13); return }
-    fmt = vstr(v)
-    if (TY[CK, CP] == "o" && (TK[CK, CP] == ";" || TK[CK, CP] == ",")) CP++
-    else { raise(2); return }
-    sep = 0; PUN = 0
-    for (;;) {
-        ty = TY[CK, CP]
-        if (ty == "" || ty == "e") break
-        tx = TK[CK, CP]
-        if (ty == "o" && tx == ":") break
-        if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
-        if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
-        v = e_or(); if (E) return
-        PUV[++PUN] = v
-        sep = 0
-    }
-    v = pu_output(fmt, PUN); if (E) return
-    lp_puts(v)
+function lp_using(   sep) {
+    sep = pu_stmt(1); if (E) return
     if (!sep) lp_nl()
 }
 
@@ -316,7 +320,7 @@ function st_midset(   name, key, n, m, v, s, r, cnt) {
 }
 
 # ---- PRINT USING formatter -------------------------------------------------
-# Formats the tagged values PUV[1..nv] through the picture string.  Fields:
+# One item through the picture PU_FMT from PU_POS (pu_stmt).  Fields:
 #   numeric: # digit positions, . decimal point, , grouping (counts as a
 #     position), ** asterisk fill (+2 positions), $$ floating dollar (+2,
 #     one being the $), **$ both (+3), leading + (extra sign position),
@@ -328,41 +332,44 @@ function st_midset(   name, key, n, m, v, s, r, cnt) {
 # Anything else prints literally.  The picture is reused while values
 # remain; a picture with no fields while values remain raises ?FC.
 # A value of the wrong type for a field raises ?TM.
-function pu_output(fmt, nv,   out, vi, i, n, c, j, r, consumed) {
-    out = ""; vi = 1
-    while (vi <= nv) {
-        consumed = 0
-        i = 1; n = length(fmt)
-        while (i <= n) {
-            c = substr(fmt, i, 1)
-            if (c == "!") {
-                if (vi > nv) return out
-                out = out pu_str(PUV[vi++], 1); consumed = 1
-                if (E) return ""
-                i++; continue
-            }
-            if (c == "%") {
-                j = index(substr(fmt, i + 1), "%")
-                if (j > 0 && substr(fmt, i + 1, j - 1) ~ /^ *$/) {
-                    if (vi > nv) return out
-                    out = out pu_str(PUV[vi++], j + 1); consumed = 1
-                    if (E) return ""
-                    i += j + 1; continue
-                }
-            }
-            r = pu_scan(fmt, i)
-            if (r > 0) {
-                if (vi > nv) return out
-                out = out pu_num(PUV[vi++]); consumed = 1
-                if (E) return ""
-                i += r; continue
-            }
-            out = out c
-            i++
+function pu_item(v,   c, j, r, t, wrapped) {
+    wrapped = 0
+    for (;;) {
+        if (PU_POS > length(PU_FMT)) {
+            if (!PU_GOT || wrapped) { raise(5); return }   # a picture with no field, the empty one too (2CDDH)
+            PU_POS = 1; PU_GOT = 0; wrapped = 1
         }
-        if (!consumed && vi <= nv) { raise(5); return "" }
+        c = substr(PU_FMT, PU_POS, 1)
+        if (c == "!") { t = pu_str(v, 1); if (E) return; pu_emit(t); PU_POS++; PU_GOT = 1; return }
+        if (c == "%") {
+            j = index(substr(PU_FMT, PU_POS + 1), "%")
+            if (j > 0 && substr(PU_FMT, PU_POS + 1, j - 1) ~ /^ *$/) {
+                t = pu_str(v, j + 1); if (E) return
+                pu_emit(t); PU_POS += j + 1; PU_GOT = 1; return
+            }
+        }
+        r = pu_scan(PU_FMT, PU_POS)
+        if (r > 0) {
+            if (PU_IP + PU_DP > 24) { raise(5); return }   # 2DC5H-2DC7H: more than 24 digit positions
+            t = pu_num(v); if (E) return
+            pu_emit(t); PU_POS += r; PU_GOT = 1; return
+        }
+        pu_emit(c); PU_POS++
     }
-    return out
+}
+
+# behind the last item, the picture's text up to its next field
+function pu_tail(   c, j) {
+    while (PU_POS <= length(PU_FMT)) {
+        c = substr(PU_FMT, PU_POS, 1)
+        if (c == "!") return
+        if (c == "%") {
+            j = index(substr(PU_FMT, PU_POS + 1), "%")
+            if (j > 0 && substr(PU_FMT, PU_POS + 1, j - 1) ~ /^ *$/) return
+        }
+        if (pu_scan(PU_FMT, PU_POS) > 0) return
+        pu_emit(c); PU_POS++
+    }
 }
 
 # parse a numeric field at fmt[i]; returns its length, 0 if not a field.
