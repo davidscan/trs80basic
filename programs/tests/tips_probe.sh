@@ -135,7 +135,7 @@ probe 77 W "TROFF by POKE 16667,0 stops the trace" "" "<20>T${nl}X" "10 POKE 166
 # 78: the ROM trick re-links a NEWed program through the monitor and BREAK;
 # here SYSTEM exists (2026-09-16) and prompts, but the program store is not
 # the image, so nothing comes back -- harmless (was E, ?SN, before SYSTEM)
-probe 78 D "recover after NEW: POKE 17130,1 : SYSTEM (prompts; nothing to recover)" "" "*? ?BATCH: END OF INPUT AT LINE 10" '10 POKE 17130,1:SYSTEM'
+probe 78 D "recover after NEW: POKE 17130,1 : SYSTEM (prompts on a line of its own, ROM 02B8H; nothing to recover)" "" "${nl}*? ?BATCH: END OF INPUT AT LINE 10" '10 POKE 17130,1:SYSTEM'
 n78=$n; bad78=$bad; W78=$nW; K78=$nK; D78=$nD; X78=$nX; E78=$nE
 
 # ---- B: the page's BASIC sections (not in the 78) ----------------------------

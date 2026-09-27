@@ -720,19 +720,25 @@ function st_system(   line, a, s) {
     }
     if (!(TY[CK, CP] == "" || TY[CK, CP] == "e")) { raise(2); return }
     if (SYSENTRY == "") SYSENTRY = -1
+    # ROM 02B2H-02C7H: every prompt is a carriage return (20FEH), "*" and
+    # 1BB3H's "? "; an empty answer is ?SN (02C6H-02C7H: the end of the
+    # buffer), which ends SYSTEM.  The address behind / is read by 1E5AH
+    # (0323H), so past 65529 it is ?SN.  Until 2026-09-27 the prompt began
+    # where the cursor was, ENTER prompted again and /65535 ran (the
+    # 2026-09-26 audit, L-15).
     for (;;) {
-        s_puts("*? ")
+        s_nl(); s_puts("*? ")
         line = rl_read()
         if (RLCANCEL) { dobreak(); return }
         if (EOFQUIT) { if (BATCH) batch_ineof(); STOPPED = 1; return }
         gsub(/^[ \t]+|[ \t]+$/, "", line)
-        if (line == "") continue
+        if (line == "") { raise(2); return }
         # `/` or `/nnnnn` runs; anything else after a slash is a host path
         # (an absolute path is never a valid address, so no listing loses)
         a = substr(line, 2); gsub(/[ \t]/, "", a)
         if (substr(line, 1, 1) == "/" && a ~ /^[0-9]*$/) {
             if (a == "") a = SYSENTRY
-            else if (a + 0 > 65535) { raise(5); return }
+            else if (a + 0 > 65529) { raise(2); return }
             if (a + 0 < 0) { raise(5); return }
             sys_exec(a + 0)
             return

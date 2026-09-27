@@ -82,6 +82,24 @@ grep -q "^PASSC" "$tmp" || fail "the program did not go on after the bad tape" "
 grep -q "(7D00H x1)" "$tmp.err" && grep -q "(7E00H x1)" "$tmp.err" \
     || fail "the tally must name the entry addresses" "$(cat "$tmp.err")"
 
+# The prompt's shape (ROM 02B2H-02C7H, 0323H): a carriage return in front
+# of every "*? ", ENTER alone is ?SN and ends SYSTEM, and an address past
+# 65529 is ?SN where 1E5AH reads it; until 2026-09-27 ENTER prompted
+# again and /65535 ran (the 2026-09-26 audit, L-15)
+run "" <<EOF
+
+SYSTEM
+
+PRINT "PASSEMPTY"
+SYSTEM
+/65530
+PRINT "PASSBIG"
+EOF
+[ "$(grep -c '^\*? ' "$tmp")" -eq 2 ] || fail "each *? prompt starts its own line" "$(cat "$tmp")"
+[ "$(grep -c '?SN ERROR' "$tmp")" -eq 2 ] || fail "ENTER alone and /65530 at *? are ?SN" "$(cat "$tmp")"
+grep -q "^PASSEMPTY" "$tmp" && grep -q "^PASSBIG" "$tmp" || fail "the lines after the two ?SN did not run" "$(cat "$tmp")"
+grep -q "NOT EXECUTED" "$tmp.err" && fail "/65530 must not run" "$(cat "$tmp.err")"
+
 # A load module whose CODE holds A5H 55H is still a load module (the
 # 2026-09-19 audit, M-6): LD HL,55A5H / LD A,5 / LD (7F40H),A / RET at
 # 7F00H.  Looking for the tape's sync pair anywhere in the file took it for
