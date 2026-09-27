@@ -445,7 +445,7 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         if (id < 0) { ist = ""; dec = "0" ds }              # the sign's place, behind the point
         else { ist = substr(ds, 1, id); dec = substr(ds, id + 1) }
         e2 = k - id
-        es = sprintf("E%s%02d", (e2 < 0 ? "-" : "+"), (e2 < 0 ? -e2 : e2))
+        es = sprintf("%s%s%02d", (vtype(v) == "D" ? "D" : "E"), (e2 < 0 ? "-" : "+"), (e2 < 0 ? -e2 : e2))   # 1075H-1079H: the letter by type (L-19)
         body = (PU_DOT ? "." dec : "") es
         if (ist == "" && length(lead "0" body) <= w) ist = "0"
         core = lead ist body
