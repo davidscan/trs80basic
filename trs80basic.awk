@@ -1785,19 +1785,27 @@ function handle_line(line,   s, ln, rest) {
         # all when nothing had failed yet.  raise() notes the line.
         if (ln > 65529) { CLN = DIRECTLN; raise(2); report_err(); return 1 }
         sub(/^ /, "", rest)
-        # ROM 1AAD-1AAE, 1ABF: after the crunch, RST 10H scans for the
-        # line's first token SKIPPING BLANKS, and if that scan meets the
-        # end of the line the entry is a deletion.  So a number followed
-        # only by blanks deletes the line; it used to store a line of
-        # blanks (the 2026-09-19 audit, L-17).
-        if (rest ~ /^[ \t]*$/) {
-            if (ln in prog) delline(ln)
-            else { CLN = DIRECTLN; raise(8); report_err(); return 1 }
-        } else storeline(ln, rest)
+        enter_line(ln, rest)
         return 0
     }
     exec_immediate(line)
     return 1
+}
+
+# A line typed with its number (ROM 1AA7H-1AF5H; AUTO's entries come the
+# same way, 2FEBH -> 1A98H).  1AAD-1AAE, 1ABF: after the crunch, RST 10H
+# scans for the line's first token SKIPPING BLANKS, and if that scan
+# meets the end of the line the entry is a deletion.  So a number
+# followed only by blanks deletes the line; it used to store a line of
+# blanks (the 2026-09-19 audit, L-17).  A deletion of a line that is not
+# there has NO error path: 1AB5H's search finds nothing, 1ABFH skips the
+# insert, and 1AEFH still runs 1B5DH -- the variables go, silently.  It
+# was ?UL here until 2026-09-27 (the 2026-09-26 audit, M-6; ruled R-11).
+function enter_line(ln, rest) {
+    if (rest ~ /^[ \t]*$/) {
+        if (ln in prog) delline(ln)
+        else run_reset()
+    } else storeline(ln, rest)
 }
 
 # --- command history (memory only; recalled with up/down in rl_read) --------

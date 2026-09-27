@@ -71,15 +71,18 @@ want='=BEFORE 11  6
 # 1ABF: the scan for the first token skips blanks, and meeting the end of
 # the line there means "delete").  It used to store a line of blanks (the
 # 2026-09-19 audit, L-17).  printf, not a heredoc: the blanks ARE the test.
-out=$(cd "$dir" && printf '\n30\n10 PRINT "=TEN"\n20 PRINT "=TWENTY":ERROR 5\n10    \nRUN\nLIST\n30   \n65530 X\n' \
+# The number of a line that is NOT there is silent, and still ends at
+# 1B5DH (1AB5H finds nothing, 1ABFH skips the insert, 1AEFH resets): A is
+# 0 afterwards.  It was ?UL until 2026-09-27 (the 2026-09-26 audit, M-6,
+# ruled R-11).  The ?SN of the Input Phase names no line (the line cell
+# holds FFFFH there, 1A36H).
+out=$(cd "$dir" && printf '\nA=5\n30\nPRINT "=A"+STR$(A)\n10 PRINT "=TEN"\n20 PRINT "=TWENTY":ERROR 5\n10    \nRUN\nLIST\n30   \nPRINT "=B"+STR$(ERL)\n65530 X\n' \
     | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep -E '^([=?]|[0-9])')
-# The ?UL and ?SN of the Input Phase name no line: not an empty one (the
-# first, before anything has failed) and not the last error's (the others).
-want='?UL ERROR
+want='=A 0
 =TWENTY
 ?FC ERROR IN 20
 20 PRINT "=TWENTY":ERROR 5
-?UL ERROR
+=B 20
 ?SN ERROR'
 [ "$out" = "$want" ] || fail "a line number followed only by blanks" "$out"
 rm -rf "$dir"
