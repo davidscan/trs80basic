@@ -3123,6 +3123,7 @@ function batch_hint(c) {
         else if (c == 6)  diag_err("basic: a subscript, DIM bound or CLEAR count past 32767 is ?OV on the machine: try --memory host (EXT)")
         else if (c == 15) diag_err("basic: a string is at most 255 characters on the machine: try --memory host (EXT)")
         else if (c == 5)  diag_err("basic: a string count or position past 255 is ?FC on the machine: try --memory host (EXT)")
+        else if (c == 9)  diag_err("basic: an array past the machine's 64K is ?BS: try --memory host (EXT: no memory limit)")
     }
     HINTHOST = 0
 }
@@ -6223,6 +6224,18 @@ function mem_free() {
 }
 # (40D6H) - (40A0H) after the collection: FRE(a$)
 function mem_strfree() { return (HOSTMEM ? HOSTTOP : mem_strsz()) - STRUSED }
+# ROM 2744H-2774H: an array's length is the bytes per entry times each
+# bound plus one, a 16-bit product (0BAAH), and its end is that length
+# added to its address (2773H): a carry in either is ?BS (273DH), tested
+# BEFORE the free-space check (196CH, ?OM below).  So DIM A(20000) is ?BS
+# on any machine, and on a 48K one nearly every array too large for the
+# free memory ends past 64K first.  Until 2026-09-27 both were ?OM (the
+# 2026-09-26 audit, L-9).  Never under `memory host` (EXT, p10).
+function mem_arrbs(hdr, bytes) {
+    if (HOSTMEM) return 0
+    pm_sync(); pm_truncnote()
+    return bytes > 65535 || PMEND + mem_varbytes() + hdr + bytes > 65535
+}
 # ROM 1963H-197AH: a frame or an array of n bytes fits when the free
 # memory holds it and 58 more (FFC6H), else ?OM.  GOSUB asks for 6
 # (1EB1H), FOR for 16 (1CB6H), DIM for its array.  Until 2026-09-25 a
@@ -7348,6 +7361,7 @@ function st_dim(   name, nd, i, v, sz) {
         if (name in ADIM) { raise(10); return }
         sz = 1
         for (i = 1; i <= nd; i++) sz *= DIMB[i] + 1
+        if (mem_arrbs(6 + 2 * nd, sz * (strname(name) ? 3 : mem_numsize(name)))) { raise_host(9); return }   # ?BS past 64K (p75)
         if (!mem_need(6 + 2 * nd + sz * (strname(name) ? 3 : mem_numsize(name)))) return   # ?OM (p75)
         ADIM[name] = nd
         for (i = 1; i <= nd; i++) ASZ[name, i] = DIMB[i]

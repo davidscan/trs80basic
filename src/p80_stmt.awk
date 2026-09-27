@@ -811,6 +811,7 @@ function st_dim(   name, nd, i, v, sz) {
         if (name in ADIM) { raise(10); return }
         sz = 1
         for (i = 1; i <= nd; i++) sz *= DIMB[i] + 1
+        if (mem_arrbs(6 + 2 * nd, sz * (strname(name) ? 3 : mem_numsize(name)))) { raise_host(9); return }   # ?BS past 64K (p75)
         if (!mem_need(6 + 2 * nd + sz * (strname(name) ? 3 : mem_numsize(name)))) return   # ?OM (p75)
         ADIM[name] = nd
         for (i = 1; i <= nd; i++) ASZ[name, i] = DIMB[i]

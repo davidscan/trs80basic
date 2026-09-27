@@ -180,6 +180,7 @@ function batch_hint(c) {
         else if (c == 6)  diag_err("basic: a subscript, DIM bound or CLEAR count past 32767 is ?OV on the machine: try --memory host (EXT)")
         else if (c == 15) diag_err("basic: a string is at most 255 characters on the machine: try --memory host (EXT)")
         else if (c == 5)  diag_err("basic: a string count or position past 255 is ?FC on the machine: try --memory host (EXT)")
+        else if (c == 9)  diag_err("basic: an array past the machine's 64K is ?BS: try --memory host (EXT: no memory limit)")
     }
     HINTHOST = 0
 }

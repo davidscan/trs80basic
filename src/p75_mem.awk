@@ -1193,6 +1193,18 @@ function mem_free() {
 }
 # (40D6H) - (40A0H) after the collection: FRE(a$)
 function mem_strfree() { return (HOSTMEM ? HOSTTOP : mem_strsz()) - STRUSED }
+# ROM 2744H-2774H: an array's length is the bytes per entry times each
+# bound plus one, a 16-bit product (0BAAH), and its end is that length
+# added to its address (2773H): a carry in either is ?BS (273DH), tested
+# BEFORE the free-space check (196CH, ?OM below).  So DIM A(20000) is ?BS
+# on any machine, and on a 48K one nearly every array too large for the
+# free memory ends past 64K first.  Until 2026-09-27 both were ?OM (the
+# 2026-09-26 audit, L-9).  Never under `memory host` (EXT, p10).
+function mem_arrbs(hdr, bytes) {
+    if (HOSTMEM) return 0
+    pm_sync(); pm_truncnote()
+    return bytes > 65535 || PMEND + mem_varbytes() + hdr + bytes > 65535
+}
 # ROM 1963H-197AH: a frame or an array of n bytes fits when the free
 # memory holds it and 58 more (FFC6H), else ?OM.  GOSUB asks for 6
 # (1EB1H), FOR for 16 (1CB6H), DIM for its array.  Until 2026-09-25 a

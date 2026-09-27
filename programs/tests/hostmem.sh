@@ -33,8 +33,11 @@ printf '10 CLEAR 200000\n' > "$tmp"
 out=$(run); case $out in "?OV ERROR IN 10
 basic: "*"$HINT"*) ;; *) fail "CLEAR past 32767" "$out" ;; esac
 printf '10 DIM A(20000)\n' > "$tmp"
+out=$(run); case $out in "?BS ERROR IN 10
+basic: "*"$HINT"*) ;; *) fail "a DIM past 64K is ?BS with the note" "$out" ;; esac
+printf '10 CLEAR 5000:DIM A(11000)\n' > "$tmp"
 out=$(run); case $out in "?OM ERROR IN 10
-basic: "*"$HINT"*) ;; *) fail "a DIM that does not fit is ?OM with the note" "$out" ;; esac
+basic: "*"$HINT"*) ;; *) fail "a DIM that ends below 64K but does not fit is ?OM with the note" "$out" ;; esac
 printf '10 CLEAR 1000:A$=STRING$(200,"A"):B$=A$+A$\n' > "$tmp"
 out=$(run); case $out in "?LS ERROR IN 10
 basic: "*"$HINT"*) ;; *) fail "?LS with the note" "$out" ;; esac
