@@ -4042,7 +4042,16 @@ function execloop(   ty, tx) {
         ty = TY[CK, CP]
         if (ty == "" || ty == "e") {
             if (CK == "I") return
-            if (CLI >= NL) return
+            if (CLI >= NL) {
+                # ROM 197EH-198EH: running off the end of the program
+                # inside an error handler is ?NR (the 40F2H flag, code
+                # 22H); otherwise 1DC1H-1DD1H save the end as the CONT
+                # point, as END does, so a later CONT ends again at READY
+                # rather than ?CN (the 2026-09-26 audit, M-2 and R-5)
+                if (INHANDLER) { raise(18); report_err(); return }
+                CONT_K = CK; CONT_LI = CLI; CONT_P = CP; CONTOK = 1
+                return
+            }
             setline(CLI + 1)
             continue
         }

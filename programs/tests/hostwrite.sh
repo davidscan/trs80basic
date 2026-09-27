@@ -65,7 +65,7 @@ fi
 # (the 2026-09-19 audit, L-5).  Only as an ordinary user: root deletes anyway.
 if [ "$(id -u)" != 0 ]; then
     mkdir -p kdir && : > kdir/victim.txt && chmod 500 kdir
-    printf '10 ON ERROR GOTO 100\n20 KILL "kdir/victim.txt"\n30 PRINT "NO ERROR":END\n100 PRINT "ERR=";ERR/2+1\n' > k.bas
+    printf '10 ON ERROR GOTO 100\n20 KILL "kdir/victim.txt"\n30 PRINT "NO ERROR":END\n100 PRINT "ERR=";ERR/2+1:END\n' > k.bas
     out=$(TRS80_Z80= "$here/basic" k.bas 2>&1)
     [ "$out" = "ERR= 22 " ] || bad "KILL on a refused delete: $out"
     [ -f kdir/victim.txt ] || bad "KILL removed the file it reported it could not"

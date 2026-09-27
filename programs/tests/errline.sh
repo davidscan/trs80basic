@@ -25,10 +25,10 @@ out=$(TRS80_Z80= "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 [ "$rc" = 1 ] || fail "exit status for an error in line 0" "$rc"
 
 # ... and ERL names it, and so does "." (LASTLN)
-printf '0 ON ERROR GOTO 10\n1 PRINT 1/0\n10 PRINT "ERL=";ERL\n' > "$tmp"
+printf '0 ON ERROR GOTO 10\n1 PRINT 1/0\n10 PRINT "ERL=";ERL:END\n' > "$tmp"
 out=$(TRS80_Z80= "$here/basic" "$tmp" 2>&1 </dev/null)
 [ "$out" = "ERL= 1 " ] || fail "ERL for a trapped error" "$out"
-printf '0 ON ERROR GOTO 10\n1 PRINT 1/0\n10 PRINT "ERL=";ERL\n' > "$tmp"
+printf '0 ON ERROR GOTO 10\n1 PRINT 1/0\n10 PRINT "ERL=";ERL:END\n' > "$tmp"
 
 # a statement typed at the prompt: no line in the message, and ERL is 65535
 out=$(printf '\nPRINT 1/0\nPRINT ERL\n' | repl | tr '\n' ' ')

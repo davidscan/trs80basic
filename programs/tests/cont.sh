@@ -1,9 +1,11 @@
 #!/bin/sh
 # cont.sh -- CONT after a STOP in the middle of a line goes on with the
 # statement behind the STOP (ROM 1DE4H: 40F7H holds the address of the
-# statement to continue at), and a second CONT, with nothing left to
-# continue, is ?CN (1DE9H-1DEBH).  A CONT that ran the STOP's line twice, or
-# started the line over, passed the suite until 2026-09-24 (M-13).
+# statement to continue at), and a second CONT, once the program has run
+# off its end, ends again at READY: 197EH -> 1DC1H-1DD1H save the end as
+# the CONT point (it was ?CN here until 2026-09-26, audit R-5).  A CONT
+# that ran the STOP's line twice, or started the line over, passed the
+# suite until 2026-09-24 (M-13).
 # Self-checking: exits 1 on a mismatch.  Run from the repo root:
 #     sh programs/tests/cont.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
@@ -19,10 +21,24 @@ READY
 BC
 READY
 >CONT
-?CN ERROR
 READY
 >'
-[ "$out" = "$want" ] || fail "CONT after a mid-line STOP, then ?CN" "$out"
+[ "$out" = "$want" ] || fail "CONT after a mid-line STOP, then CONT at the end" "$out"
+
+# an error handler that runs off the end of the program is ?NR (197EH-
+# 198CH: the 40F2H flag, code 22H), not a silent READY (audit M-2)
+out=$(run '
+10 ON ERROR GOTO 30
+20 ERROR 5
+30 PRINT "H"
+RUN
+')
+want='>RUN
+H
+?NR ERROR IN 30
+READY
+>'
+[ "$out" = "$want" ] || fail "a handler running off the end is ?NR" "$out"
 
 # CONT after END goes on too: END and STOP share 1DB4H-1DD1H, which saves
 # the line and the statement behind the END in 40F5H/40F7H; only the

@@ -79,7 +79,7 @@ out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 want='USR CORE: rom called 0000H, no ROM here
 ?FC ERROR IN 10'
 [ "$rc" = "1" ] && [ "$out" = "$want" ] || fail "ERR path: rc=$rc" "$out"
-printf '10 ON ERROR GOTO 30\n20 DEFUSR=&H7006:X=USR(0)\n30 DEFUSR=&H7003:PRINT USR(4)\n' > "$tmp"
+printf '10 ON ERROR GOTO 30\n20 DEFUSR=&H7006:X=USR(0)\n30 DEFUSR=&H7003:PRINT USR(4):END\n' > "$tmp"
 out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>/dev/null </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = " 8 " ] || fail "core still up after ERR: rc=$rc" "$out"
 
@@ -95,7 +95,7 @@ out=$(TRS80_Z80="$core" TRS80_Z80_TIMEOUT=300 "$here/basic" "$tmp" 2>&1 </dev/nu
 want='USR CORE: no reply within 300 ms; the core is dead for this session, USR is the stub
 ?FC ERROR IN 10'
 [ "$rc" = "1" ] && [ "$out" = "$want" ] || fail "timeout path: rc=$rc" "$out"
-printf '10 ON ERROR GOTO 30\n20 DEFUSR=&H7004:X=USR(0)\n30 DEFUSR=&H7003:PRINT USR(4)\n' > "$tmp"
+printf '10 ON ERROR GOTO 30\n20 DEFUSR=&H7004:X=USR(0)\n30 DEFUSR=&H7003:PRINT USR(4):END\n' > "$tmp"
 out=$(TRS80_Z80="$core" TRS80_Z80_TIMEOUT=300 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 want='USR CORE: no reply within 300 ms; the core is dead for this session, USR is the stub
  4 
@@ -108,7 +108,7 @@ USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argumen
 # afterwards, and nothing from gawk itself on stderr.  Always the reference
 # stub: dying on request is its feature, not a real core's.
 stub="python3 $here/programs/tests/z80_stub.py"
-printf '10 ON ERROR GOTO 40\n20 DEFUSR=&H7003:PRINT USR(4)\n30 FOR I=1 TO 300:NEXT:PRINT USR(5)\n40 PRINT "HANDLER";ERR/2+1;ERL;USR(6)\n' > "$tmp"
+printf '10 ON ERROR GOTO 40\n20 DEFUSR=&H7003:PRINT USR(4)\n30 FOR I=1 TO 300:NEXT:PRINT USR(5)\n40 PRINT "HANDLER";ERR/2+1;ERL;USR(6):END\n' > "$tmp"
 out=$(TRS80_Z80="$stub" Z80_STUB_DIE_AFTER=1 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 want=' 8 
 USR CORE: the core has exited; it is dead for this session, USR is the stub
