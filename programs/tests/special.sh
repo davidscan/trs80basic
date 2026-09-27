@@ -146,6 +146,22 @@ printf '\nLOAD "link.bas"\nRUN\n' > in.txt
 out=$(runto in.txt)
 case $out in *"THROUGH THE LINK"*) ;; *) fail "a symlink to a regular file must load" "$out" ;; esac
 
+# a CHR$(0) in the name: open() and sh see it cut there, so "-" CHR$(0) is
+# stdin and "//dev/zero" CHR$(0) the device; both ?FD, stdin untouched
+# (the 2026-09-26 audit, H-1)
+cat > nul.bas <<'BAS'
+10 ON ERROR GOTO 900:Z$=CHR$(0)
+20 S=1:OPEN "I",1,"-"+Z$
+25 LINE INPUT#1,A$:PRINT "GOT:";A$:END
+30 S=2:CLOAD "//dev/zero"+Z$
+40 PRINT "BOTH REFUSED":END
+900 IF ERR/2+1<>22 THEN PRINT "STEP";S;"GAVE ERROR";ERR/2+1:END
+910 IF S=1 THEN RESUME 30
+920 RESUME NEXT
+BAS
+out=$(echo SECRET | TRS80_DUMB=1 TRS80_Z80= "$here/basic" nul.bas 2>&1)
+[ "$out" = "BOTH REFUSED" ] || fail "a NUL in a file name" "$out"
+
 # nothing connected
 [ -s "$d/hits" ] && fail "the listener saw $(wc -l < "$d/hits") connection(s)" ""
 

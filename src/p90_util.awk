@@ -311,23 +311,31 @@ function rnd_poke(i, b,   lo, mid, hi) {
 # (host_writable), KILL (host_exists).  The batch program named on the
 # command line is the user's own and is not kind-checked: a FIFO there is
 # read once and works (special.sh).
+# A CHR$(0) in a name is refused outright: gawk hands the name to open()
+# and to sh as a C string, so both see it cut at the NUL -- "-" CHR$(0) is
+# stdin, "//dev/zero" CHR$(0) the device -- while every test here sees the
+# whole name (the 2026-09-26 audit, H-1).
 function host_special(f) {
-    return f == "-" || f ~ /^\/inet[46]?\// || f ~ /^\/dev\//
+    return index(f, sprintf("%c", 0)) > 0 || f == "-" || f ~ /^\/inet[46]?\// || f ~ /^\/dev\//
 }
 
 # what f names: "f" a regular file (through a symbolic link), "x" anything
 # else that is there (a directory, a device, a FIFO, a socket, a dangling
 # link), "" nothing.  One shell-out; cmd.exe knows only "is it there".
+# It fails closed: a probe that answers nothing is "x", never "nothing
+# there", and a name holding a NUL is "x" before any probe (H-1, 2026-09-26).
 function host_kind(f,   cmd, s, r) {
+    if (index(f, sprintf("%c", 0))) return "x"
     if (WINNATIVE) {
         if (f ~ /"/) return "x"
         return system("if exist \"" f "\" (exit 0) else (exit 1)") == 0 ? "f" : ""
     }
-    cmd = "if [ -f " shq(f) " ]; then echo f; elif [ -e " shq(f) " ] || [ -L " shq(f) " ]; then echo x; fi"
+    cmd = "if [ -f " shq(f) " ]; then echo f; elif [ -e " shq(f) " ] || [ -L " shq(f) " ]; then echo x; else echo n; fi"
     s = ""
     r = (cmd | getline s)
     close(cmd)
-    return (r > 0) ? s : ""
+    if (r <= 0 || (s != "f" && s != "n")) return "x"
+    return s == "f" ? "f" : ""
 }
 
 function host_writable(f) {
