@@ -20,6 +20,7 @@ cat > "$tmp/val.bas" <<'BAS'
 10 ON ERROR GOTO 100
 20 PRINT VAL("1 2");VAL("1E");VAL(".");VAL("1.5!");VAL("2#");VAL("1 E 3")
 30 PRINT VAL(" -5");VAL("-5");VAL("- 5");VAL("1.2.3");VAL("12AB");VAL("1E-2");VAL("1E+");VAL("")
+35 PRINT VAL("1e5");VAL("2d3");VAL("1.5e");VAL("1E5")
 40 X=7:X=VAL("12%")
 50 PRINT "X KEPT";X:END
 100 PRINT "ERR";ERR/2+1;"IN";ERL:RESUME NEXT
@@ -27,6 +28,7 @@ BAS
 out=$(run "$tmp/val.bas")
 want=" 12  1  0  1.5  2  1000 
  0 -5 -5  1.2  12  .01  1  0 
+ 1  2  1.5  100000 
 ERR 2 IN 40 
 X KEPT 7 "
 [ "$out" = "$want" ] || fail "VAL" "$out"

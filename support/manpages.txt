@@ -1217,7 +1217,8 @@ VAL(a$)   the number at the front of a$, or 0 if there is none
   Reads as much of the string as looks like a number and stops at the
   first character that does not fit, so VAL("12.5X") is 12.5.  Spaces
   inside the number are skipped, as the ROM skips them: VAL("1 2") is 12.
-  Exponent notation is understood: VAL("-3E2") is -300.  A sign counts
+  Exponent notation is understood: VAL("-3E2") is -300 -- with an
+  upper-case E or D only, as the ROM reads it; VAL("3e2") is 3.  A sign counts
   only as the very first character, so VAL(" -5") is 0.  A trailing ! or
   # is accepted; a trailing % is ?SN, as on the machine.
   The result is DOUBLE precision unless the text carries an E exponent or

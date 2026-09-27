@@ -112,8 +112,12 @@ function fmtnum(x, ty,   s, ax, t, nd, ds, e, ip, m) {
 #     otherwise (0EEE-0EEF, JP P,1997H).  VAL always enters there (2AD8H),
 #     so VAL("12%") is ?SN.  READ and INPUT enter there for a # variable;
 #     a variable's precision is not tracked here, so they never do.
-# Lower-case e/d is kept as an exponent: the Model I keyboard had no
-# lower case to type, a terminal types nothing else.
+#   * only an upper-case E or D is an exponent (0E8CH CP 45H, 0E9FH CP
+#     44H): VAL("1e5") is 1, and DATA 1e5 read into a number is ?SN as
+#     any letter behind a number is (the reader stops in front of it).
+#     Until 2026-09-27 a lower-case letter was taken too (the 2026-09-26
+#     audit, L-20); a program line is upper-cased by the cruncher, so
+#     only VAL, DATA and typed input ever see one.
 function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, expl, sig, sx) {
     i = 1; m = ""; ex = ""; isint = !dp; expd = 0; expl = 0; sx = ""
     c = substr(s, 1, 1)
@@ -126,8 +130,8 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, expl, sig, s
             if (dot) break
             dot = 1; isint = 0; m = m c; i++; continue
         }
-        if (c ~ /^[EeDd]$/) {
-            expd = (c ~ /^[Dd]$/); expl = 1; i++
+        if (c == "E" || c == "D") {
+            expd = (c == "D"); expl = 1; i++
             while (substr(s, i, 1) ~ /^[ \t\n]$/) i++
             c = substr(s, i, 1)
             if (c == "-" || c == "+") { exs = c; i++ }
