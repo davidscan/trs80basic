@@ -8587,38 +8587,47 @@ function raise_host(c) { if (E) return; raise(c); HINTHOST = 1 }
 
 # LEVEL II-style number formatting: leading space or -, trailing space,
 # BY TYPE, since 2026-09-26 (L-16): an integer in full; a single to 6
-# significant digits, no leading zero on a fraction, E notation for the
-# extremes (so a single 1000000 is 1E+06, as on the machine); a double
-# to 16 significant digits with D as its exponent letter (the manual:
-# "stored with 17 digits but printed out with only 16"; Barden shows
-# 1.23456789D+18).  Until then every exact integer below 1e15 printed
-# in full, because values carried no type.
-# The last digit is rounded HALF UP on the magnitude: the ROM scales the
-# value to six integer digits, adds .5 and truncates (12EA-12F0).  sprintf
-# rounds an exact tie to even (100000.5 -> 100000, 1/512 -> .00195312), so
-# a following digit of 5 is rounded here, on the decimal digits; the
-# double path does the same at its seventeenth.
-function fmtnum(x, ty,   s, ax, t) {
+# significant digits, a double to 16 with D as its exponent letter (the
+# manual: "stored with 17 digits but printed out with only 16"; Barden
+# shows 1.23456789D+18).  Until then every exact integer below 1e15
+# printed in full, because values carried no type.
+# The ROM's converter (103DH-1099H) scales the value by tens until it
+# holds six integer digits, 99999.95 <= V < 999999.5 (1201H-1268H; the
+# constants at 1229H and 1253H, not the round numbers Farvour's comments
+# name), sixteen for a double (1E15 <= V < 1E16, the constants at 136CH
+# and 1374H), counting the shifts, then adds .5 and truncates (12EA-12F0,
+# 12B4H): the last digit is rounded HALF UP on the magnitude.  sprintf
+# rounds an exact tie to even (100000.5 -> 100000, 1/512 -> .00195312),
+# so a following digit of 5 is rounded here, on the decimal digits.
+# Then the shift count decides the form (104BH-1057H, D = 7 or 11H):
+# fixed notation only while the decimal exponent e is -2 <= e <= 5 (15
+# for a double), so .01 and 999999 are fixed and .001 is 1E-03, 1000000
+# is 1E+06, as on the machine (Richcraft vol. 2 p.97: 7.8125E-03).
+# Until 2026-09-27 every value below .01 was fixed (.00195313; the
+# 2026-09-26 audit, M-10).  The exponent letter is E or D by type
+# (1075H-1079H), the exponent two digits and signed; trailing zeros
+# and a bare point are dropped (1066H-106EH), so 1E-03, not 1.00000E-03.
+function fmtnum(x, ty,   s, ax, t, nd, ds, e, ip, m) {
+    if (ty == "I") return (x < 0 ? "" : " ") sprintf("%d", x) " "
     ax = (x < 0) ? -x : x
-    if (ty == "I") s = sprintf("%d", x)
-    else if (ty == "D") {
-        t = sprintf("%.16e", ax)                 # d.dddddddddddddddde+xx: 17 digits
-        if (substr(t, 18, 1) == "5")
-            x = (x < 0 ? -1 : 1) * (((substr(t, 1, 1) substr(t, 3, 15)) + 1) "e" (substr(t, 20) - 15))
-        s = sprintf("%.16g", x)
-        sub(/e/, "D", s)
-        sub(/^0\./, ".", s)
-        sub(/^-0\./, "-.", s)
-    } else {
-        t = sprintf("%.16e", ax)                 # d.dddddddddddddddde+xx
-        if (substr(t, 8, 1) == "5")
-            x = (x < 0 ? -1 : 1) * (((substr(t, 1, 1) substr(t, 3, 5)) + 1) "e" (substr(t, 20) - 5))
-        s = sprintf("%.6g", x)
-        sub(/e/, "E", s)
-        sub(/^0\./, ".", s)
-        sub(/^-0\./, "-.", s)
+    if (ax == 0) return " 0 "
+    nd = (ty == "D") ? 16 : 6
+    t = sprintf("%.16e", ax)                 # d.dddddddddddddddde+xx: 17 digits
+    if (substr(t, nd + 2, 1) == "5")         # the digit behind the last kept one: half up
+        ax = ((substr(t, 1, 1) substr(t, 3, nd - 1)) + 1) "e" (substr(t, 20) - (nd - 1))
+    t = sprintf("%." (nd - 1) "e", ax)       # no tie is left, so C's rounding agrees
+    ds = substr(t, 1, 1) substr(t, 3, nd - 1); e = substr(t, nd + 3) + 0
+    if (e < -2 || e > nd - 1) {
+        m = substr(ds, 2); sub(/0+$/, "", m)
+        s = substr(ds, 1, 1) (m == "" ? "" : "." m) (ty == "D" ? "D" : "E") \
+            (e < 0 ? "-" : "+") sprintf("%02d", e < 0 ? -e : e)
+    } else if (e == nd - 1) s = ds
+    else {
+        ip = e + 1                           # digits in front of the point: 0 or -1 means none
+        s = (ip <= 0 ? "" : substr(ds, 1, ip)) "." (ip < 0 ? "0" : "") substr(ds, (ip < 1 ? 1 : ip + 1))
+        sub(/0+$/, "", s); sub(/\.$/, "", s)
     }
-    return (x < 0 ? s : " " s) " "
+    return (x < 0 ? "-" : " ") s " "
 }
 
 # The ROM's ASCII-to-binary routine (0E65H/0E6CH), the one reader behind
