@@ -308,7 +308,7 @@ function st_new(   x) {
     rebuild()
     clear_vars()
     FSN = 0; GSN = 0; NDATA = 0; DP = 1; DATADIRTY = 1
-    CONTOK = 0; LASTLN = 0; EHANDLER = 0; INHANDLER = 0; ERRV = 0; ERLV = 0
+    CONTOK = 0; LASTLN = 0; EHANDLER = 0; INHANDLER = 0   # ERR and ERL survive NEW as RUN (1B49H-1B77H, audit L-2)
     TRACE = 0                       # ROM 1B50: NEW calls 1DF8H, "turn TRACE off"
     HALT = 1
 }

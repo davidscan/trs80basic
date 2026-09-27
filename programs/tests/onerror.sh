@@ -118,5 +118,37 @@ READY
 >'
 [ "$out" = "$want" ] || fail "RESUME at READY after the handler died is ?RW" "$out"
 
+# RESUME zeroes ERR (1FB7H-1FB8H store 0 in 409AH) and leaves ERL; RUN
+# and NEW keep both (1B49H-1B77H never touch 409AH or 40EAH); ERROR n
+# with anything behind n is the driver's ?SN (1FF7H RET NZ).  Audit L-4,
+# L-2, L-5.
+out=$(printf '\n10 ON ERROR GOTO 100\n20 ERROR 7\n30 PRINT "AFTER";ERR;ERL:END\n100 PRINT "IN";ERR;ERL:RESUME NEXT\nRUN\n10 X=1/0\nRUN\nDELETE 10-100\nRUN\nPRINT ERR;ERL\nNEW\nPRINT ERR;ERL\nERROR 5 X\n' \
+    | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | sed -n '/^>RUN/,$p')
+want='>RUN
+IN 12  20 
+AFTER 0  20 
+READY
+>10 X=1/0
+>RUN
+?/0 ERROR IN 10
+READY
+>DELETE 10-100
+READY
+>RUN
+READY
+>PRINT ERR;ERL
+ 20  10 
+READY
+>NEW
+READY
+>PRINT ERR;ERL
+ 20  10 
+READY
+>ERROR 5 X
+?SN ERROR
+READY
+>'
+[ "$out" = "$want" ] || fail "RESUME zeroes ERR; RUN and NEW keep ERR and ERL; ERROR 5 X" "$out"
+
 rm -f "$tmp"
 echo "ONERROR OK"

@@ -2001,7 +2001,7 @@ function st_new(   x) {
     rebuild()
     clear_vars()
     FSN = 0; GSN = 0; NDATA = 0; DP = 1; DATADIRTY = 1
-    CONTOK = 0; LASTLN = 0; EHANDLER = 0; INHANDLER = 0; ERRV = 0; ERLV = 0
+    CONTOK = 0; LASTLN = 0; EHANDLER = 0; INHANDLER = 0   # ERR and ERL survive NEW as RUN (1B49H-1B77H, audit L-2)
     TRACE = 0                       # ROM 1B50: NEW calls 1DF8H, "turn TRACE off"
     HALT = 1
 }
@@ -4722,7 +4722,10 @@ function run_start(n, keepfiles, given) {
     clear_vars(keepfiles)
     if (DATADIRTY) datascan()
     DP = 1
-    EHANDLER = 0; INHANDLER = 0; ERRV = 0; ERLV = 0
+    # 1B6EH-1B77H clear the handler flag, the ON ERROR address and the
+    # CONT point; ERR (409AH) and ERL (40EAH) are left as they were
+    # (until 2026-09-26 RUN zeroed them, audit L-2)
+    EHANDLER = 0; INHANDLER = 0
     CONTOK = 0
     if (given) { jumpline(n); return }
     if (NL == 0) { HALT = 1; return }
@@ -4795,6 +4798,7 @@ function st_error(   v, n) {
     # System manual p.156), so past 23 -- the gaps and 51-70 alike -- is
     # ?UE.  Until 2026-09-21 they were 24-31 and ERROR 24-31 named them.
     n = byteconv(num(v)); if (E) return
+    if (!at_stmt_end()) return  # 1FF7H RET NZ: the driver's ?SN for ERROR 5 X (audit L-5)
     if (n == 0) { raise(5); return }
     if (n > NERRC) { raise(20); return }
     raise(n)
@@ -4807,6 +4811,7 @@ function st_error(   v, n) {
 function st_resume(   p, ty, tx) {
     if (!INHANDLER) { raise(19); return }
     INHANDLER = 0
+    ERRV = 0                    # 1FB7H-1FB8H: the error code cell 409AH is zeroed, so ERR is 0 (audit L-4)
     PLACED = 1
     if (TY[CK, CP] == "i" && TK[CK, CP] == "NEXT") {
         CP++
