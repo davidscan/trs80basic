@@ -273,55 +273,76 @@ function st_delete(   i, ln, n, hits) {
     to_ready()
 }
 
-# ROM 2008-2036.  A bare AUTO is 10,10.  One parameter leaves the pushed
-# default in HL, so the increment is 10 (2012-2013).  A TRAILING COMMA with
-# nothing after it keeps the increment already in 40E4H -- what the last
-# AUTO left there (2019-201D) -- rather than going back to 10.  Anything
-# else after the comma is ?SN at 2022.  An increment of zero is ?FC at 2028.
-# Both numbers are converted by 1E5AH, which is ?SN as soon as the running
-# total passes 6552 (1E62-1E66): that is where the 65529 line limit comes
-# from, and it makes AUTO 65530 an error rather than a silent no-op.
-function st_auto(   start, inc, line, k) {
+# ROM 1E4FH: a line number where "." may stand for the current line
+# (40ECH, LASTLN); otherwise 1E5AH's reading (lineno_arg, p70: no digits
+# is 0, past 65529 is ?SN).  LIST and DELETE's range (1B17H, 1B22H) and
+# AUTO's start (200EH) take it; AUTO's increment (201FH) does not.
+function lineno_dot() {
+    if (TY[CK, CP] == "o" && TK[CK, CP] == ".") { CP++; return LASTLN }
+    return lineno_arg()
+}
+
+# ROM 2008-2036.  A bare AUTO is 10,10 (200CH).  The start is read by
+# 1E4FH (200EH): "." is the current line, and a bare comma is 0 -- so
+# AUTO ,20 numbers from 0.  Only a comma may follow the start (2016H:
+# RST 08H, so AUTO 10 X is ?SN), and one parameter leaves the pushed
+# default in HL, so the increment is 10 (2012-2013).  A TRAILING COMMA
+# with nothing after it keeps the increment already in 40E4H -- what the
+# last AUTO left there (2019-201D) -- rather than going back to 10.
+# Anything else after the comma is ?SN at 2022.  An increment of zero is
+# ?FC at 2028.  Both numbers are converted by 1E5AH, which is ?SN as soon
+# as the running total passes 6552 (1E62-1E66): that is where the 65529
+# line limit comes from, and it makes AUTO 65530 an error rather than a
+# silent no-op.  Until 2026-09-27 "." was ignored, AUTO ,20 began at 10
+# and AUTO 10 X ran (the 2026-09-26 audit, M-7).
+function st_auto(   start, inc) {
     start = 10; inc = 10
-    if (TY[CK, CP] == "n") {
-        start = int(TK[CK, CP] + 0); CP++
-        if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
+    if (!at_stmt_end()) {
+        start = lineno_dot(); if (E) return
+        if (!at_stmt_end()) {
+            if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
             CP++
-            if (TY[CK, CP] == "n") { inc = int(TK[CK, CP] + 0); CP++ }
-            else if (at_stmt_end()) inc = AUTOINC       # 40E4H, the last one used
-            else { raise(2); return }
+            if (at_stmt_end()) inc = AUTOINC        # 40E4H, the last one used
+            else {
+                inc = lineno_arg(); if (E) return
+                if (!at_stmt_end()) { raise(2); return }
+            }
         }
     }
-    if (start > 65529 || inc > 65529) { raise(2); return }
     if (inc < 1) { raise(5); return }
     auto_run(start, inc)
     to_ready()
 }
 
-# the AUTO prompt loop; its state is PEEKable through the system variable
-# window (p75: 40E1H flag, 40E2/E3H line, 40E4/E5H increment)
-function auto_run(start, inc,   line, k) {
+# The AUTO prompt loop (ROM 1A39-1A73); its state is PEEKable through the
+# system variable window (p75: 40E1H flag, 40E2/E3H line, 40E4/E5H
+# increment).  Each pass prints the number, "*" if the line exists (1A4BH)
+# and takes a line.  BREAK ends AUTO (1A58H -> 1A5AH); nothing else does:
+# ENTER alone is an entry with no body, which DELETES the line if it is
+# there and is silent if not (2FEBH -> 1A98H, then 1AADH's deletion
+# path), and AUTO goes on to the next number.  The line is bumped BEFORE
+# the entry is stored (1A60-1A6C), and if the bumped number is 65529 or
+# more, or wraps, the entry just typed is DISCARDED and AUTO ends at
+# READY.  In a pipe, where there is no BREAK key, the end of input ends
+# AUTO (ruled R-6, 2026-09-26; an empty line ended it here until
+# 2026-09-27, and the 65529 entry was kept).
+function auto_run(start, inc,   line, k, bumped) {
     AUTOON = 1; AUTOINC = inc
-    while (start <= 65529) {
+    for (;;) {
         AUTOLINE = start
         kb_mode("line")
         k = (start in prog)
         s_puts(start (k ? "*" : " "))
         line = rl_read()
         if (EOFQUIT || RLCANCEL) break
-        if (line == "") { if (!k) break }
-        else storeline(start, line)
-        start += inc
+        bumped = start + inc
+        if (bumped >= 65529) break
+        enter_line(start, line)
+        start = bumped
     }
     AUTOON = 0
 }
 
-# ROM 1B49H: RET NZ, "syntax error if NEW XX" -- the byte behind NEW is
-# tested BEFORE anything is erased, so a typo at READY (NEW X, NEWS,
-# NEW 10) keeps the unsaved program.  Until 2026-09-27 the tail was never
-# looked at: NEW ends the run, and the driver's tail test skips a halted
-# statement (the 2026-09-26 audit, M-4).  Then 1B4AH clears the screen
-# (01C9H) before the program goes.
 function st_new(   x) {
     if (!at_stmt_end()) { raise(2); return }
     s_cls()

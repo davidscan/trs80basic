@@ -41,9 +41,11 @@ printf '10 PRINT "X":LIST 20:PRINT "NOT REACHED"\n20 REM TWENTY\n30 PRINT "NOR T
 out=$(batch list.bas | tr '\n' ' '); [ "$out" = "X 20 REM TWENTY " ] || fail "LIST in a program" "$out"
 printf '10 PRINT "X":LLIST:PRINT "NOT REACHED"\n' > list.bas
 out=$(batch list.bas); [ "$out" = "X" ] || fail "LLIST in a program" "$out"
-out=$(printf '\n10 PRINT "X":AUTO 100:PRINT "NOT REACHED"\nRUN\n\nPRINT "AT THE PROMPT"\n' | repl | tr '\n' ' ')
+# (AUTO ends in a pipe only at the end of input or at the ROM's own limit:
+# the entry whose bumped number reaches 65529 is discarded, 1A60-1A6C)
+out=$(printf '\n10 PRINT "X":AUTO 65518:PRINT "NOT REACHED"\nRUN\nREM A\n\nPRINT "AT THE PROMPT"\n' | repl | tr '\n' ' ')
 case $out in *"NOT REACHED"*) fail "AUTO in a program carried on" "$out" ;; esac
-case $out in *"X 100 "*"READY"*"AT THE PROMPT"*) ;; *) fail "AUTO in a program" "$out" ;; esac
+case $out in *"X 65518 REM A 65528  READY AT THE PROMPT"*) ;; *) fail "AUTO in a program" "$out" ;; esac
 
 # --- DELETE's range rules: every refusal leaves all four lines
 out=$(printf '\n10 REM\n20 REM\n30 REM\n40 REM\nDELETE 10-25\nDELETE -\nDELETE 10-\nDELETE\nDELETE 50\nDELETE 40-10\nDELETE 10,20\nLIST\n' | repl | tr '\n' ' ')

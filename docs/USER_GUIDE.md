@@ -271,7 +271,7 @@ Things worth knowing even if you know Level II:
   not found" as on the machine. `ERROR n` raises one of the first 23 on
   purpose; past 23 it is `?UE` (disk errors cannot be simulated).
 - `INPUT` is not allowed in immediate mode (`?ID`), like the ROM.
-- `AUTO` shows `*` for existing lines; ENTER keeps the old line; BREAK exits.
+- `AUTO` shows `*` for existing lines; ENTER alone deletes that line and goes on; only BREAK exits.
 - `EDIT` does not exist here (by design — you have a real editor and
   `CSAVE`d text files).
 
@@ -1276,8 +1276,12 @@ AUTO [n[,i]]   number lines automatically as you type them
   the last AUTO used instead of going back to 10.
   A step of 0 is ?FC.  Neither number may pass 65529, the highest line
   there is; beyond that it is ?SN, where the number is read.
-  Stop it with BREAK.  If the offered number already exists, the
-  existing line is shown so it is not overwritten unnoticed.
+  Stop it with BREAK; nothing else ends it.  An offered number that
+  already exists is marked with * (100*): what you type replaces that
+  line, and ENTER alone DELETES it (an empty entry, as at the > prompt)
+  before AUTO goes on.  AUTO .,10 starts at the current line and
+  AUTO ,20 at line 0.  When the next number would reach 65529 the line
+  just typed is discarded and AUTO ends.
   Example: AUTO
   Example: AUTO 100,5
 ```
