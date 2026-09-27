@@ -365,6 +365,17 @@ def completion(check):
         check('\x1b[2K' not in out and 'foo' not in out, 'a name holding a control byte is never completed', out)
         b.send('\x15', 0.3)
         b.drain(0.2)
+        # several matches share a prefix sh would take apart: it has no
+        # one quoted word to become, so it is listed, not inserted (L-21)
+        open(os.path.join(d, 'zmq;touch INJECTED;a'), 'w').close()
+        open(os.path.join(d, 'zmq;touch INJECTED;b'), 'w').close()
+        b.send('cat zm\t', 0.5)
+        out = b.drain(0.3)
+        check('MATCHES:' in out, 'several matches sh would split are listed for cat', out)
+        b.send('\r', 0.6)
+        b.drain(0.3)
+        check(not os.path.exists(os.path.join(d, 'INJECTED')),
+              'an unquotable common prefix is never inserted into a cat line', out)
         b.send('dir\r', 0.6)
         out = b.drain(0.3)
         check('zesc.[2Kfoo' in out and '\x1b[2K' not in out, 'dir shows a control byte as a full stop', out)

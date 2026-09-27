@@ -804,7 +804,8 @@ function rl_clear_screen() {
 # name holding a control byte is never offered, since on the screen it
 # could hide the rest of the line; and on a cat or dir line, which the
 # shell parses, a unique match the shell would take apart is inserted
-# quoted (shq), so Enter runs cat on that one file.
+# quoted (shq), so Enter runs cat on that one file; one it cannot quote
+# (several matches, or inside a "...") is listed, never inserted.
 function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, out, bnd, name, q) {
     oldl = length(RLS); oldp = RLP
     nm = 0; bnd = 0
@@ -845,6 +846,11 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
         rl_draw(oldl, oldp)
         return
     }
+    # any other extension on a cat or dir line that sh would take apart
+    # (several matches, or inside a "...") has no one quoted word to
+    # become: it is not inserted, the candidates are listed instead
+    # (the 2026-09-26 audit, L-21)
+    if (RLS ~ /^[ \t]*(cat|dir)[ \t]/ && add ~ /[^A-Za-z0-9._\/+,:@%=-]/) add = ""
     if (add != "") {
         if (oldl + length(add) > RLMAX) return
         RLS = substr(RLS, 1, RLP) add substr(RLS, RLP + 1)
