@@ -86,4 +86,34 @@ B
 READY
 >'
 [ "$out" = "$want" ] || fail "an error typed at READY keeps the CONT point" "$out"
+
+# LIST and LLIST keep the CONT point too: LIST never writes 40F7H
+# (2B2E-2B73; its writers are 1B77H, 1DD1H and 19CDH), so BREAK, LIST,
+# CONT works.  Until 2026-09-27 a typed LIST made CONT ?CN (the
+# 2026-09-26 audit, M-5).  DELETE goes through 1B5DH, so it still clears it.
+out=$(run '\n10 PRINT "A":STOP:PRINT "B"\n20 PRINT "C"\nRUN\nLIST 20\nLLIST\nCONT\nRUN\nDELETE 20\nCONT\n')
+want='>RUN
+A
+BREAK IN 10
+READY
+>LIST 20
+20 PRINT "C"
+READY
+>LLIST
+READY
+>CONT
+B
+C
+READY
+>RUN
+A
+BREAK IN 10
+READY
+>DELETE 20
+READY
+>CONT
+?CN ERROR
+READY
+>'
+[ "$out" = "$want" ] || fail "CONT after a typed LIST or LLIST" "$out"
 echo "CONT OK"

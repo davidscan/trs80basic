@@ -206,7 +206,13 @@ function parse_range(   any) {
 # line table that had just been rebuilt under it -- 10 PRINT "A":20 DELETE
 # 10:30 PRINT "B" skipped line 30 -- and a CLOADed second part started
 # somewhere past its first lines (the 2026-09-19 audit, H-8).
-function to_ready() { HALT = 1; CONTOK = 0 }
+# The CONT point is NOT touched: LIST never writes 40F7H (2B2E-2B73); its
+# writers are RUN's initializer (1B77H), STOP/END (1DD1H) and the error
+# routine (19CDH).  So BREAK, LIST, CONT -- the period debugging loop --
+# works; until 2026-09-27 the LIST made CONT ?CN (the 2026-09-26 audit,
+# M-5).  DELETE and AUTO's stores go through 1B5DH (run_reset), CLOAD and
+# LOAD through NEW's initializer (prog_load), and those clear it.
+function to_ready() { HALT = 1 }
 
 function st_list(   i, ln) {
     parse_range()
