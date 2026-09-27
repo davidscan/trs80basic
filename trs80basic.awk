@@ -2103,7 +2103,7 @@ function st_memory(arg) {
 
 # --- ext metacommand: gate for extensions that damaged OCR could spell ------
 function st_ext(arg) {
-    if (arg == "") { t_man("EXT " (EXTON ? "ON" : "OFF") " (gated: bare/prompt-only INPUT, INPUT "prompt",var, DIM of a scalar, REM META:)"); return }
+    if (arg == "") { t_man("EXT " (EXTON ? "ON" : "OFF") " (gated: text at a no-variable INPUT, INPUT \"prompt\",var, REM META:)"); return }
     if (arg == "on" || arg == "1") { EXTON = 1; return }
     if (arg == "off" || arg == "0") { EXTON = 0; return }
     t_man("USAGE: ext on|off|1|0")
@@ -6854,14 +6854,20 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
         else if (EXTON && TY[CK, CP] == "o" && TK[CK, CP] == ",") { pq = 2; CP++ }
         else if (!(EXTON && at_stmt_end())) { raise(2); return }
     }
-    if (EXTON && at_stmt_end()) {
-        # EXT (gated): INPUT with no variable -- the pause idiom
-        # (INPUT"PRESS ENTER";).  Prompt, read a line, discard it.
+    if (at_stmt_end()) {
+        # INPUT with no variable -- the pause idiom (INPUT"PRESS ENTER";,
+        # bare INPUT) -- is the ROM's: 21DBH reads the answer before any
+        # variable, and ENTER alone skips to the end of the statement
+        # (21E8H -> 1F04H); anything typed then meets no variable, ?SN.
+        # EXT (gated): under ext on, typed text is discarded instead, and
+        # INPUT "P" with no ";" is taken (above).  It was all behind ext
+        # until 2026-09-26 (audit R-2).
         if (prompt != "") s_puts(prompt)
         if (pq != 2) s_puts("? ")
         line = rl_read()
         if (RLCANCEL) { dobreak(); return }
         if (EOFQUIT) { if (BATCH) batch_ineof(); STOPPED = 1; return }
+        if (line != "" && !EXTON) raise(2)
         return
     }
     # The targets are only LOCATED here.  Each one is resolved -- its
@@ -7097,9 +7103,14 @@ function st_dim(   name, nd, i, v, sz) {
         if (TY[CK, CP] != "i") { raise(2); return }
         name = TK[CK, CP]; CP++
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) {
-            # EXT (gated): DIM of a scalar (DIM Z!,V!,L$ declaration lists,
-            # period habit for variable-lookup speed) -- accepted no-op
-            if (EXTON && (at_stmt_end() || (TY[CK, CP] == "o" && TK[CK, CP] == ","))) {
+            # DIM of a scalar (DIM Z!,V!,L$ declaration lists, the period
+            # habit for variable-lookup speed) is the ROM's: 2608H locates
+            # the name in create mode and 2664H takes the simple-variable
+            # path, so the variable is made (MEM falls) and holds 0 or "".
+            # It was an EXT behind `ext` until 2026-09-26 (audit R-1).
+            if (at_stmt_end() || (TY[CK, CP] == "o" && TK[CK, CP] == ",")) {
+                if (strname(name)) { if (!(name in SV)) SV[name] = "" }
+                else if (!(name in NV)) NV[name] = 0
                 if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
                 return
             }

@@ -544,8 +544,10 @@ Honest list, stated as current behavior:
   reads as Disk BASIC reads it.
 - **`ext on` (EXT gate).** Three things that valid Level II rejects, or
   never does, are accepted only when switched on (`ext on` or
-  `TRS80_EXT=1`): the bare `INPUT"PRESS ENTER";` pause idiom, `DIM` of
-  scalars (declaration lists), and `REM META:` directives (below). Off by
+  `TRS80_EXT=1`): text typed at a no-variable `INPUT"PRESS ENTER";`
+  (discarded rather than `?SN`), `INPUT "prompt",var`, and `REM META:`
+  directives (below). The pause idiom itself and `DIM` of a scalar are
+  the ROM's and need no switch. Off by
   default so that damaged OCR listings still fail loudly — the interpreter
   doubles as a strict `?SN` oracle.
 - **`REM META:` directives** (EXT, gated as above). A remark that begins
@@ -871,8 +873,10 @@ INPUT ["prompt";] var[,var...]   read values typed at the keyboard
   the 241st key is refused (that goes for program lines and commands
   too).  Piped input has no cursor to stop, so a longer line is cut at
   240 and one line on stderr says so.  LOAD of a file has no such limit.
-  EXT (needs `ext on` / TRS80_EXT=1): INPUT with no variable at all --
-  INPUT"PRESS ENTER"; -- prompts, waits for ENTER and discards the line.
+  INPUT with no variable at all -- INPUT"PRESS ENTER"; or a bare INPUT --
+  prompts and waits for ENTER, as the ROM does; anything typed before
+  ENTER is ?SN.  EXT (needs `ext on` / TRS80_EXT=1): typed text is
+  discarded instead, and INPUT "PRESS ENTER" with no ";" is taken too.
   EXT (needs `ext on` / TRS80_EXT=1): INPUT "prompt",var -- the later
   Microsoft BASICs' form -- is taken and drops the "? ", for a prompt
   that ends in its own punctuation.  Level II has no such form.
@@ -989,8 +993,9 @@ DIM name(d[,d...])   declare an array and its bounds
   reference.  DIM after that raises ?DD ERROR (duplicate definition), so
   DIM early -- before the first use, not after.
   Numeric elements start at 0 and string elements at "".
-  EXT (needs `ext on` / TRS80_EXT=1): scalar names in the list
-  (DIM Z,V,L$) are accepted as declarations and ignored.
+  A plain name in the list (DIM Z,V,L$) creates that variable, holding
+  0 or "", as the ROM does: the period habit of declaring variables
+  early so the ones used most are found first.
   Example: DIM A(20),B$(5,5)
   Example: DIM G(2,2):G(1,2)=5:PRINT G(1,2)    ->  5
 ```
@@ -2549,8 +2554,8 @@ ext on | off   enable or disable the gated extensions
 ext            report the current state
   The extensions are small conveniences that real Level II does not
   have, kept behind this switch so that default behavior stays
-  faithful.  Currently gated: INPUT with a prompt but no variable,
-  INPUT "prompt",var (a comma behind the prompt), DIM of a scalar name,
+  faithful.  Currently gated: text typed at an INPUT with no variable
+  (discarded, not ?SN), INPUT "prompt",var (a comma behind the prompt),
   and REM META: directives (see: man REM).
   Off by default.  The environment variable TRS80_EXT=1 turns them on
   at startup instead.

@@ -74,5 +74,23 @@ GOT 4 [FOUR]
 Z= 8 "
 [ "$out" = "$want" ] || fail "the retype message is ?REDO" "$out"
 
+# INPUT with no variable is the ROM's pause (21DBH reads the answer
+# first; ENTER alone skips to 1F04H), no ext needed; typed text meets no
+# variable, ?SN (audit R-2).  DIM of a plain name makes the variable,
+# 0 or "" (2608H create mode, 2664H), and costs memory (audit R-1).
+cat > "$tmp" <<'BAS'
+10 M=0:M=MEM:DIM X,Y$:PRINT M-MEM;X;"[";Y$;"]"
+20 INPUT "PRESS ENTER";:INPUT:PRINT "PAUSED"
+30 INPUT "AGAIN";
+BAS
+out=$(printf '\n\nTYPED\n' | TRS80_Z80= "$here/basic" "$tmp" 2>&1)
+want=" 13  0 []
+PRESS ENTER? 
+? 
+PAUSED
+AGAIN? TYPED
+?SN ERROR IN 30"
+[ "$out" = "$want" ] || fail "INPUT with no variable, DIM of a scalar" "$out"
+
 rm -f "$tmp"
 echo "INPUT OK"
