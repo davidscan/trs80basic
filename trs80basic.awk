@@ -4944,6 +4944,11 @@ function st_clear(   v, ty, tx, n) {
         # L-4).
         n = bigint(num(v)); if (E) return
         if (n < 0) { raise(5); return }
+        # the statement must end here (1E80H-1E82H, RET NZ to the driver's
+        # ?SN) before the string area is placed or anything is cleared:
+        # CLEAR 100 X keeps the variables.  Until 2026-09-27 the clear ran
+        # first and the X was ?SN afterwards (the 2026-09-26 audit, L-11).
+        if (!at_stmt_end()) { raise(2); return }
         if (!HOSTMEM) {                     # `memory host` (EXT): no string area to place, any count
             if (n > HIMEM) { raise_host(7); return }
             pm_sync(); pm_truncnote()
