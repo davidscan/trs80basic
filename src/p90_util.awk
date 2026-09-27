@@ -280,8 +280,14 @@ function bfloor(x,   f) {
 # the period nibble idiom V/16 AND 15 yields the high hex digit and
 # CINT(D/256) the high byte.  Rounding to nearest (until 2026-09-19) made
 # both wrong for any fraction of .5 or more.
+# A DOUBLE is a single first: CINT (0A7FH) calls CSNG's tail for one
+# (0A87H CALL NC,0AB9H), which rounds the fourth mantissa byte half up
+# (0796H), and only then converts to 16 bits.  So CINT(2.9999999#) is
+# 3 and CINT(32767.9999999#) is ?OV, as on the machine (ROM bug 5a's
+# mechanism; the 2026-09-26 audit, L-8).  sround leaves a single or an
+# integer as it is.  Since 2026-09-27.
 function to16(x,   r) {
-    r = bfloor(x)
+    r = bfloor(sround(x))
     if (r > 32767 || r < -32768) { raise(6); return 0 }
     return r
 }

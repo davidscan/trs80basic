@@ -108,6 +108,39 @@ function tresult(t, x) {
     return t x
 }
 
+# INT as the ROM's 0B37H: an integer is returned as it is; below 32768
+# in magnitude the value goes through the 16-bit conversion (0B3DH for a
+# single, 0B5FH JP C,0A7FH for a double) and comes back an INTEGER --
+# for a double that conversion is CSNG first (0A87H -> 0AB9H -> 0796H),
+# so INT(2.9999999#) is 3 and INT(32767.9999999#), which rounds to
+# 32768, is ?OV (0AA3H -> 07B2H; only a rounded -32768 is taken, 0AACH):
+# ROM bug 5a's mechanism.  From 32768 up the integer part is taken in
+# the value's own type (0B40H's 24-bit conversion for a single, 0B78H
+# for a double), exactly.  Until 2026-09-27 INT floored the raw value
+# and kept its type (the 2026-09-26 audit, L-8).  FIX (0B26H) is INT of
+# the magnitude, negated back (097BH: an integer -32768 overflows into
+# a single at 0C5BH).
+function fn_int(v,   t, x) {
+    t = vtype(v); if (t == "I") return v
+    x = num(v)
+    if (x < 32768 && x >= -32768) {
+        x = sround(x)
+        if (x >= 32768) { raise(6); return "NI0" }
+        return "NI" bfloor(x)
+    }
+    return "N" t bfloor(x)
+}
+
+function fn_fix(v,   t, x, r) {
+    t = vtype(v); if (t == "I") return v
+    x = num(v)
+    if (x >= 0) return fn_int(v)
+    r = fn_int("N" t (-x)); if (E) return "NI0"
+    t = vtype(r); x = -num(r)
+    if (t == "I" && x < -32768) t = "S"
+    return "N" t x
+}
+
 function e_mul(   v, r, op, x, d, t) {
     v = e_un()
     while (!E && TY[CK, CP] == "o" && (TK[CK, CP] == "*" || TK[CK, CP] == "/")) {
@@ -361,8 +394,8 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     else { raise(2); return "NI0" }
 
     if (name == "ABS") { x = numarg(a1, na); if (E) return "NI0"; return "N" vtype(a1) (x < 0 ? -x : x) }
-    if (name == "INT") { x = numarg(a1, na); if (E) return "NI0"; return "N" vtype(a1) bfloor(x) }
-    if (name == "FIX") { x = numarg(a1, na); if (E) return "NI0"; return "N" vtype(a1) int(x) }
+    if (name == "INT") { x = numarg(a1, na); if (E) return "NI0"; return fn_int(a1) }
+    if (name == "FIX") { x = numarg(a1, na); if (E) return "NI0"; return fn_fix(a1) }
     if (name == "SGN") { x = numarg(a1, na); if (E) return "NI0"; return "NI" (x > 0 ? 1 : (x < 0 ? -1 : 0)) }
     if (name == "SQR") { x = numarg(a1, na); if (E) return "NI0"; if (x < 0) { raise(5); return "NI0" }; return "NS" sround(sqrt(x)) }
     if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_sin(sfl(x)) }   # the ROM's series, step for step (p90)

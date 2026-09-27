@@ -1,0 +1,35 @@
+10 REM A DOUBLE IS A SINGLE FIRST on its way to 16 bits: CINT (0A7FH) calls CSNG's tail for a
+20 REM double (0A87H -> 0AB9H), which rounds the fourth mantissa byte half up (0796H), and only
+30 REM then converts; the integer store (2819H), AND/OR/NOT, MKI$, FOR's start, INT and FIX
+40 REM below 32768 (0B5FH JP C,0A7FH) all go that way.  So INT(2.9999999#) is 3 -- ROM bug 5a's
+50 REM mechanism -- and 32767.9999999# rounds to 32768: ?OV (0AA3H -> 07B2H).  From 32768 up INT
+60 REM takes the integer part exactly in the value's own type (0B40H, 0B78H); below it the result
+70 REM is an INTEGER (0A9FH).  Until 2026-09-27 the raw double was floored (audit L-8).
+80 F=0:S=0:ON ERROR GOTO 900
+100 X#=2.9999999:IF CINT(X#)<>3 OR INT(X#)<>3 OR FIX(X#)<>3 OR FIX(-X#)<>-3 OR INT(-X#)<>-3 THEN PRINT "FAIL: 2.9999999# is 3 first:";CINT(X#);INT(X#);FIX(-X#);INT(-X#):F=1
+110 A%=X#:DEFINT B:B=X#:IF A%<>3 OR B<>3 THEN PRINT "FAIL: the integer store:";A%;B:F=1
+120 IF (X# AND 7)<>3 OR (NOT X#)<>-4 OR (X# OR 0)<>3 THEN PRINT "FAIL: AND, NOT, OR:";X# AND 7;NOT X#:F=1
+130 FOR I%=X# TO 3:N=N+1:NEXT:IF N<>1 OR I%<>4 THEN PRINT "FAIL: FOR's start:";N;I%:F=1
+140 IF INT(2.5#)<>2 OR CINT(-1.5#)<>-2 OR INT(-.5#)<>-1 OR FIX(-2.5#)<>-2 THEN PRINT "FAIL: the floor still":F=1
+200 Y#=32767.9999999
+210 S=1:X=INT(Y#)
+220 IF S<>2 THEN PRINT "FAIL: INT(32767.9999999#) WAS NOT ?OV":F=1
+230 S=3:X=CINT(Y#)
+240 IF S<>4 THEN PRINT "FAIL: CINT(32767.9999999#) WAS NOT ?OV":F=1
+250 S=5:X=FIX(-Y#)
+260 IF S<>6 THEN PRINT "FAIL: FIX(-32767.9999999#) WAS NOT ?OV":F=1
+270 S=7:A%=Y#
+280 IF S<>8 THEN PRINT "FAIL: A%=32767.9999999# WAS NOT ?OV":F=1
+290 IF INT(-Y#)<>-32768 OR CINT(-32767.9999999#)<>-32768 THEN PRINT "FAIL: a rounded -32768 is the integer (0AACH):";INT(-Y#):F=1
+300 REM from 32768 up: the integer part, exactly, in the value's own type
+310 IF INT(40000.5#)<>40000 OR INT(-32768.5#)<>-32769 OR INT(65535.9999999#)<>65535 OR FIX(-40000.5#)<>-40000 THEN PRINT "FAIL: INT of a big double:";INT(40000.5#);INT(-32768.5#):F=1
+320 IF STR$(INT(40000.5#)/3)<>" 13333.33333333333" THEN PRINT "FAIL: INT(40000.5#) is a double:";STR$(INT(40000.5#)/3):F=1
+330 IF INT(40000.5)<>40000 OR STR$(INT(40000.5)/3)<>" 13333.3" THEN PRINT "FAIL: INT of a big single:";INT(40000.5);STR$(INT(40000.5)/3):F=1
+340 IF STR$(INT(2.5#)/3)<>" .666667" OR STR$(FIX(-2.5#)/3)<>"-.666667" OR STR$(INT(2.5)/3)<>" .666667" THEN PRINT "FAIL: below 32768 INT is an integer:";STR$(INT(2.5#)/3):F=1
+350 IF STR$(-INT(-32768#))<>" 32768" OR STR$(FIX(-32768#))<>"-32768" THEN PRINT "FAIL: -32768:";-INT(-32768#);FIX(-32768#):F=1
+360 IF INT(7)<>7 OR FIX(-7)<>-7 OR INT(-32768)<>-32768 THEN PRINT "FAIL: an integer as it is":F=1
+890 ON ERROR GOTO 0:IF F THEN PRINT "INTROUND FIXTURE FAILED":ERROR 5
+895 PRINT "INTROUND FIXTURE OK":END
+900 C=ERR/2+1
+910 IF (S=1 OR S=3 OR S=5 OR S=7) AND C=6 THEN S=S+1:RESUME NEXT
+930 PRINT "FAIL: UNEXPECTED ERROR";C;"IN";ERL;"S=";S:F=1:RESUME NEXT

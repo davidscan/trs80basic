@@ -953,6 +953,10 @@ INT(x)   the greatest integer less than or equal to x
   INT(3.7) is 3, and INT(-3.2) is -4, not -3.
   To truncate toward zero instead, use SGN(x)*INT(ABS(x)).
   To round to nearest, add 0.5 first: INT(x+.5).
+  Below 32768 the result is a 16-bit integer, and a double-precision
+  argument is rounded to single precision on the way (the ROM converts
+  through it): INT(2.9999999#) is 3, and INT(32767.9999999#) is ?OV
+  because it rounds to 32768.  From 32768 up the integer part is exact.
   Example: PRINT INT(3.7);INT(-3.2)    ->  3 -4
   Example: PRINT INT(2.5+.5)           ->  3   (rounded to nearest)
 
@@ -961,6 +965,8 @@ FIX(x)   x with its fractional part removed -- truncates toward zero
   Differs from INT on negatives, and that is the whole point of having
   both: FIX(-3.7) is -3, while INT(-3.7) is -4.
   Use FIX to drop a fraction and INT when you want a true floor.
+  FIX is INT of the magnitude with the sign put back, so it shares
+  INT's rounding of a double below 32768: FIX(-2.9999999#) is -3.
   Example: PRINT FIX(3.7);FIX(-3.7)     ->  3 -3
   Example: PRINT INT(-3.7)              -> -4   (compare)
 
@@ -1057,7 +1063,10 @@ CINT(x)   the largest integer not greater than x, as a 16-bit integer
   CINT(1.5) is 1 and CINT(-1.5) is -2 (the manual's own examples).  The
   difference from INT is the range: x must satisfy -32768 <= x < 32768,
   or ?OV.  AND, OR and NOT convert their operands the same way, which is
-  why V/16 AND 15 gives the high hex digit of V.
+  why V/16 AND 15 gives the high hex digit of V.  A double is rounded to
+  single precision first, as the ROM converts it: CINT(2.9999999#) is 3
+  and CINT(32767.9999999#) is ?OV.  So is a value stored into an
+  integer variable.
   Example: PRINT CINT(3.7);CINT(-3.7);CINT(32767.9)   ->  3 -4  32767
 
 :CSNG

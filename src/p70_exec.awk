@@ -388,7 +388,7 @@ function intvar(name, sx) {
 # nothing is stored.  READ and INPUT reach the same conversion (224AH ->
 # 1F33H), so a typed 40000 is ?OV, not ?REDO.
 function intstore(x,   r) {
-    r = bfloor(x)
+    r = bfloor(sround(x))                   # a double is a single first (0A7FH: 0AB9H, 0796H); L-8
     if (r > 32767 || r < -32768) { raise(6); return 0 }
     return r
 }
