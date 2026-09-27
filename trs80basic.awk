@@ -7691,16 +7691,14 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     FH_RAW[n] = ""; FH_RAWHAS[n] = 0
     FH_OPEND[n] = ""; FH_OPENDHAS[n] = 0
     if (mode == "I") {
-        r = (getline l < f)
-        if (r < 0) { raise(54); return }
-        if (r > 0) {
-            sub(/\r$/, "", l)
-            # a 0DH inside the line is a record end, as in fio_fill below
-            p = index(l, CHR[13])
-            if (p > 0) { FH_RAW[n] = substr(l, p + 1); FH_RAWHAS[n] = 1; l = substr(l, 1, p - 1) }
-            FH_PEND[n] = l; FH_PENDHAS[n] = 1; FH_LOC[n] = 1
-        }
-        else FH_EOF[n] = 1
+        # the first record is read now, so EOF(n) is right at once; the ONE
+        # reader (fio_fill below) cuts it, and says when the file could not
+        # be read at all (?FF).  A second copy of the cut lived here until
+        # 2026-09-27 and missed the LF CR rule (M-9).
+        FH_NAME[n] = f; FH_MODE[n] = mode
+        FIO_RERR = 0
+        fio_fill(n)
+        if (FIO_RERR) { FH_MODE[n] = ""; FH_NAME[n] = ""; FH_EOF[n] = 0; raise(54); return }   # not open
     } else if (mode == "O") printf "" > f
     else if (mode == "E") printf "" >> f
     else {                                  # "R": slurp records into memory
@@ -7799,20 +7797,45 @@ function st_kill(   v, f, i) {
 # records end in CR alone -- the machine's own form -- reads record by
 # record instead of arriving as one enormous line.  A trailing CR (a CR LF
 # pair) is still just the line end.
-function fio_fill(n,   r, l, p) {
+# ONE EXCEPTION, the manual's own (p.126, the special note): a CR that a
+# LINE FEED precedes is not a terminator, the pair is part of the item --
+# the down arrow inside a string.  gawk cuts at the LF, so a line whose
+# successor begins with a CR is joined to it (with the LF put back) and
+# the scan goes on behind the pair; a CR inside a line is skipped when an
+# LF is just before it.  A lone LF stays the host's line end.  Until
+# 2026-09-27 the pair split the record (the 2026-09-26 audit, M-9).
+# FH_RAWLF says whether the held text ended at an LF (1) or the file's end.
+function fio_fill(n,   r, l, p, q, k, more, nx) {
     if (FH_MODE[n] == "A") return ai_fill(n)
     if (FH_PENDHAS[n]) return 1
-    if (FH_RAWHAS[n]) { l = FH_RAW[n]; FH_RAW[n] = ""; FH_RAWHAS[n] = 0 }
+    if (FH_RAWHAS[n]) { l = FH_RAW[n]; more = FH_RAWLF[n]; FH_RAW[n] = ""; FH_RAWHAS[n] = 0 }
     else {
         if (FH_EOF[n]) return 0
         r = (getline l < FH_NAME[n])
-        if (r <= 0) { FH_EOF[n] = 1; return 0 }
-        sub(/\r$/, "", l)
+        if (r <= 0) { FH_EOF[n] = 1; if (r < 0) FIO_RERR = 1; return 0 }
+        more = (RT == "\n")
     }
-    p = index(l, CHR[13])
-    if (p > 0) {
-        FH_RAW[n] = substr(l, p + 1); FH_RAWHAS[n] = 1
-        l = substr(l, 1, p - 1)
+    q = 1
+    for (;;) {
+        p = 0
+        while ((k = index(substr(l, q), CHR[13])) > 0) {
+            k += q - 1
+            if (k == 1 || substr(l, k - 1, 1) != CHR[10]) { p = k; break }
+            q = k + 1                       # LF CR: data, scan on
+        }
+        if (p > 0) {
+            if (p < length(l)) { FH_RAW[n] = substr(l, p + 1); FH_RAWHAS[n] = 1; FH_RAWLF[n] = more }
+            l = substr(l, 1, p - 1)
+            break
+        }
+        # no CR ends it: the record ended at the LF that ended the line,
+        # unless a CR is the next byte of the file
+        if (!more) break
+        r = (getline nx < FH_NAME[n])
+        if (r <= 0) { FH_EOF[n] = 1; break }
+        if (substr(nx, 1, 1) != CHR[13]) { FH_RAW[n] = nx; FH_RAWHAS[n] = 1; FH_RAWLF[n] = (RT == "\n"); break }
+        q = length(l) + 3                   # behind the LF CR pair
+        l = l CHR[10] nx; more = (RT == "\n")
     }
     FH_PEND[n] = l; FH_PENDHAS[n] = 1; FH_LOC[n]++
     return 1
