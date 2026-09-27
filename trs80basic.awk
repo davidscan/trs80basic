@@ -4644,12 +4644,13 @@ function st_return() {
     CLN = (CK == "I") ? DIRECTLN : CK + 0
 }
 
-function st_for(   name, v0, v1, stp, j, v, isint, sng) {
+function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     if (TY[CK, CP] != "i") { raise(2); return }
     name = TK[CK, CP]
     if (strname(name)) { raise(13); return }
     isint = intvar(name, TSX[CK, CP])
     sng = (ntype(name, TSX[CK, CP]) == "S")   # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
+    dbl = (ntype(name, TSX[CK, CP]) == "D")
     CP++
     mkvar(name, "")                         # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
@@ -4664,6 +4665,11 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng) {
     else if (sng) v0 = sround(v0)
     NV[name] = v0
     if (!(TY[CK, CP] == "i" && TK[CK, CP] == "TO")) { raise(2); return }
+    # a DOUBLE index is ?TM, tested after the start is stored and TO is
+    # read (1CC5H-1CCBH: RST 20H on the index's type, JP NC,0AF6H): the
+    # loop's frame holds a single or an integer only.  FOR I#= and a
+    # DEFDBL index ran here until 2026-09-27 (the 2026-09-26 audit, M-3).
+    if (dbl) { raise(13); return }
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
