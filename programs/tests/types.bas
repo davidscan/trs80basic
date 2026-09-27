@@ -34,8 +34,12 @@
 450 IF STR$(-B#)<>"-1000000" OR STR$(ABS(-B#))<>" 1000000" OR STR$(INT(B#/3))<>" 333333" THEN PRINT "FAIL: unary minus, ABS, INT keep the type":F=1
 460 IF STR$(LEN("ABC")*1000000)<>" 3E+06" THEN PRINT "FAIL: LEN is an integer, 1000000 a single: 3E+06":F=1
 470 IF STR$(LEN("ABC")*1000000#)<>" 3000000" THEN PRINT "FAIL: LEN * double":F=1
-500 REM VAL types by the reader's rule
-510 IF STR$(VAL("1234567"))<>" 1.23457E+06" OR STR$(VAL("12345678"))<>" 12345678" OR STR$(VAL("1D2")+0)<>" 100" THEN PRINT "FAIL: VAL's type":F=1
-520 IF STR$(VAL("7")/2)<>" 3.5" THEN PRINT "FAIL: VAL(7) is an integer":F=1
+500 REM VAL enters the reader at 0E65H, which flags the number DOUBLE first (0AECH): VAL("1") is
+505 REM a double; an E exponent or ! makes it single (0EFBH), a D exponent or # keeps it double
+510 IF STR$(VAL("1234567"))<>" 1234567" OR STR$(VAL("12345678"))<>" 12345678" OR STR$(VAL("1D2")+0)<>" 100" THEN PRINT "FAIL: VAL's type":F=1
+520 IF STR$(VAL("1")/3)<>" .3333333333333333" OR STR$(VAL("7")/2)<>" 3.5" THEN PRINT "FAIL: VAL(1)/3 is a double:";STR$(VAL("1")/3):F=1
+530 IF STR$(VAL("1E0")/3)<>" .333333" OR STR$(VAL("1!")/3)<>" .333333" THEN PRINT "FAIL: VAL(1E0), VAL(1!) are singles":F=1
+540 IF STR$(VAL("1#")/3)<>" .3333333333333333" OR STR$(VAL("1D0")/3)<>" .3333333333333333" THEN PRINT "FAIL: VAL(1#), VAL(1D0) are doubles":F=1
+550 IF VAL(".1")=.1 OR VAL(".1")<>.1# THEN PRINT "FAIL: VAL(.1) is the double .1, not the single":F=1
 900 IF F THEN PRINT "TYPES FIXTURE FAILED":ERROR 5
 910 PRINT "TYPES FIXTURE OK":END

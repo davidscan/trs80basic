@@ -1208,6 +1208,10 @@ VAL(a$)   the number at the front of a$, or 0 if there is none
   Exponent notation is understood: VAL("-3E2") is -300.  A sign counts
   only as the very first character, so VAL(" -5") is 0.  A trailing ! or
   # is accepted; a trailing % is ?SN, as on the machine.
+  The result is DOUBLE precision unless the text carries an E exponent or
+  a !, which make it single -- the ROM's VAL starts its reader in double
+  mode -- so VAL("1")/3 prints 16 digits and VAL(".1")=.1 is false (.1 is
+  a single).  Compare with a double, or CSNG the result.
   A string that does not begin with a number gives 0 rather than an
   error, so VAL cannot by itself tell "0" from "OFF" -- test the string
   first if that difference matters.

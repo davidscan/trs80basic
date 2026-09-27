@@ -105,8 +105,8 @@ function fmtnum(x, ty,   s, ax, t) {
 #     a variable's precision is not tracked here, so they never do.
 # Lower-case e/d is kept as an exponent: the Model I keyboard had no
 # lower case to type, a terminal types nothing else.
-function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, sig, sx) {
-    i = 1; m = ""; ex = ""; isint = !dp; expd = 0; sx = ""
+function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, expl, sig, sx) {
+    i = 1; m = ""; ex = ""; isint = !dp; expd = 0; expl = 0; sx = ""
     c = substr(s, 1, 1)
     if (c == "-" || c == "+") { sg = c; i = 2 }
     for (;;) {
@@ -118,7 +118,7 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, sig, sx) {
             dot = 1; isint = 0; m = m c; i++; continue
         }
         if (c ~ /^[EeDd]$/) {
-            expd = (c ~ /^[Dd]$/); i++
+            expd = (c ~ /^[Dd]$/); expl = 1; i++
             while (substr(s, i, 1) ~ /^[ \t\n]$/) i++
             c = substr(s, i, 1)
             if (c == "-" || c == "+") { exs = c; i++ }
@@ -137,10 +137,18 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, sig, sx) {
         break
     }
     NUMEND = i; NUMSTR = s
-    # VALTYPE: the type the reader gives the number (VAL returns it), by
-    # tk_number's rule (p50): I while there is no point or exponent and it
-    # fits 15 bits, D from the eighth significant digit or a D exponent
+    # VALTYPE: the type the reader gives the number (VAL returns it).  VAL
+    # enters at 0E65H, which flags the value DOUBLE before the first digit
+    # (0E68H CALL 0AECH), so VAL("1") is a double: VAL("1")/3 prints 16
+    # digits and VAL(".1")=.1 is false, as on the machine.  Only an E
+    # exponent or a "!" drops it to single (0EA4H/0EF6H reach 0EFBH with
+    # Z, the convert-to-single call); "#" and a D exponent keep it.  Until
+    # 2026-09-27 VAL typed its number as a literal (the 2026-09-26 audit,
+    # M-11).  The 0E6CH entry (READ, INPUT) starts at integer and types by
+    # tk_number's rule (p50): I while there is no point or exponent and
+    # it fits 15 bits, D from the eighth significant digit or a D exponent.
     if (sx != "") VALTYPE = sx
+    else if (dp) VALTYPE = (expl && !expd) ? "S" : "D"
     else {
         sig = m; sub(/\./, "", sig); sub(/^0+/, "", sig)
         if (isint && !dot && ex == "" && !expd && m + 0 <= 32767 && m != "") VALTYPE = "I"

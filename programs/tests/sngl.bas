@@ -28,7 +28,7 @@
 370 IF 1D-20*1D-20<>0 THEN PRINT "FAIL: a double underflows too":F=1
 400 REM a single result of a function is 24 bits
 410 IF STR$(SQR(2))<>" 1.41421" OR SQR(2)*SQR(2)=2 THEN PRINT "FAIL: SQR(2)^2 is not exactly 2 in 24 bits":F=1
-420 IF VAL(".1")<>.1 THEN PRINT "FAIL: VAL rounds a single":F=1
+420 IF VAL(".1E0")<>.1 OR VAL(".1")=.1 THEN PRINT "FAIL: VAL rounds a single (an E exponent); VAL(\".1\") is a double (0E65H)":F=1
 430 IF CSNG(1#/3)<>1/3 THEN PRINT "FAIL: CSNG rounds":F=1
 900 IF F THEN PRINT "SNGL FIXTURE FAILED":ERROR 5
 910 PRINT "SNGL FIXTURE OK":END
