@@ -3040,7 +3040,7 @@ function batch_hint(c) {
             diag_err("basic: --clear " CLEARN " is too small for this program's strings: raise it")
         else
             diag_err("basic: the program's own CLEAR " CLEARN " in line " CLEARSRC " is too small for its strings; --clear cannot help, the program's CLEAR wins -- or try --memory host (EXT: no string space limit)")
-    } else if (c == 6 && HIMEM > 32767 && TY[SK, SCP] == "i" && TK[SK, SCP] == "CLEAR")
+    } else if (c == 6 && HIMEM > 32767 && TY[STK, STP] == "i" && TK[STK, STP] == "CLEAR")
         diag_err("basic: CLEAR's count is an integer (?OV past 32767) and MEM exceeds 32767 on this memory map: the listing was written for a 16K or 32K machine, try --memsize 32767 (or, for new code, try --memory host)")
     else if (HINTHOST && !HOSTMEM) {
         if (c == 7)       diag_err("basic: this program needs more than the machine's 64K: try --memory host (EXT: no memory limit)")
@@ -4041,6 +4041,7 @@ function execloop(   ty, tx) {
     for (;;) {
         ty = TY[CK, CP]
         if (ty == "" || ty == "e") {
+            IFKEEP = 0
             if (CK == "I") return
             if (CLI >= NL) {
                 # ROM 197EH-198EH: running off the end of the program
@@ -4056,9 +4057,9 @@ function execloop(   ty, tx) {
             continue
         }
         tx = TK[CK, CP]
-        if (ty == "o" && tx == ":") { CP++; continue }
-        if (ty == "i" && tx == "ELSE") { CP = eolpos(); continue }
-        if (++BRKCTR >= BRKEVERY) {
+        if (ty == "o" && tx == ":") { IFKEEP = 0; CP++; continue }
+        if (ty == "i" && tx == "ELSE") { IFKEEP = 0; CP = eolpos(); continue }
+        if (!IFKEEP && ++BRKCTR >= BRKEVERY) {
             BRKCTR = 0
             # the poll falls BETWEEN statements: the one behind is done, so
             # CONT starts the one in front (Farvour 1D1E, 1DB4H saves the
@@ -4071,8 +4072,20 @@ function execloop(   ty, tx) {
             if (DACC >= THR_SLICE) thr_wait()
         }
         PLACED = 0
+        # the statement IF dispatches behind THEN or ELSE (2053H -> 1D5FH)
+        # skips the driver's 1D25H, so 40E6H still names the IF statement:
+        # an error there is noted at the IF, and RESUME NEXT scans from the
+        # IF to its first ":" -- for the ELSE part's first statement that is
+        # the colon in front of ELSE, so the rest of the line is skipped
+        # (19BAH-19BDH, 1FCFH-1FE7H; audit L-6).  No BREAK poll either.
+        # (The two lines below stay verbatim: the core's oracle patches
+        # them by text; the IF's point is put back behind them instead.)
+        IFK = IFKEEP; IFKEEP = 0
+        if (IFK) { IFK_K = SK; IFK_LI = SLI; IFK_P = SCP }
+        STK = CK; STP = CP                  # the statement itself, whatever IF left in SK/SCP (batch_hint, p45)
         SK = CK; SLI = CLI; SCP = CP
         execstmt()
+        if (IFK) { SK = IFK_K; SLI = IFK_LI; SCP = IFK_P }
         # ROM 1D2C-1D32: every verb returns to the driver, which reads the
         # byte at the code pointer: ":" goes on to the next statement
         # (1D5AH), 00 ends the line (1D35H), anything else is ?SN.  So
@@ -4603,6 +4616,7 @@ function st_if(   v, truth, hadkw, d, p, ty, tx, ln) {
     if (truth) {
         if (TY[CK, CP] == "n") { ln = lineno_arg(); if (!E) jumpline(ln); return }
         if (hadkw == "GOTO") { raise(2); return }
+        IFKEEP = 1                          # the next statement is dispatched from here (execloop)
         return                              # statements after THEN execute
     }
     # false: skip to matching ELSE (or end of line)
@@ -4616,6 +4630,7 @@ function st_if(   v, truth, hadkw, d, p, ty, tx, ln) {
             if (d == 0) {
                 CP = p + 1
                 if (TY[CK, CP] == "n") { ln = lineno_arg(); if (!E) jumpline(ln) }
+                else IFKEEP = 1
                 return
             }
             d--

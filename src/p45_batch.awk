@@ -173,7 +173,7 @@ function batch_hint(c) {
             diag_err("basic: --clear " CLEARN " is too small for this program's strings: raise it")
         else
             diag_err("basic: the program's own CLEAR " CLEARN " in line " CLEARSRC " is too small for its strings; --clear cannot help, the program's CLEAR wins -- or try --memory host (EXT: no string space limit)")
-    } else if (c == 6 && HIMEM > 32767 && TY[SK, SCP] == "i" && TK[SK, SCP] == "CLEAR")
+    } else if (c == 6 && HIMEM > 32767 && TY[STK, STP] == "i" && TK[STK, STP] == "CLEAR")
         diag_err("basic: CLEAR's count is an integer (?OV past 32767) and MEM exceeds 32767 on this memory map: the listing was written for a 16K or 32K machine, try --memsize 32767 (or, for new code, try --memory host)")
     else if (HINTHOST && !HOSTMEM) {
         if (c == 7)       diag_err("basic: this program needs more than the machine's 64K: try --memory host (EXT: no memory limit)")

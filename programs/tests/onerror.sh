@@ -150,5 +150,20 @@ READY
 >'
 [ "$out" = "$want" ] || fail "RESUME zeroes ERR; RUN and NEW keep ERR and ERL; ERROR 5 X" "$out"
 
+# the statement IF dispatches behind THEN or ELSE keeps the IF's point
+# (2053H -> 1D5FH skips 1D25H): RESUME NEXT scans from the IF to its
+# first ":", so an error in the ELSE part's first statement skips the
+# rest of the line, and one in the THEN part's first goes on behind it
+# (19BAH, 1FCFH-1FE7H; audit L-6)
+out=$(printf '\n10 ON ERROR GOTO 100\n20 IF 0 THEN 30 ELSE X=1/0:PRINT "REST OF ELSE"\n30 IF 1 THEN X=1/0:PRINT "REST OF THEN"\n40 END\n100 PRINT "ERL";ERL:RESUME NEXT\nRUN\n' \
+    | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | sed -n '/^>RUN/,$p')
+want='>RUN
+ERL 20 
+ERL 30 
+REST OF THEN
+READY
+>'
+[ "$out" = "$want" ] || fail "RESUME NEXT from a statement behind THEN or ELSE" "$out"
+
 rm -f "$tmp"
 echo "ONERROR OK"
