@@ -3616,7 +3616,16 @@ function e_prim(   t, s, v, key, sx) {
         if (t == "S") s = sround(s)
         return "N" t s
     }
-    if (t == "s") { v = "S" TK[CK, CP]; CP++; return v }
+    if (t == "s") {
+        # a literal longer than 255 characters: the machine's line buffer
+        # (240) cannot hold one, so the ROM has no case; a LOADed text
+        # line here can (linelen.sh), and the value is refused as ?LS,
+        # the error every string past 255 gets (29A2H), never stored
+        # (the 2026-09-19 audit's H-2 named it; the 2026-09-26 audit,
+        # L-23).  Unbounded under `memory host` (EXT, p10).
+        if (!HOSTMEM && length(TK[CK, CP]) > 255) { raise_host(15); return "NI0" }
+        v = "S" TK[CK, CP]; CP++; return v
+    }
     if (t == "o" && TK[CK, CP] == "(") {
         CP++
         v = e_or(); if (E) return v
@@ -7307,6 +7316,7 @@ function st_read_items(   name, key, x) {
             return
         }
         if (strname(name)) {
+            if (!HOSTMEM && length(DITEM[DP]) > 255) { raise_host(15); return }   # a DATA item past 255 is ?LS, as a literal is (p60; L-23)
             LITSTORE = 1                    # the item stays in its line: no string space (p75, mem_*)
             assignv(name, key, "S" DITEM[DP])
             LITSTORE = 0

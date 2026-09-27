@@ -746,6 +746,7 @@ function st_read_items(   name, key, x) {
             return
         }
         if (strname(name)) {
+            if (!HOSTMEM && length(DITEM[DP]) > 255) { raise_host(15); return }   # a DATA item past 255 is ?LS, as a literal is (p60; L-23)
             LITSTORE = 1                    # the item stays in its line: no string space (p75, mem_*)
             assignv(name, key, "S" DITEM[DP])
             LITSTORE = 0
