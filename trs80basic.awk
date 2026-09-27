@@ -3683,8 +3683,16 @@ function e_prim(   t, s, v, key, sx) {
             if (strname(s)) return (key in VA) ? VA[key] : "S"
             return "N" ntype(s, sx) ((key in VA) ? VA[key] : 0)
         }
-        if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : SV[s])
-        return "N" ntype(s, sx) (NV[s] + 0)
+        # a variable read in an expression is NEVER created: the ROM's
+        # lookup, called from the evaluator, answers a name it cannot find
+        # with a zero of the type and allocates nothing (269CH -> 26D5H),
+        # so PRINT Y;Z;Y$ leaves MEM where it was.  Only a store (LET at
+        # 1F21H, READ, INPUT, FOR, DIM) makes the entry.  A bare SV[s] or
+        # NV[s] here is CLAUDE.md's bare-read trap reaching the memory
+        # accounting (mem_varbytes counts the entries): until 2026-09-27
+        # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit, M-8).
+        if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
+        return "N" ntype(s, sx) ((s in NV) ? NV[s] + 0 : 0)
     }
     raise(2)
     return "NI0"
@@ -4346,6 +4354,14 @@ function st_let(   name, key, v, lp, src, j, n) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
         key = aref(name); if (E) return
     }
+    # the target exists BEFORE the "=" is tested and the expression is
+    # evaluated: LET locates it through 260DH at 1F21H, which creates a
+    # simple variable it cannot find (26A0H-26CCH), and only then reads
+    # the "=" (1F24H) and the expression (1F2EH).  So X=MEM counts X, and
+    # a target whose expression fails is still there.  Until 2026-09-27
+    # the expression came first (the 2026-09-26 audit, M-8).  An array
+    # element's array was made by aref, as the ROM's 260DH makes it.
+    mkvar(name, key)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     # a string literal, or a plain string variable, alone on the right in a
@@ -4530,6 +4546,15 @@ function bigint(x,   r) {
     return r
 }
 
+# a simple variable's entry, made before its value is known (260DH in
+# create mode: the 3-byte header and a zero value, 26A0H-26CCH), so MEM
+# and FRE count it from here on; an element's array already exists
+function mkvar(name, key) {
+    if (key != "") return
+    if (strname(name)) { if (!(name in SV)) SV[name] = "" }
+    else if (!(name in NV)) NV[name] = 0
+}
+
 function assignv(name, key, v,   isint, tgt, n, ty) {
     isint = LVI; LVI = 0
     ty = LVT; LVT = ""
@@ -4626,6 +4651,7 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng) {
     isint = intvar(name, TSX[CK, CP])
     sng = (ntype(name, TSX[CK, CP]) == "S")   # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
     CP++
+    mkvar(name, "")                         # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
@@ -5596,7 +5622,7 @@ function sp_grown(name, key,   tgt) {
 function sp_gets(tgt,   key) {
     key = substr(tgt, 2)
     if (substr(tgt, 1, 1) == "A") return (key in VA) ? substr(VA[key], 2) : ""
-    return SV[key]
+    return (key in SV) ? SV[key] : ""          # membership first: a bare read would create the entry (M-8)
 }
 function sp_sets(tgt, s,   key) {
     key = substr(tgt, 2)
@@ -5606,7 +5632,7 @@ function sp_sets(tgt, s,   key) {
 function sp_getn(tgt,   key) {
     key = substr(tgt, 2)
     if (substr(tgt, 1, 1) == "A") return (key in VA) ? VA[key] + 0 : 0
-    return NV[key] + 0
+    return (key in NV) ? NV[key] + 0 : 0
 }
 function sp_setn(tgt, x,   key) {
     key = substr(tgt, 2)
@@ -5865,7 +5891,7 @@ function al_read(tgt,   addr, len, j, s, b) {
 function al_cur(name, key,   tgt) {
     tgt = (key != "") ? "A" key : "V" name
     if (ALN && (tgt in ALIAS)) return al_read(tgt)
-    return (key != "") ? ((key in VA) ? vstr(VA[key]) : "") : SV[name]
+    return (key != "") ? ((key in VA) ? vstr(VA[key]) : "") : (name in SV) ? SV[name] : ""
 }
 # an in-place write: through to the alias when there is one (the string's
 # own bytes stay as they were, as on hardware), else into the value

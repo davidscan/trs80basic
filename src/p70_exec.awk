@@ -221,6 +221,14 @@ function st_let(   name, key, v, lp, src, j, n) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
         key = aref(name); if (E) return
     }
+    # the target exists BEFORE the "=" is tested and the expression is
+    # evaluated: LET locates it through 260DH at 1F21H, which creates a
+    # simple variable it cannot find (26A0H-26CCH), and only then reads
+    # the "=" (1F24H) and the expression (1F2EH).  So X=MEM counts X, and
+    # a target whose expression fails is still there.  Until 2026-09-27
+    # the expression came first (the 2026-09-26 audit, M-8).  An array
+    # element's array was made by aref, as the ROM's 260DH makes it.
+    mkvar(name, key)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     # a string literal, or a plain string variable, alone on the right in a
@@ -405,6 +413,15 @@ function bigint(x,   r) {
     return r
 }
 
+# a simple variable's entry, made before its value is known (260DH in
+# create mode: the 3-byte header and a zero value, 26A0H-26CCH), so MEM
+# and FRE count it from here on; an element's array already exists
+function mkvar(name, key) {
+    if (key != "") return
+    if (strname(name)) { if (!(name in SV)) SV[name] = "" }
+    else if (!(name in NV)) NV[name] = 0
+}
+
 function assignv(name, key, v,   isint, tgt, n, ty) {
     isint = LVI; LVI = 0
     ty = LVT; LVT = ""
@@ -501,6 +518,7 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng) {
     isint = intvar(name, TSX[CK, CP])
     sng = (ntype(name, TSX[CK, CP]) == "S")   # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
     CP++
+    mkvar(name, "")                         # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     v = e_or(); if (E) return

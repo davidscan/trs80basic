@@ -279,8 +279,16 @@ function e_prim(   t, s, v, key, sx) {
             if (strname(s)) return (key in VA) ? VA[key] : "S"
             return "N" ntype(s, sx) ((key in VA) ? VA[key] : 0)
         }
-        if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : SV[s])
-        return "N" ntype(s, sx) (NV[s] + 0)
+        # a variable read in an expression is NEVER created: the ROM's
+        # lookup, called from the evaluator, answers a name it cannot find
+        # with a zero of the type and allocates nothing (269CH -> 26D5H),
+        # so PRINT Y;Z;Y$ leaves MEM where it was.  Only a store (LET at
+        # 1F21H, READ, INPUT, FOR, DIM) makes the entry.  A bare SV[s] or
+        # NV[s] here is CLAUDE.md's bare-read trap reaching the memory
+        # accounting (mem_varbytes counts the entries): until 2026-09-27
+        # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit, M-8).
+        if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
+        return "N" ntype(s, sx) ((s in NV) ? NV[s] + 0 : 0)
     }
     raise(2)
     return "NI0"

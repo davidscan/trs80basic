@@ -606,7 +606,7 @@ function sp_grown(name, key,   tgt) {
 function sp_gets(tgt,   key) {
     key = substr(tgt, 2)
     if (substr(tgt, 1, 1) == "A") return (key in VA) ? substr(VA[key], 2) : ""
-    return SV[key]
+    return (key in SV) ? SV[key] : ""          # membership first: a bare read would create the entry (M-8)
 }
 function sp_sets(tgt, s,   key) {
     key = substr(tgt, 2)
@@ -616,7 +616,7 @@ function sp_sets(tgt, s,   key) {
 function sp_getn(tgt,   key) {
     key = substr(tgt, 2)
     if (substr(tgt, 1, 1) == "A") return (key in VA) ? VA[key] + 0 : 0
-    return NV[key] + 0
+    return (key in NV) ? NV[key] + 0 : 0
 }
 function sp_setn(tgt, x,   key) {
     key = substr(tgt, 2)
@@ -875,7 +875,7 @@ function al_read(tgt,   addr, len, j, s, b) {
 function al_cur(name, key,   tgt) {
     tgt = (key != "") ? "A" key : "V" name
     if (ALN && (tgt in ALIAS)) return al_read(tgt)
-    return (key != "") ? ((key in VA) ? vstr(VA[key]) : "") : SV[name]
+    return (key != "") ? ((key in VA) ? vstr(VA[key]) : "") : (name in SV) ? SV[name] : ""
 }
 # an in-place write: through to the alias when there is one (the string's
 # own bytes stay as they were, as on hardware), else into the value

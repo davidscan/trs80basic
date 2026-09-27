@@ -72,16 +72,51 @@ want='>10 A$="HELLO":PRINT FRE("");MEM
  50  15400 
  45  15394 
  15346 
- 13 
- 31 
- 19 
+ 6 
+ 24 
+ 12 
 ?OM ERROR IN 70
 READY
 >PRINT A$;B$;X
-HELLOHELLO 15346 
+HELLOHELLO 15339 
 READY
 >'
 [ "$out" = "$want" ] || fail "MEM's arithmetic inside a program" "$out"
+
+# a variable READ in an expression is never created (the lookup called from
+# the evaluator answers a zero and allocates nothing, 269CH -> 26D5H), and
+# LET makes its target BEFORE the expression is evaluated (1F21H, then
+# 1F2EH): X=MEM counts X, PRINT Y;Z;Y$ costs nothing, and a target whose
+# expression fails is there afterwards; FOR's index is stored before the
+# frame is pushed, so the body sees the frame alone.  Until 2026-09-27 every read cost
+# 7 or 6 bytes and X=MEM missed X (the 2026-09-26 audit, M-8).
+out=$(repl 32767 'PRINT Y;Z;Y$;MEM
+PRINT MEM
+X=MEM:PRINT X-MEM
+Z=1/0
+PRINT MEM
+FOR I=MEM TO 0:PRINT I-MEM:NEXT
+')
+want='>PRINT Y;Z;Y$;MEM
+ 0  0  15572 
+READY
+>PRINT MEM
+ 15572 
+READY
+>X=MEM:PRINT X-MEM
+ 0 
+READY
+>Z=1/0
+?/0 ERROR
+READY
+>PRINT MEM
+ 15558 
+READY
+>FOR I=MEM TO 0:PRINT I-MEM:NEXT
+ 17 
+READY
+>'
+[ "$out" = "$want" ] || fail "a read never creates a variable; LET creates its target first" "$out"
 
 # ?OS: a string that does not fit the area is Out of String Space (28C0H-
 # 28DDH), and the old value still counts while the new one is made; a
