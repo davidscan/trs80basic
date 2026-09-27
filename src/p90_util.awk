@@ -16,8 +16,11 @@ function raise(c) {
     ERLV = CLN
     # "." becomes the line with the error, trapped or not: the ROM notes it
     # with ERL, before it looks for an ON ERROR handler (19A5-19A8), so
-    # LIST . and EDIT . go to the line that failed
-    if (CLN != DIRECTLN) LASTLN = CLN
+    # LIST . and EDIT . go to the line that failed.  A statement typed at
+    # READY moves it too, to FFFFH (19A8H copies 40A2H as it is), so LIST .
+    # then lists nothing and DELETE . is ?FC (audit L-12; until 2026-09-27
+    # a typed error left "." alone)
+    LASTLN = CLN
 }
 
 function report_err(   c, msg) {

@@ -109,6 +109,7 @@ function handle_line(line,   s, ln, rest) {
 # insert, and 1AEFH still runs 1B5DH -- the variables go, silently.  It
 # was ?UL here until 2026-09-27 (the 2026-09-26 audit, M-6; ruled R-11).
 function enter_line(ln, rest) {
+    LASTLN = ln                     # 1AB1H: "." is the number typed, whatever the entry does (L-12)
     if (rest ~ /^[ \t]*$/) {
         if (ln in prog) delline(ln)
         else run_reset()
@@ -195,14 +196,20 @@ function rebuild(   l) {
     PROGDIRTY = 1                   # the PEEKable program image is stale (p75)
 }
 
-# --- range parsing for LIST/DELETE: [.] | [n][-[m]] | -m  (tokens) ----------
+# --- range parsing for LIST/DELETE (ROM 1B10-1B28): [n][-[m]], where each
+# number is read by 1E4FH (lineno_dot), so "." stands for the current
+# line at EITHER end (LIST .-, LIST 10-., DELETE .) and a number past
+# 65529 is ?SN.  A missing start is 0 (1B10H), a missing end behind the
+# dash is the top (1B1FH), and a lone number is both ends (1B28H).  Until
+# 2026-09-27 "." was taken only on its own (audit L-12).
 function parse_range(   any) {
     RA = 0; RB = 65529; any = 0
-    if (TY[CK, CP] == "o" && TK[CK, CP] == ".") { RA = LASTLN; RB = LASTLN; CP++; return 1 }
-    if (TY[CK, CP] == "n") { RA = TK[CK, CP] + 0; RB = RA; CP++; any = 1 }
+    if (at_stmt_end()) return 0
+    RA = lineno_dot(); if (E) return 0
+    RB = RA; any = 1
     if (TY[CK, CP] == "o" && TK[CK, CP] == "-") {
-        CP++; RB = 65529; any = 1
-        if (TY[CK, CP] == "n") { RB = TK[CK, CP] + 0; CP++ }
+        CP++; RB = 65529
+        if (!at_stmt_end()) { RB = lineno_dot(); if (E) return 0 }
     }
     return any
 }
@@ -223,7 +230,7 @@ function parse_range(   any) {
 function to_ready() { HALT = 1 }
 
 function st_list(   i, ln) {
-    parse_range()
+    parse_range(); if (E) return
     for (i = 1; i <= NL; i++) {
         ln = LNS[i]
         if (ln < RA) continue
@@ -237,7 +244,7 @@ function st_list(   i, ln) {
 
 # LLIST: LIST to the printer stream (all the same range forms)
 function st_llist(   i, ln) {
-    parse_range()
+    parse_range(); if (E) return
     for (i = 1; i <= NL; i++) {
         ln = LNS[i]
         if (ln < RA) continue
@@ -258,7 +265,7 @@ function st_llist(   i, ln) {
 # with it.  The whole statement is parsed first (1B25H: ?SN if anything
 # follows the range), so DELETE 10,20 deletes nothing either.
 function st_delete(   i, ln, n, hits) {
-    parse_range()
+    parse_range(); if (E) return
     if (!at_stmt_end()) { raise(2); return }
     if (!(RB in prog) || RA > RB) { raise(5); return }
     n = 0
@@ -351,7 +358,7 @@ function st_new(   x) {
     rebuild()
     clear_vars()
     FSN = 0; GSN = 0; NDATA = 0; DP = 1; DATADIRTY = 1
-    CONTOK = 0; LASTLN = 0; EHANDLER = 0; INHANDLER = 0   # ERR and ERL survive NEW as RUN (1B49H-1B77H, audit L-2)
+    CONTOK = 0; EHANDLER = 0; INHANDLER = 0   # ERR, ERL and "." survive NEW as RUN (1B49H-1B77H, audit L-2, L-12)
     TRACE = 0                       # ROM 1B50: NEW calls 1DF8H, "turn TRACE off"
     HALT = 1
 }

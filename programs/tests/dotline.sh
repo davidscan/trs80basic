@@ -72,4 +72,45 @@ want='?SN ERROR IN 30
 ?SN ERROR IN 30
 30 DATA "AB"CD,5'
 [ "$out" = "$want" ] || fail "the current line after ?SN in a DATA item" "$out"
+
+# The three moves the 2026-09-26 audit found missing (L-12), and "." at
+# either end of a range (1E4FH reads each number, 1B17H and 1B22H):
+#  * an error in a statement typed at READY moves "." too, to FFFFH
+#    (19A8H copies the line cell as it is), so LIST . lists nothing and
+#    DELETE . is ?FC;
+#  * every entry sets it (1AB1H, before the search): a deletion, and the
+#    number of a line that is not there;
+#  * NEW leaves it (1B49H-1B77H never touch 40ECH): AUTO . prompts at it.
+out=$(TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 <<'EOF2' | grep -E '^([0-9=?]|READY)' | sed -n '/^?\/0 ERROR/,$p' | sed 's/ *$//'
+
+10 REM A
+20 REM B
+30 REM C
+PRINT 1/0
+LIST .
+DELETE .
+20
+LIST 10-.
+LIST .-
+25
+LIST 10-.
+NEW
+AUTO .,65508
+EOF2
+)
+want='?/0 ERROR
+READY
+READY
+?FC ERROR
+READY
+10 REM A
+READY
+10 REM A
+30 REM C
+READY
+10 REM A
+READY
+READY
+10'
+[ "$out" = "$want" ] || fail "a typed error, a deletion, NEW, and . in a range" "$out"
 echo "DOTLINE OK"

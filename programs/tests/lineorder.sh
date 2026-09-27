@@ -5,9 +5,10 @@
 # re-sorted the whole index, and a pasted listing cost the square of its
 # length: the 2026-09-23 audit, L-14).  What must not change: LIST and
 # RUN order, a GOTO into a line typed later, the deletion of a line, "."
-# as the last line entered, and the program image growing by the appended
-# line (40F9H, the end-of-program pointer, before and after `50 REM`: a
-# 6-byte line).
+# as the number last typed (a deletion sets it too, ROM 1AB1H, so LIST .
+# after `10` lists nothing), and the program image growing by the
+# appended line (40F9H, the end-of-program pointer, before and after
+# `50 REM`: a 6-byte line).
 # Self-checking: exits 1 on any mismatch.
 # Run from the repo root:  sh programs/tests/lineorder.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
@@ -25,6 +26,7 @@ PRINT "=END AFTER";PEEK(16633)+256*PEEK(16634)
 LIST
 RUN
 45 PRINT "=FORTY-FIVE"
+LIST .
 RUN
 10
 RUN
@@ -42,11 +44,11 @@ want='10 PRINT "=TEN"
 =TEN
 =TWENTY AGAIN
 ?UL ERROR IN 20
+45 PRINT "=FORTY-FIVE"
 =TEN
 =TWENTY AGAIN
 =FORTY-FIVE
 =TWENTY AGAIN
-=FORTY-FIVE
-45 PRINT "=FORTY-FIVE"'
+=FORTY-FIVE'
 [ "$rest" = "$want" ] || fail "LIST, RUN and . after lines typed out of order, appended, replaced and deleted" "$rest"
 echo "LINEORDER OK"

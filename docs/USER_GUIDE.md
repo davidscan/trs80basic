@@ -1228,9 +1228,11 @@ LIST [n][-[m]]   display program lines on the screen
     LIST 100-200    that range
     LIST 100-       from 100 to the end
     LIST -200       from the start to 200
-    LIST .          the current line: the last one entered, listed, or
-                    in which an error occurred -- after ?SN ERROR IN 120,
-                    LIST . shows line 120
+    LIST .          the current line: the number last typed, the line
+                    last listed, or the one in which an error occurred --
+                    after ?SN ERROR IN 120, LIST . shows line 120.  It
+                    may stand at either end: LIST .- from it to the end,
+                    LIST 100-. up to it.
   Listing shows the program as stored, so it is the way to check what a
   line really contains after an edit.
   Example: LIST 100-200
