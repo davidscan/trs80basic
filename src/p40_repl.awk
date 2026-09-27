@@ -302,7 +302,15 @@ function auto_run(start, inc,   line, k) {
     AUTOON = 0
 }
 
+# ROM 1B49H: RET NZ, "syntax error if NEW XX" -- the byte behind NEW is
+# tested BEFORE anything is erased, so a typo at READY (NEW X, NEWS,
+# NEW 10) keeps the unsaved program.  Until 2026-09-27 the tail was never
+# looked at: NEW ends the run, and the driver's tail test skips a halted
+# statement (the 2026-09-26 audit, M-4).  Then 1B4AH clears the screen
+# (01C9H) before the program goes.
 function st_new(   x) {
+    if (!at_stmt_end()) { raise(2); return }
+    s_cls()
     for (x in prog) { inval_cache(x); delete prog[x] }
     delete ESC
     rebuild()

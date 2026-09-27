@@ -66,6 +66,17 @@ out=$(printf '\nTRON\n10 PRINT "A"\nNEW\n10 PRINT "B"\nRUN\n' | repl | tr '\n' '
 case $out in *"<10>"*) fail "NEW left tracing on" "$out" ;; esac
 case $out in *"B READY"*) ;; *) fail "NEW then RUN" "$out" ;; esac
 
+# NEW tests the byte behind it BEFORE it erases anything (1B49H: RET NZ,
+# "syntax error if NEW XX"), so NEW X, NEWS and NEW 10 are ?SN and the
+# program stays; until 2026-09-27 each erased it (the 2026-09-26 audit,
+# M-4).  And a plain NEW clears the screen (1B4AH: CALL 01C9H): the ZZZ
+# put at 15860 is gone, where a typo's NEW left it.
+out=$(printf '\n10 PRINT "A"\nNEW X\nNEWS\nNEW 10\nLIST\nPRINT@500,"ZZZ"\nNEW X\nPRINT PEEK(15860)\nNEW\nPRINT PEEK(15860)\n' | repl | tr '\n' ' ')
+n=$(printf '%s' "$out" | grep -o '?SN ERROR' | wc -l | tr -d ' ')
+[ "$n" -eq 4 ] || fail "NEW with a tail: $n of 4 were ?SN" "$out"
+case $out in *'?SN ERROR READY 10 PRINT "A" READY'*) ;; *) fail "NEW with a tail erased the program" "$out" ;; esac
+case $out in *"ZZZ"*"?SN ERROR"*" 90 "*"READY "*" 32 "*) ;; *) fail "plain NEW clears the screen, NEW X does not" "$out" ;; esac
+
 printf '10 PRINT "LOADED"\n' > part3.bas
 out=$(printf '\nTRON\n10 PRINT "A"\nCLOAD "part3.bas"\nRUN\n' | repl | tr '\n' ' ')
 case $out in *"<10>"*) fail "CLOAD left tracing on" "$out" ;; esac
