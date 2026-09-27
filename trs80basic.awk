@@ -235,6 +235,13 @@ function init_tables(   i, c, m, n) {
     FMAX = 2^127 - 2^102
     FMIN = 2^-128                           # the smallest exponent byte (1) is 2^-128; below it a result is 0 (0793H)
     LN2 = log(2)
+    # The ROM's SIN constants, as the singles its bytes hold (rom_sin, p90):
+    # 2 pi at 154AH (DB 0F 49 83), pi/2 at 158BH (DB 0F 49 81), and the five
+    # series coefficients at 1594H, innermost first: 39.7107, -76.575,
+    # 81.6022, -41.3417, 6.28319 (the last is C90FDA, one unit below 2 pi).
+    TWOPI = 13176795 / 2^21; HALFPI = 13176795 / 2^23
+    SINC1 = 10409914 / 2^18; SINC2 = -10036836 / 2^17; SINC3 = 10695768 / 2^17
+    SINC4 = -10837472 / 2^18; SINC5 = 13176794 / 2^21
     CLN = DIRECTLN
     CUR = 0; VCOL = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
     FSN = 0; GSN = 0; CONTOK = 0; TRACE = 0
@@ -3762,9 +3769,9 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "FIX") { x = numarg(a1, na); if (E) return "NI0"; return "N" vtype(a1) int(x) }
     if (name == "SGN") { x = numarg(a1, na); if (E) return "NI0"; return "NI" (x > 0 ? 1 : (x < 0 ? -1 : 0)) }
     if (name == "SQR") { x = numarg(a1, na); if (E) return "NI0"; if (x < 0) { raise(5); return "NI0" }; return "NS" sround(sqrt(x)) }
-    if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(sin(x)) }
-    if (name == "COS") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(cos(x)) }
-    if (name == "TAN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(sin(x) / cos(x)) }
+    if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_sin(sfl(x)) }   # the ROM's series, step for step (p90)
+    if (name == "COS") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_cos(sfl(x)) }
+    if (name == "TAN") { x = numarg(a1, na); if (E) return "NI0"; x = rom_tan(sfl(x)); if (E) return "NI0"; return "NS" x }
     if (name == "ATN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(atan2(x, 1)) }
     if (name == "LOG") { x = numarg(a1, na); if (E) return "NI0"; if (x <= 0) { raise(5); return "NI0" }; return "NS" sround(log(x)) }
     if (name == "EXP") {
@@ -8721,6 +8728,57 @@ function sround(x,   ax, e, q, r) {
     q = 2 ^ (e - 23)                        # one unit of the 24-bit mantissa in this binade
     r = int(ax / q + 0.5) * q
     return (x < 0) ? -r : r
+}
+
+# A single-precision intermediate: rounded to 24 bits, and 0 below the
+# smallest exponent (0793H), as every step of a ROM float routine leaves it.
+function sfl(x) {
+    if (x < FMIN && x > -FMIN) return 0
+    return sround(x)
+}
+
+# SIN, COS and TAN as the ROM computes them (1541H-15BAH), step for step
+# in single precision.  Since 2026-09-27 (the 2026-09-26 audit, M-12);
+# until then they were the host's libm on the raw argument, which gave
+# COS(90*.01745329) = 1.94707E-07 where the machine gives 0, and TAN of
+# it 5.13592E+06 where the Model III manual (p.239) promises ?/0.
+#   SIN (1547H): t = x / 2 pi (08A2H); f = t - INT(t) (0B40H, 0713H), the
+#   turn's fraction in [0,1); d = .25 - f (0710H).  d >= 0 (the first
+#   quarter, 156DH): the argument is .25 - d; else e = d + .5 (0708H) and
+#   the argument is e - .25 for e >= 0, -(e + .25) below (1577H-1584H):
+#   a value in [-.25, .25] whose sine is SIN(x).  Then the series at 149AH
+#   (Horner in a^2 over the five coefficients at 1594H, times a at 0C32H).
+#   COS (1541H) is SIN(x + pi/2).  TAN (15A8H) is SIN(x)/COS(x) through
+#   the divider at 08A2H, whose zero test (08A5H) is the ?/0.
+# Every product, sum and quotient is rounded as 0796H rounds, so a
+# quarter turn typed as 90*.01745329 or 1.5707963 reduces to EXACTLY 0
+# and COS of it is 0; the one departure a bit-exact machine could show is
+# a last-place difference where the ROM's adder drops bits below its
+# guard byte before rounding.
+function rom_sin(x,   t, f, d, e, a, a2, s) {
+    t = sfl(x / TWOPI)
+    f = sfl(t - bfloor(t))
+    d = sfl(0.25 - f)
+    if (d >= 0) a = sfl(0.25 - d)
+    else {
+        e = sfl(d + 0.5)
+        a = (e >= 0) ? sfl(e - 0.25) : -sfl(e + 0.25)
+    }
+    a2 = sfl(a * a)
+    s = sfl(sfl(SINC1 * a2) + SINC2)
+    s = sfl(sfl(s * a2) + SINC3)
+    s = sfl(sfl(s * a2) + SINC4)
+    s = sfl(sfl(s * a2) + SINC5)
+    return sfl(s * a)
+}
+
+function rom_cos(x) { return rom_sin(sfl(x + HALFPI)) }
+
+function rom_tan(x,   s, c) {
+    s = rom_sin(x); c = rom_cos(x)
+    if (c == 0) { raise(11); return 0 }
+    s = frange(s / c); if (E) return 0
+    return sround(s)
 }
 
 # The range of a single or double result: past FMAX it is ?OV (0796H's

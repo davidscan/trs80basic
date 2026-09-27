@@ -365,9 +365,9 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "FIX") { x = numarg(a1, na); if (E) return "NI0"; return "N" vtype(a1) int(x) }
     if (name == "SGN") { x = numarg(a1, na); if (E) return "NI0"; return "NI" (x > 0 ? 1 : (x < 0 ? -1 : 0)) }
     if (name == "SQR") { x = numarg(a1, na); if (E) return "NI0"; if (x < 0) { raise(5); return "NI0" }; return "NS" sround(sqrt(x)) }
-    if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(sin(x)) }
-    if (name == "COS") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(cos(x)) }
-    if (name == "TAN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(sin(x) / cos(x)) }
+    if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_sin(sfl(x)) }   # the ROM's series, step for step (p90)
+    if (name == "COS") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_cos(sfl(x)) }
+    if (name == "TAN") { x = numarg(a1, na); if (E) return "NI0"; x = rom_tan(sfl(x)); if (E) return "NI0"; return "NS" x }
     if (name == "ATN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(atan2(x, 1)) }
     if (name == "LOG") { x = numarg(a1, na); if (E) return "NI0"; if (x <= 0) { raise(5); return "NI0" }; return "NS" sround(log(x)) }
     if (name == "EXP") {

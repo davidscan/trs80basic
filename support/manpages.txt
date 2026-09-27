@@ -1000,8 +1000,11 @@ COS(x)   the cosine of x, with x in RADIANS
 :TAN
 TAN(x)   the tangent of x, with x in RADIANS
   Grows without limit near PI/2 and its odd multiples, where the true
-  value is undefined -- expect a very large number or ?OV there rather
-  than a clean error, so avoid feeding it an unchecked angle.
+  value is undefined.  SIN, COS and TAN are the ROM's own series in
+  single precision, so an angle that reduces to exactly a quarter turn
+  (1.5707963, or ATN(1)*2) has COS 0 and TAN is ?/0 -- the machine's
+  answer -- while TAN(1.5708) is a large number.  Avoid feeding it an
+  unchecked angle.
   Example: PRINT TAN(0)         ->  0
 
 :ATN

@@ -235,6 +235,13 @@ function init_tables(   i, c, m, n) {
     FMAX = 2^127 - 2^102
     FMIN = 2^-128                           # the smallest exponent byte (1) is 2^-128; below it a result is 0 (0793H)
     LN2 = log(2)
+    # The ROM's SIN constants, as the singles its bytes hold (rom_sin, p90):
+    # 2 pi at 154AH (DB 0F 49 83), pi/2 at 158BH (DB 0F 49 81), and the five
+    # series coefficients at 1594H, innermost first: 39.7107, -76.575,
+    # 81.6022, -41.3417, 6.28319 (the last is C90FDA, one unit below 2 pi).
+    TWOPI = 13176795 / 2^21; HALFPI = 13176795 / 2^23
+    SINC1 = 10409914 / 2^18; SINC2 = -10036836 / 2^17; SINC3 = 10695768 / 2^17
+    SINC4 = -10837472 / 2^18; SINC5 = 13176794 / 2^21
     CLN = DIRECTLN
     CUR = 0; VCOL = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
     FSN = 0; GSN = 0; CONTOK = 0; TRACE = 0

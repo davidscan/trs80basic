@@ -195,6 +195,57 @@ function sround(x,   ax, e, q, r) {
     return (x < 0) ? -r : r
 }
 
+# A single-precision intermediate: rounded to 24 bits, and 0 below the
+# smallest exponent (0793H), as every step of a ROM float routine leaves it.
+function sfl(x) {
+    if (x < FMIN && x > -FMIN) return 0
+    return sround(x)
+}
+
+# SIN, COS and TAN as the ROM computes them (1541H-15BAH), step for step
+# in single precision.  Since 2026-09-27 (the 2026-09-26 audit, M-12);
+# until then they were the host's libm on the raw argument, which gave
+# COS(90*.01745329) = 1.94707E-07 where the machine gives 0, and TAN of
+# it 5.13592E+06 where the Model III manual (p.239) promises ?/0.
+#   SIN (1547H): t = x / 2 pi (08A2H); f = t - INT(t) (0B40H, 0713H), the
+#   turn's fraction in [0,1); d = .25 - f (0710H).  d >= 0 (the first
+#   quarter, 156DH): the argument is .25 - d; else e = d + .5 (0708H) and
+#   the argument is e - .25 for e >= 0, -(e + .25) below (1577H-1584H):
+#   a value in [-.25, .25] whose sine is SIN(x).  Then the series at 149AH
+#   (Horner in a^2 over the five coefficients at 1594H, times a at 0C32H).
+#   COS (1541H) is SIN(x + pi/2).  TAN (15A8H) is SIN(x)/COS(x) through
+#   the divider at 08A2H, whose zero test (08A5H) is the ?/0.
+# Every product, sum and quotient is rounded as 0796H rounds, so a
+# quarter turn typed as 90*.01745329 or 1.5707963 reduces to EXACTLY 0
+# and COS of it is 0; the one departure a bit-exact machine could show is
+# a last-place difference where the ROM's adder drops bits below its
+# guard byte before rounding.
+function rom_sin(x,   t, f, d, e, a, a2, s) {
+    t = sfl(x / TWOPI)
+    f = sfl(t - bfloor(t))
+    d = sfl(0.25 - f)
+    if (d >= 0) a = sfl(0.25 - d)
+    else {
+        e = sfl(d + 0.5)
+        a = (e >= 0) ? sfl(e - 0.25) : -sfl(e + 0.25)
+    }
+    a2 = sfl(a * a)
+    s = sfl(sfl(SINC1 * a2) + SINC2)
+    s = sfl(sfl(s * a2) + SINC3)
+    s = sfl(sfl(s * a2) + SINC4)
+    s = sfl(sfl(s * a2) + SINC5)
+    return sfl(s * a)
+}
+
+function rom_cos(x) { return rom_sin(sfl(x + HALFPI)) }
+
+function rom_tan(x,   s, c) {
+    s = rom_sin(x); c = rom_cos(x)
+    if (c == 0) { raise(11); return 0 }
+    s = frange(s / c); if (E) return 0
+    return sround(s)
+}
+
 # The range of a single or double result: past FMAX it is ?OV (0796H's
 # overflow, 07B2H); below 2^-128 the exponent byte runs out and the
 # result is ZERO, silently (0793H JR NC,0778H).  Returns the value,
