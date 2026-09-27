@@ -39,7 +39,11 @@ function execloop(   ty, tx) {
         if (ty == "i" && tx == "ELSE") { CP = eolpos(); continue }
         if (++BRKCTR >= BRKEVERY) {
             BRKCTR = 0
-            if (CK != "I" && pollbrk()) { dobreak(); return }
+            # the poll falls BETWEEN statements: the one behind is done, so
+            # CONT starts the one in front (Farvour 1D1E, 1DB4H saves the
+            # pointer past the finished verb); SK/SLI/SCP still name the
+            # finished one, which CONT would run twice (2026-09-26 audit, H-2)
+            if (CK != "I" && pollbrk()) { SK = CK; SLI = CLI; SCP = CP; dobreak(); return }
         }
         if (THROTTLE_D > 0) {           # emulate a slow clock (set_speed, thr_wait: p10)
             DACC += THROTTLE_D
