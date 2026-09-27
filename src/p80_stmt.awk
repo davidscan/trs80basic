@@ -637,8 +637,7 @@ function parse_items(line, base,   cnt, i, n, c, j, item, q, bad) {
         } else {
             j = i
             while (j <= n && substr(line, j, 1) !~ /^[,:]$/) j++
-            item = substr(line, i, j - i)
-            sub(/ +$/, "", item)
+            item = substr(line, i, j - i)   # trailing blanks are the item's (2869H-287EH, H-3)
             i = j
         }
         cnt++; IB[cnt] = item; IBQ[cnt] = q; IBBAD[cnt] = bad
@@ -687,8 +686,9 @@ function data_items(txt, ln, dn,   ci, cn, c, j, item, wasq, bad, off) {
         } else {
             j = ci
             while (j <= cn && substr(txt, j, 1) != ",") j++
+            # every byte up to the comma is the item's, trailing blanks too
+            # (Farvour 2869H-287EH; the 2026-09-26 audit, H-3)
             item = substr(txt, ci, j - ci)
-            sub(/ +$/, "", item)
             ci = j
             wasq = 0
         }

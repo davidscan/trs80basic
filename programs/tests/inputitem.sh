@@ -9,6 +9,7 @@
 #   * "AB"CD -- text between the closing quote and the comma -- is ?REDO
 #   * a quoted "12" typed for a number is ?REDO
 #   * a tab behind the closing quote is skipped like a blank (RST 10H)
+#   * an unquoted item keeps its trailing blanks (2869H-287EH)
 # Until 2026-09-21 AB:CD came through whole, "AB"CD was AB with the rest of
 # the line dropped, and "12" was the number 12.
 # Self-checking: exits 1 on any mismatch.  Run from the repo root:
@@ -25,8 +26,9 @@ cat > "$tmp/in.bas" <<'BAS'
 40 INPUT N:PRINT N
 50 INPUT M:PRINT M
 60 INPUT E$,F$:PRINT "[";E$;"][";F$;"]"
+70 INPUT G$,H$:PRINT "[";G$;"][";H$;"]"
 BAS
-out=$(printf 'AB:CD,EF\nX:Y\nZ\n"AB"CD\n"OK"\t\n"12"\n12\n5:6\n"A:B","C" ,D\n' | run "$tmp/in.bas")
+out=$(printf 'AB:CD,EF\nX:Y\nZ\n"AB"CD\n"OK"\t\n"12"\n12\n5:6\n"A:B","C" ,D\nAB  ,  CD  \n' | run "$tmp/in.bas")
 want='? AB:CD,EF
 ?EXTRA IGNORED
 [AB]
@@ -46,8 +48,16 @@ want='? AB:CD,EF
  5 
 ? "A:B","C" ,D
 ?EXTRA IGNORED
-[A:B][C]'
+[A:B][C]
+? AB  ,  CD  
+[AB  ][CD  ]'
 [ "$out" = "$want" ] || fail "INPUT" "$out"
+
+# READ's DATA items end the same way: an unquoted item keeps its trailing
+# blanks, at a comma and at the ":" that ends the DATA statement
+printf '10 DATA ABC  ,  DEF  \n20 DATA G :READ A$,B$,C$:PRINT "[";A$;"][";B$;"][";C$;"]"\n' > "$tmp/d.bas"
+out=$(run "$tmp/d.bas")
+[ "$out" = "[ABC  ][DEF  ][G ]" ] || fail "DATA" "$out"
 
 rm -rf "$tmp"
 echo "INPUTITEM OK"
