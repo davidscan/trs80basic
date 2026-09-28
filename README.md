@@ -180,6 +180,8 @@ Environment variables the interpreter reads:
 | `TRS80_SOUND` | unset | player command for the machine-code sound a `USR` routine makes on port 255, fed raw 16-bit mono PCM by the core; `auto` picks the first installed player: ffplay, then ffmpeg on macOS, aplay, pw-play; also `sound on` | hearing a sound routine as the machine played it |
 | `TRS80_SOUND_WAV` | unset | file the core writes that audio to, emulated time only; also `sound wav <path>`. The file starts over with each session and each `sound wav`, and carries on across the core restarts inside one (`speed`, `sound on`) | keeping a recording, or checking pitch without speakers |
 | `TRS80_SOUND_RATE` | `22050` | the sample rate for both | `44100` for a finer file |
+| `TRS80_WINNATIVE` | probed (`COMSPEC` set and `SHELL` not) | `0`/`1` overrides the native-Windows detection that routes `system()` calls to `cmd.exe` (test hook) | exercising the other platform's branches |
+| `TRS80_REACH_DIAG` | unset | `1` adds a batch stderr note when a run ends at a key poll on exhausted stdin — a clean exit whose `END` was never reached (test hook for reachability sweeps) | telling those runs apart in a sweep |
 
 (A couple of development-only variables are deliberately undocumented here.)
 

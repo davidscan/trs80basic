@@ -365,7 +365,7 @@ function rnd_poke(i, b,   lo, mid, hi) {
     RNDSEED = hi * 65536 + mid * 256 + lo
 }
 
-# ---- host shell gates (WINDOWS.md) -----------------------------------------
+# ---- host shell gates ---------------------------------------------------------
 # WINNATIVE (probed once in BEGIN, src/p10_head.awk) means a native Windows
 # gawk: every system()/pipe is serviced by cmd.exe, so each helper carries a
 # cmd arm.  The Unix arms are the pre-gate command strings kept verbatim --

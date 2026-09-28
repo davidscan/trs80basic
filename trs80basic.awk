@@ -36,7 +36,7 @@
 BEGIN {
     CONVFMT = "%.17g"; OFMT = "%.17g"
     # native-Windows gate: there system()/pipes go to cmd.exe, no Unix
-    # userland (see WINDOWS.md).  COMSPEC is never set on Unix, and Git
+    # userland.  COMSPEC is never set on Unix, and Git
     # Bash/MSYS/WSL all set SHELL, so both conditions must hold.
     # TRS80_WINNATIVE=0/1 overrides the probe (branch-selection testing).
     if ("TRS80_WINNATIVE" in ENVIRON) WINNATIVE = ENVIRON["TRS80_WINNATIVE"] + 0
@@ -9182,7 +9182,7 @@ function rnd_poke(i, b,   lo, mid, hi) {
     RNDSEED = hi * 65536 + mid * 256 + lo
 }
 
-# ---- host shell gates (WINDOWS.md) -----------------------------------------
+# ---- host shell gates ---------------------------------------------------------
 # WINNATIVE (probed once in BEGIN, src/p10_head.awk) means a native Windows
 # gawk: every system()/pipe is serviced by cmd.exe, so each helper carries a
 # cmd arm.  The Unix arms are the pre-gate command strings kept verbatim --
