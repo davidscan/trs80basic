@@ -501,7 +501,7 @@ function pu_ovf(x, ty,   t) {
 }
 
 # ---- INPUT -----------------------------------------------------------------
-function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, endp) {
+function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, endp, snpend) {
     # the illegal-direct check comes FIRST on the ROM (219AH CALL 2828H,
     # before the # is even looked at), so INPUT#1,A typed at READY is ?ID
     # like any other INPUT (the 2026-09-26 audit, N-5; until then the #
@@ -572,6 +572,10 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
         break
     }
     endp = CP
+    # the ROM checks the separator per item with RST 08H (21FBH): behind a
+    # stored item anything but a comma or the end is ?SN at once, BEFORE
+    # the leftover-input test -- so INPUT A;B never prints ?EXTRA (N-5)
+    snpend = !at_stmt_end()
     for (;;) {                              # REDO loop
         if (prompt != "") s_puts(prompt)
         if (pq != 2) s_puts("? ")
@@ -614,6 +618,7 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
             s_puts("?? ")
         }
         if (ok) {
+            if (snpend) { raise(2); return }
             if (nib > nlv || IBREST) { s_puts("?EXTRA IGNORED"); s_nl() }
             return
         }

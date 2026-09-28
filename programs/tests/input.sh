@@ -98,4 +98,10 @@ rm -f "$tmp"
 out=$(printf '\nINPUT#1,A\nINPUT A\n' | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep -c "?ID ERROR")
 [ "$out" = 2 ] || fail "INPUT# at READY is ?ID" "$out"
 
+# INPUT A;B: the separator behind each stored item is checked with RST 08H
+# (21FBH) -- A takes its value, then ?SN, and ?EXTRA never prints (N-5)
+out=$(printf '\n10 INPUT A;B\nRUN\n5,6\nPRINT A\n' | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | tr '\n' ' ')
+case $out in *EXTRA*) fail "INPUT A;B printed ?EXTRA" "$out" ;; esac
+case $out in *"?SN ERROR IN 10"*" 5 "*) ;; *) fail "INPUT A;B stores A then ?SN" "$out" ;; esac
+
 echo "INPUT OK"
