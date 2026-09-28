@@ -3462,21 +3462,26 @@ function e_not(   v) {
     return e_rel()
 }
 
-function e_rel(   v, r, op, a, b, c) {
+# The ROM collects EVERY consecutive relational character into one flag
+# (234DH-2362H): 1 for >, 2 for =, 4 for <, XORed in one at a time with
+# blanks between them skipped by RST 10H -- so 1 < = > 2 is legal (flag 7,
+# true whatever the compare says) and only a REPEATED character (<<, ==,
+# >>, <=<) reaches ?SN at 1997H.  The tokenizer folds the common pairs
+# (<= =< >= => <> ><) into one token; any longer run is merged here.
+function e_rel(   v, r, op, a, b, c, f, nb) {
     v = e_add()
-    while (!E && TY[CK, CP] == "o" && \
-           (TK[CK, CP] == "=" || TK[CK, CP] == "<" || TK[CK, CP] == ">" || \
-            TK[CK, CP] == "<=" || TK[CK, CP] == ">=" || TK[CK, CP] == "<>")) {
-        op = TK[CK, CP]; CP++
+    while (!E && TY[CK, CP] == "o" && TK[CK, CP] ~ /^(=|<|>|<=|>=|<>)$/) {
+        f = 0
+        while (TY[CK, CP] == "o" && (op = TK[CK, CP]) ~ /^(=|<|>|<=|>=|<>)$/) {
+            nb = (op == ">") ? 1 : (op == "=") ? 2 : (op == "<") ? 4 : \
+                 (op == "<=") ? 6 : (op == ">=") ? 3 : 5
+            if (and(f, nb)) { raise(2); return v }
+            f = or(f, nb); CP++
+        }
         r = e_add(); if (E) return v
         if (isN(v) != isN(r)) { raise(13); return v }
         if (isN(v)) { a = num(v); b = num(r) } else { a = vstr(v); b = vstr(r) }
-        if (op == "=") c = (a == b)
-        else if (op == "<") c = (a < b)
-        else if (op == ">") c = (a > b)
-        else if (op == "<=") c = (a <= b)
-        else if (op == ">=") c = (a >= b)
-        else c = (a != b)
+        c = (and(f, 1) && a > b) || (and(f, 2) && a == b) || (and(f, 4) && a < b)
         v = "NI" (c ? -1 : 0)
     }
     return v
