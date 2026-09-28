@@ -40,7 +40,7 @@
 function z80_init() {
     if (Z80INIT) return
     Z80INIT = 1
-    Z80PROTO = 2
+    Z80PROTO = 3
     Z80NAMED = ENVIRON["TRS80_Z80"]               # as the user wrote it, for notices
     # gawk runs a coprocess through `sh -c`.  Where sh keeps itself between us
     # and the core (Ubuntu's dash does; macOS's sh execs a simple command), the
@@ -197,7 +197,8 @@ function z80_usr(x,   full, res) {
 function z80_sendframe(   i) {
     ERRNO = ""
     print "CALL gen=" FRGEN " full=" FRFULL " slot=" USR_SLOT " entry=" USR_ENTRY \
-          " arg=" USR_ARG " sp=" SSP " himem=" HIMEM " ramtop=" RAMTOP " runs=" FRN |& Z80CMD
+          " arg=" USR_ARG " argtype=" USR_TYPE " mbf=" USR_MBF \
+          " sp=" SSP " himem=" HIMEM " ramtop=" RAMTOP " runs=" FRN |& Z80CMD
     for (i = 1; i <= FRN; i++) print "M " FRRUN[i] |& Z80CMD
     if (ERRNO != "") Z80WERR = 1
     z80_send("GO")
@@ -255,6 +256,9 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
         # CINT) and it was outside -32768..32767 -- a BASIC error the
         # machine reports as ?OV, not a core fault, so no stderr notice
         if (Z80LINE ~ /^ERR ov /) { raise(6); return 0 }
+        # `ERR tm`: the routine took a STRING argument through 0A7FH, the
+        # ROM's CINT, which is ?TM there -- a BASIC error, not a core fault
+        if (Z80LINE ~ /^ERR tm /) { raise(13); return 0 }
         if (Z80LINE ~ /^ERR /) { z80_notice(substr(Z80LINE, 5)); raise(5); return 0 }
         z80_notice("unexpected '" Z80LINE "'; the core is dead for this session, USR is the stub")
         z80_close(); raise(5); return 0

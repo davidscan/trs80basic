@@ -1,4 +1,4 @@
-# The USR coprocess protocol, version 2
+# The USR coprocess protocol, version 3
 
 How `trs80basic` (the interpreter, GNU awk) drives `trs80_z80_core` (the Z80
 engine, Python) to execute a `USR` routine.  The interpreter's side is
@@ -53,12 +53,21 @@ release it was tested with.
     on the `RET` line; a failed routine's stores come as `W` lines ahead
     of its `ERR`; a core that has exited is met as a timeout.  First
     shipped by interpreter v2.0 and core v2.0.
+*   **3** (2026-09-27): the argument may be any type.  The `CALL` header
+    carries `argtype=` (the ROM's 40AFH flag) and `mbf=` (the WRA1
+    image); for a string, `arg` is the DESCRIPTOR address and the
+    descriptor and bytes travel in the frame.  The routine enters with
+    the ROM's register state (HL, A, DE); the dispatch's own stores
+    (40AFH, WRA1) and 0A7FH's exit stores (4121/4122H, 40AFH = 2, A = 2)
+    arrive in the write-set; 0A7FH on a string is `ERR tm`; the CLS trap
+    zeroes 40A6H; 40A6H joins the always-sent window cells (21 now).
+    A v2 core would misread a string's `arg` as a number: the bump.
 
 ## Session
 
 ```
-interpreter -> core   HELLO proto=2 mhz=<clock> ramtop=<addr>
-core -> interpreter   Z80 proto=2 name=<text>
+interpreter -> core   HELLO proto=3 mhz=<clock> ramtop=<addr>
+core -> interpreter   Z80 proto=3 name=<text>
 ...calls...
 interpreter -> core   BYE
 ```
@@ -79,7 +88,7 @@ interpreter -> core   BYE
 ## A call
 
 ```
-interpreter -> core   CALL gen=<n> full=<0|1> slot=<0-9> entry=<addr> arg=<number> sp=<addr> himem=<addr> ramtop=<addr> runs=<k>
+interpreter -> core   CALL gen=<n> full=<0|1> slot=<0-9> entry=<addr> arg=<number> argtype=<2|3|4|8> mbf=<b,b,b,b,b,b,b,b> sp=<addr> himem=<addr> ramtop=<addr> runs=<k>
 interpreter -> core   M <addr>:<b>,<b>,...          (k lines)
 interpreter -> core   GO
 core -> interpreter   (any number of V / K / T lines, in any order)
@@ -99,8 +108,8 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     interpreter then resends the call as a full frame with `gen=1`.
 *   What a delta contains, so the core never has to guess: the 11
     constant and pointer bytes (37E8/9H, 40A4/5H, 40AA-40ACH, 40B1/2H,
-    40F9/FAH) and the 20 system variable window cells (4020H-4022H,
-    4028/4029H, 409BH, 4041H-4046H, 40A2/A3H, 40E1H-40E5H, 411BH) -- these
+    40F9/FAH) and the 21 system variable window cells (4020H-4022H,
+    4028/4029H, 409BH, 4041H-4046H, 40A2/A3H, 40A6H, 40E1H-40E5H, 411BH) -- these
     always -- the screen cells (3C00-3FFFH) the interpreter wrote since the
     last frame (the whole screen after a scroll or CLS; the core's own `V`
     writes are not resent), every VARPTR'd string and numeric cell whose
@@ -119,9 +128,25 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     An undefined entry never reaches the core: the interpreter raises
     `?FC` itself.
 *   `arg` is the BASIC argument as a number (possibly non-integer, possibly
-    negative).  The core converts it as the ROM's 0A7FH routine does when
-    the routine calls that address: floored to an integer, into HL, and
-    `ERR ov` when it is outside -32768..32767 (see Errors).
+    negative), or, for a string, the address of its 3-byte descriptor
+    (0-65535); the descriptor and the string's bytes are in the frame like
+    any VARPTR'd string, so a routine that rewrites them rewrites the
+    BASIC variable through the write-set.  The core converts a numeric
+    `arg` as the ROM's 0A7FH routine does when the routine calls that
+    address: floored to an integer, into HL, `ERR ov` when it is outside
+    -32768..32767, and `ERR tm` for a string (see Errors); on success
+    0A7FH leaves A = 2 and stores HL at 4121H and 2 at 40AFH, ordinary
+    stores that come back in the write-set.
+*   `argtype` is the ROM's type flag (40AFH): 2 integer, 3 string, 4
+    single, 8 double.  `mbf` is the eight bytes 411DH-4124H as the ROM's
+    evaluator left them -- an integer's two bytes in 4121/4122H, a single
+    in 4121-4124H (Microsoft binary format), a double filling all eight,
+    a string's descriptor address in 4121/4122H; the rest zero.  The
+    routine ENTERS with HL = `entry`, A = `argtype`, DE = the descriptor
+    address for a string (0 otherwise), the other registers zero (ROM
+    27FE-2818); the core stores `argtype` at 40AFH and `mbf` at 411DH
+    first, and those stores return in the write-set, so `PEEK` agrees
+    with what the routine saw.
 *   `sp` is the initial stack pointer: the interpreter's `SSP`, the bottom
     of allocated string space (HIMEM when nothing is packed), which is
     where Level II keeps its stack.  The core owns SP for the call and
@@ -158,7 +183,9 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     64-column mode, as the ROM and BASIC's own CLS do: the core clears
     bit 3 of the ROM's port image at 403DH (in the write-set, so the
     interpreter's 32-column print flag follows and the BASIC PRINT after
-    the call steps one byte) and emits `MODE 0`.  No reply.
+    the call steps one byte), zeroes the cursor column at 40A6H (0342H;
+    in the write-set, so TAB and POS start from 0 after the call) and
+    emits `MODE 0`.  No reply.
 *   `T <cycles>` -- a tick: the T-states executed since the last tick.
     The core sends one every few thousand T-states (every ~5 ms of
     emulated time at 1.77 MHz is a good rate) so the interpreter can poll
@@ -210,13 +237,14 @@ ROM space that is neither the sentinel nor a served trap; when no frame
 and no store ever wrote the entry address, the text adds `-- no routine
 at XXXXH: its memory was never written`, the signature of a loader that
 never ran), `halt` (the routine executed HALT), `bad` (the core could not
-parse a message), and `ov`, which is not a core fault but the machine's
-own error: the routine called 0A7FH (the ROM's CINT: the argument is
-floored to an integer, -32768 accepted exactly, anything else outside
--32768..32767 exits through 07B2H) with an argument out of that range.
-For `ov` the interpreter raises `?OV` at the `USR` call, as the ROM does,
-and prints nothing on stderr.  After an `ERR` the core is still up and
-the next call proceeds normally.
+parse a message), and two that are not core faults but the machine's own
+errors, for which the interpreter raises the BASIC error at the `USR`
+call and prints nothing on stderr: `ov`, the routine called 0A7FH (the
+ROM's CINT: the argument is floored to an integer, -32768 accepted
+exactly, anything else outside -32768..32767 exits through 07B2H) with a
+number out of that range, raised as `?OV`; and `tm`, it called 0A7FH
+with a string argument, raised as `?TM`.  After an `ERR` the core is
+still up and the next call proceeds normally.
 
 An `ERR` that ends a routine already running is preceded by the stores the
 routine made up to that point: `W` lines in the write-set's form (last
@@ -247,4 +275,5 @@ core is conformant when `TRS80_Z80="python3 /path/to/core" sh
 programs/tests/z80.sh` passes with the stub's canned entry addresses
 implemented as real machine code (the routines are trivial: paint two
 bytes, read the keyboard, store three bytes, double HL, return a byte,
-push a word, call 01C9H, store a byte and call 0000H).
+push a word, call 01C9H, store a byte and call 0000H, read a string
+descriptor and rewrite its first byte, read WRA1).

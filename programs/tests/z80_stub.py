@@ -25,7 +25,17 @@ Entries (hex):
         bit 3 of 403DH (16445), the ROM's print flag, in the write-set
   700E  store 42 at address ARG, then call into ROM space: the store is
         sent as a W line AHEAD of the ERR rom, and stays in the stub's memory
+  700F  a string argument: ARG is the descriptor's address; overwrite the
+        first data byte with 'Z' via the write-set, HL = length, result=1
+  7010  HL = the two bytes at 4121H (WRA1), result=1
   anything else: an immediate RET (hl=0, result=0, no writes)
+
+Every call first makes the ROM dispatch's own stores -- the type flag at
+40AFH (16559) and the argument's WRA1 image at 411DH (16669), from the
+CALL header's argtype= and mbf= -- and sends them back in the write-set
+(ahead of an ERR when the call fails), as PROTOCOL.md requires since
+proto 3.  The 0A7FH entries also store the converted HL at 4121H and 2
+at 40AFH, the trap's exit effects.
 
 Z80_STUB_PROTO=<n> makes the stub claim another protocol version.
 Z80_STUB_DIE_AFTER=<n> makes it exit right after its n-th RET: a core that
@@ -45,7 +55,7 @@ import os
 import sys
 import time
 
-PROTO = os.environ.get("Z80_STUB_PROTO", "2")
+PROTO = os.environ.get("Z80_STUB_PROTO", "3")
 DIE_AFTER = int(os.environ.get("Z80_STUB_DIE_AFTER", "0"))
 DIE_ON_CALL = int(os.environ.get("Z80_STUB_DIE_ON_CALL", "0"))
 ALWAYS_NEED = os.environ.get("Z80_STUB_ALWAYS_NEED", "") not in ("", "0")
@@ -79,16 +89,28 @@ def apply_run(run):
         mem[a + i] = int(b)
 
 
+seed = []      # the entry-time stores (40AFH, WRA1) of the current call
+
+
 def ret(hl=0, result=0, cycles=100, brk=0, writes=()):
+    ws = list(seed) + list(writes)
     send("RET hl=%d result=%d cycles=%d break=%d writes=%d%s"
-         % (hl & 0xFFFF, result, cycles, brk, len(writes),
+         % (hl & 0xFFFF, result, cycles, brk, len(ws),
             " ready=1" if READY else ""))
-    for w in writes:
+    for w in ws:
         send("W " + w)
     global rets
     rets += 1
     if rets == DIE_AFTER:
         sys.exit(0)
+
+
+def err(msg):
+    # a failed call's stores still travel, AHEAD of the ERR (PROTOCOL.md,
+    # Errors) -- the entry-time seeding happened before the routine failed
+    for w in seed:
+        send("W " + w)
+    send("ERR " + msg)
 
 
 def tick(cycles=1000):
@@ -138,11 +160,31 @@ def main():
         entry = int(h["entry"])
         arg = int(float(h["arg"]) // 1)      # 0A7FH is the ROM's CINT: floor
         sp = int(h["sp"])
+        argtype = int(h.get("argtype", "4"))
+        mbf = h.get("mbf", "0,0,0,0,0,0,0,0")
+        # the entry-time stores the ROM's USR dispatch made before the jump
+        # (27FE: 252CH leaves the argument in WRA1, the type at 40AFH): into
+        # this side's RAM now, and back to the interpreter with the RET (or
+        # ahead of an ERR), like the 0A9AH trap's own stores.
+        global seed
+        seed = ["16559:%d" % argtype, "16669:" + mbf]
+        for w in seed:
+            apply_run(w)
         # the entries that take the argument through 0A7FH (7002, 7003,
-        # 7005): outside -32768..32767 the ROM exits ?OV, sent as `ERR ov`
-        if entry in (0x7002, 0x7003, 0x7005) and not -32768 <= arg <= 32767:
-            send("ERR ov USR argument %s is outside -32768..32767 at 0A7FH" % h["arg"])
-            continue
+        # 7005): a string is ?TM (0A7FH is the ROM's CINT; sent as `ERR tm`),
+        # outside -32768..32767 is ?OV, sent as `ERR ov`; on success 0A7FH
+        # stores HL at 4121H and the integer type at 40AFH, A = 2
+        if entry in (0x7002, 0x7003, 0x7005):
+            if argtype == 3:
+                err("tm USR argument is a string at 0A7FH")
+                continue
+            if not -32768 <= arg <= 32767:
+                err("ov USR argument %s is outside -32768..32767 at 0A7FH" % h["arg"])
+                continue
+            hl16 = arg & 0xFFFF
+            for w in ("16673:%d,%d" % (hl16 % 256, hl16 // 256), "16559:2"):
+                apply_run(w)
+                seed.append(w)
 
         if entry == 0x7000:
             send("V 15360:72,73")
@@ -190,11 +232,34 @@ def main():
         elif entry == 0x700D:
             send("MODE 1")            # 32-column, then CLS restores 64-column
             send("MODE 0")            # and clears bit 3 of the ROM's port image
-            ret(writes=["16445:%d" % (mem.get(16445, 0) & 0xF7)])
+            # CLS also homes the cursor (4020/4021H = 3C00H) and zeroes the
+            # cursor column at 40A6H (ROM 0342H, M-18)
+            ret(writes=["16445:%d" % (mem.get(16445, 0) & 0xF7),
+                        "16416:0,60", "16550:0"])
         elif entry == 0x700E:
             mem[arg & 0xFFFF] = 42    # the routine's store happened on this side
             send("W %d:42" % (arg & 0xFFFF))
             send("ERR rom called 0000H, no ROM here")
+        elif entry == 0x700F:
+            # a STRING argument (proto 3): DE = the descriptor's address =
+            # arg; read length and data address from RAM, overwrite the
+            # first data byte with 'Z' (in-place, through the write-set),
+            # return the length through 0A9AH
+            if argtype != 3:
+                err("bad entry 700F wants a string argument")
+                continue
+            d = arg & 0xFFFF
+            ln = mem.get(d, 255)
+            da = mem.get(d + 1, 255) + 256 * mem.get(d + 2, 255)
+            ws = []
+            if ln:
+                mem[da] = 90
+                ws.append("%d:90" % da)
+            ret(hl=ln, result=1, writes=ws)
+        elif entry == 0x7010:
+            # LD HL,(4121H): what WRA1 holds -- the seeded integer argument,
+            # a string's descriptor address, or what 0A7FH stored last
+            ret(hl=mem.get(16673, 255) + 256 * mem.get(16674, 255), result=1)
         else:
             ret()
 

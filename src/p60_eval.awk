@@ -261,7 +261,7 @@ function e_prim(   t, s, v, key, sx) {
             if (s == "USR" && TY[CK, CP + 1] == "n" &&
                 TK[CK, CP + 1] ~ /^[0-9]$/ &&
                 TY[CK, CP + 2] == "o" && TK[CK, CP + 2] == "(") { CP++; s = s TK[CK, CP] }
-            return fncall(s)
+            return fn_usr(s)
         }
         if (s == "VARPTR") { CP++; return fn_varptr() }   # p75, never a variable
         # user-defined functions, DEFINED-FIRST: an FN-prefixed identifier
@@ -479,31 +479,6 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits (0A7FH), then ?FC outside 0-255 (L-7)
         return "NI" ((x == 255) ? (LATCH ? 63 : 127) : 255)
     }
-    # USR/USR0-9: with a core (TRS80_Z80, p77) the routine RUNS; without
-    # one this is the STUB, which evaluates and returns its argument.
-    # X=USR(V) identity keeps more rescued listings partially running than
-    # ?FC would; routines whose RESULT is load-bearing still fail visibly.
-    # The CALL FRAME is resolved even though nothing consumes it yet:
-    # usr_resolve() fills USR_SLOT/USR_ENTRY/USR_ARG, which is what the p77
-    # coprocess shim will hand to ../trs80_z80_core.
-    # NOT SILENT (ruled 2026-09-11): 8 of the 11 trs-80.com string-packing
-    # techniques are side-effect routines, and a stub that returns its
-    # argument makes every one of them "succeed" with no effect, no error
-    # and exit 0 -- the silent-wrong-output failure this project names as
-    # the one that matters.  So the stub keeps stdout byte-identical (the
-    # oracle role) and usr_stub_notice() prints ONE stderr line per run
-    # naming every entry address that was called and not executed.
-    # TRS80_USR=strict raises ?FC on the call instead, for a sweep that
-    # wants the run to fail visibly.
-    if (name ~ /^USR[0-9]?$/) {
-        x = numarg(a1, na); if (E) return "NI0"
-        usr_resolve(name, x)
-        x = z80_usr(x); if (E) return "NI0"        # the core (p77), or the stub
-        # result=0 and the stub mean the argument UNCHANGED -- its value and
-        # its type (PROTOCOL.md "The return"); only an HL reply is the
-        # 16-bit integer (M-13: NI on every path was a 6fe3814 regression).
-        return "N" (Z80RES ? "I" : vtype(a1)) x
-    }
     if (name == "POS") { x = numarg(a1, na); if (E) return "NI0"; return "NI" VCOL }   # 27F5H: 40A6H (p20)
     if (name == "FRE") {                    # 27D4H: a number asks about free memory, a string about the string area (p75)
         if (na < 1) { raise(2); return "NI0" }
@@ -659,6 +634,118 @@ function bytearg2(a, na) {                # a string count or position (LEFT$, R
 }
 
 # ---- USR call frame ---------------------------------------------------------
+# USR/USR0-9: with a core (TRS80_Z80, p77) the routine RUNS; without
+# one this is the STUB, which evaluates and returns its argument.
+# X=USR(V) identity keeps more rescued listings partially running than
+# ?FC would; routines whose RESULT is load-bearing still fail visibly.
+# NOT SILENT (ruled 2026-09-11): 8 of the 11 trs-80.com string-packing
+# techniques are side-effect routines, and a stub that returns its
+# argument makes every one of them "succeed" with no effect, no error
+# and exit 0 -- the silent-wrong-output failure this project names as
+# the one that matters.  So the stub keeps stdout byte-identical (the
+# oracle role) and usr_stub_notice() prints ONE stderr line per run
+# naming every entry address that was called and not executed.
+# TRS80_USR=strict raises ?FC on the call instead, for a sweep that
+# wants the run to fail visibly.
+#
+# THE CALL PARSE is the ROM's own (27FE-2818, M-17): RST 10H, then 252CH
+# evaluates ONE expression of ANY type -- so `USR(1,2)` is ?SN at the
+# comma, where the generic function parser used to read a second argument
+# and drop it, and a string argument is legal, where numarg made it ?TM.
+# The routine enters with A = the type (40AFH: 2 I, 3 $, 4 S, 8 D), DE =
+# the string's descriptor address when it is a string (2810: CALL 29DAH,
+# 2814: EX DE,HL), HL = the entry, and the argument's bytes in WRA1
+# (4121H) -- usr_setnum/usr_setstr build that image and the p77 shim sends
+# it in the CALL header (proto 3); the core makes the ROM's stores and
+# they come back in the write-set, so PEEK sees what the routine saw.
+# A bare string VARIABLE (or array element) keeps its identity: the
+# descriptor sent is the variable's own (sp_materialize), so a routine
+# that rewrites the bytes rewrites A$ in place, as on the machine -- the
+# X$=USR(Z$(N)) print-driver idiom.  Any other string expression is
+# packed under the hidden name usr_strtmp() serves (a temporary on the
+# machine; excluded from mem_varbytes so MEM does not move).  The trial
+# parse re-reads a reference that turns out to be mid-expression
+# (USR(A$(I)+B$)) from the saved position, so a subscript expression is
+# evaluated twice there; BASIC subscripts have no side effects.
+function fn_usr(name,   a1, x, r, tgt, cp0, nm, key) {
+    if (name ~ /^USR[0-9]?$/) {
+        CP++
+        if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
+        CP++
+        tgt = ""
+        if (TY[CK, CP] == "i" && !TKW[CK, CP] && strname(TK[CK, CP]) &&
+            !(TK[CK, CP] ~ /^FN./ && (substr(TK[CK, CP], 3) in FNPAR))) {
+            cp0 = CP
+            nm = TK[CK, CP]; CP++
+            if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
+                key = aref(nm); if (E) return "NI0"
+                if (TY[CK, CP] == "o" && TK[CK, CP] == ")") tgt = "A" key
+            } else if (TY[CK, CP] == "o" && TK[CK, CP] == ")") tgt = "V" nm
+            if (tgt == "") CP = cp0
+        }
+        if (tgt != "") {
+            # the reference's value, read as e_prim reads it (alias-aware)
+            a1 = "S" ((ALN && (tgt in ALIAS)) ? al_read(tgt) : sp_gets(tgt))
+        } else { a1 = e_or(); if (E) return "NI0" }
+        if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return "NI0" }
+        CP++
+        if (isN(a1)) { x = num(a1); usr_setnum(vtype(a1), x) }
+        else {
+            if (tgt == "") tgt = usr_strtmp(substr(a1, 2))
+            key = sp_materialize(tgt, 1); if (E) return "NI0"
+            x = 0; usr_setstr(key)
+        }
+        if (E) return "NI0"
+        usr_resolve(name, USR_ARG)
+        r = z80_usr(x); if (E) return "NI0"        # the core (p77), or the stub
+        # result=0 and the stub mean the argument UNCHANGED -- its value and
+        # its type (PROTOCOL.md "The return"); only an HL reply is the
+        # 16-bit integer (M-13: NI on every path was a 6fe3814 regression).
+        # A rewritten string variable is re-read: the routine's write-set
+        # went through the descriptor's cells into the variable itself.
+        if (Z80RES) return "NI" r
+        if (isN(a1)) return a1
+        return "S" ((ALN && (tgt in ALIAS)) ? al_read(tgt) : sp_gets(tgt))
+    }
+    raise(2); return "NI0"
+}
+
+# The argument image the ROM's evaluator leaves behind (27FE: 252CH), as
+# the CALL header carries it (p77, proto 3): USR_TYPE is 40AFH's flag,
+# USR_ARG the number (or the string's descriptor address), USR_MBF the
+# eight bytes 411DH-4124H -- an integer in 4121/4122H, a single in
+# 4121-4124H (MBF, fio_mkf), a double filling all eight, a string's
+# descriptor address in 4121/4122H.  The core stores them and they return
+# in the write-set, like the 0A9AH trap's own stores.
+function usr_setnum(t, v,   i, s, off, w) {
+    USR_ARG = v
+    if (t == "I") {
+        USR_TYPE = 2
+        i = (v < 0) ? v + 65536 : v
+        USR_MBF = "0,0,0,0," (i % 256) "," int(i / 256) ",0,0"
+        return
+    }
+    USR_TYPE = (t == "D") ? 8 : 4
+    s = fio_mkf(v, USR_TYPE); if (E) return
+    off = 8 - USR_TYPE
+    USR_MBF = ""
+    for (i = 0; i < 8; i++) {
+        w = (i >= off) ? ORD[substr(s, i - off + 1, 1)] : 0
+        USR_MBF = (i == 0) ? w : USR_MBF "," w
+    }
+}
+function usr_setstr(dbase) {
+    USR_TYPE = 3; USR_ARG = dbase
+    USR_MBF = "0,0,0,0," (dbase % 256) "," (int(dbase / 256) % 256) ",0,0"
+}
+# a string temporary's home: a hidden variable no listing can name (the
+# tokenizer upper-cases every name, so a lower-case key never collides).
+# One slot, reused: the machine's temp descriptor is transient too.
+function usr_strtmp(s) {
+    SV["usr$"] = s
+    return "Vusr$"
+}
+
 # Two vectors exist on the real machines and this interpreter honours both:
 #   408EH/408FH (16526/16527)  the Level II USR vector, set by POKE -- lives
 #                              in MEM[] like any RAM (279 corpus listings)

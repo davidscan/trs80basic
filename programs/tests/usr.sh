@@ -63,6 +63,20 @@ want=' 1.5 -2.5  40000  .3333333432674408 '
 if [ "$rc" != "0" ] || [ "$out" != "$want" ]; then
     echo "USR FRAME FIXTURE FAILED (stub identity keeps the type): rc=$rc out=$out"; exit 1
 fi
+# a STRING argument is legal (ROM 27FE-2818, M-17): the stub returns it
+# unchanged, a temporary expression included; a second argument is ?SN
+# (the ROM expects ")" after the one expression 252CH read)
+printf '10 A$="HI":PRINT USR(A$);USR(A$+"!")\n' > "$tmp"
+out=$(TRS80_Z80="" "$here/basic" "$tmp" 2>/dev/null); rc=$?
+if [ "$rc" != "0" ] || [ "$out" != "HIHI!" ]; then
+    echo "USR FRAME FIXTURE FAILED (string argument through the stub): rc=$rc out=$out"; exit 1
+fi
+printf '10 X=USR(1,2)\n' > "$tmp"
+out=$(TRS80_Z80="" "$here/basic" "$tmp" 2>&1); rc=$?
+rm -f "$tmp"
+if [ "$rc" != "1" ] || [ "$out" != "?SN ERROR IN 10" ]; then
+    echo "USR FRAME FIXTURE FAILED (USR(1,2) is ?SN): rc=$rc out=$out"; exit 1
+fi
 # TRS80_USR_TRACE=2: the frame's memory image (p75 fr_build).  Frame 1 is
 # full; later frames are deltas -- a POKE shows up once, a packed string
 # when its value or place changed, and cells CLEAR unmapped come back as
@@ -75,7 +89,7 @@ dump=$(printf '\n10 POKE 30000,7:A$="HEL"+"LO":V=VARPTR(A$)\n20 X=USR(1)\n30 POK
       | awk '/^USR FRAME/ { g = $3; print; next } /^  / && g != "" { print g " " $1 }')
 chk() { if ! printf '%s\n' "$dump" | grep -q -- "$1"; then echo "USR FRAME FIXTURE FAILED (image): missing $1"; printf '%s\n' "$dump" | head -40; exit 1; fi; }
 nochk() { if printf '%s\n' "$dump" | grep -q -- "$1"; then echo "USR FRAME FIXTURE FAILED (image): unexpected $1"; exit 1; fi; }
-chk '^USR FRAME gen=1 full=1 slot=0 entry=-1 arg=1 sp=65527 himem=65535 ramtop=65535 bytes=1205 runs=17$'   # +20 window bytes and +4 seeded driver-vector bytes, 2026-09-11; +1 seeded 403DH print-flag byte (16445), 2026-09-13; +6 image bytes for the two joins, 2026-09-23; +26 the DEF-type table 4101-411AH, 2026-09-23
+chk '^USR FRAME gen=1 full=1 slot=0 entry=-1 arg=1 sp=65527 himem=65535 ramtop=65535 bytes=1206 runs=17$'   # +20 window bytes and +4 seeded driver-vector bytes, 2026-09-11; +1 seeded 403DH print-flag byte (16445), 2026-09-13; +6 image bytes for the two joins, 2026-09-23; +26 the DEF-type table 4101-411AH, 2026-09-23; +1 the 40A6H cursor column (16550), 2026-09-27 (M-18)
 chk '^gen=1 16445:0$'                       # the seeded ROM print-flag byte, 403DH
 chk '^gen=1 30000:7$'                       # the POKE
 chk '^gen=1 16396:201$'                     # the seeded DOS probe byte

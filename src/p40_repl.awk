@@ -848,6 +848,7 @@ function sys_load_cmd(data,   n, i, t, ln, a, j, got, first) {
 # run at addr through the USR call frame (p60 usr_resolve fills the frame's
 # globals as a USR call would; the address is the monitor's, not the vector's)
 function sys_exec(addr) {
+    usr_setnum("I", 0)                   # the monitor passes no argument: 0, an integer (p60)
     usr_resolve("USR", 0, addr)
     z80_usr(0)
 }

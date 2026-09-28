@@ -46,8 +46,16 @@ cat > "$tmp" <<'EOF'
 212 IF STR$(USR9(2.5))<>" 2.5" THEN PRINT "FAIL result=0 keeps the single's type";USR9(2.5):F=1
 214 B#=1/3:IF STR$(USR9(B#))<>" .3333333432674408" THEN PRINT "FAIL result=0 keeps the double's type":F=1
 216 IF STR$(USR1(2.5))<>" 4" THEN PRINT "FAIL an HL reply is the 16-bit integer":F=1
-220 IF F THEN PRINT "Z80 FIXTURE FAILED":Z(9)=0
-230 PRINT "Z80 FIXTURE OK"
+217 A$="HELLO":DEFUSR9=&H700F:L=USR9(A$):IF L<>5 OR A$<>"ZELLO" THEN PRINT "FAIL string argument, rewritten in place";L;" ";A$:F=1
+218 DEFUSR8=&H7010:IF USR8(513)<>513 THEN PRINT "FAIL WRA1 holds the integer argument";USR8(513):F=1
+219 IF USR8(A$)<>VARPTR(A$) THEN PRINT "FAIL WRA1 holds the string's descriptor address":F=1
+220 ON ERROR GOTO 223:X=USR1(A$):PRINT "FAIL no ?TM for a string at 0A7FH":F=1:GOTO 225
+223 IF ERR/2+1<>13 THEN PRINT "FAIL a string at 0A7FH is not ?TM but";ERR/2+1:F=1
+224 RESUME 225
+225 ON ERROR GOTO 0
+226 IF PEEK(16559)<>3 THEN PRINT "FAIL 40AFH did not arrive in the write-set";PEEK(16559):F=1
+300 IF F THEN PRINT "Z80 FIXTURE FAILED":Z(9)=0
+310 PRINT "Z80 FIXTURE OK"
 EOF
 out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>"$tmp.err" </dev/null); rc=$?
 err=$(cat "$tmp.err")
@@ -70,6 +78,13 @@ out=$(printf 'A\n' | TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1); rc=$?
 printf '10 DEFUSR=&H700B:X=USR(0):IF INP(255)<>63 THEN PRINT "no 32col":END\n20 PRINT CHR$(23);:DEFUSR=&H700D:X=USR(0):PRINT@0,"AB";:PRINT INP(255);PEEK(16445);PEEK(15361)\n' > "$tmp"
 out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = "AB 127  0  66 " ] || fail "CLS restores 64-column and the print flag: rc=$rc" "$out"
+
+# --- a routine's CLS zeroes the ROM's cursor column at 40A6H (0342H), so
+# BASIC's TAB and POS follow (M-18): before the fix the column stayed 7
+# after the call and TAB(10) padded from there
+printf '10 DEFUSR=&H700D:PRINT "ABCDEFG";:X=USR(0):PRINT PEEK(16550);TAB(10);"X"\n' > "$tmp"
+out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+[ "$rc" = "0" ] && [ "$out" = "ABCDEFG 0        X" ] || fail "CLS zeroes the cursor column: rc=$rc" "$out"
 
 # --- an undefined entry is ?FC on this side, never sent
 printf '10 X=USR6(0)\n' > "$tmp"
@@ -172,8 +187,8 @@ want="USR CORE: cannot start '/nonexistent/z80core'; USR is the stub for this se
  4 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead"
 [ "$out" = "$want" ] || fail "cannot-start fallback" "$out"
-out=$(TRS80_Z80="$core" Z80_STUB_PROTO=3 "$here/basic" "$tmp" 2>&1 </dev/null)
-want="USR CORE: '$core' speaks protocol 3, this interpreter speaks 2; USR is the stub for this session
+out=$(TRS80_Z80="$core" Z80_STUB_PROTO=4 "$here/basic" "$tmp" 2>&1 </dev/null)
+want="USR CORE: '$core' speaks protocol 4, this interpreter speaks 3; USR is the stub for this session
  4 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead"
 [ "$out" = "$want" ] || fail "protocol mismatch fallback" "$out"

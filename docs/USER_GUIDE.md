@@ -1739,11 +1739,17 @@ PEEK(addr)   read a memory byte (unset = 255)
 ```text
 USR(x) / USRn(x)   machine-language call.  With TRS80_Z80 naming the
   companion Z80 core the routine at slot n's entry runs against the
-  simulated memory and its HL comes back as the result (PROTOCOL.md).
-  A routine that takes x through the ROM's 0A7FH gets it floored to an
-  integer; outside -32768..32767 that is ?OV, as on the machine -- pass
-  an address above 32767 as its negative (IF D>32767 THEN D=D-65536), or
-  VARPTR's value, which already is.
+  simulated memory; a routine that hands a result over (JP 0A9AH) makes
+  the USR value that HL, a signed integer, and one that returns plainly
+  leaves the argument unchanged -- value and type (PROTOCOL.md).
+  x may be ANY type, as on the machine (ROM 27FE-2818): the routine
+  enters with A = the type, the value in WRA1 (4121H), and for a string
+  DE = the descriptor address, so X$=USR(Z$) print-driver routines that
+  rewrite the string's bytes rewrite Z$ in place.  A routine that takes
+  a numeric x through the ROM's 0A7FH gets it floored to an integer;
+  outside -32768..32767 that is ?OV, and a string there is ?TM, as on
+  the machine -- pass an address above 32767 as its negative (IF D>32767
+  THEN D=D-65536), or VARPTR's value, which already is.
   Without a core it is a STUB: it evaluates and returns its argument x
   and no Z80 routine runs.  Programs whose USR result is decorative keep
   running; result-dependent ones fail visibly.  When a stubbed run ends,

@@ -89,7 +89,8 @@
 #      THE SYSTEM VARIABLE WINDOW (sv_peek, below; the SVW set): 4020-4022H
 #      cursor position and character, 4028H/4029H/409BH printer lines per
 #      page, line counter and column, 4041-4046H the Model I clock,
-#      40A2/40A3H the current line number, 40E1-40E5H AUTO's flag, line and
+#      40A2/40A3H the current line number, 40A6H the cursor column (VCOL),
+#      40E1-40E5H AUTO's flag, line and
 #      increment, 4101-411AH the DEF-type table, 411BH the TRON flag -- each
 #      read from the live state it
 #      names.  Added 2026-09-11; see the window's own comment for the write
@@ -144,7 +145,8 @@
 #   2. 40AA-40ACH (16554-16556) -> rnd_poke(), the ROM RND seed
 #   3. 40B1/40B2H (16561/16562) -> pm_sethimem(), the one writable pointer
 #      the SYSTEM VARIABLE WINDOW (a in SVW) -> sv_poke(): cursor moves,
-#      cursor character, printer counters, AUTO request, the DEF-type
+#      cursor character, cursor column (40A6H -> VCOL), printer counters,
+#      AUTO request, the DEF-type
 #      table (a letter's type), TRON flag; a
 #      clock cell (4041-4046H) becomes plain RAM once written (MEM[a],
 #      read back by sv_peek; on a cassette machine nothing updates those
@@ -741,6 +743,12 @@ function fn_varptr(   name, key, tgt) {
 #                         and the frame carried the wall clock in place of
 #                         six of its bytes -- 340 calls ran, the 341st
 #                         crashed when the seconds byte became an opcode.
+#   40A6H (16550)         the cursor COLUMN (VCOL, p20): what POS and TAB
+#                         measure, 033AH zeroes it in CLS.  POKE sets it,
+#                         so a routine (or a POKE) that moves the ROM's
+#                         idea of the column moves PRINT's.  Added
+#                         2026-09-27 (the 2026-09-26 audit, M-18): it read
+#                         255, and a USR routine's CLS left it stale.
 #   40A2/40A3H (16546/7)  the line number executing (CLN).  At READY, and
 #                         for a statement typed at the prompt, it is 65535
 #                         -- the ROM's Input Phase marker (1A36), which is
@@ -768,7 +776,7 @@ function sv_init(   a) {
     SVW[16416] = 1; SVW[16417] = 1; SVW[16418] = 1
     SVW[16424] = 1; SVW[16425] = 1; SVW[16539] = 1
     for (a = 16449; a <= 16454; a++) SVW[a] = 1
-    SVW[16546] = 1; SVW[16547] = 1
+    SVW[16546] = 1; SVW[16547] = 1; SVW[16550] = 1
     for (a = 16609; a <= 16613; a++) SVW[a] = 1
     SVW[16667] = 1
     for (a = 16641; a <= 16666; a++) SVW[a] = 1
@@ -787,6 +795,7 @@ function sv_peek(a,   v) {
     }
     if (a == 16546) return CLN % 256
     if (a == 16547) return int(CLN / 256) % 256
+    if (a == 16550) return VCOL % 256
     if (a == 16609) return AUTOON ? 1 : (AUTOREQ ? 1 : 0)
     if (a == 16610) return AUTOLINE % 256
     if (a == 16611) return int(AUTOLINE / 256) % 256
@@ -811,6 +820,7 @@ function sv_poke(a, b,   v) {
     if (a == 16424) { LPPAGE = b; return }
     if (a == 16425) { LPLINES = b; return }
     if (a == 16539) { LPCOL = b; return }
+    if (a == 16550) { VCOL = b; return }
     if (a == 16609) { AUTOREQ = (b != 0); return }
     if (a == 16610) { AUTOLINE = int(AUTOLINE / 256) * 256 + b; return }
     if (a == 16611) { AUTOLINE = AUTOLINE % 256 + 256 * b; return }
@@ -1175,7 +1185,7 @@ function mem_varbytes(   n, k, i, e) {
     if (n == VBSEEN) return VBYTES
     VBSEEN = n; VBYTES = 0
     for (k in NV) VBYTES += 3 + mem_numsize(k)
-    for (k in SV) VBYTES += 6
+    for (k in SV) if (k != "usr$") VBYTES += 6   # usr$ is fn_usr's hidden temp (p60), a transient on the machine
     for (k in ADIM) {
         e = 1
         for (i = 1; i <= ADIM[k]; i++) e *= ASZ[k, i] + 1
