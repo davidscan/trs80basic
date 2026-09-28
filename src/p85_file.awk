@@ -158,6 +158,12 @@ function fio_close1(n,   f, r) {
 
 function fio_flushR(n,   f, r) {
     f = FH_NAME[n]
+    # the OPEN-time probe does not cover what happened since: the rewrite
+    # REOPENS the path, and an outside actor replacing it (a directory in
+    # its place) would make the redirect a gawk fatal, killing the session.
+    # Probe again at flush time; the failure is ?FD, as at OPEN (the
+    # 2026-09-26 audit, M-16).
+    if (!host_writable(f)) { raise(22); return }
     printf "" > f
     for (r = 1; r <= FH_NREC[n]; r++) print fio_esc(FH_REC[n, r]) >> f
     close(f)

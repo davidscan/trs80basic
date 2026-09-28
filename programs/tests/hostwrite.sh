@@ -128,5 +128,17 @@ SOUND OFF, WAV $d/home/cap.wav"
 [ "$out" = "$want" ] || bad "sound wav refusals: $out"
 [ -e home/a.wav ] || [ -e home/cap.wav ] && bad "sound wav created a file by naming it"
 
+# CLOSE of a dirty "R" file REOPENS the path to rewrite it, so the
+# OPEN-time probe is not enough: an outside actor replacing the file with
+# a directory between PUT and CLOSE made the redirect a gawk fatal (the
+# 2026-09-26 audit, M-16).  The program waits on INPUT while the shell
+# swaps the file out; CLOSE must be ?FD, never rc 2.
+printf '10 ON ERROR GOTO 100\n20 OPEN "R",1,"R.DAT":FIELD 1,10 AS A$:LSET A$="HELLO":PUT 1\n30 INPUT Z\n40 CLOSE 1\n50 PRINT "AFTER CLOSE":END\n100 PRINT "ERR";ERR/2+1;"IN";ERL:RESUME NEXT\n' > rclose.bas
+out=$( { sleep 2; rm -f R.DAT; mkdir R.DAT; printf '1\n'; } | TRS80_Z80= "$here/basic" rclose.bas 2>&1 )
+rc=$?
+want=$(printf '? 1\nERR 22 IN 40 \nAFTER CLOSE')
+[ "$out" = "$want" ] && [ "$rc" = 0 ] || bad "CLOSE of a replaced R file (rc=$rc): $out"
+rm -rf R.DAT
+
 [ $fail = 0 ] && echo "HOSTWRITE OK"
 exit $fail
