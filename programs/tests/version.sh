@@ -18,6 +18,10 @@ raw=$(gawk -b -f "$here/trs80basic.awk" -- --version 2>&1)
 case $raw in "trs80basic v"[0-9]*.[0-9]*) ;; *) fail "the release without the launcher" "$raw" ;; esac
 case $raw in *"(build"*) fail "no build outside the launcher" "$raw" ;; esac
 rel=$raw
+# a release tag carries the VERSION bump: exactly at a tag, the tag IS the release
+if command -v git >/dev/null 2>&1 && t=$(git -C "$here" describe --tags --exact-match 2>/dev/null) && [ -n "$t" ]; then
+    [ "trs80basic $t" = "$rel" ] || fail "the tag $t lacks the VERSION bump ($rel)" "$rel"
+fi
 # the launcher's build is the checkout's describe, when git is here
 if command -v git >/dev/null 2>&1 && d=$(git -C "$here" describe --tags --always --dirty 2>/dev/null) && [ -n "$d" ]; then
     v=${rel#trs80basic }
