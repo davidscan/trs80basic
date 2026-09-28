@@ -55,4 +55,20 @@ want='BREAK IN 30
 ?CN ERROR
 END'
 [ "$out" = "$want" ] || fail "the FOR/GOSUB stacks and CONT after NAME" "$out"
+
+# a NAME issued INSIDE a handler drops the in-flight handler state with
+# the stacks (audit L-22): the next error is trapped by the moved handler
+# (a stale INHANDLER blocked the entry), with ERL 65535 for a typed one
+out=$(repl <<'EOF'
+
+10 ON ERROR GOTO 100
+20 ERROR 5
+30 END
+100 PRINT "H";ERL:NAME 1000
+RUN
+ERROR 5
+EOF
+)
+want=$(printf 'H 20 \nH 65535 ')
+[ "$out" = "$want" ] || fail "NAME inside a handler: the next error is trapped" "$out"
 echo "NAME OK"

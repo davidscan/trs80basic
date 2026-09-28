@@ -973,6 +973,13 @@ function st_name(   n, m, i, j, cnt, ln, maxbelow, newn, map, newprog, wa, wn, w
     # their frames name lines that are no longer there
     if (EHANDLER in map) EHANDLER = map[EHANDLER]
     FSN = 0; GSN = 0
+    # the in-flight handler state goes WITH the stacks: INHANDLER and the
+    # resume point name positions in the numbering that no longer exists,
+    # so a NAME issued inside a handler would otherwise leave every later
+    # error untrapped (INHANDLER blocks the entry) and RESUME aimed at a
+    # stale line.  The one rule (audit L-22, with 2026-09-23's L-6): the
+    # ARMED target follows its rewritten reference; the frames drop.
+    INHANDLER = 0
     DATADIRTY = 1; CONTOK = 0
     if (NAMEWARN != "") {
         wn = split(NAMEWARN, wa, "\n")
