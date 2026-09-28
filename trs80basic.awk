@@ -6424,7 +6424,15 @@ function z80_init() {
     # kill in z80_close makes that shell print "Terminated" into our stderr.
     # `exec` makes the core the shell's own process on every platform, so the
     # pid the handshake reports is the only process, and nothing reports it.
-    Z80CMD = (Z80NAMED == "") ? "" : "exec " Z80NAMED
+    # The `echo $$` in front makes that pid KNOWN before any handshake: the
+    # shell prints its own pid and exec keeps it, z80_start reads the line
+    # before HELLO's reply, and z80_close can kill a core that hung without
+    # ever answering (the 2026-09-26 audit, M-1: close() of a coprocess
+    # waits for the child, and this gawk's PROCINFO has no coprocess pid,
+    # so a pid-less hung core held the session for ever -- the protocol's
+    # own pid= arrives only with a completed handshake).  Not on native
+    # Windows, where there is no $$ and no kill.
+    Z80CMD = (Z80NAMED == "") ? "" : (WINNATIVE ? "" : "echo $$; ") "exec " Z80NAMED
     Z80TO = (ENVIRON["TRS80_Z80_TIMEOUT"] + 0 > 0) ? ENVIRON["TRS80_Z80_TIMEOUT"] + 0 : 5000
     Z80STATE = (Z80CMD == "") ? "none" : "cold"   # none | cold | up | dead
 }
@@ -6474,11 +6482,18 @@ function z80_field(key,   s) {
 }
 
 # Give up on the core.  close() of a two-way pipe WAITS for the child, so a
-# core that is hung (the timeout case) is killed first when it told us its
-# pid in the handshake; gawk's own PROCINFO[cmd, "pid"] is empty on the gawk
-# this was built with, which is why the protocol carries it.
+# core that is hung (the timeout case) is killed first: the pid is the
+# `echo $$` line z80_start read (or the handshake's own pid=), gawk's
+# PROCINFO[cmd, "pid"] being empty on the gawk this was built with.  The
+# kill is BOUNDED (M-1): TERM, up to half a second for it to land, then
+# KILL -- a core that traps TERM (or a plain `sleep`) no longer holds the
+# session and the tty at close().  On native Windows there is no kill and
+# no pid; a hung core there still hangs the close (documented).
 function z80_close() {
-    if (Z80PID > 0 && !WINNATIVE) system("kill " Z80PID " 2>/dev/null")
+    if (Z80PID > 0 && !WINNATIVE)
+        system("kill " Z80PID " 2>/dev/null; i=0; " \
+               "while kill -0 " Z80PID " 2>/dev/null && [ $i -lt 5 ]; do sleep 0.1; i=$((i+1)); done; " \
+               "kill -9 " Z80PID " 2>/dev/null")
     close(Z80CMD)
     Z80STATE = "dead"; Z80PID = 0
 }
@@ -6504,12 +6519,22 @@ function z80_start(   w) {
         z80_notice("cannot start '" Z80NAMED "'; USR is the stub for this session")
         z80_close(); return
     }
+    # the first line is the wrapper shell's `echo $$` -- the core's own pid,
+    # since exec keeps it -- so even a core that never answers can be killed
+    # (M-1).  The handshake's optional pid= still overrides below.
+    if (Z80LINE ~ /^[0-9]+$/) {
+        Z80PID = Z80LINE + 0
+        if (!z80_recv()) {
+            z80_notice("cannot start '" Z80NAMED "'; USR is the stub for this session")
+            z80_close(); return
+        }
+    }
     if (Z80LINE !~ /^Z80 / || z80_field("proto") != Z80PROTO) {
         z80_notice("'" Z80NAMED "' speaks protocol " (z80_field("proto") == "" ? "?" : z80_field("proto")) \
                    ", this interpreter speaks " Z80PROTO "; USR is the stub for this session")
         z80_close(); return
     }
-    Z80PID = z80_field("pid") + 0
+    if (z80_field("pid") != "") Z80PID = z80_field("pid") + 0
     Z80STATE = "up"
     Z80WAVGOING = w
     fr_reset()                                    # the first frame is full

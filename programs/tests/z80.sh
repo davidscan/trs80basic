@@ -86,6 +86,26 @@ printf '10 DEFUSR=&H700D:PRINT "ABCDEFG";:X=USR(0):PRINT PEEK(16550);TAB(10);"X"
 out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = "ABCDEFG 0        X" ] || fail "CLS zeroes the cursor column: rc=$rc" "$out"
 
+# --- a hung core that never answers HELLO -- and traps TERM -- is killed
+# within a bounded close (M-1): TERM, half a second, then KILL.  Before the
+# fix close() waited for the child for ever (no pid without a handshake)
+# and this test never finished.
+cat > "$tmp.core" <<'EOF'
+trap '' TERM
+while :; do sleep 1; done
+EOF
+printf '10 DEFUSR=&H7003:PRINT USR(4)\n' > "$tmp"
+t0=$(date +%s)
+out=$(TRS80_Z80="sh $tmp.core" TRS80_Z80_TIMEOUT=300 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+t1=$(date +%s)
+rm -f "$tmp.core"
+four=' 4 '
+want="USR CORE: cannot start 'sh $tmp.core'; USR is the stub for this session
+$four
+USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead"
+[ "$rc" = "0" ] && [ "$out" = "$want" ] || fail "hung core: rc=$rc" "$out"
+[ $((t1 - t0)) -lt 10 ] || fail "hung core: close took $((t1 - t0))s, not bounded"
+
 # --- an undefined entry is ?FC on this side, never sent
 printf '10 X=USR6(0)\n' > "$tmp"
 out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
