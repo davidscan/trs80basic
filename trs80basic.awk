@@ -2795,7 +2795,18 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
             if (l ~ /^[0-9]+/) {
                 ln = cut_lineno(l); rest = LNBODY     # 1 5 PRINT is line 15 (L-14)
                 if (ln > 65529) { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " pln " (LINE NUMBER > 65529)\n" }
-                else if (rest == "") { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " pln " (EMPTY LINE BODY)\n" }
+                else if (rest ~ /^[ \t]*$/) {
+                    # an ASCII load's lines come in as typed (Disk BASIC
+                    # feeds them to 1A98H), so a number followed only by
+                    # blanks is a DELETION, silent when the line is not
+                    # there -- enter_line's rule (1AADH-1ABFH; audit L-17).
+                    # tools/tok.py drops the line the same way.  A verify
+                    # pass skips it: it stores nothing.
+                    if (!verify) {
+                        if (ln in prog) { inval_cache(ln); delete prog[ln]; delete ESC[ln] }
+                        LASTLN = ln
+                    }
+                }
                 else if (verify) {
                     nseen++
                     if (!(ln in prog) || prog[ln] != rest) ok = 0

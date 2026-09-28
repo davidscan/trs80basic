@@ -223,6 +223,12 @@ def split_lines(data):
         # detok emits one space after the number unless the body supplied its
         # own; that separator is not part of the body and must not come back.
         body = raw[j + 1:] if j < len(raw) and raw[j] == 0x20 else raw[j:]
+        if not body.strip(b" \t"):
+            # A number followed only by blanks is a DELETION, as typed
+            # (1AADH-1ABFH); the interpreter's loader (prog_load) does the
+            # same, so the image must not carry the line (audit L-17).
+            lines = [(n, b) for (n, b) in lines if n != number]
+            continue
         lines.append((number, body))
     return lines
 

@@ -100,5 +100,17 @@ want='10  PRINT "=TEN"
 15 PRINT "=LOADED FIFTEEN"
 20 PRINT "=LOADED TWENTY"'
 [ "$out" = "$want" ] || fail "a line number with blanks inside" "$out"
+
+# an ASCII load's lines come in as typed, so a bare line number (or one
+# followed only by blanks) in the file is a DELETION -- silent when the
+# line is not there; MERGE deletes an existing line (audit L-17)
+printf '10 PRINT "=ONE"\n20\n30 PRINT "=THREE"\n' > "$dir/bare.bas"
+printf '10   \n30 PRINT "=MERGED"\n' > "$dir/del.bas"
+out=$(cd "$dir" && printf '\nLOAD "bare.bas"\nRUN\nMERGE "del.bas"\nLIST\n' \
+    | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep -E '^([=?]|[0-9])')
+want='=ONE
+=THREE
+30 PRINT "=MERGED"'
+[ "$out" = "$want" ] || fail "a bare line number in a load deletes" "$out"
 rm -rf "$dir"
 echo "LINEEDIT OK"
