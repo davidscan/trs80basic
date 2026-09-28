@@ -288,7 +288,9 @@ function runtext(ln) { return (ln in ESC) ? pm_detok(ESC[ln], 1) : prog[ln] }
 # ' stay literal; ' is stored as the three bytes :REM'; a keyword gets a
 # space before it when the previous character would glue onto it (an
 # alphanumeric, $, . or #) and one after it when an alphanumeric follows,
-# because tokline lexes FORX as one identifier.  A CR or LF -- legal in a
+# so the listing reads FOR X, never FORX (the cruncher reads both back to
+# the same tokens since keywords cut names, 2026-09-25; the space is for
+# the reader and for tools/detok.py's identical rendering).  A CR or LF -- legal in a
 # stored body, impossible in a text line -- becomes a space, or inside a
 # non-DATA string the equivalent "+CHR$(n)+" splice.  Those rewrites touch
 # only this text; the image is built from the escrowed bytes.  With raw set

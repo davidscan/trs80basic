@@ -224,9 +224,11 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
     return i
 }
 
-# TRS80_VARNAMES=2: a variable is named by its first two characters, as
-# the ROM's variable table stores it, so ADDR and AD are one variable
-# (gprixmc1.bas relies on it).  The tokenizer is the one place every name
+# The ROM's two-character names, the DEFAULT since 2026-09-26 (`memory
+# host` lifts it; TRS80_VARNAMES=2, the 2026-09-23 opt-in, is retired):
+# a variable is named by its first two characters, as the ROM's variable
+# table stores it, so ADDR and AD are one variable (gprixmc1.bas relies
+# on it).  The tokenizer is the one place every name
 # passes, so cutting here reaches variables, arrays, FOR/NEXT, INPUT/READ,
 # DIM, VARPTR and the memory projection alike.  LIST shows the program's
 # text, and the image cruncher and tools/tok.py crunch that text, so the

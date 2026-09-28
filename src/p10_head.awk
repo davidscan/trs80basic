@@ -264,9 +264,9 @@ function init_tables(   i, c, m, n) {
     # (km_init's KMCLOCK); reached by an indirect call for the same reason
     THRSLEEP = ("sleep" in FUNCTAB) ? "sleep" : ""
     set_speed(ENVIRON["TRS80_MHZ"] + 0)
-    # ROM RND seed (40AA-40ACH): boot writes only the middle byte, like the
-    # real ROM's R-register init -- gawk rand() is the entropy source, so
-    # --seed makes the whole RND sequence repeatable (rnd_* in p90).
+    # ROM RND seed (40AA-40ACH): boot writes only the middle byte -- gawk
+    # rand() is the entropy source, so --seed makes the whole RND sequence
+    # repeatable (rnd_* in p90).
     RNDSEED = 0; rnd_setmid(int(rand() * 256))
     # memory model (p75): RAMTOP is the machine's PHYSICAL top -- a 48K
     # Model I, so FFFFH; above it memory is genuinely absent (255 on read,

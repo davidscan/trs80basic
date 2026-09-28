@@ -264,9 +264,9 @@ function init_tables(   i, c, m, n) {
     # (km_init's KMCLOCK); reached by an indirect call for the same reason
     THRSLEEP = ("sleep" in FUNCTAB) ? "sleep" : ""
     set_speed(ENVIRON["TRS80_MHZ"] + 0)
-    # ROM RND seed (40AA-40ACH): boot writes only the middle byte, like the
-    # real ROM's R-register init -- gawk rand() is the entropy source, so
-    # --seed makes the whole RND sequence repeatable (rnd_* in p90).
+    # ROM RND seed (40AA-40ACH): boot writes only the middle byte -- gawk
+    # rand() is the entropy source, so --seed makes the whole RND sequence
+    # repeatable (rnd_* in p90).
     RNDSEED = 0; rnd_setmid(int(rand() * 256))
     # memory model (p75): RAMTOP is the machine's PHYSICAL top -- a 48K
     # Model I, so FFFFH; above it memory is genuinely absent (255 on read,
@@ -3379,9 +3379,11 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
     return i
 }
 
-# TRS80_VARNAMES=2: a variable is named by its first two characters, as
-# the ROM's variable table stores it, so ADDR and AD are one variable
-# (gprixmc1.bas relies on it).  The tokenizer is the one place every name
+# The ROM's two-character names, the DEFAULT since 2026-09-26 (`memory
+# host` lifts it; TRS80_VARNAMES=2, the 2026-09-23 opt-in, is retired):
+# a variable is named by its first two characters, as the ROM's variable
+# table stores it, so ADDR and AD are one variable (gprixmc1.bas relies
+# on it).  The tokenizer is the one place every name
 # passes, so cutting here reaches variables, arrays, FOR/NEXT, INPUT/READ,
 # DIM, VARPTR and the memory projection alike.  LIST shows the program's
 # text, and the image cruncher and tools/tok.py crunch that text, so the
@@ -5439,7 +5441,9 @@ function runtext(ln) { return (ln in ESC) ? pm_detok(ESC[ln], 1) : prog[ln] }
 # ' stay literal; ' is stored as the three bytes :REM'; a keyword gets a
 # space before it when the previous character would glue onto it (an
 # alphanumeric, $, . or #) and one after it when an alphanumeric follows,
-# because tokline lexes FORX as one identifier.  A CR or LF -- legal in a
+# so the listing reads FOR X, never FORX (the cruncher reads both back to
+# the same tokens since keywords cut names, 2026-09-25; the space is for
+# the reader and for tools/detok.py's identical rendering).  A CR or LF -- legal in a
 # stored body, impossible in a text line -- becomes a space, or inside a
 # non-DATA string the equivalent "+CHR$(n)+" splice.  Those rewrites touch
 # only this text; the image is built from the escrowed bytes.  With raw set
