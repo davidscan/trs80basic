@@ -99,4 +99,11 @@ case "$out" in
     *" 20 0 189 84 65 76 213 53 0 "*) ;;
     *) fail "the image of TOTAL=5" "$out" ;;
 esac
+# a keyword cuts an FN name too (the cruncher knows no FN name): DEF FNTO
+# is DEF FN <TO>, ?SN; FNA and FN A stay a defined function (N-5)
+out=$(run '10 DEF FNTO(X)=X+1' | tr -d '\n')
+case "$out" in *"?SN ERROR IN 10"*) ;; *) fail "DEF FNTO is ?SN" "$out" ;; esac
+out=$(run '10 DEF FNA(X)=X+1
+20 PRINT FNA(2);FN A(3)' | tr -d '\n')
+case "$out" in *" 3  4 "*) ;; *) fail "FNA and FN A still work" "$out" ;; esac
 echo "KEYWORD OK"

@@ -311,7 +311,9 @@ function st_def(tx,   v) {
     if (tx ~ /^USR[0-9]?$/) { CP++; st_defusr_tail(tx == "USR", substr(tx, 4)); return }
     if (tx == "FN") {                       # spaced name: DEF FN AB(X)=...
         CP++
-        if (TY[CK, CP] != "i") { raise(2); return }
+        # a KEYWORD is never the name: the cruncher tokenized it (DEF FNTO
+        # is DEF FN <TO>, ?SN -- N-5)
+        if (TY[CK, CP] != "i" || ((CK, CP) in TKW)) { raise(2); return }
         tx = TK[CK, CP]; CP++
         st_deffn(tx)
         return

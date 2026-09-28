@@ -280,7 +280,7 @@ function e_prim(   t, s, v, key, sx) {
         # stays a plain variable/array (three period listings in the
         # runnable corpus use FN* names as arrays; measured 2026-08-13)
         if (s ~ /^FN./ && (substr(s, 3) in FNPAR)) return fn_user(substr(s, 3))
-        if (s == "FN" && TY[CK, CP + 1] == "i" && (TK[CK, CP + 1] in FNPAR)) {
+        if (s == "FN" && TY[CK, CP + 1] == "i" && !((CK, CP + 1) in TKW) && (TK[CK, CP + 1] in FNPAR)) {
             CP++                                  # spaced call: FN AB(1)
             return fn_user(TK[CK, CP])
         }

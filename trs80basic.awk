@@ -3230,7 +3230,11 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
                     continue
                 }
                 if (s == "FN") { j = i; while (substr(text, j, 1) ~ /^[ \t]$/) j++ }
-                if (!(s == "FN" && substr(text, j, 1) ~ /^[A-Za-z]$/)) {
+                # the ROM's cruncher knows no FN: a keyword right behind it
+                # is tokenized (DEF FNTO is DEF FN <TO>, ?SN when parsed),
+                # so the name must not swallow one (the 2026-09-26 audit,
+                # N-5; tk_name only cuts keywords AFTER its first letter)
+                if (!(s == "FN" && substr(text, j, 1) ~ /^[A-Za-z]$/ && kw_at(up, j) == "")) {
                     k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0; TKW[key, k] = 1
                     continue
                 }
@@ -3695,7 +3699,7 @@ function e_prim(   t, s, v, key, sx) {
         # stays a plain variable/array (three period listings in the
         # runnable corpus use FN* names as arrays; measured 2026-08-13)
         if (s ~ /^FN./ && (substr(s, 3) in FNPAR)) return fn_user(substr(s, 3))
-        if (s == "FN" && TY[CK, CP + 1] == "i" && (TK[CK, CP + 1] in FNPAR)) {
+        if (s == "FN" && TY[CK, CP + 1] == "i" && !((CK, CP + 1) in TKW) && (TK[CK, CP + 1] in FNPAR)) {
             CP++                                  # spaced call: FN AB(1)
             return fn_user(TK[CK, CP])
         }
@@ -4569,7 +4573,9 @@ function st_def(tx,   v) {
     if (tx ~ /^USR[0-9]?$/) { CP++; st_defusr_tail(tx == "USR", substr(tx, 4)); return }
     if (tx == "FN") {                       # spaced name: DEF FN AB(X)=...
         CP++
-        if (TY[CK, CP] != "i") { raise(2); return }
+        # a KEYWORD is never the name: the cruncher tokenized it (DEF FNTO
+        # is DEF FN <TO>, ?SN -- N-5)
+        if (TY[CK, CP] != "i" || ((CK, CP) in TKW)) { raise(2); return }
         tx = TK[CK, CP]; CP++
         st_deffn(tx)
         return
