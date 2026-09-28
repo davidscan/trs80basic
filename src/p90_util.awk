@@ -26,6 +26,11 @@ function raise(c) {
 function report_err(   c, msg) {
     c = E; E = 0
     if (!(c in ERRC)) c = 20                  # the table is sparse past 23 (the file codes)
+    # an UNTRAPPED syntax error clears the ERR cell on its way to READY:
+    # 1A2BH reads 409AH, SUB 02H leaves 0 for ?SN, and 1A30H's CALL 2E53H
+    # stores that 0 back -- so ERR reads 0 afterwards, not 2 (the
+    # 2026-09-26 audit, N-5; ERL keeps the line)
+    if (c == 2) ERRV = 0
     # ROM 1A11-1A14 prints the line unless H AND L is FF, that is unless it
     # is 65535 -- so an error in line 0 reports " IN 0"
     msg = "?" ERRC[c] " ERROR" inln(ERR_AT)
