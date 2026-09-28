@@ -31,6 +31,11 @@
 290 DATA "##.##[[[[",.000123," 1.23E-04"
 300 DATA "##,###.##",1E17,"%1E+17"
 310 DATA "**##.##",1212.12,"1212.12"
+312 REM bug 8: a positive's trailing sign cell is the pad register's,
+313 REM so ** fills it with an asterisk (10C4H-10C7H); a negative's is -
+314 DATA "**####-",1234,"**1234*"
+315 DATA "**####-",-1234,"**1234-"
+316 DATA "####-",1234,"1234 "
 320 DATA "END",0,""
 330 READ U$,V,W$:IF U$="END" THEN 400
 340 PRINT@0,STRING$(20,32);:PRINT@0,USING U$;V;

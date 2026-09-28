@@ -7252,7 +7252,11 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
 }
 
 function pu_tsign(neg) {
-    if (PU_TS == "-") return neg ? "-" : " "
+    # a positive number's trailing sign position is stored from the same
+    # register as the after-value pad (10C4H-10C7H), so under ** fill it
+    # comes out an asterisk: **####- of 1234 is **1234* (trs-80.com's
+    # documented bug 8, followed by the 2026-09-25 ruling)
+    if (PU_TS == "-") return neg ? "-" : (PU_AST ? "*" : " ")
     if (PU_TS == "+") return neg ? "-" : "+"
     return ""
 }
