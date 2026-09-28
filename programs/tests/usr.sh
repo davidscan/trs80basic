@@ -113,7 +113,7 @@ chk '^gen=4 65533:255,255,255$'                                  # and the descr
 # place is resent for its value; untouched, it is not; a number the same;
 # a POKE into a mapped cell is resent once; a PRINT resends its cells and
 # a CLS the whole screen.
-dump=$(printf '\n10 A$="HEL"+"LO":V=VARPTR(A$):PRINT "X";:X=USR(1)\n20 X=USR(2)\n30 A$="JEL"+"LO":X=USR(3)\n40 PRINT@64,"Q";:X=USR(4)\n50 CLS:X=USR(5)\n60 B=7:W=VARPTR(B):X=USR(6)\n70 B=8:X=USR(7)\n80 POKE V+1,PEEK(V+1):X=USR(8)\nRUN\nBYE\n' \
+dump=$(printf '\n10 A$="HEL"+"LO":V=VARPTR(A$):PRINT "X";:X=USR(1)\n20 X=USR(2)\n30 A$="JEL"+"LO":X=USR(3)\n40 PRINT@64,"Q";:X=USR(4)\n50 CLS:X=USR(5)\n60 B=7:W=VARPTR(B):X=USR(6)\n70 B=8:X=USR(7)\n80 POKE V+1,PEEK(V+1):POKE 14400,9:X=USR(8)\nRUN\nBYE\n' \
       | TRS80_USR_TRACE=2 TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 >/dev/null \
       | awk '/^USR FRAME/ { g = $3; print; next } /^  / && g != "" { print g " " $1 }')
 chk '^gen=1 65528:72,69,76,76,79,5,248,255$'
@@ -124,6 +124,10 @@ nochk '^gen=4 65528:'; chk '^gen=4 15424:81$'; nochk '^gen=4 15360:'   # PRINT@6
 chk '^gen=5 15360:32,32,32,32,32,32,32,32,'                      # CLS: the whole screen
 chk '^gen=6 65524:0,0,96,131$'; chk '^gen=7 65524:0,0,0,132$'; nochk '^gen=8 65524:'   # B: VARPTRed, changed, then untouched
 chk '^gen=8 65534:248$'                                          # the POKE of the same byte: resent once
+# never the keyboard: the POKE at 3840H (14400) sits in MEM but a frame
+# must not read 3800-38FFH -- dopeek there is the live matrix and would
+# consume a line of stdin (the 2026-09-26 audit, L-27)
+nochk '^gen=8 14400:'
 
 # The core's own video writes come back through the screen and are ITS
 # bytes: the next delta does not resend them (z80_stub.py paints HI at

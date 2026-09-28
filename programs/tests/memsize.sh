@@ -28,6 +28,15 @@ for v in 17279 65536 abc ""; do
     [ $rc -eq 2 ] || fail "--memsize '$v' was accepted (rc=$rc)" "$out"
 done
 
+# RAMTOP itself (-1 = 65535, the signed address) is present RAM: a POKE
+# there reads back; no 16-bit address lies above it (65536 is ?OV before
+# any bound), so dopeek's a > RAMTOP arm stays unreachable, as p75 says
+printf '10 POKE -1,123:PRINT PEEK(-1):POKE -1,255\n20 PRINT PEEK(65536)\n' > "$tmp"
+out=$(run); rc=$?
+[ $rc -eq 1 ] || fail "PEEK(65536) exits 1 (rc=$rc)" "$out"
+want=$(printf ' 123 \n?OV ERROR IN 20')
+[ "$out" = "$want" ] || fail "POKE/PEEK at RAMTOP" "$out"
+
 # at the prompt the option answers MEM SIZE?, so the first piped line is a command
 out=$(printf 'PRINT PEEK(16561)+256*PEEK(16562)\n' | TRS80_DUMB=1 TRS80_Z80= "$here/basic" --memsize 30000 2>&1)
 case $out in *"MEM SIZE? 30000"*" 30000 "*) ;; *) fail "--memsize at the prompt" "$out" ;; esac

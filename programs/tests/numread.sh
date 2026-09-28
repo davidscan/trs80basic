@@ -87,5 +87,18 @@ BAS
 out=$(run "$tmp/file.bas")
 [ "$out" = " 1  7  0 " ] || fail "INPUT#" "$out"
 
+# The tokenizer's own dot rule (tk_number): a second "." ends the literal,
+# so A=1.2.3 stores 1.2 and the leftover .3 is ?SN behind the statement
+cat > "$tmp/dot.bas" <<'BAS'
+10 ON ERROR GOTO 100
+20 A=1.2.3
+30 PRINT "A";A:END
+100 PRINT "ERR";ERR/2+1;"IN";ERL:RESUME NEXT
+BAS
+out=$(run "$tmp/dot.bas")
+want="ERR 2 IN 20 
+A 1.2 "
+[ "$out" = "$want" ] || fail "the tokenizer's dot rule" "$out"
+
 rm -rf "$tmp"
 echo "NUMREAD OK"
