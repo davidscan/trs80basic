@@ -6554,9 +6554,14 @@ function z80_stop() {
 function z80_apply(run, isvideo,   p, a, n, bs, j, b) {
     p = index(run, ":"); if (p == 0) return
     a = substr(run, 1, p - 1) + 0
+    if (a < 0 || a > 65535) return            # not an address: apply nothing
     n = split(substr(run, p + 1), bs, ",")
     for (j = 1; j <= n; j++) {
         b = bs[j] + 0
+        # poke_byte's contract is a byte 0-255 at a 16-bit address; a
+        # value or a run outside it is protocol garbage, and the rest of
+        # the run is dropped rather than stored wrong (N-8)
+        if (b < 0 || b > 255 || a > 65535) return
         if (isvideo) { if (a >= 15360 && a <= 16383) s_poke(a - 15360, b) }
         else poke_byte(a, b)
         a++
@@ -6640,6 +6645,7 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
             hl = z80_field("hl") + 0; res = z80_field("result") + 0
             brk = z80_field("break") + 0; k = z80_field("writes") + 0
             rdy = z80_field("ready") + 0         # read now: the W lines replace Z80LINE
+            hl = ((hl % 65536) + 65536) % 65536  # a reply outside 16 bits is garbage: wrapped, as the register would (N-8)
             for (i = 1; i <= k; i++) {
                 if (!z80_recv() || Z80LINE !~ /^W /) {
                     z80_notice("write-set cut short; the core is dead for this session, USR is the stub")
@@ -6662,10 +6668,10 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
         # `ERR ov`: the routine took its argument through 0A7FH (the ROM's
         # CINT) and it was outside -32768..32767 -- a BASIC error the
         # machine reports as ?OV, not a core fault, so no stderr notice
-        if (Z80LINE ~ /^ERR ov /) { raise(6); return 0 }
+        if (Z80LINE ~ /^ERR ov( |$)/) { raise(6); return 0 }
         # `ERR tm`: the routine took a STRING argument through 0A7FH, the
         # ROM's CINT, which is ?TM there -- a BASIC error, not a core fault
-        if (Z80LINE ~ /^ERR tm /) { raise(13); return 0 }
+        if (Z80LINE ~ /^ERR tm( |$)/) { raise(13); return 0 }
         if (Z80LINE ~ /^ERR /) { z80_notice(substr(Z80LINE, 5)); raise(5); return 0 }
         z80_notice("unexpected '" Z80LINE "'; the core is dead for this session, USR is the stub")
         z80_close(); raise(5); return 0
