@@ -100,5 +100,12 @@ want="ERR 2 IN 20
 A 1.2 "
 [ "$out" = "$want" ] || fail "the tokenizer's dot rule" "$out"
 
+# a lone "." in OPERAND position is the same reader (24B2H -> 0E6CH): 0
+cat > "$tmp/lonedot.bas" <<'BAS'
+10 PRINT .;.*3;5+.;.=0
+BAS
+out=$(run "$tmp/lonedot.bas")
+[ "$out" = " 0  0  5 -1 " ] || fail "a lone dot operand is 0" "$out"
+
 rm -rf "$tmp"
 echo "NUMREAD OK"

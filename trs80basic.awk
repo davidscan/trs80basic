@@ -3622,6 +3622,12 @@ function e_powrhs(   v) {
 
 function e_prim(   t, s, v, key, sx) {
     t = TY[CK, CP]
+    # a lone "." in operand position enters the number reader (24B2H ->
+    # 0E6CH), which takes the point and no digits as 0 -- a single, as a
+    # pointed literal is (the 2026-09-26 audit, N-5).  ".5" and "1." were
+    # folded into number tokens by tk_number already; only the bare dot
+    # reaches here.
+    if (t == "o" && TK[CK, CP] == ".") { CP++; return "NS0" }
     if (t == "n") {
         # 1.5% and 32768%: % is taken only behind an integer (tk_number,
         # p50; ROM 0EEE-0EEF, JP P,1997H)
