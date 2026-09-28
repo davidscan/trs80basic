@@ -11,6 +11,10 @@ on:
   push:
   pull_request:
 
+# the job only reads the checkout; say so, rather than the default token
+permissions:
+  contents: read
+
 jobs:
   run-all:
     runs-on: ubuntu-latest

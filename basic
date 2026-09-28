@@ -76,7 +76,13 @@ done
 # The exact build, for --version and the `version` metacommand: git's
 # describe in a checkout (the tag, or "v1.4-3-gabcdef0" past it, "-dirty"
 # with edits); outside one the interpreter names its release alone.
-bid=$(git -C "$here" describe --tags --always --dirty 2>/dev/null)
+# only when $here is ITSELF a checkout: from an unpacked release inside
+# some other repository, git would walk up and describe THAT repository
+if [ "$(git -C "$here" rev-parse --show-toplevel 2>/dev/null)" = "$here" ]; then
+    bid=$(git -C "$here" describe --tags --always --dirty 2>/dev/null)
+else
+    bid=
+fi
 
 if [ -t 0 ] && tty0=$(stty -g 2>/dev/null) && [ -n "$tty0" ]; then
     gawk -b $tm -v "BUILDID=$bid" -f "$here/trs80basic.awk" -- "$@"
