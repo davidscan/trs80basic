@@ -468,8 +468,11 @@ function st_field(   n, off, w, v, name, key, tgt, i, found) {
         CP++
         v = e_or(); if (E) return
         if (!isN(v)) { raise(13); return }
-        w = bfloor(num(v))
-        if (w < 0) { raise(5); return }
+        # a field width is a string LENGTH: one descriptor byte on the
+        # machine, so 256 is ?FC as any byte argument (2B1CH); `memory
+        # host` lifts it with the other string counts (the 2026-09-26
+        # audit, N-5)
+        w = lenconv(num(v)); if (E) return
         if (!(TY[CK, CP] == "i" && TK[CK, CP] == "AS")) { raise(2); return }
         CP++
         if (!at_name()) { raise(2); return }
