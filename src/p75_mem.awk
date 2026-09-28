@@ -312,14 +312,18 @@ function pm_detok(body, raw,   out, i, n, b, c, ins, ind, lit, kw, nxt) {
         }
         if (b == 34) { ins = 1; out = out c; i++; continue }
         if (ind) {
-            if (b == 10 || b == 13) { out = out " "; i++; continue }
+            if (b == 10 || b == 13) { out = out (raw ? c : " "); i++; continue }
             if (b == 58) ind = 0
             out = out c; i++; continue
         }
         if (b == 58 && i + 2 <= n && ORD[substr(body, i + 1, 1)] == 147 && ORD[substr(body, i + 2, 1)] == 251) {
             out = out "'"; lit = 1; i += 3; continue
         }
-        if (b == 10 || b == 13) { out = out " "; i++; continue }
+        # outside a string an LF or CR in an image byte is no blank: RST 10H
+        # skips 20H and 09H only (1D78-1D88), so the dispatch meets the byte
+        # and the statement is ?SN at run time (audit L-16).  The run
+        # rendering (raw) keeps it for tokline; LIST shows a blank.
+        if (b == 10 || b == 13) { out = out (raw ? c : " "); i++; continue }
         if (b >= 128) {
             if (!(b in TOKW)) { out = out c; i++; continue }
             kw = TOKW[b]

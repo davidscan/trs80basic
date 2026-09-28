@@ -39,6 +39,15 @@ out=$(run "$tmp/lf.bas"); [ "$out" = "$want" ] || fail "LF endings, last line un
 printf '10 REM FIRST ROW\n       SECOND ROW\r20 A$="A\nB"\r30 PRINT LEN(A$);\r40 PRINT ASC(MID$(A$,2))\r' > "$tmp/inlf.bas"
 out=$(run "$tmp/inlf.bas"); [ "$out" = " 3  10 " ] || fail "in-line LF in a CR file" "$out"
 
+# an LF OUTSIDE a string in a CR file stays in its line and is ?SN when
+# the statement runs (RST 10H skips 20H and 09H only, 1D78-1D88) -- from
+# the text and from the tokenized image alike (audit L-16)
+printf '5 REM X\r10 PRINT \n1+2\r' > "$tmp/lfsn.bas"
+out=$(run "$tmp/lfsn.bas"); [ "$out" = "?SN ERROR IN 10" ] || fail "LF outside a string, text load" "$out"
+python3 "$here/tools/tok.py" -o "$tmp/tsn" "$tmp/lfsn.bas" >/dev/null 2>&1 || fail "tok.py on the LF listing" "rc=$?"
+f=$(ls "$tmp/tsn" | head -1)
+out=$(run "$tmp/tsn/$f"); [ "$out" = "?SN ERROR IN 10" ] || fail "LF outside a string, tokenized image ($f)" "$out"
+
 # tok.py cuts the same lines: the tokenized image runs the same
 python3 "$here/tools/tok.py" -o "$tmp/tok" "$tmp/cr.bas" "$tmp/inlf.bas" >/dev/null 2>&1 || fail "tok.py on a CR file" "rc=$?"
 f=$(ls "$tmp/tok" | grep -i '^cr\.' | head -1)
