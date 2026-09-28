@@ -41,9 +41,10 @@ The `proto` number in `HELLO` and `Z80` moves with every change that a peer
 built for the previous number would misread; a change that only adds
 something both old and new peers handle keeps it.  The two sides then refuse
 each other at the handshake (see Fallback) instead of running a routine
-wrong.  The core's release carries the protocol number as its major version,
-and each interpreter release names the protocol it speaks and the core
-release it was tested with.
+wrong.  Release version numbers are independent of the protocol number
+on both sides (the handshake alone carries compatibility); each side's
+release note names the protocol it speaks and the peer release it was
+tested with.
 
 *   **1** (2026-09-11): the first version, published with core v1.0.
 *   **2** (2026-09-26): every change since.  The delta frame carries only
@@ -62,6 +63,7 @@ release it was tested with.
     arrive in the write-set; 0A7FH on a string is `ERR tm`; the CLS trap
     zeroes 40A6H; 40A6H joins the always-sent window cells (21 now).
     A v2 core would misread a string's `arg` as a number: the bump.
+    First shipped by interpreter v2.1 and core v2.1.
 
 ## Session
 
