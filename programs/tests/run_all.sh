@@ -36,10 +36,22 @@ skip_check() {
     if [ -n "$TRS80_REQUIRE_CORE" ]; then bad "$1 (SKIPPED with TRS80_REQUIRE_CORE set)"; show "$1"
     else echo "skipped: $1 ($(grep -m1 "SKIPPED" "$log"))"; fi
 }
-# the companion core, found as the suites and the launcher find it
-core=${TRS80_Z80:-"python3 $here/../trs80_z80_core/core.py"}
-set -- $core
-if [ -f "$2" ]; then have_core=1; else have_core=; fi
+# the companion core, found as the launcher finds it: TRS80_Z80 set is the
+# answer even when empty (empty means NO core, the 2026-09-14 rule), and
+# the sibling path is quoted, so a checkout path with a space or a quote
+# survives (the 2026-09-26 audit, N-3)
+if [ -n "${TRS80_Z80+set}" ]; then
+    core=$TRS80_Z80
+    corewhere=${core:-"(TRS80_Z80 empty)"}
+    if [ -n "$core" ]; then have_core=1; else have_core=; fi
+else
+    corepath=$here/../trs80_z80_core/core.py
+    corewhere=$corepath
+    if [ -f "$corepath" ]; then
+        core="python3 '$(printf '%s' "$corepath" | sed "s/'/'\\\\''/g")'"
+        have_core=1
+    else core=; have_core=; fi
+fi
 # a failing suite's own output, so a CI log says why and not only what
 show() { echo "--- $1 output (last 40 lines) ---"; tail -40 "$log"; echo "--- end $1 ---"; }
 
@@ -86,7 +98,7 @@ if [ -n "$have_core" ]; then
     TRS80_Z80="$core --fixture" sh programs/tests/z80.sh >"$log" 2>&1 \
         || { bad "z80.sh against the core"; show "z80.sh (core)"; }
 else
-    echo "SKIPPED: z80.sh against the core (no core at $2)" >"$log"; skip_check "z80.sh (core)"
+    echo "SKIPPED: z80.sh against the core (no core at $corewhere)" >"$log"; skip_check "z80.sh (core)"
 fi
 
 # 5. the examples against their checked-in transcripts
