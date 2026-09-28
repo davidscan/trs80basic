@@ -1,4 +1,11 @@
 # ===================== OLLAMA device channel ================================
+# EXT.  The OPEN/PRINT#/INPUT# forms are Disk BASIC's, but the channel is
+# ours: the name OLLAMA is intercepted before the host filesystem, mode
+# "A" and the @ directives are new, and the channel reaches the network.
+# It cannot break a period program: cassette Level II has no OPEN at all,
+# under TRSDOS the part after ":" is a drive number, and only a data file
+# literally named OLLAMA would collide (0 in the corpus).
+#
 # OPEN mode$, [#]n, "OLLAMA[:model[:thread]]" turns channel n into a
 # bidirectional link (internal mode "A") to a local Ollama server: PRINT#
 # accumulates a prompt; the first INPUT#/LINE INPUT# sends it (blocking,

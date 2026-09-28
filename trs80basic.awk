@@ -7860,7 +7860,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     if (fio_isopen(n)) { raise(70); return }
     for (i = 1; i <= 15; i++)
         if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
-    if (toupper(f) ~ /^OLLAMA(:|$)/) { ai_open(n, f); return }
+    if (toupper(f) ~ /^OLLAMA(:|$)/) { ai_open(n, f); return }   # EXT: the OLLAMA channel (p87)
     if (host_special(f)) { raise(22); return }    # /inet/..., /dev/..., "-": not files (p90)
     # a device by another spelling, a directory, a FIFO: not a file either,
     # however it is written (the 2026-09-23 audit, H-3); "O", "E" and "R"
@@ -8483,6 +8483,13 @@ function fio_cvf(s, nb,   e, sgn, m, i, dv, b) {
     return sgn * m * 2 ^ (e - 128)
 }
 # ===================== OLLAMA device channel ================================
+# EXT.  The OPEN/PRINT#/INPUT# forms are Disk BASIC's, but the channel is
+# ours: the name OLLAMA is intercepted before the host filesystem, mode
+# "A" and the @ directives are new, and the channel reaches the network.
+# It cannot break a period program: cassette Level II has no OPEN at all,
+# under TRSDOS the part after ":" is a drive number, and only a data file
+# literally named OLLAMA would collide (0 in the corpus).
+#
 # OPEN mode$, [#]n, "OLLAMA[:model[:thread]]" turns channel n into a
 # bidirectional link (internal mode "A") to a local Ollama server: PRINT#
 # accumulates a prompt; the first INPUT#/LINE INPUT# sends it (blocking,
