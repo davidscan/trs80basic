@@ -502,9 +502,12 @@ function pu_ovf(x, ty,   t) {
 
 # ---- INPUT -----------------------------------------------------------------
 function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, endp) {
-    # INPUT #n is legal in immediate mode, so check before the ID guard
-    if (TY[CK, CP] == "o" && TK[CK, CP] == "#") { CP++; st_input_file(); return }
+    # the illegal-direct check comes FIRST on the ROM (219AH CALL 2828H,
+    # before the # is even looked at), so INPUT#1,A typed at READY is ?ID
+    # like any other INPUT (the 2026-09-26 audit, N-5; until then the #
+    # branch was taken before the guard)
     if (CK == "I") { raise(12); return }
+    if (TY[CK, CP] == "o" && TK[CK, CP] == "#") { CP++; st_input_file(); return }
     prompt = ""; pq = 0
     if (TY[CK, CP] == "s") {
         if (TY[CK, CP + 1] == "o" && (TK[CK, CP + 1] == ";" || TK[CK, CP + 1] == ",")) {

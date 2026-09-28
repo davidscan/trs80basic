@@ -93,4 +93,9 @@ AGAIN? TYPED
 [ "$out" = "$want" ] || fail "INPUT with no variable, DIM of a scalar" "$out"
 
 rm -f "$tmp"
+# typed at READY, any INPUT is ?ID: the ROM's illegal-direct check
+# (219AH -> 2828H) runs before the # is looked at (N-5)
+out=$(printf '\nINPUT#1,A\nINPUT A\n' | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep -c "?ID ERROR")
+[ "$out" = 2 ] || fail "INPUT# at READY is ?ID" "$out"
+
 echo "INPUT OK"
