@@ -499,7 +499,10 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         x = numarg(a1, na); if (E) return "NI0"
         usr_resolve(name, x)
         x = z80_usr(x); if (E) return "NI0"        # the core (p77), or the stub
-        return "NI" x
+        # result=0 and the stub mean the argument UNCHANGED -- its value and
+        # its type (PROTOCOL.md "The return"); only an HL reply is the
+        # 16-bit integer (M-13: NI on every path was a 6fe3814 regression).
+        return "N" (Z80RES ? "I" : vtype(a1)) x
     }
     if (name == "POS") { x = numarg(a1, na); if (E) return "NI0"; return "NI" VCOL }   # 27F5H: 40A6H (p20)
     if (name == "FRE") {                    # 27D4H: a number asks about free memory, a string about the string area (p75)

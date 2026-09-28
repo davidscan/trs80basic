@@ -159,6 +159,7 @@ function z80_apply(run, isvideo,   p, a, n, bs, j, b) {
 # USR(x) with the core: returns the value of the expression, or raises.
 # Called from the USR branch of fncall (p60) after usr_resolve().
 function z80_usr(x,   full, res) {
+    Z80RES = 0        # 1 when the reply carried HL; 0 = argument unchanged, value AND type (M-13)
     z80_start()
     if (Z80STATE != "up") {                       # the shipped stub
         if (USR_TRACE >= 2) { fr_build(0); fr_dump() }   # the frame it would send (p75 fr_*)
@@ -247,7 +248,8 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
             # closes no files, and there is nothing to CONT.
             if (rdy) { HALT = 1; CONTOK = 0 }
             if (hl > 32767) hl -= 65536           # HL to result: signed 16-bit
-            return res ? hl : x
+            if (res) { Z80RES = 1; return hl }
+            return x
         }
         # `ERR ov`: the routine took its argument through 0A7FH (the ROM's
         # CINT) and it was outside -32768..32767 -- a BASIC error the

@@ -52,6 +52,17 @@ rm -f "$tmp"
 if [ "$rc" != "1" ] || [ "$out" != "?FC ERROR IN 10" ]; then
     echo "USR FRAME FIXTURE FAILED (strict): rc=$rc out=$out"; exit 1
 fi
+# the stub's identity keeps the argument's TYPE as well as its value
+# (PROTOCOL.md "The return": result=0 means the argument unchanged).
+# Until the M-13 fix every USR result was tagged integer, so this
+# printed  1 -2  40000  0  (a 6fe3814 regression).
+printf '10 A#=1/3\n20 PRINT USR(1.5);USR(-2.5);USR(40000);USR(A#)\n' > "$tmp"
+out=$(TRS80_Z80="" "$here/basic" "$tmp" 2>/dev/null); rc=$?
+rm -f "$tmp"
+want=' 1.5 -2.5  40000  .3333333432674408 '
+if [ "$rc" != "0" ] || [ "$out" != "$want" ]; then
+    echo "USR FRAME FIXTURE FAILED (stub identity keeps the type): rc=$rc out=$out"; exit 1
+fi
 # TRS80_USR_TRACE=2: the frame's memory image (p75 fr_build).  Frame 1 is
 # full; later frames are deltas -- a POKE shows up once, a packed string
 # when its value or place changed, and cells CLEAR unmapped come back as
