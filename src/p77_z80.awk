@@ -20,7 +20,9 @@
 #     (returns its argument, one tally line per run) with one notice, so
 #     trs80basic.awk stays a complete single-file gawk program.
 # Discovery: TRS80_Z80 is the COMMAND to run (e.g. "python3 /x/core.py");
-# unset means no core.  TRS80_Z80_TIMEOUT is the per-line read guard in
+# empty means no core (when it is UNSET the launcher names a sibling
+# checkout, so only a direct gawk run treats unset as none).
+# TRS80_Z80_TIMEOUT is the per-line read guard in
 # milliseconds (default 5000) -- gawk's PROCINFO[cmd, "READ_TIMEOUT"], so a
 # hung core cannot hang the interpreter.  This is the first |& coprocess in
 # the interpreter; both sides flush after every line or they deadlock.

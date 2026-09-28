@@ -18,7 +18,10 @@ when there is no core.
 ## Transport
 
 *   The interpreter runs the command in `TRS80_Z80` as a coprocess (`|&`).
-    If `TRS80_Z80` is unset the core is absent and `USR` is the stub.
+    If `TRS80_Z80` is empty the core is absent and `USR` is the stub;
+    when it is unset, the `basic` launcher fills it with a core checked
+    out beside the repository (`../trs80_z80_core/core.py`), so only a
+    direct gawk invocation treats unset as absent.
 *   Text, one message per line, `\n`-terminated, ASCII.  **Both sides flush
     after every line** -- an unflushed line deadlocks the other side.
 *   Every message is `KEYWORD [args]`.  Header arguments are `key=value`
@@ -162,7 +165,7 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     A STORE into 0000-2FFFH changes nothing, as on the machine: the core
     drops it (it is not in the write-set) and the interpreter's POKE
     drops it too, so the range stays empty on both sides.
-*   `himem` is the MEMORY SIZE? fence; `ramtop` as in HELLO.
+*   `himem` is the MEM SIZE? fence; `ramtop` as in HELLO.
 
 ### During the call
 
@@ -263,7 +266,8 @@ protocol error.
 
 The interpreter uses the stub -- `USRn(x)` returns `x`, and one stderr line
 at the end of the run tallies the calls not executed -- whenever: `TRS80_Z80`
-is unset; the command cannot be started or does not answer `HELLO`; the
+is empty, or unset with no sibling core for the launcher to name; the
+command cannot be started or does not answer `HELLO`; the
 `Z80` line carries another `proto`; a call timed out, or the core exited,
 earlier in the session.  Each of those prints one `USR CORE:` notice the first time.
 `TRS80_USR=strict` turns stub calls into `?FC`.
