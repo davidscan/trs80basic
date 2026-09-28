@@ -484,7 +484,10 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits (0A7FH), then ?FC outside 0-255 (L-7)
         return "NI" ((x == 255) ? (LATCH ? 63 : 127) : 255)
     }
-    if (name == "POS") { x = numarg(a1, na); if (E) return "NI0"; return "NI" VCOL }   # 27F5H: 40A6H (p20)
+    # 27F5H reads 40A6H and never looks at WRA1: the argument is a dummy of
+    # ANY type -- the dispatch (2574H-257BH) type-checks only SQR-ATN, so
+    # POS("A") is legal on the ROM (the 2026-09-26 audit, N-5)
+    if (name == "POS") { if (na != 1) { raise(2); return "NI0" }; return "NI" VCOL }
     if (name == "FRE") {                    # 27D4H: a number asks about free memory, a string about the string area (p75)
         if (na < 1) { raise(2); return "NI0" }
         return "NS" (isN(a1) ? mem_free() : mem_strfree())   # 27F2H: a single, as MEM
