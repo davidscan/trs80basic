@@ -233,6 +233,12 @@ function init_tables(   i, c, m, n) {
     # audit, M-10).  The p60 operators, a literal, numconv (p90) and the
     # MBF encoder (p85) all test against it.
     FMAX = 2^127 - 2^102
+    # The double-precision threshold, by the same construction: MBF's
+    # largest double is (1 - 2^-56) * 2^127, its guard rounding carries
+    # from (1 - 2^-57) * 2^127 up, so the limit sits one half-ulp above
+    # the largest value.  Until 2026-09-27 FMAX was applied to doubles
+    # too, and A#=1.7014118D38 was ?OV (the 2026-09-26 audit, L-24).
+    DMAX = 2^127 - 2^70
     FMIN = 2^-128                           # the smallest exponent byte (1) is 2^-128; below it a result is 0 (0793H)
     LN2 = log(2)
     # The ROM's SIN constants, as the singles its bytes hold (rom_sin, p90):
@@ -3501,14 +3507,15 @@ function e_add(   v, r, op, x) {
 # The typed result of + - * (and unary minus): an INTEGER result that
 # leaves 16 bits is silently converted to single (0BD0H-0BDDH: "underflows
 # convert to SP"), never ?OV; a SINGLE result is rounded to 24 bits
-# (sround); a single or double result past FMAX is ?OV and below 2^-128
-# is 0 (frange).  Returns "<t><x>" behind the caller's "N".
+# (sround); a single or double result past its type's limit (FMAX/DMAX,
+# p10) is ?OV and below 2^-128 is 0 (frange).  Returns "<t><x>" behind
+# the caller's "N".
 function tresult(t, x) {
     if (t == "I") {
         if (x <= 32767 && x >= -32768) return "I" x
         t = "S"
     }
-    x = frange(x); if (E) return "I0"
+    x = frange(x, t); if (E) return "I0"
     if (t == "S") x = sround(x)
     return t x
 }
@@ -3612,7 +3619,7 @@ function e_prim(   t, s, v, key, sx) {
         if (TSX[CK, CP] == "%SN") { raise(2); return "NI0" }
         s = TK[CK, CP] + 0; t = TSX[CK, CP]; CP++    # t: the literal's type, as 0E6CH read it (tk_number)
         if (t == "I") return "NI" s
-        s = frange(s); if (E) return "NI0"       # 1.70142E38, 1E39 ?OV (p10 FMAX); 1E-40 is 0
+        s = frange(s, t); if (E) return "NI0"    # 1.70142E38, 1E39 ?OV (p10 FMAX; a double literal at DMAX, L-24); 1E-40 is 0
         if (t == "S") s = sround(s)
         return "N" t s
     }
@@ -4605,10 +4612,12 @@ function assignv(name, key, v,   isint, tgt, n, ty) {
     } else {
         if (!isN(v)) { raise(13); return }
         # by the target's type: an integer through 0A7FH (?OV), a single
-        # rounded to 24 bits (0796H), a double as it is -- a single value
+        # rounded to 24 bits (0796H) and range-checked at the single's
+        # limit -- a double past FMAX stored into a single is ?OV (0AB9H
+        # -> 0796H -> 07B2H; L-24) -- a double as it is: a single value
         # stored into a double keeps its 24 bits, so A#=1/3 is
         # .3333333432674408 as on the machine
-        v = isint ? intstore(num(v)) : (ty == "S") ? sround(num(v)) : num(v)
+        v = isint ? intstore(num(v)) : (ty == "S") ? frange(sround(num(v)), "S") : num(v)
         if (E) return
         if (key != "") VA[key] = v; else NV[name] = v   # raw: the type is the name's (ntype)
     }
@@ -8296,7 +8305,7 @@ function fio_mkf(x, nb,   sgn, e, i, b, out) {
     }
     sgn = 0
     if (x < 0) { sgn = 128; x = -x }
-    if (x >= FMAX) { raise(6); return "" }      # the exponent byte would pass 255 (p10 FMAX); an infinity would never leave the loop
+    if (x >= ((nb == 8) ? DMAX : FMAX)) { raise(6); return "" }   # the exponent byte would pass 255 (p10 FMAX, DMAX for MKD$'s 8 bytes; L-24); an infinity would never leave the loop
     e = 0
     while (x >= 1) { x /= 2; e++ }
     while (x < 0.5) { x *= 2; e-- }
@@ -8846,11 +8855,15 @@ function numrest() {
 # The ROM's ASCII-to-binary routine (0E6CH) is the one reader behind VAL,
 # INPUT, READ and INPUT#, and it leaves through 07B2H, ?OV, when the
 # exponent overflows; the limit is the one a literal in a line has (p60).
-# Every caller checks E before it stores: nothing is assigned.
-function numconv(s,   x) {
+# Every caller checks E before it stores: nothing is assigned.  The
+# limit is the type's own (VALTYPE, set by valnum just before the call):
+# a D-exponent or # item overflows at the double's limit (p10 DMAX; the
+# 2026-09-26 audit, L-24).
+function numconv(s,   x, lim) {
     sub(/[Dd]/, "E", s)
     x = s + 0
-    if (x >= FMAX || x <= -FMAX) { raise(6); return 0 }
+    lim = (VALTYPE == "D") ? DMAX : FMAX
+    if (x >= lim || x <= -lim) { raise(6); return 0 }
     return x
 }
 
@@ -8922,12 +8935,16 @@ function rom_tan(x,   s, c) {
     return sround(s)
 }
 
-# The range of a single or double result: past FMAX it is ?OV (0796H's
-# overflow, 07B2H); below 2^-128 the exponent byte runs out and the
-# result is ZERO, silently (0793H JR NC,0778H).  Returns the value,
-# with E set for ?OV.  Since 2026-09-26 (M-10's underflow half).
-function frange(x) {
-    if (x >= FMAX || x <= -FMAX) { raise(6); return 0 }
+# The range of a single or double result: past the type's limit it is
+# ?OV (0796H's overflow, 07B2H; the double normalizer carries the same
+# way); below 2^-128 the exponent byte runs out and the result is ZERO,
+# silently (0793H JR NC,0778H).  t is "D" for a double result (p10
+# DMAX; the 2026-09-26 audit, L-24), anything else is the single limit.
+# Returns the value, with E set for ?OV.  Since 2026-09-26 (M-10's
+# underflow half).
+function frange(x, t,   lim) {
+    lim = (t == "D") ? DMAX : FMAX
+    if (x >= lim || x <= -lim) { raise(6); return 0 }
     if (x < FMIN && x > -FMIN) return 0
     return x
 }

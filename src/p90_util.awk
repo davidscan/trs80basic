@@ -183,11 +183,15 @@ function numrest() {
 # The ROM's ASCII-to-binary routine (0E6CH) is the one reader behind VAL,
 # INPUT, READ and INPUT#, and it leaves through 07B2H, ?OV, when the
 # exponent overflows; the limit is the one a literal in a line has (p60).
-# Every caller checks E before it stores: nothing is assigned.
-function numconv(s,   x) {
+# Every caller checks E before it stores: nothing is assigned.  The
+# limit is the type's own (VALTYPE, set by valnum just before the call):
+# a D-exponent or # item overflows at the double's limit (p10 DMAX; the
+# 2026-09-26 audit, L-24).
+function numconv(s,   x, lim) {
     sub(/[Dd]/, "E", s)
     x = s + 0
-    if (x >= FMAX || x <= -FMAX) { raise(6); return 0 }
+    lim = (VALTYPE == "D") ? DMAX : FMAX
+    if (x >= lim || x <= -lim) { raise(6); return 0 }
     return x
 }
 
@@ -259,12 +263,16 @@ function rom_tan(x,   s, c) {
     return sround(s)
 }
 
-# The range of a single or double result: past FMAX it is ?OV (0796H's
-# overflow, 07B2H); below 2^-128 the exponent byte runs out and the
-# result is ZERO, silently (0793H JR NC,0778H).  Returns the value,
-# with E set for ?OV.  Since 2026-09-26 (M-10's underflow half).
-function frange(x) {
-    if (x >= FMAX || x <= -FMAX) { raise(6); return 0 }
+# The range of a single or double result: past the type's limit it is
+# ?OV (0796H's overflow, 07B2H; the double normalizer carries the same
+# way); below 2^-128 the exponent byte runs out and the result is ZERO,
+# silently (0793H JR NC,0778H).  t is "D" for a double result (p10
+# DMAX; the 2026-09-26 audit, L-24), anything else is the single limit.
+# Returns the value, with E set for ?OV.  Since 2026-09-26 (M-10's
+# underflow half).
+function frange(x, t,   lim) {
+    lim = (t == "D") ? DMAX : FMAX
+    if (x >= lim || x <= -lim) { raise(6); return 0 }
     if (x < FMIN && x > -FMIN) return 0
     return x
 }

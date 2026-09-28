@@ -651,7 +651,7 @@ function fio_mkf(x, nb,   sgn, e, i, b, out) {
     }
     sgn = 0
     if (x < 0) { sgn = 128; x = -x }
-    if (x >= FMAX) { raise(6); return "" }      # the exponent byte would pass 255 (p10 FMAX); an infinity would never leave the loop
+    if (x >= ((nb == 8) ? DMAX : FMAX)) { raise(6); return "" }   # the exponent byte would pass 255 (p10 FMAX, DMAX for MKD$'s 8 bytes; L-24); an infinity would never leave the loop
     e = 0
     while (x >= 1) { x /= 2; e++ }
     while (x < 0.5) { x *= 2; e-- }

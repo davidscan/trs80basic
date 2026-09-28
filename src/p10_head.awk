@@ -233,6 +233,12 @@ function init_tables(   i, c, m, n) {
     # audit, M-10).  The p60 operators, a literal, numconv (p90) and the
     # MBF encoder (p85) all test against it.
     FMAX = 2^127 - 2^102
+    # The double-precision threshold, by the same construction: MBF's
+    # largest double is (1 - 2^-56) * 2^127, its guard rounding carries
+    # from (1 - 2^-57) * 2^127 up, so the limit sits one half-ulp above
+    # the largest value.  Until 2026-09-27 FMAX was applied to doubles
+    # too, and A#=1.7014118D38 was ?OV (the 2026-09-26 audit, L-24).
+    DMAX = 2^127 - 2^70
     FMIN = 2^-128                           # the smallest exponent byte (1) is 2^-128; below it a result is 0 (0793H)
     LN2 = log(2)
     # The ROM's SIN constants, as the singles its bytes hold (rom_sin, p90):

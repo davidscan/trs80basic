@@ -462,10 +462,12 @@ function assignv(name, key, v,   isint, tgt, n, ty) {
     } else {
         if (!isN(v)) { raise(13); return }
         # by the target's type: an integer through 0A7FH (?OV), a single
-        # rounded to 24 bits (0796H), a double as it is -- a single value
+        # rounded to 24 bits (0796H) and range-checked at the single's
+        # limit -- a double past FMAX stored into a single is ?OV (0AB9H
+        # -> 0796H -> 07B2H; L-24) -- a double as it is: a single value
         # stored into a double keeps its 24 bits, so A#=1/3 is
         # .3333333432674408 as on the machine
-        v = isint ? intstore(num(v)) : (ty == "S") ? sround(num(v)) : num(v)
+        v = isint ? intstore(num(v)) : (ty == "S") ? frange(sround(num(v)), "S") : num(v)
         if (E) return
         if (key != "") VA[key] = v; else NV[name] = v   # raw: the type is the name's (ntype)
     }

@@ -96,14 +96,15 @@ function e_add(   v, r, op, x) {
 # The typed result of + - * (and unary minus): an INTEGER result that
 # leaves 16 bits is silently converted to single (0BD0H-0BDDH: "underflows
 # convert to SP"), never ?OV; a SINGLE result is rounded to 24 bits
-# (sround); a single or double result past FMAX is ?OV and below 2^-128
-# is 0 (frange).  Returns "<t><x>" behind the caller's "N".
+# (sround); a single or double result past its type's limit (FMAX/DMAX,
+# p10) is ?OV and below 2^-128 is 0 (frange).  Returns "<t><x>" behind
+# the caller's "N".
 function tresult(t, x) {
     if (t == "I") {
         if (x <= 32767 && x >= -32768) return "I" x
         t = "S"
     }
-    x = frange(x); if (E) return "I0"
+    x = frange(x, t); if (E) return "I0"
     if (t == "S") x = sround(x)
     return t x
 }
@@ -207,7 +208,7 @@ function e_prim(   t, s, v, key, sx) {
         if (TSX[CK, CP] == "%SN") { raise(2); return "NI0" }
         s = TK[CK, CP] + 0; t = TSX[CK, CP]; CP++    # t: the literal's type, as 0E6CH read it (tk_number)
         if (t == "I") return "NI" s
-        s = frange(s); if (E) return "NI0"       # 1.70142E38, 1E39 ?OV (p10 FMAX); 1E-40 is 0
+        s = frange(s, t); if (E) return "NI0"    # 1.70142E38, 1E39 ?OV (p10 FMAX; a double literal at DMAX, L-24); 1E-40 is 0
         if (t == "S") s = sround(s)
         return "N" t s
     }
