@@ -51,9 +51,26 @@ included.  That is a protocol violation -- NEED means "I did not see frame
 gen-1", and a full frame IS gen 1 -- and it used to spin the interpreter
 for ever (the 2026-09-19 audit, L-47).
 """
+import math
 import os
 import sys
 import time
+
+
+def csng(x):
+    """The ROM's round to a 24-bit single (0796H, half up at the guard):
+    0A7FH sends a double through 0AB9H first, so CINT(2.9999999#) is 3."""
+    if x == 0:
+        return 0.0
+    ax = abs(x)
+    e = math.floor(math.log2(ax))
+    if 2.0 ** e > ax:
+        e -= 1
+    elif 2.0 ** (e + 1) <= ax:
+        e += 1
+    q = 2.0 ** (e - 23)
+    r = math.floor(ax / q + 0.5) * q
+    return -r if x < 0 else r
 
 PROTO = os.environ.get("Z80_STUB_PROTO", "3")
 DIE_AFTER = int(os.environ.get("Z80_STUB_DIE_AFTER", "0"))
@@ -158,7 +175,7 @@ def main():
         for r in runs:
             apply_run(r)
         entry = int(h["entry"])
-        arg = int(float(h["arg"]) // 1)      # 0A7FH is the ROM's CINT: floor
+        arg = int(csng(float(h["arg"])) // 1)   # 0A7FH: a single first (0AB9H), then the floor
         sp = int(h["sp"])
         argtype = int(h.get("argtype", "4"))
         mbf = h.get("mbf", "0,0,0,0,0,0,0,0")
