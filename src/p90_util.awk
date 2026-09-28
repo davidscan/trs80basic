@@ -413,6 +413,22 @@ function host_special(f) {
     return index(f, sprintf("%c", 0)) > 0 || f == "-" || f ~ /^\/inet[46]?\// || f ~ /^\/dev\//
 }
 
+# A file name a PROGRAM chooses stays under the working directory: an
+# absolute path, a drive-letter root or a `..` path component is refused
+# (?FD at the caller), so a listing cannot read or write outside the
+# directory it was started in (the 2026-09-26 audit, R-9; measured
+# 2026-09-28: no listing in the corpus names such a path -- the TRSDOS
+# form NAME/EXT:d is an ordinary relative path and stays allowed).  Only
+# a program's own statement is confined: a name typed at READY is the
+# user's (CK "I"), and the batch program's path is the user's command
+# line (no statement context).  A symbolic link inside the directory can
+# still point out; the rule stops the name, not the filesystem.
+function host_escape(f) {
+    if (CK == "" || CK == "I") return 0
+    if (f ~ /^[\/\\]/ || f ~ /^[A-Za-z]:[\/\\]/) return 1
+    return f ~ /(^|[\/\\])\.\.([\/\\]|$)/
+}
+
 # what f names: "f" a regular file (through a symbolic link), "x" anything
 # else that is there (a directory, a device, a FIFO, a socket, a dangling
 # link), "" nothing.  One shell-out; cmd.exe knows only "is it there".
@@ -433,7 +449,7 @@ function host_kind(f,   cmd, s, r) {
 }
 
 function host_writable(f) {
-    if (host_special(f)) return 0
+    if (host_special(f) || host_escape(f)) return 0
     if (WINNATIVE)
         return f !~ /"/ && system("type nul >> \"" f "\" 2>nul") == 0
     # a regular file or a new name (H-3), then: not a directory, creatable,
@@ -499,7 +515,7 @@ function host_size(f,   cmd, s, r) {
 
 # f is a regular file (KILL, host_found): a device by any spelling is not
 function host_exists(f) {
-    if (host_special(f)) return 0
+    if (host_special(f) || host_escape(f)) return 0
     return host_kind(f) == "f"
 }
 

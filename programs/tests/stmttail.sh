@@ -27,7 +27,9 @@ tmp=$(mktemp) || exit 2
 trap 'rm -f "$tmp"' EXIT
 fail() { echo "STMTTAIL FAILED: $1"; printf '%s\n' "$2"; exit 1; }
 # a batch run, stdout and stderr in one stream, newlines as blanks
-run() { printf '%b' "$1" > "$tmp"; TRS80_Z80= "$here/basic" "$tmp" 2>&1 </dev/null | tr '\n' ' '; }
+# run from the temp file's own directory: a program's file names are
+# confined to the cwd (R-9), so the FIELD case names ${tmp##*/}.dat
+run() { printf '%b' "$1" > "$tmp"; (cd "${tmp%/*}" && TRS80_Z80= "$here/basic" "$tmp") 2>&1 </dev/null | tr '\n' ' '; }
 # a READY transcript, from the first prompt on
 repl() { printf '%b' "$1" | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | sed -n '/^>/,$p'; }
 check() { [ "$2" = "$3" ] || fail "$1" "$2"; }
@@ -115,7 +117,7 @@ check "NEXT J,I, DEF FN with a body, ON ERROR GOTO 0, STEP" \
     "$(run '10 DEF FNA(X)=X*2+1\n20 FOR I=1 TO 2 STEP 1:FOR J=1 TO 2:S=S+FNA(J):NEXT J,I\n30 ON ERROR GOTO 0:PRINT S\n')" \
     ' 16  '
 check "FIELD ... AS, PRINT#, INPUT#, CLOSE, KILL keep their tails" \
-    "$(run '10 F$="'"$tmp"'.dat"\n20 OPEN "O",1,F$:PRINT#1,"HELLO":CLOSE 1\n30 OPEN "I",1,F$:INPUT#1,A$:CLOSE 1:PRINT A$;\n40 OPEN "R",1,F$:FIELD 1,4 AS B$:LSET B$="XY":PUT 1,1:GET 1,1:PRINT B$;:CLOSE 1\n50 KILL F$\n')" \
+    "$(run '10 F$="'"${tmp##*/}"'.dat"\n20 OPEN "O",1,F$:PRINT#1,"HELLO":CLOSE 1\n30 OPEN "I",1,F$:INPUT#1,A$:CLOSE 1:PRINT A$;\n40 OPEN "R",1,F$:FIELD 1,4 AS B$:LSET B$="XY":PUT 1,1:GET 1,1:PRINT B$;:CLOSE 1\n50 KILL F$\n')" \
     'HELLOXY  '
 rm -f "$tmp.dat"
 check "REM, the apostrophe and DATA own their lines" \

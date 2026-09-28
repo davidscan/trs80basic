@@ -15,7 +15,10 @@ with its 64x16 screen and semigraphics, cassette (`CLOAD`/`CSAVE` as text
 files, `SYSTEM` for object files), Disk BASIC file I/O, and an `OLLAMA` channel for talking to a local
 LLM from BASIC. It runs `.bas` listings interactively at a `READY` prompt or
 non-interactively from a script. It is a single GNU awk script with no build
-step; it writes only the files your BASIC program tells it to.
+step; it writes only the files your BASIC program tells it to, and a program's
+file names are confined to the directory it was started in (an absolute path
+or a `..` component is `?FD ERROR`; names you type at the `READY` prompt are
+your own and are not confined).
 
 ## Very brief FAQ:
 - Why awk??\

@@ -2388,6 +2388,7 @@ function st_cload(   f, verify) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "?") { verify = 1; CP++ }
     f = parse_fname(); if (E) return
     if (f == "") { raise(21); return }
+    if (host_escape(f)) { raise(22); return }         # a program's name stays under the cwd (R-9, p90)
     if (host_kind(f) == "x") { raise(22); return }    # a device, a directory, a FIFO (H-3; p90)
     if (!prog_load(f, verify)) { raise(22); return }
     to_ready()
@@ -2458,6 +2459,7 @@ function st_system(   line, a, s) {
 # the host file behind a SYSTEM name, or "": the name as given, then the
 # four extensions, first readable wins (slurp_bytes leaves it in SLURPED)
 function sys_find(name,   i, f, ext) {
+    if (host_escape(name)) return ""              # a program's name stays under the cwd (R-9, p90)
     split("|.cas|.CAS|.cmd|.CMD", ext, "|")
     for (i = 1; i <= 5; i++) {
         f = name ext[i]
@@ -2592,6 +2594,7 @@ function st_load(   f, keep) {
 # the prefix test, a directory, a FIFO -- is ?FD here, before slurp_bytes
 # would read it without end (the 2026-09-23 audit, H-3; host_kind, p90).
 function host_found(f,   k) {
+    if (host_escape(f)) { raise(22); return 0 }   # a program's name stays under the cwd (R-9, p90)
     if (host_special(f)) return 1
     k = host_kind(f)
     if (k == "f") return 1
@@ -7928,7 +7931,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     for (i = 1; i <= 15; i++)
         if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
     if (toupper(f) ~ /^OLLAMA(:|$)/) { ai_open(n, f); return }   # EXT: the OLLAMA channel (p87)
-    if (host_special(f)) { raise(22); return }    # /inet/..., /dev/..., "-": not files (p90)
+    if (host_special(f) || host_escape(f)) { raise(22); return }    # /inet/..., /dev/..., "-", or a path escaping the cwd (R-9): not for a program (p90)
     # a device by another spelling, a directory, a FIFO: not a file either,
     # however it is written (the 2026-09-23 audit, H-3); "O", "E" and "R"
     # ask host_writable, which holds the same rule
@@ -8034,6 +8037,7 @@ function st_kill(   v, f, i) {
     for (i = 1; i <= 15; i++)
         if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
     if (!WINNATIVE && f ~ /'/) { raise(22); return }
+    if (host_escape(f)) { raise(22); return }     # a program's name stays under the cwd (R-9, p90): ?FD, not 54
     if (!host_exists(f)) { raise(54); return }
     # a delete the host refuses -- a read-only directory, say -- used to be
     # ignored: rm complained on the program's own error channel, the file
@@ -9300,6 +9304,22 @@ function host_special(f) {
     return index(f, sprintf("%c", 0)) > 0 || f == "-" || f ~ /^\/inet[46]?\// || f ~ /^\/dev\//
 }
 
+# A file name a PROGRAM chooses stays under the working directory: an
+# absolute path, a drive-letter root or a `..` path component is refused
+# (?FD at the caller), so a listing cannot read or write outside the
+# directory it was started in (the 2026-09-26 audit, R-9; measured
+# 2026-09-28: no listing in the corpus names such a path -- the TRSDOS
+# form NAME/EXT:d is an ordinary relative path and stays allowed).  Only
+# a program's own statement is confined: a name typed at READY is the
+# user's (CK "I"), and the batch program's path is the user's command
+# line (no statement context).  A symbolic link inside the directory can
+# still point out; the rule stops the name, not the filesystem.
+function host_escape(f) {
+    if (CK == "" || CK == "I") return 0
+    if (f ~ /^[\/\\]/ || f ~ /^[A-Za-z]:[\/\\]/) return 1
+    return f ~ /(^|[\/\\])\.\.([\/\\]|$)/
+}
+
 # what f names: "f" a regular file (through a symbolic link), "x" anything
 # else that is there (a directory, a device, a FIFO, a socket, a dangling
 # link), "" nothing.  One shell-out; cmd.exe knows only "is it there".
@@ -9320,7 +9340,7 @@ function host_kind(f,   cmd, s, r) {
 }
 
 function host_writable(f) {
-    if (host_special(f)) return 0
+    if (host_special(f) || host_escape(f)) return 0
     if (WINNATIVE)
         return f !~ /"/ && system("type nul >> \"" f "\" 2>nul") == 0
     # a regular file or a new name (H-3), then: not a directory, creatable,
@@ -9386,7 +9406,7 @@ function host_size(f,   cmd, s, r) {
 
 # f is a regular file (KILL, host_found): a device by any spelling is not
 function host_exists(f) {
-    if (host_special(f)) return 0
+    if (host_special(f) || host_escape(f)) return 0
     return host_kind(f) == "f"
 }
 

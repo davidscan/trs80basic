@@ -682,6 +682,7 @@ function st_cload(   f, verify) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "?") { verify = 1; CP++ }
     f = parse_fname(); if (E) return
     if (f == "") { raise(21); return }
+    if (host_escape(f)) { raise(22); return }         # a program's name stays under the cwd (R-9, p90)
     if (host_kind(f) == "x") { raise(22); return }    # a device, a directory, a FIFO (H-3; p90)
     if (!prog_load(f, verify)) { raise(22); return }
     to_ready()
@@ -752,6 +753,7 @@ function st_system(   line, a, s) {
 # the host file behind a SYSTEM name, or "": the name as given, then the
 # four extensions, first readable wins (slurp_bytes leaves it in SLURPED)
 function sys_find(name,   i, f, ext) {
+    if (host_escape(name)) return ""              # a program's name stays under the cwd (R-9, p90)
     split("|.cas|.CAS|.cmd|.CMD", ext, "|")
     for (i = 1; i <= 5; i++) {
         f = name ext[i]
@@ -886,6 +888,7 @@ function st_load(   f, keep) {
 # the prefix test, a directory, a FIFO -- is ?FD here, before slurp_bytes
 # would read it without end (the 2026-09-23 audit, H-3; host_kind, p90).
 function host_found(f,   k) {
+    if (host_escape(f)) { raise(22); return 0 }   # a program's name stays under the cwd (R-9, p90)
     if (host_special(f)) return 1
     k = host_kind(f)
     if (k == "f") return 1

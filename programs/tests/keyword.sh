@@ -22,7 +22,9 @@ here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
 tmp=$(mktemp) || exit 2
 trap 'rm -f "$tmp"' EXIT
 fail() { echo "KEYWORD FAILED: $1"; printf '%s\n' "$2"; exit 1; }
-run() { printf '%s\n' "$1" > "$tmp"; TRS80_Z80= "$here/basic" "$tmp" 2>&1 </dev/null | tr '\n' '|'; }
+# run from the temp file's own directory: a program's file names are
+# confined to the cwd (R-9), so the FIELD case names ${tmp##*/}.r
+run() { printf '%s\n' "$1" > "$tmp"; (cd "${tmp%/*}" && TRS80_Z80= "$here/basic" "$tmp") 2>&1 </dev/null | tr '\n' '|'; }
 want() { out=$(run "$1"); [ "$out" = "$2" ] || fail "$3" "got:  $out
 want: $2"; }
 
@@ -68,7 +70,7 @@ want '10 A $="Q":PRINT A$' 'Q|' 'the $ is found past a blank'
 want '10 A TO=1' '?SN ERROR IN 10|' 'a keyword after the blank ends the name'
 want '10 DEF FN A B(X)=X*2:PRINT FNAB(2)' ' 4 |' 'FN A B is FNAB'
 rm -f "$tmp.r"
-want "10 OPEN \"R\",1,\"$tmp.r\":FIELD 1,4 AS A\$:LSET A\$=\"AB\":PRINT A\$:CLOSE" 'AB  |' 'FIELD 1,4 AS A$ keeps AS apart from A$'
+want "10 OPEN \"R\",1,\"${tmp##*/}.r\":FIELD 1,4 AS A\$:LSET A\$=\"AB\":PRINT A\$:CLOSE" 'AB  |' 'FIELD 1,4 AS A$ keeps AS apart from A$'
 rm -f "$tmp.r"
 
 # M-2: a number is read through RST 10H

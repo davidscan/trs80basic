@@ -14,7 +14,9 @@ here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
 tmp=$(mktemp) || exit 2
 dat=$(mktemp) || exit 2
 fail() { echo "HOSTMEM FAILED: $1"; printf '%s\n' "$2"; rm -f "$tmp" "$dat"; exit 1; }
-run() { TRS80_Z80= TRS80_MEMORY= "$here/basic" "$@" "$tmp" 2>&1 </dev/null; }
+# run from the temp file's own directory: a program's file names are
+# confined to the cwd (R-9), so the file case names ${dat##*/}
+run() { (cd "${tmp%/*}" && TRS80_Z80= TRS80_MEMORY= "$here/basic" "$@" "$tmp") 2>&1 </dev/null; }
 runout() { TRS80_Z80= TRS80_MEMORY= "$here/basic" "$@" "$tmp" 2>/dev/null </dev/null; }
 host() { run --memory host "$@"; }
 HINT='try --memory host'
@@ -66,7 +68,7 @@ printf '10 GOSUB 20:PRINT N:END\n20 N=N+1:IF N<10000 THEN GOSUB 20\n30 RETURN\n'
 out=$(host); [ "$out" = " 10000 " ] || fail "10000 GOSUB frames" "$out"
 # a file's line and item come back whole
 awk 'BEGIN { s = sprintf("%2082s", ""); gsub(/ /, "A", s); print s; print "END"; t = sprintf("%300s", ""); gsub(/ /, "B", t); print t ",X" }' > "$dat"
-printf '10 CLEAR 3000:OPEN "I",1,"%s":LINE INPUT #1,A$:LINE INPUT #1,B$:INPUT #1,C$,D$:PRINT LEN(A$);B$;LEN(C$);D$\n' "$dat" > "$tmp"
+printf '10 CLEAR 3000:OPEN "I",1,"%s":LINE INPUT #1,A$:LINE INPUT #1,B$:INPUT #1,C$,D$:PRINT LEN(A$);B$;LEN(C$);D$\n' "${dat##*/}" > "$tmp"
 out=$(host); [ "$out" = " 2082 END 300 X" ] || fail "LINE INPUT# and INPUT# read whole" "$out"
 out=$(run);  case $out in " 255 AAAAAAAAAA"*) ;; *) fail "the machine cuts at 255 (unchanged)" "$out" ;; esac
 # a piped INPUT line comes back whole, and the cut note is silent

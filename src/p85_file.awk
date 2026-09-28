@@ -75,7 +75,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     for (i = 1; i <= 15; i++)
         if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
     if (toupper(f) ~ /^OLLAMA(:|$)/) { ai_open(n, f); return }   # EXT: the OLLAMA channel (p87)
-    if (host_special(f)) { raise(22); return }    # /inet/..., /dev/..., "-": not files (p90)
+    if (host_special(f) || host_escape(f)) { raise(22); return }    # /inet/..., /dev/..., "-", or a path escaping the cwd (R-9): not for a program (p90)
     # a device by another spelling, a directory, a FIFO: not a file either,
     # however it is written (the 2026-09-23 audit, H-3); "O", "E" and "R"
     # ask host_writable, which holds the same rule
@@ -181,6 +181,7 @@ function st_kill(   v, f, i) {
     for (i = 1; i <= 15; i++)
         if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
     if (!WINNATIVE && f ~ /'/) { raise(22); return }
+    if (host_escape(f)) { raise(22); return }     # a program's name stays under the cwd (R-9, p90): ?FD, not 54
     if (!host_exists(f)) { raise(54); return }
     # a delete the host refuses -- a read-only directory, say -- used to be
     # ignored: rm complained on the program's own error channel, the file
