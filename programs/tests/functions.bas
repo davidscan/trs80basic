@@ -26,6 +26,10 @@
 188 PRINT "12345678901234567890";TAB(200);"X";:P=POS(0):PRINT:IF P<>9 THEN PRINT "FAIL: TAB(200) LANDED AT";P:F=1
 189 REM POS's argument is a dummy of ANY type: 27F5H reads 40A6H only
 190 PRINT "AB";:P=POS("X"):PRINT:IF P<>2 THEN PRINT "FAIL: POS(STRING)";P:F=1
+191 REM RANDOM is LD A,R (01D3H): the refresh register is 7 bits, so the
+192 REM seed's middle byte (40ABH = 16555) is always 0-127
+193 FOR I=1 TO 50:RANDOM:IF PEEK(16555)>127 THEN PRINT "FAIL: RANDOM WROTE";PEEK(16555):F=1:I=50
+194 NEXT
 190 A(10)=7:IF A(10)<>7 THEN PRINT "FAIL: AUTO-DIM 10":F=1
 200 REM --- the errors: ?FC (5) and ?BS (9) through the handler
 210 S=1:X=SQR(-1)

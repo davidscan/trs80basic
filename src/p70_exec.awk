@@ -177,7 +177,7 @@ function execstmt(   ty, tx) {
         if (tx == "BYE")     { CP++; QUITFLAG = 1; HALT = 1; return }
         if (tx == "TRON")    { CP++; TRACE = 1; return }
         if (tx == "TROFF")   { CP++; TRACE = 0; return }
-        if (tx == "RANDOM")  { CP++; rnd_setmid(int(rand() * 256)); return }
+        if (tx == "RANDOM")  { CP++; rnd_setmid(int(rand() * 128)); return }   # LD A,R (01D3H): the refresh register is 7 bits, 0-127 (N-5)
         if (tx == "ERROR")   { CP++; st_error(); return }
         if (tx == "RESUME")  { CP++; st_resume(); return }
         if (tx == "DEFINT" || tx == "DEFSNG" || tx == "DEFDBL" || tx == "DEFSTR") { CP++; st_deftype(tx == "DEFINT" ? 2 : tx == "DEFSTR" ? 3 : tx == "DEFDBL" ? 8 : 4); return }

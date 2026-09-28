@@ -267,7 +267,7 @@ function init_tables(   i, c, m, n) {
     # ROM RND seed (40AA-40ACH): boot writes only the middle byte -- gawk
     # rand() is the entropy source, so --seed makes the whole RND sequence
     # repeatable (rnd_* in p90).
-    RNDSEED = 0; rnd_setmid(int(rand() * 256))
+    RNDSEED = 0; rnd_setmid(int(rand() * 128))   # as RANDOM draws it: LD A,R is 7 bits (01D3H)
     # memory model (p75): RAMTOP is the machine's PHYSICAL top -- a 48K
     # Model I, so FFFFH; above it memory is genuinely absent (255 on read,
     # writes discarded).  HIMEM is the MEM SIZE? answer, at or below it.

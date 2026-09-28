@@ -267,7 +267,7 @@ function init_tables(   i, c, m, n) {
     # ROM RND seed (40AA-40ACH): boot writes only the middle byte -- gawk
     # rand() is the entropy source, so --seed makes the whole RND sequence
     # repeatable (rnd_* in p90).
-    RNDSEED = 0; rnd_setmid(int(rand() * 256))
+    RNDSEED = 0; rnd_setmid(int(rand() * 128))   # as RANDOM draws it: LD A,R is 7 bits (01D3H)
     # memory model (p75): RAMTOP is the machine's PHYSICAL top -- a 48K
     # Model I, so FFFFH; above it memory is genuinely absent (255 on read,
     # writes discarded).  HIMEM is the MEM SIZE? answer, at or below it.
@@ -4435,7 +4435,7 @@ function execstmt(   ty, tx) {
         if (tx == "BYE")     { CP++; QUITFLAG = 1; HALT = 1; return }
         if (tx == "TRON")    { CP++; TRACE = 1; return }
         if (tx == "TROFF")   { CP++; TRACE = 0; return }
-        if (tx == "RANDOM")  { CP++; rnd_setmid(int(rand() * 256)); return }
+        if (tx == "RANDOM")  { CP++; rnd_setmid(int(rand() * 128)); return }   # LD A,R (01D3H): the refresh register is 7 bits, 0-127 (N-5)
         if (tx == "ERROR")   { CP++; st_error(); return }
         if (tx == "RESUME")  { CP++; st_resume(); return }
         if (tx == "DEFINT" || tx == "DEFSNG" || tx == "DEFDBL" || tx == "DEFSTR") { CP++; st_deftype(tx == "DEFINT" ? 2 : tx == "DEFSTR" ? 3 : tx == "DEFDBL" ? 8 : 4); return }
