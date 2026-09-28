@@ -111,4 +111,19 @@ ZERO
 ?SN ERROR IN 10
 ?UL ERROR IN 10'
 [ "$out" = "$want" ] || fail "digits only; ON reads to its item" "$out"
+
+# IF's GOTO is not special (204FH -> 1D5FH): no number behind it means the
+# GOTO statement runs with a bare target, GOTO 0 -- ?UL here, ZERO once
+# a line 0 exists (N-5)
+out=$(repl <<'EOF'
+
+10 IF 1 GOTO PRINT
+RUN
+0 PRINT "ZERO":END
+RUN
+EOF
+)
+want='?UL ERROR IN 10
+ZERO'
+[ "$out" = "$want" ] || fail "IF 1 GOTO PRINT is GOTO 0" "$out"
 echo "LINENO OK"

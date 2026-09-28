@@ -643,7 +643,11 @@ function st_if(   v, truth, hadkw, d, p, ty, tx, ln) {
     }
     if (truth) {
         if (TY[CK, CP] == "n") { ln = lineno_arg(); if (!E) jumpline(ln); return }
-        if (hadkw == "GOTO") { raise(2); return }
+        # the ROM never treats IF's GOTO specially: 204FH sees no number,
+        # 1D5FH runs "GOTO <rest>" as a statement, and GOTO's reader
+        # (1E5AH) takes a bare target as 0 -- so IF 1 GOTO PRINT is
+        # GOTO 0, ?UL, not ?SN (the 2026-09-26 audit, N-5)
+        if (hadkw == "GOTO") { st_goto(); return }
         IFKEEP = 1                          # the next statement is dispatched from here (execloop)
         return                              # statements after THEN execute
     }
