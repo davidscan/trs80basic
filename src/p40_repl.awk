@@ -773,6 +773,7 @@ function sys_load(name,   f, data, i, c, ext) {
     f = sys_find(name)
     if (f == "") return ""
     data = SLURPED; SLURPED = ""
+    if (data == "") return "F"        # an empty file: ORD[""] must not be read bare (N-6)
     ext = tolower(substr(f, length(f) - 3))
     c = ORD[substr(data, 1, 1)]
     # The sniff set must be the set sys_load_cmd ACCEPTS, which is also the

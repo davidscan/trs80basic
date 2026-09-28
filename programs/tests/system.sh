@@ -201,6 +201,17 @@ grep -q "(7E00H x1)" "$tmp.err" && fail "/ ran the PREVIOUS file's entry" "$(cat
 grep -q "(7D00H x1)" "$tmp.err" || fail "a tape with no 78H record runs at its first block" "$(cat "$tmp.err")"
 grep -q "(7F00H x1)" "$tmp.err" || fail "a load module with no 02H record runs at its first block" "$(cat "$tmp.err")"
 
+# An EMPTY file: refused as ?FD like any file with nothing to load (until
+# 2026-09-28 the format sniff read ORD[""] bare, creating the key -- the
+# 2026-09-26 audit, N-6)
+: > "$ne.cas"
+run "" <<EOF
+
+SYSTEM
+$ne.cas
+EOF
+grep -q "?FD ERROR" "$tmp" || fail "an empty SYSTEM file is ?FD" "$(cat "$tmp")"
+
 # ---- part 2: the runs, with the real core ----------------------------------
 core=${TRS80_Z80:-"python3 $here/../trs80_z80_core/core.py"}
 set -- $core
