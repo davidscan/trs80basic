@@ -39,14 +39,16 @@
 #     [len][addr lo][addr hi]; the string bytes are materialized just below
 #     it and BOTH regions read and write through to the live value, so
 #     locate-a-literal / POKE-semigraphics / PRINT-the-variable works.  For
-#     a numeric, VARPTR returns the address of the value's 4 Microsoft-
-#     single bytes (fio_mkf/fio_cvf), also live in both directions.  The
+#     a numeric, VARPTR returns the address of the value's bytes as the
+#     machine holds them: an integer's 2 (LSB, MSB), a single's 4 and a
+#     double's 8 (MBF, exponent last; fio_mki/fio_mkf and their decoders),
+#     sized by the entry's type (sp_nsize), also live in both directions.  The
 #     bytes a POKE (or a Z80 store) made are kept (NRAW, sp_nbytes) while
 #     they still decode to the value, so a number written a byte at a
 #     time into a variable holding 0 arrives whole.
 #     Allocation grows down from HIMEM like real string space; CLEAR/RUN/
 #     NEW reset it (sp_reset from clear_vars).  VARPTR IS STABLE: the
-#     descriptor (or a numeric's 4 bytes) is allocated ONCE per variable per
+#     descriptor (or a numeric's bytes) is allocated ONCE per variable per
 #     run and every later VARPTR returns the same address, as on hardware
 #     where it is the variable-table slot.  Only the string's DATA bytes ever
 #     move, and only when the value outgrows the capacity they were given --
@@ -527,7 +529,7 @@ function sp_reset(   a) {
     delete SPK; delete SPT; delete SPV; delete VPDESC; delete VPDATA; delete VPCAP
     delete ALIAS; ALN = 0
     delete LITA; delete LITV; delete LITSPEC
-    delete NRAW
+    delete NRAW; delete VPNB
     SSP = HIMEM
 }
 
@@ -544,21 +546,37 @@ function sp_map_data(tgt, base, len,   j) {
     VPDATA[tgt] = base; VPCAP[tgt] = len
 }
 
+# The bytes a numeric's value takes: the size recorded when its entry was
+# made (NVZ, AVZ; vt_size), else the name's type.  Until 2026-09-29 every
+# numeric took a single's 4, so A%=513 read back as MBF bytes and a
+# double lost its low half (AUDIT R-8, step 2).
+function sp_nsize(tgt,   k, i) {
+    k = substr(tgt, 2)
+    if (substr(tgt, 1, 1) == "A") {
+        i = index(k, SUBSEP); if (i) k = substr(k, 1, i - 1)
+        return (k in AVZ) ? AVZ[k] : vt_size(k, "")
+    }
+    return (k in NVZ) ? NVZ[k] : vt_size(k, "")
+}
+function sp_enc(x, nb) { return (nb == 2) ? fio_mki(x) : fio_mkf(x, nb) }
+function sp_dec(s, nb) { return (nb == 2) ? fio_cvi(s) : fio_cvf(s, nb) }
+
 # materialize var (locator tgt, string flag isstr) and return its VARPTR.
+# nb, when given, sizes a numeric with no entry yet (VARPTR's own suffix).
 # Idempotent: a second call returns the first call's address.  A string's
 # bytes are re-homed only when the live value is longer than the cells
 # mapped for it -- which the assignment that grew it does at once (sp_grown)
 # -- and shrinking never moves anything (sp_peek pads with 32 past the live
 # length).
-function sp_materialize(tgt, isstr,   len, need, base, j, dbase) {
+function sp_materialize(tgt, isstr, nb,   len, need, base, j, dbase) {
     if (SSP == 0) SSP = HIMEM                     # first use this run
     if (!isstr) {
         if (tgt in VPDESC) return VPDESC[tgt]
-        need = 4
+        need = (nb != "") ? nb : sp_nsize(tgt)
         if (SSP - need < 17131) { raise(7); return 0 }
         base = SSP - need + 1; SSP -= need
-        for (j = 0; j < 4; j++) { SPK[base + j] = tgt; SPT[base + j] = "N" j }
-        VPDESC[tgt] = base
+        for (j = 0; j < need; j++) { SPK[base + j] = tgt; SPT[base + j] = "N" j }
+        VPDESC[tgt] = base; VPNB[tgt] = need
         return base
     }
     len = length(sp_gets(tgt))
@@ -632,7 +650,7 @@ function sp_setn(tgt, x,   key) {
     else NV[key] = x
 }
 
-# The four MBF bytes of a numeric variable.  A variable here is a VALUE, not
+# The bytes of a numeric variable (VPNB[tgt] of them: 2, 4 or 8).  A variable here is a VALUE, not
 # bytes, so they are normally encoded from it on demand.  That alone cannot
 # hold a number being written one byte at a time: while the exponent byte
 # (V+3) is still 0 the value is 0, and every mantissa byte stored before it
@@ -645,9 +663,9 @@ function sp_setn(tgt, x,   key) {
 # the value outdates them, and the next read encodes afresh.
 function sp_nbytes(tgt,   x) {
     x = sp_getn(tgt)
-    if ((tgt in NRAW) && fio_cvf(NRAW[tgt], 4) == x) return NRAW[tgt]
+    if ((tgt in NRAW) && sp_dec(NRAW[tgt], VPNB[tgt]) == x) return NRAW[tgt]
     delete NRAW[tgt]
-    return fio_mkf(x, 4)
+    return sp_enc(x, VPNB[tgt])
 }
 
 function sp_peek(a,   t, tgt, v) {
@@ -685,7 +703,7 @@ function sp_poke(a, b,   t, tgt, v, j) {
         v = sp_nbytes(tgt); j = substr(t, 2) + 1
         v = substr(v, 1, j - 1) CHR[b] substr(v, j + 1)
         NRAW[tgt] = v
-        sp_setn(tgt, fio_cvf(v, 4))
+        sp_setn(tgt, sp_dec(v, VPNB[tgt]))
         return
     }
     v = sp_gets(tgt); j = t + 1                   # string byte, write through
@@ -697,17 +715,18 @@ function sp_poke(a, b,   t, tgt, v, j) {
 
 # VARPTR(var) -- parse a variable REFERENCE (scalar or array element), not
 # an expression; called from e_prim
-function fn_varptr(   name, key, tgt) {
+function fn_varptr(   name, key, tgt, nb) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
     CP++
     if (!at_name()) { raise(2); return "NI0" }
-    name = TK[CK, CP]; CP++
+    name = TK[CK, CP]; nb = vt_size(name, TSX[CK, CP]); CP++
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return "NI0" }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return "NI0" }
     CP++
     tgt = (key != "") ? "A" key : "V" name
-    key = sp_materialize(tgt, strname(name)); if (E) return "NI0"
+    if (key != "" || (name in NV)) nb = ""     # an entry's own record sizes it (sp_nsize)
+    key = sp_materialize(tgt, strname(name), nb); if (E) return "NI0"
     # the ROM hands the address to 0A9AH as an INTEGER (24FAH), so above
     # 32767 VARPTR is negative: 65533 is -3, and V=VARPTR(A$):IF V<0 THEN
     # V=V+65536 is the period idiom (280 corpus lines).  PEEK and POKE take
@@ -1107,7 +1126,7 @@ function fr_build(full,   a, e, n, run, last, lo, hi) {
 # NRAW), the data region (VPDATA, VPCAP) and the descriptor's address bytes
 # (SPV).  Equal signature, equal bytes; a new locator, a changed one and a
 # full frame put every cell of the variable in the set: the descriptor
-# (3 cells for a string, 4 for a number) and the data cells when they are
+# (3 cells for a string, VPNB for a number) and the data cells when they are
 # mapped in SPK (a literal's are in the program image, which the image's
 # own rule resends).
 function fr_strings(full,   tgt, d, sig, a, e) {
@@ -1118,7 +1137,7 @@ function fr_strings(full,   tgt, d, sig, a, e) {
             e = d + 2
         } else {
             sig = sp_getn(tgt) SUBSEP ((tgt in NRAW) ? NRAW[tgt] : "")
-            e = d + 3
+            e = d + VPNB[tgt] - 1
         }
         if (!full && (tgt in FRSIG) && FRSIG[tgt] == sig) continue
         FRSIG[tgt] = sig
