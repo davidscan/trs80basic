@@ -83,10 +83,11 @@ printf '10 A$=STRING$(255,"A")+"B":V=VARPTR(A$):P=PEEK(V+1)+256*PEEK(V+2):IF P>3
 20 PRINT LEN(A$);PEEK(V);PEEK(P);PEEK(P+254)\n' > "$tmp"
 out=$(host); [ "$out" = " 256  255  65  65 " ] || fail "a long string through VARPTR" "$out"
 # an image past 65535 still runs; the truncation note stays, said (on
-# stderr) the first time the image is consulted, as ever
-awk 'BEGIN { s = sprintf("%230s", ""); gsub(/ /, "R", s); for (i = 1; i <= 260; i++) print i * 10, "REM " s; print 2700, "PRINT \"OK\"" }' > "$tmp"
-out=$(host); [ "$out" = "OK" ] || fail "an oversized image runs, silently until the image is consulted" "$out"
+# stderr) the first time the image is consulted -- a PEEK of 40F9H here --
+# and MEM, which only counts, is not a consultation (since 2026-09-30)
 awk 'BEGIN { s = sprintf("%230s", ""); gsub(/ /, "R", s); for (i = 1; i <= 260; i++) print i * 10, "REM " s; print 2700, "X=MEM:PRINT \"OK\"" }' > "$tmp"
+out=$(host); [ "$out" = "OK" ] || fail "an oversized image runs, silently until the image is consulted" "$out"
+awk 'BEGIN { s = sprintf("%230s", ""); gsub(/ /, "R", s); for (i = 1; i <= 260; i++) print i * 10, "REM " s; print 2700, "X=PEEK(16633):PRINT \"OK\"" }' > "$tmp"
 out=$(host); case $out in "PROGRAM IMAGE TRUNCATED: LINE "*"OK") ;; *) fail "the note when the image is consulted" "$out" ;; esac
 out=$(runout --memory host); [ "$out" = "OK" ] || fail "the note is stderr" "$out"
 
@@ -111,6 +112,23 @@ out=$(TRS80_Z80= TRS80_EXT=1 "$here/basic" --memory host "$tmp" 2>&1 </dev/null)
 out=$(printf '\nmemory\nmemory host\nmemory\n10 DIM A(100000):PRINT "OK"\nRUN\nmemory rom\nRUN\nmemory bogus\n' | TRS80_Z80= TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1)
 case $out in *"MEMORY ROM"*"MEMORY HOST"*"OK"*"?OV ERROR IN 10"*"USAGE: memory host|rom"*) ;; *) fail "the memory metacommand" "$out" ;; esac
 case $out in *"MEMORY HOST"*"MEMORY ROM"*"OK"*) fail "memory host was reported before it was set" "$out" ;; esac
+
+# a program past the 64K image runs under host mode without the truncated-
+# image note while it only counts memory (DIM, GOSUB, FOR, MEM); a PEEK
+# into its image still gets the note, and the default mode keeps it at
+# the DIM that the machine cannot fit
+{
+  printf '1 DIM A(10):GOSUB 99:FOR I=1 TO 1:NEXT:PRINT "RAN";MEM>0\n2 IF P THEN PRINT PEEK(17129)>=0\n3 END\n'
+  printf '99 RETURN\n'
+  i=100; while [ $i -lt 1300 ]; do printf '%d REM XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n' $i; i=$((i+1)); done
+} > "$tmp"
+out=$(host)
+[ "$out" = "RAN-1 " ] || fail "a big program under host mode printed more than its output" "$out"
+sed 's/^1 DIM/1 P=1:DIM/' "$tmp" > "$dat" && cp "$dat" "$tmp"
+out=$(host)
+case $out in "RAN-1 "*"PROGRAM IMAGE TRUNCATED: LINE "*"-1 ") ;; *) fail "a PEEK into a cut image under host mode lost its note" "$out" ;; esac
+out=$(run)
+case $out in "PROGRAM IMAGE TRUNCATED: LINE "*"?BS ERROR IN 1"*) ;; *) fail "the default mode lost the note before ?BS" "$out" ;; esac
 
 rm -f "$tmp" "$dat"
 echo "OK -- host memory mode: the ceilings lifted, the machine unchanged, the notes, the four switch forms"

@@ -1231,9 +1231,14 @@ function mem_varbytes(   n, k, i, e) {
 # SP - (40FDH): what MEM and FRE(n) say (27D4H-27DDH, 27ECH-27F2H).
 # Under `memory host` (EXT, p10) the same count runs against HOSTTOP: the
 # figure stays a measure of what the program uses, and ?OM comes only past
-# 2^31 bytes of it.
+# 2^31 bytes of it.  The truncated-image note stays with the program's
+# own reads of its image (PEEK, 40F9H, the USR frame): under `memory host`
+# a program past 64K is expected, and counting its DIMs and GOSUBs is not
+# a read, so until 2026-09-30 every such program printed the note at its
+# first DIM (interactiveFiction_BASIC, basic_rpg_engine).  In the default
+# mode the note still explains the ?OM or ?BS that follows.
 function mem_free() {
-    pm_sync(); pm_truncnote()
+    pm_sync(); if (!HOSTMEM) pm_truncnote()
     return (HOSTMEM ? HOSTTOP : mem_strlo()) - 14 - 6 * GSN - 17 * FSN - (PMEND + mem_varbytes())
 }
 # (40D6H) - (40A0H) after the collection: FRE(a$)
