@@ -75,7 +75,8 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     for (i = 1; i <= 15; i++)
         if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
     if (toupper(f) ~ /^OLLAMA(:|$)/) { ai_open(n, f); return }   # EXT: the OLLAMA channel (p87)
-    if (host_special(f) || host_escape(f)) { raise(22); return }    # /inet/..., /dev/..., "-", or a path escaping the cwd (R-9): not for a program (p90)
+    if (host_special(f)) { raise(22); return }    # /inet/..., /dev/..., "-": not for a program (p90)
+    if (mode != "I" && host_escape(f)) { raise(22); return }   # a write stays under the cwd (R-9, p90)
     # a device by another spelling, a directory, a FIFO: not a file either,
     # however it is written (the 2026-09-23 audit, H-3); "O", "E" and "R"
     # ask host_writable, which holds the same rule

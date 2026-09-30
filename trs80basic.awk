@@ -2388,7 +2388,6 @@ function st_cload(   f, verify) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "?") { verify = 1; CP++ }
     f = parse_fname(); if (E) return
     if (f == "") { raise(21); return }
-    if (host_escape(f)) { raise(22); return }         # a program's name stays under the cwd (R-9, p90)
     if (host_kind(f) == "x") { raise(22); return }    # a device, a directory, a FIFO (H-3; p90)
     if (!prog_load(f, verify)) { raise(22); return }
     to_ready()
@@ -2459,7 +2458,6 @@ function st_system(   line, a, s) {
 # the host file behind a SYSTEM name, or "": the name as given, then the
 # four extensions, first readable wins (slurp_bytes leaves it in SLURPED)
 function sys_find(name,   i, f, ext) {
-    if (host_escape(name)) return ""              # a program's name stays under the cwd (R-9, p90)
     split("|.cas|.CAS|.cmd|.CMD", ext, "|")
     for (i = 1; i <= 5; i++) {
         f = name ext[i]
@@ -2594,7 +2592,6 @@ function st_load(   f, keep) {
 # the prefix test, a directory, a FIFO -- is ?FD here, before slurp_bytes
 # would read it without end (the 2026-09-23 audit, H-3; host_kind, p90).
 function host_found(f,   k) {
-    if (host_escape(f)) { raise(22); return 0 }   # a program's name stays under the cwd (R-9, p90)
     if (host_special(f)) return 1
     k = host_kind(f)
     if (k == "f") return 1
@@ -7982,7 +7979,8 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     for (i = 1; i <= 15; i++)
         if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
     if (toupper(f) ~ /^OLLAMA(:|$)/) { ai_open(n, f); return }   # EXT: the OLLAMA channel (p87)
-    if (host_special(f) || host_escape(f)) { raise(22); return }    # /inet/..., /dev/..., "-", or a path escaping the cwd (R-9): not for a program (p90)
+    if (host_special(f)) { raise(22); return }    # /inet/..., /dev/..., "-": not for a program (p90)
+    if (mode != "I" && host_escape(f)) { raise(22); return }   # a write stays under the cwd (R-9, p90)
     # a device by another spelling, a directory, a FIFO: not a file either,
     # however it is written (the 2026-09-23 audit, H-3); "O", "E" and "R"
     # ask host_writable, which holds the same rule
@@ -9355,12 +9353,17 @@ function host_special(f) {
     return index(f, sprintf("%c", 0)) > 0 || f == "-" || f ~ /^\/inet[46]?\// || f ~ /^\/dev\//
 }
 
-# A file name a PROGRAM chooses stays under the working directory: an
-# absolute path, a drive-letter root or a `..` path component is refused
-# (?FD at the caller), so a listing cannot read or write outside the
-# directory it was started in (the 2026-09-26 audit, R-9; measured
-# 2026-09-28: no listing in the corpus names such a path -- the TRSDOS
-# form NAME/EXT:d is an ordinary relative path and stays allowed).  Only
+# A file name a PROGRAM WRITES, KILLs or renames stays under the working
+# directory: an absolute path, a drive-letter root or a `..` path
+# component is refused (?FD at the caller), so a listing cannot append to
+# a startup file or delete one outside the directory it was started in
+# (the 2026-09-26 audit, R-9; measured 2026-09-28: no listing in the
+# corpus names such a path -- the TRSDOS form NAME/EXT:d is an ordinary
+# relative path and stays allowed).  READS go anywhere (OPEN "I", LOAD,
+# RUN "f", MERGE, CLOAD, SYSTEM; ruled 2026-09-30): reading damages
+# nothing, and programs written for this interpreter point a data path
+# at an absolute directory (interactiveFiction_BASIC's test harnesses
+# aim its SP$ at a story copy elsewhere; v2.1.1 refused them).  Only
 # a program's own statement is confined: a name typed at READY is the
 # user's (CK "I"), and the batch program's path is the user's command
 # line (no statement context).  A symbolic link inside the directory can

@@ -175,28 +175,35 @@ BAS
 out=$(run ok.bas)
 [ "$out" = "AB" ] || fail "ordinary file names" "$out"
 
-# a PROGRAM's file name stays under the working directory (R-9, the
-# 2026-09-26 audit): an absolute path or a .. component is ?FD from
-# every statement -- OPEN each mode, KILL, LOAD, SAVE, CLOAD, SYSTEM --
-# while a relative path with a slash (the TRSDOS NAME/EXT form) still
-# works, and a name typed at READY is the user's own and is exempt
+# a PROGRAM's WRITES stay under the working directory (R-9, the 2026-09-26
+# audit): an absolute path or a .. component is ?FD for OPEN "O", "E" and
+# "R", KILL and SAVE, while a relative path with a slash (the TRSDOS
+# NAME/EXT form) still works, and a name typed at READY is the user's own
+# and is exempt.  READS go anywhere (ruled 2026-09-30, after v2.1.1 broke
+# interactiveFiction_BASIC's harnesses, which aim its story path at an
+# absolute directory): OPEN "I" and RUN "f" by an absolute path or
+# through .. both work
 mkdir -p sub && echo HELLO > sub/rel.txt
-cat > conf.bas <<'BAS'
+echo OUTSIDE > "$d/../r9read.$$" && echo '10 PRINT "RUN-ABS-OK"' > "$d/../r9run.$$.bas"
+cat > conf.bas <<BAS
 5 ON ERROR GOTO 100
 10 OPEN "O",1,"/tmp/r9esc"
-20 OPEN "I",1,"/etc/hosts"
-30 KILL "../r9esc"
-40 LOAD "/etc/hosts"
+20 OPEN "E",1,"../r9esc"
+30 OPEN "R",1,"/tmp/r9esc"
+40 KILL "../r9esc"
 50 SAVE "../r9esc"
-60 CLOAD "/etc/hosts"
-70 OPEN "I",1,"sub/rel.txt":LINE INPUT#1,A$:CLOSE:PRINT "REL=";A$
-80 END
+60 OPEN "I",1,"sub/rel.txt":LINE INPUT#1,A\$:CLOSE:PRINT "REL=";A\$
+70 OPEN "I",1,"$d/../r9read.$$":LINE INPUT#1,A\$:CLOSE:PRINT "ABS=";A\$
+80 OPEN "I",1,"../r9read.$$":LINE INPUT#1,A\$:CLOSE:PRINT "DOTDOT=";A\$
+90 RUN "$d/../r9run.$$.bas"
 100 PRINT "E";ERR/2+1;ERL:RESUME NEXT
 BAS
 out=$(run conf.bas)
-want=$(printf 'E 22  10 \nE 22  20 \nE 22  30 \nE 22  40 \nE 22  50 \nE 22  60 \nREL=HELLO')
-[ "$out" = "$want" ] || fail "cwd confinement of a program's names" "$out"
+rm -f "$d/../r9read.$$" "$d/../r9run.$$.bas"
+want=$(printf 'E 22  10 \nE 22  20 \nE 22  30 \nE 22  40 \nE 22  50 \nREL=HELLO\nABS=OUTSIDE\nDOTDOT=OUTSIDE\nRUN-ABS-OK')
+[ "$out" = "$want" ] || fail "cwd confinement of a program's writes, not its reads" "$out"
 [ -e /tmp/r9esc ] && fail "the escaping OPEN created /tmp/r9esc" ""
+[ -e "$d/../r9esc" ] && fail "the escaping OPEN created ../r9esc" ""
 
 # at READY the name is the user's: an absolute LOAD works
 printf '10 PRINT "ABS-OK"\n' > "$d/abs.bas"

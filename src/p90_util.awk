@@ -413,12 +413,17 @@ function host_special(f) {
     return index(f, sprintf("%c", 0)) > 0 || f == "-" || f ~ /^\/inet[46]?\// || f ~ /^\/dev\//
 }
 
-# A file name a PROGRAM chooses stays under the working directory: an
-# absolute path, a drive-letter root or a `..` path component is refused
-# (?FD at the caller), so a listing cannot read or write outside the
-# directory it was started in (the 2026-09-26 audit, R-9; measured
-# 2026-09-28: no listing in the corpus names such a path -- the TRSDOS
-# form NAME/EXT:d is an ordinary relative path and stays allowed).  Only
+# A file name a PROGRAM WRITES, KILLs or renames stays under the working
+# directory: an absolute path, a drive-letter root or a `..` path
+# component is refused (?FD at the caller), so a listing cannot append to
+# a startup file or delete one outside the directory it was started in
+# (the 2026-09-26 audit, R-9; measured 2026-09-28: no listing in the
+# corpus names such a path -- the TRSDOS form NAME/EXT:d is an ordinary
+# relative path and stays allowed).  READS go anywhere (OPEN "I", LOAD,
+# RUN "f", MERGE, CLOAD, SYSTEM; ruled 2026-09-30): reading damages
+# nothing, and programs written for this interpreter point a data path
+# at an absolute directory (interactiveFiction_BASIC's test harnesses
+# aim its SP$ at a story copy elsewhere; v2.1.1 refused them).  Only
 # a program's own statement is confined: a name typed at READY is the
 # user's (CK "I"), and the batch program's path is the user's command
 # line (no statement context).  A symbolic link inside the directory can
