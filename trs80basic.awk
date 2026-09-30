@@ -2089,7 +2089,7 @@ function st_new(   x) {
 # caller omits it, so plain clear_vars() still closes everything
 function clear_vars(keepfiles) {
     if (!keepfiles) fio_closeall()
-    delete NV; delete SV; delete VA; delete ADIM; delete ASZ
+    delete NV; delete SV; delete VA; delete ADIM; delete ASZ; delete NVZ; delete AVZ
     # DEF FN definitions live in variable space (MS BASIC): RUN/NEW/CLEAR
     # all wipe them and the program re-executes its DEFs
     delete FNPAR; delete FNPARM; delete FNKEY; delete FNPOS
@@ -3756,7 +3756,8 @@ function e_prim(   t, s, v, key, sx) {
 }
 
 # ---- array reference: at "(", returns storage key; auto-DIM 10 -------------
-function aref(name,   nd, i, v, idx, key, idxs) {
+function aref(name,   nd, i, v, idx, key, idxs, vz) {
+    vz = vt_size(name, TSX[CK, CP - 1])     # every caller stands on "(" just past the name
     CP++                                    # past "("
     nd = 0
     for (;;) {
@@ -3780,8 +3781,8 @@ function aref(name,   nd, i, v, idx, key, idxs) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
     else { raise(2); return "" }
     if (!(name in ADIM)) {
-        if (!mem_need(6 + 2 * nd + 11 ^ nd * (strname(name) ? 3 : mem_numsize(name)))) return ""   # ?OM (p75)
-        ADIM[name] = nd
+        if (!mem_need(6 + 2 * nd + 11 ^ nd * vz)) return ""   # ?OM (p75)
+        ADIM[name] = nd; AVZ[name] = vz
         for (i = 1; i <= nd; i++) ASZ[name, i] = 10
     }
     if (ADIM[name] != nd) { raise(9); return "" }
@@ -4519,7 +4520,7 @@ function st_let(   name, key, v, lp, src, j, n) {
     # a target whose expression fails is still there.  Until 2026-09-27
     # the expression came first (the 2026-09-26 audit, M-8).  An array
     # element's array was made by aref, as the ROM's 260DH makes it.
-    mkvar(name, key)
+    mkvar(name, key, LVT)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     # a string literal, or a plain string variable, alone on the right in a
@@ -4714,11 +4715,12 @@ function bigint(x,   r) {
 
 # a simple variable's entry, made before its value is known (260DH in
 # create mode: the 3-byte header and a zero value, 26A0H-26CCH), so MEM
-# and FRE count it from here on; an element's array already exists
-function mkvar(name, key) {
+# and FRE count it from here on; an element's array already exists.
+# ty is the reference's type (I S D), which sizes the entry (vt_size, p75)
+function mkvar(name, key, ty) {
     if (key != "") return
     if (strname(name)) { if (!(name in SV)) SV[name] = "" }
-    else if (!(name in NV)) NV[name] = 0
+    else if (!(name in NV)) { NV[name] = 0; NVZ[name] = ty_size(ty) }
 }
 
 function assignv(name, key, v,   isint, tgt, n, ty) {
@@ -4754,6 +4756,7 @@ function assignv(name, key, v,   isint, tgt, n, ty) {
         # .3333333432674408 as on the machine
         v = isint ? intstore(num(v)) : (ty == "S") ? frange(sround(num(v)), "S") : num(v)
         if (E) return
+        if (key == "" && !(name in NV)) NVZ[name] = ty_size(ty)   # READ and INPUT make it here
         if (key != "") VA[key] = v; else NV[name] = v   # raw: the type is the name's (ntype)
     }
 }
@@ -4820,7 +4823,7 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     sng = (ntype(name, TSX[CK, CP]) == "S")   # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
     dbl = (ntype(name, TSX[CK, CP]) == "D")
     CP++
-    mkvar(name, "")                         # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
+    mkvar(name, "", dbl ? "D" : sng ? "S" : "I")   # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
@@ -6377,11 +6380,21 @@ function fr_dump(   i) {
 # the ROM, as a cluster).
 function mem_strlo() { return STRLO_SET ? STRLO : HIMEM - 50 }   # 40A0H
 function mem_strsz() { return HIMEM - mem_strlo() }                # the string area
-function mem_numsize(name,   l, c) {
-    l = substr(name, 1, 1)
-    c = (l in DEFT) ? DEFT[l] : 4              # membership first: a bare read would create the entry, and 4101H reads it
-    return (c == 2) ? 2 : (c == 8) ? 8 : 4
+# The bytes of one value as the name types it at a reference: 3 for a
+# string's descriptor, else by ntype (p70: the suffix, else the DEF
+# table, else single) 2, 4 or 8.  The ROM fixes an entry's type when it
+# creates it (260DH), and a later DEFDBL does not resize it, so the size
+# is recorded then -- NVZ[] for a simple variable, AVZ[] for an array --
+# and the accounting reads the record.  G% is still G here (the 2026-08
+# ruling), so the entry keeps the size of the store that made it.
+# Until 2026-09-29 the size came from the DEF table alone: Z% cost 7
+# bytes, Z# 7, DIM A%(9) 48 (the machine's 5, 11 and 28; AUDIT R-8).
+function vt_size(name, sx,   t) {
+    if (strname(name)) return 3
+    t = ntype(name, sx)
+    return (t == "I") ? 2 : (t == "D") ? 8 : 4
 }
+function ty_size(t) { return (t == "I") ? 2 : (t == "D") ? 8 : 4 }
 # 40FDH - 40F9H: the variables and arrays, recounted when their number
 # changed (a value's change never moves the count)
 function mem_varbytes(   n, k, i, e) {
@@ -6389,12 +6402,12 @@ function mem_varbytes(   n, k, i, e) {
     n = length(NV) SUBSEP length(SV) SUBSEP length(ADIM)
     if (n == VBSEEN) return VBYTES
     VBSEEN = n; VBYTES = 0
-    for (k in NV) VBYTES += 3 + mem_numsize(k)
+    for (k in NV) VBYTES += 3 + ((k in NVZ) ? NVZ[k] : vt_size(k, ""))   # a DEF FN parameter has no record
     for (k in SV) if (k != "usr$") VBYTES += 6   # usr$ is fn_usr's hidden temp (p60), a transient on the machine
     for (k in ADIM) {
         e = 1
         for (i = 1; i <= ADIM[k]; i++) e *= ASZ[k, i] + 1
-        VBYTES += 6 + 2 * ADIM[k] + e * (strname(k) ? 3 : mem_numsize(k))
+        VBYTES += 6 + 2 * ADIM[k] + e * ((k in AVZ) ? AVZ[k] : vt_size(k, ""))
     }
     return VBYTES
 }
@@ -7561,10 +7574,10 @@ function st_read_items(   name, key, x) {
 }
 
 # ---- DIM -------------------------------------------------------------------
-function st_dim(   name, nd, i, v, sz) {
+function st_dim(   name, nd, i, v, sz, vz) {
     for (;;) {
         if (!at_name()) { raise(2); return }
-        name = TK[CK, CP]; CP++
+        name = TK[CK, CP]; vz = vt_size(name, TSX[CK, CP]); CP++
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) {
             # DIM of a scalar (DIM Z!,V!,L$ declaration lists, the period
             # habit for variable-lookup speed) is the ROM's: 2608H locates
@@ -7573,7 +7586,7 @@ function st_dim(   name, nd, i, v, sz) {
             # It was an EXT behind `ext` until 2026-09-26 (audit R-1).
             if (at_stmt_end() || (TY[CK, CP] == "o" && TK[CK, CP] == ",")) {
                 if (strname(name)) { if (!(name in SV)) SV[name] = "" }
-                else if (!(name in NV)) NV[name] = 0
+                else if (!(name in NV)) { NV[name] = 0; NVZ[name] = vz }
                 if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
                 return
             }
@@ -7597,9 +7610,9 @@ function st_dim(   name, nd, i, v, sz) {
         if (name in ADIM) { raise(10); return }
         sz = 1
         for (i = 1; i <= nd; i++) sz *= DIMB[i] + 1
-        if (mem_arrbs(6 + 2 * nd, sz * (strname(name) ? 3 : mem_numsize(name)))) { raise_host(9); return }   # ?BS past 64K (p75)
-        if (!mem_need(6 + 2 * nd + sz * (strname(name) ? 3 : mem_numsize(name)))) return   # ?OM (p75)
-        ADIM[name] = nd
+        if (mem_arrbs(6 + 2 * nd, sz * vz)) { raise_host(9); return }   # ?BS past 64K (p75)
+        if (!mem_need(6 + 2 * nd + sz * vz)) return   # ?OM (p75)
+        ADIM[name] = nd; AVZ[name] = vz
         for (i = 1; i <= nd; i++) ASZ[name, i] = DIMB[i]
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
         return

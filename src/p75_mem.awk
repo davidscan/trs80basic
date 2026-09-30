@@ -1178,11 +1178,21 @@ function fr_dump(   i) {
 # the ROM, as a cluster).
 function mem_strlo() { return STRLO_SET ? STRLO : HIMEM - 50 }   # 40A0H
 function mem_strsz() { return HIMEM - mem_strlo() }                # the string area
-function mem_numsize(name,   l, c) {
-    l = substr(name, 1, 1)
-    c = (l in DEFT) ? DEFT[l] : 4              # membership first: a bare read would create the entry, and 4101H reads it
-    return (c == 2) ? 2 : (c == 8) ? 8 : 4
+# The bytes of one value as the name types it at a reference: 3 for a
+# string's descriptor, else by ntype (p70: the suffix, else the DEF
+# table, else single) 2, 4 or 8.  The ROM fixes an entry's type when it
+# creates it (260DH), and a later DEFDBL does not resize it, so the size
+# is recorded then -- NVZ[] for a simple variable, AVZ[] for an array --
+# and the accounting reads the record.  G% is still G here (the 2026-08
+# ruling), so the entry keeps the size of the store that made it.
+# Until 2026-09-29 the size came from the DEF table alone: Z% cost 7
+# bytes, Z# 7, DIM A%(9) 48 (the machine's 5, 11 and 28; AUDIT R-8).
+function vt_size(name, sx,   t) {
+    if (strname(name)) return 3
+    t = ntype(name, sx)
+    return (t == "I") ? 2 : (t == "D") ? 8 : 4
 }
+function ty_size(t) { return (t == "I") ? 2 : (t == "D") ? 8 : 4 }
 # 40FDH - 40F9H: the variables and arrays, recounted when their number
 # changed (a value's change never moves the count)
 function mem_varbytes(   n, k, i, e) {
@@ -1190,12 +1200,12 @@ function mem_varbytes(   n, k, i, e) {
     n = length(NV) SUBSEP length(SV) SUBSEP length(ADIM)
     if (n == VBSEEN) return VBYTES
     VBSEEN = n; VBYTES = 0
-    for (k in NV) VBYTES += 3 + mem_numsize(k)
+    for (k in NV) VBYTES += 3 + ((k in NVZ) ? NVZ[k] : vt_size(k, ""))   # a DEF FN parameter has no record
     for (k in SV) if (k != "usr$") VBYTES += 6   # usr$ is fn_usr's hidden temp (p60), a transient on the machine
     for (k in ADIM) {
         e = 1
         for (i = 1; i <= ADIM[k]; i++) e *= ASZ[k, i] + 1
-        VBYTES += 6 + 2 * ADIM[k] + e * (strname(k) ? 3 : mem_numsize(k))
+        VBYTES += 6 + 2 * ADIM[k] + e * ((k in AVZ) ? AVZ[k] : vt_size(k, ""))
     }
     return VBYTES
 }

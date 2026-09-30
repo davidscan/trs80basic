@@ -383,7 +383,7 @@ function st_new(   x) {
 # caller omits it, so plain clear_vars() still closes everything
 function clear_vars(keepfiles) {
     if (!keepfiles) fio_closeall()
-    delete NV; delete SV; delete VA; delete ADIM; delete ASZ
+    delete NV; delete SV; delete VA; delete ADIM; delete ASZ; delete NVZ; delete AVZ
     # DEF FN definitions live in variable space (MS BASIC): RUN/NEW/CLEAR
     # all wipe them and the program re-executes its DEFs
     delete FNPAR; delete FNPARM; delete FNKEY; delete FNPOS

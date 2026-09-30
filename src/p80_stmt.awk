@@ -788,10 +788,10 @@ function st_read_items(   name, key, x) {
 }
 
 # ---- DIM -------------------------------------------------------------------
-function st_dim(   name, nd, i, v, sz) {
+function st_dim(   name, nd, i, v, sz, vz) {
     for (;;) {
         if (!at_name()) { raise(2); return }
-        name = TK[CK, CP]; CP++
+        name = TK[CK, CP]; vz = vt_size(name, TSX[CK, CP]); CP++
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) {
             # DIM of a scalar (DIM Z!,V!,L$ declaration lists, the period
             # habit for variable-lookup speed) is the ROM's: 2608H locates
@@ -800,7 +800,7 @@ function st_dim(   name, nd, i, v, sz) {
             # It was an EXT behind `ext` until 2026-09-26 (audit R-1).
             if (at_stmt_end() || (TY[CK, CP] == "o" && TK[CK, CP] == ",")) {
                 if (strname(name)) { if (!(name in SV)) SV[name] = "" }
-                else if (!(name in NV)) NV[name] = 0
+                else if (!(name in NV)) { NV[name] = 0; NVZ[name] = vz }
                 if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
                 return
             }
@@ -824,9 +824,9 @@ function st_dim(   name, nd, i, v, sz) {
         if (name in ADIM) { raise(10); return }
         sz = 1
         for (i = 1; i <= nd; i++) sz *= DIMB[i] + 1
-        if (mem_arrbs(6 + 2 * nd, sz * (strname(name) ? 3 : mem_numsize(name)))) { raise_host(9); return }   # ?BS past 64K (p75)
-        if (!mem_need(6 + 2 * nd + sz * (strname(name) ? 3 : mem_numsize(name)))) return   # ?OM (p75)
-        ADIM[name] = nd
+        if (mem_arrbs(6 + 2 * nd, sz * vz)) { raise_host(9); return }   # ?BS past 64K (p75)
+        if (!mem_need(6 + 2 * nd + sz * vz)) return   # ?OM (p75)
+        ADIM[name] = nd; AVZ[name] = vz
         for (i = 1; i <= nd; i++) ASZ[name, i] = DIMB[i]
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
         return

@@ -174,4 +174,25 @@ READY
 >'
 [ "$out" = "$want" ] || fail "?OM" "$out"
 
+# an entry is 3 bytes and its value: 2 for an integer, 4 a single, 8 a
+# double, typed by the reference's suffix before the DEF table; an array
+# is 6 + 2 per dimension + its elements at that size.  The entry keeps the
+# type it was made with: a DEFDBL after V%=1 does not resize V.  Until
+# 2026-09-29 the size came from the DEF table alone, so Z% cost 7 and
+# DIM A%(9) 48 (AUDIT R-8's accounting half)
+out=$(repl 32767 '10 M=MEM:Z%=1:Y#=1:X!=1:PRINT M-MEM\n20 M=MEM:READ R#:FOR I%=1 TO 1:NEXT:DIM Q%:PRINT M-MEM\n30 M=MEM:DIM A%(9),B#(9):C%(1)=1:PRINT M-MEM\n40 M=MEM:V%=1:DEFDBL V:W=1:PRINT M-MEM\n50 DATA 1\nRUN\n')
+want='>10 M=MEM:Z%=1:Y#=1:X!=1:PRINT M-MEM
+>20 M=MEM:READ R#:FOR I%=1 TO 1:NEXT:DIM Q%:PRINT M-MEM
+>30 M=MEM:DIM A%(9),B#(9):C%(1)=1:PRINT M-MEM
+>40 M=MEM:V%=1:DEFDBL V:W=1:PRINT M-MEM
+>50 DATA 1
+>RUN
+ 23 
+ 21 
+ 146 
+ 12 
+READY
+>'
+[ "$out" = "$want" ] || fail "type sizes" "$out"
+
 echo "MEM OK"

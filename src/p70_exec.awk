@@ -236,7 +236,7 @@ function st_let(   name, key, v, lp, src, j, n) {
     # a target whose expression fails is still there.  Until 2026-09-27
     # the expression came first (the 2026-09-26 audit, M-8).  An array
     # element's array was made by aref, as the ROM's 260DH makes it.
-    mkvar(name, key)
+    mkvar(name, key, LVT)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     # a string literal, or a plain string variable, alone on the right in a
@@ -431,11 +431,12 @@ function bigint(x,   r) {
 
 # a simple variable's entry, made before its value is known (260DH in
 # create mode: the 3-byte header and a zero value, 26A0H-26CCH), so MEM
-# and FRE count it from here on; an element's array already exists
-function mkvar(name, key) {
+# and FRE count it from here on; an element's array already exists.
+# ty is the reference's type (I S D), which sizes the entry (vt_size, p75)
+function mkvar(name, key, ty) {
     if (key != "") return
     if (strname(name)) { if (!(name in SV)) SV[name] = "" }
-    else if (!(name in NV)) NV[name] = 0
+    else if (!(name in NV)) { NV[name] = 0; NVZ[name] = ty_size(ty) }
 }
 
 function assignv(name, key, v,   isint, tgt, n, ty) {
@@ -471,6 +472,7 @@ function assignv(name, key, v,   isint, tgt, n, ty) {
         # .3333333432674408 as on the machine
         v = isint ? intstore(num(v)) : (ty == "S") ? frange(sround(num(v)), "S") : num(v)
         if (E) return
+        if (key == "" && !(name in NV)) NVZ[name] = ty_size(ty)   # READ and INPUT make it here
         if (key != "") VA[key] = v; else NV[name] = v   # raw: the type is the name's (ntype)
     }
 }
@@ -537,7 +539,7 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     sng = (ntype(name, TSX[CK, CP]) == "S")   # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
     dbl = (ntype(name, TSX[CK, CP]) == "D")
     CP++
-    mkvar(name, "")                         # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
+    mkvar(name, "", dbl ? "D" : sng ? "S" : "I")   # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
