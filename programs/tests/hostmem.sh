@@ -130,5 +130,12 @@ case $out in "RAN-1 "*"PROGRAM IMAGE TRUNCATED: LINE "*"-1 ") ;; *) fail "a PEEK
 out=$(run)
 case $out in "PROGRAM IMAGE TRUNCATED: LINE "*"?BS ERROR IN 1"*) ;; *) fail "the default mode lost the note before ?BS" "$out" ;; esac
 
+# host-mode MEM counts the whole program, the lines past a cut image too:
+# 1200 more REM lines of 58 bytes each are 69600 bytes less MEM on either
+# side of the cut (until 2026-09-30 the count stopped at the image's end)
+mk() { { printf '1 PRINT 2147483647#-MEM\n2 END\n'; i=100; while [ $i -lt $((100 + $1)) ]; do printf '%d REM XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\n' $i; i=$((i+1)); done; } > "$tmp"; }
+mk 1200; a=$(runout --memory host); mk 2400; b=$(runout --memory host)
+[ $((b - a)) = 69600 ] || fail "host MEM counts the program past the cut" "$a $b"
+
 rm -f "$tmp" "$dat"
 echo "OK -- host memory mode: the ceilings lifted, the machine unchanged, the notes, the four switch forms"

@@ -5638,7 +5638,7 @@ function pm_crunch(text,   i, n, c, ins, ind, lit, w, up) {
 # after it are deleted, and a payload loaded later is never read through
 # the last program's POKEs.  poke_byte syncs the image before it stores
 # into it, so a store is always judged against the image it was made in.
-function pm_build(   i, ln, addr, nb, j, nxt, a, e, ov, novl, k, p) {
+function pm_build(   i, ln, addr, nb, j, nxt, a, e, ov, novl, k, p, full) {
     if (!TOKIDX) pm_init_index()
     novl = 0
     for (ln in PMLA) {
@@ -5657,7 +5657,14 @@ function pm_build(   i, ln, addr, nb, j, nxt, a, e, ov, novl, k, p) {
     for (i = 1; i <= NL; i++) {
         ln = LNS[i]
         pm_body(ln); nb = PMBN
-        if (addr + 4 + nb + 1 + 2 - 1 > RAMTOP) { PMTRUNC = 1; PMTRUNCLN = ln; break }
+        if (addr + 4 + nb + 1 + 2 - 1 > RAMTOP) {
+            PMTRUNC = 1; PMTRUNCLN = ln
+            # the lines past the cut still count: host-mode MEM measures
+            # the whole program (PMFULL, mem_free)
+            for (full = addr; i <= NL; i++) { pm_body(LNS[i]); full += 4 + PMBN + 1 }
+            PMFULL = full + 2
+            break
+        }
         nxt = addr + 4 + nb + 1                   # always <= RAMTOP now
         PMEM[addr] = nxt % 256; PMEM[addr + 1] = int(nxt / 256)
         PMEM[addr + 2] = ln % 256; PMEM[addr + 3] = int(ln / 256)
@@ -5668,6 +5675,7 @@ function pm_build(   i, ln, addr, nb, j, nxt, a, e, ov, novl, k, p) {
     }
     PMEM[addr] = 0; PMEM[addr + 1] = 0
     PMEND = addr + 2
+    if (!PMTRUNC) PMFULL = PMEND
     for (a = (e > 17129 ? e : 17129); a < PMEND; a++) delete MEM[a]   # RAM the program grew over
     for (k = 1; k <= novl; k++) {
         split(ov[k], p, SUBSEP)
@@ -6380,7 +6388,9 @@ function fr_dump(   i) {
 # (00EFH-00F6H); CLEAR n moves it n bytes below (1E7AH-1E9CH) and the
 # stack starts there again.
 #
-# What is counted, and how: the program's end is the image's (PMEND); a
+# What is counted, and how: the program's end is the image's (PMEND),
+# and under `memory host` the whole program's (PMFULL: the lines past a
+# cut image count too; until 2026-09-30 a 266K program counted as 48K); a
 # simple variable is 3 bytes of header (type, two name characters) and
 # its value (2 an integer, 3 a string's descriptor, 4 single, 8 double:
 # the DEF-type table decides, a name is single without it); an array is
@@ -6441,7 +6451,7 @@ function mem_varbytes(   n, k, i, e) {
 # mode the note still explains the ?OM or ?BS that follows.
 function mem_free() {
     pm_sync(); if (!HOSTMEM) pm_truncnote()
-    return (HOSTMEM ? HOSTTOP : mem_strlo()) - 14 - 6 * GSN - 17 * FSN - (PMEND + mem_varbytes())
+    return (HOSTMEM ? HOSTTOP : mem_strlo()) - 14 - 6 * GSN - 17 * FSN - ((HOSTMEM ? PMFULL : PMEND) + mem_varbytes())
 }
 # (40D6H) - (40A0H) after the collection: FRE(a$)
 function mem_strfree() { return (HOSTMEM ? HOSTTOP : mem_strsz()) - STRUSED }
