@@ -215,7 +215,9 @@ test can never hang on a prompt — but there is no loop guard, so wrap a
 possibly-non-halting program in `timeout`. Two advisory lines can also
 reach stderr on an exit-0 run: `USR STUB: n CALLS NOT EXECUTED ...` when
 `USR` was called with no Z80 core attached, and `PROGRAM IMAGE TRUNCATED:
-...` when the tokenized image did not fit below the top of memory. Behind
+...` when the tokenized image did not fit below the top of memory (under
+`--memory host`, only once the program reads that image: a PEEK into it
+or a USR call). Behind
 two errors batch mode adds a `basic:` line on stderr that names the
 keystroke the listing assumed: `?OS` with no `CLEAR n` (`--clear 1000`,
 see `man OS`) and `?OV` at `CLEAR MEM-n` on the 64K map (`--memsize
@@ -1695,7 +1697,9 @@ VARPTR(var)   address of a variable's storage
   and writes video RAM -- PRINT A$ shows the screen, LSET/RSET/MID$=
   paint it, POKE VARPTR(A$),n sets how much is seen.  An assignment
   (LET, READ, INPUT) moves the descriptor and ends the alias.
-  Numeric: address of the value's 4 Microsoft-single bytes, also live.
+  Numeric: address of the value's bytes as the machine holds them, also
+  live: an integer's 2 (low byte first), a single's 4, a double's 8
+  (Microsoft binary format, exponent last), by the name's type.
   The address is the ROM's 16-bit integer, so above 32767 it is NEGATIVE
   (65533 is -3), as on the machine; PEEK, POKE and USR all need it that
   way (their argument must be -32768..32767, else ?OV).

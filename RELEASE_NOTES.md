@@ -336,8 +336,10 @@ maintained outside this repository.
 - VARPTR IS implemented (2026-08-14): for a string it returns a live
   [len][addr lo][addr hi] descriptor whose byte region PEEKs and POKEs
   through to the value (the string-packing sprite idiom works); for a
-  numeric, the address of its 4 Microsoft-single bytes, also live both
-  ways. The address is STABLE (2026-09-10): one address per variable per
+  numeric, the address of its bytes as the machine holds them, also
+  live both ways: 2 for an integer (low byte first), 4 for a single, 8
+  for a double (Microsoft binary format; 2026-09-29, until then every
+  numeric was a single's 4). The address is STABLE (2026-09-10): one address per variable per
   run, data re-homed only when a string grows, so the two-call idiom
   `PEEK(VARPTR(A$)+1)+256*PEEK(VARPTR(A$)+2)` composes the real address.
   POKEing the descriptor repoints the string (2026-09-11): `POKE
