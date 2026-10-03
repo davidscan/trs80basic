@@ -3073,7 +3073,7 @@ function usage(dest,   t) {
         "With a program file, LOAD and RUN it non-interactively, then exit.\n" \
         "With no file, start the interactive READY prompt.\n" \
         "\n" \
-        "  --seed N     seed RND for repeatable runs (RANDOM re-applies N)\n" \
+        "  --seed N     seed RND and RANDOM for repeatable runs\n" \
         "  --memsize N  answer MEM SIZE? with N (17280-65535); 32767 is a\n" \
         "               16K machine, for programs that only ran on one\n" \
         "  --clear N    type CLEAR N before RUN: string space is 50 bytes\n" \
