@@ -1811,6 +1811,9 @@ OPEN mode$, [#]n, name$ [,reclen]   open a file on channel n (1-15)
   leading /) or a .. path component is ?FD.  Reading is not confined:
   "I", LOAD, RUN "f", MERGE, CLOAD and SYSTEM take any path.  A relative
   path with a slash (SUB/FILE, or the TRSDOS form NAME/EXT:0) is fine.
+  The rule follows where a name leads, not only how it is spelled: a
+  symbolic link in the directory that points outside it, to a file, a
+  directory or a name not there yet, is ?FD for a write or KILL too.
   Names typed at the READY prompt are the user's own and are not
   confined.
   A channel stays busy until CLOSE; re-opening a busy channel is ?AO.

@@ -140,5 +140,36 @@ want=$(printf '? 1\nERR 22 IN 40 \nAFTER CLOSE')
 [ "$out" = "$want" ] && [ "$rc" = 0 ] || bad "CLOSE of a replaced R file (rc=$rc): $out"
 rm -rf R.DAT
 
+# A symbolic link already in the directory cannot carry a program's write
+# or KILL outside it: the confinement is by where a name RESOLVES, not how
+# it is spelled.  Until 2026-10-03 link.dat -> $o/t.dat let OPEN "O"
+# overwrite a file outside the directory (the 2026-09-30 audit, BL-37).
+o=$(mktemp -d) || exit 2
+trap 'rm -rf "$d" "$o"' EXIT
+printf 'keep\n' > "$o/t.dat"
+ln -s "$o/t.dat" link.dat
+ln -s "$o" linkdir
+ln -s "$o/new.dat" dangle.dat
+check 'OPEN "O",1,"link.dat"'       'OPEN "O" through a link that leaves'
+check 'OPEN "E",1,"link.dat"'       'OPEN "E" through a link that leaves'
+check 'OPEN "R",1,"link.dat"'       'OPEN "R" through a link that leaves'
+check 'SAVE "link.dat"'             'SAVE through a link that leaves'
+check 'CSAVE "link.dat"'            'CSAVE through a link that leaves'
+check 'KILL "link.dat"'             'KILL through a link that leaves'
+check 'OPEN "O",1,"dangle.dat"'     'OPEN "O" through a dangling link that leaves'
+check 'OPEN "O",1,"linkdir/x.dat"'  'OPEN "O" through a directory link that leaves'
+check 'OPEN "O",1,"OLLAMA:m:linkdir/th"' 'an OLLAMA transcript through a directory link'
+[ "$(cat "$o/t.dat")" = keep ] || bad "a write through a link changed the file outside"
+[ -e "$o/new.dat" ] && bad "a write through a dangling link made a file outside"
+[ -e "$o/x.dat" ] || [ -e "$o/th.ollama" ] && bad "a write through a directory link made a file outside"
+[ -L link.dat ] || bad "KILL removed the link"
+# ... while a link that stays inside still works
+printf 'old\n' > real.dat
+ln -s real.dat inlink.dat
+mkdir sub && ln -s sub insub
+printf '10 OPEN "O",1,"inlink.dat":PRINT#1,"NEW":CLOSE\n20 OPEN "O",1,"insub/y.dat":PRINT#1,"Y":CLOSE\n30 PRINT "INSIDE"\n' > t.bas
+out=$(TRS80_Z80= "$here/basic" t.bas 2>&1)
+[ "$out" = INSIDE ] && [ "$(cat real.dat)" = NEW ] && [ "$(cat sub/y.dat)" = Y ] || bad "links that stay inside: $out"
+
 [ $fail = 0 ] && echo "HOSTWRITE OK"
 exit $fail

@@ -426,12 +426,29 @@ function host_special(f) {
 # aim its SP$ at a story copy elsewhere; v2.1.1 refused them).  Only
 # a program's own statement is confined: a name typed at READY is the
 # user's (CK "I"), and the batch program's path is the user's command
-# line (no statement context).  A symbolic link inside the directory can
-# still point out; the rule stops the name, not the filesystem.
+# line (no statement context).  The name is then followed to where it
+# RESOLVES (host_outside): a symbolic link already in the directory, to a
+# file, a directory or nothing yet, cannot carry the write or the KILL out
+# (the 2026-09-30 audit, BL-37).  Native Windows checks the spelling only.
 function host_escape(f) {
     if (CK == "" || CK == "I") return 0
     if (f ~ /^[\/\\]/ || f ~ /^[A-Za-z]:[\/\\]/) return 1
-    return f ~ /(^|[\/\\])\.\.([\/\\]|$)/
+    if (f ~ /(^|[\/\\])\.\.([\/\\]|$)/) return 1
+    return WINNATIVE ? 0 : host_outside(f)
+}
+
+# 1 when f, followed through every symbolic link (the last component's
+# chain, then its directory's physical path), lands outside the working
+# directory's physical path.  One shell-out.  It fails closed: a link loop,
+# an unreadable link or a directory that cannot be entered is "outside",
+# and the caller's ?FD is what such a name would have earned anyway.
+function host_outside(f) {
+    return system("c=$(pwd -P) && p=" shq(f) " && n=0 && " \
+        "while [ -L \"$p\" ]; do n=$((n+1)); [ $n -gt 40 ] && exit 0; " \
+        "t=$(readlink -- \"$p\") || exit 0; " \
+        "case $t in /*) p=$t ;; *) p=$(dirname -- \"$p\")/$t ;; esac; done; " \
+        "r=$(cd -- \"$(dirname -- \"$p\")\" 2>/dev/null && pwd -P) || exit 0; " \
+        "case $r in \"$c\"|\"$c\"/*) exit 1 ;; esac; exit 0") == 0
 }
 
 # what f names: "f" a regular file (through a symbolic link), "x" anything
