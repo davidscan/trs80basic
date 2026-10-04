@@ -9,6 +9,9 @@ core="python3 $here/programs/tests/z80_stub.py"
 [ -n "$TRS80_Z80" ] && core="$TRS80_Z80"
 tmp=$(mktemp) || exit 2
 fail() { echo "Z80 FIXTURE FAILED: $1"; [ -n "$2" ] && printf '%s\n' "$2"; rm -f "$tmp" "$tmp.err"; exit 1; }
+# Every interpreter run is bounded (programs/tests/bound.pl): a test whose
+# only failure is a hang held the whole suite (the 2026-09-30 audit, BM-12).
+bound="$here/programs/tests/bound.pl"
 
 # --- the main program: every entry with a batch-visible effect
 cat > "$tmp" <<'EOF'
@@ -57,7 +60,7 @@ cat > "$tmp" <<'EOF'
 300 IF F THEN PRINT "Z80 FIXTURE FAILED":Z(9)=0
 310 PRINT "Z80 FIXTURE OK"
 EOF
-out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>"$tmp.err" </dev/null); rc=$?
+out=$(TRS80_Z80="$core" perl "$bound" 30 "$here/basic" "$tmp" 2>"$tmp.err" </dev/null); rc=$?
 err=$(cat "$tmp.err")
 [ "$rc" = "0" ] || fail "main program rc=$rc" "$out
 $err"
@@ -67,7 +70,7 @@ $err"
 # --- the keyboard callback: batch mode reads keys from stdin lines, so a fed
 # "A" shows as row 0 bit 1 plus SHIFT (row 7 bit 0) on an all-rows read = 3
 printf '10 DEFUSR=&H7001:K=USR(0):PRINT K;PEEK(15424)\n' > "$tmp"
-out=$(printf 'A\n' | TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1); rc=$?
+out=$(printf 'A\n' | TRS80_Z80="$core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1); rc=$?
 [ "$rc" = "0" ] && [ "$out" = " 3  3 " ] || fail "keyboard callback: rc=$rc" "$out"
 
 # --- CLS restores 64-column mode after 32-column (the Dancing Demon idiom:
@@ -76,14 +79,14 @@ out=$(printf 'A\n' | TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1); rc=$?
 # byte again (15361 holds the B); without it the stage the demon paints
 # from BASIC lands on every other cell.
 printf '10 DEFUSR=&H700B:X=USR(0):IF INP(255)<>63 THEN PRINT "no 32col":END\n20 PRINT CHR$(23);:DEFUSR=&H700D:X=USR(0):PRINT@0,"AB";:PRINT INP(255);PEEK(16445);PEEK(15361)\n' > "$tmp"
-out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+out=$(TRS80_Z80="$core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = "AB 127  0  66 " ] || fail "CLS restores 64-column and the print flag: rc=$rc" "$out"
 
 # --- a routine's CLS zeroes the ROM's cursor column at 40A6H (0342H), so
 # BASIC's TAB and POS follow (M-18): before the fix the column stayed 7
 # after the call and TAB(10) padded from there
 printf '10 DEFUSR=&H700D:PRINT "ABCDEFG";:X=USR(0):PRINT PEEK(16550);TAB(10);"X"\n' > "$tmp"
-out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+out=$(TRS80_Z80="$core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = "ABCDEFG 0        X" ] || fail "CLS zeroes the cursor column: rc=$rc" "$out"
 
 # --- a hung core that never answers HELLO -- and traps TERM -- is killed
@@ -96,7 +99,7 @@ while :; do sleep 1; done
 EOF
 printf '10 DEFUSR=&H7003:PRINT USR(4)\n' > "$tmp"
 t0=$(date +%s)
-out=$(TRS80_Z80="sh $tmp.core" TRS80_Z80_TIMEOUT=300 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+out=$(TRS80_Z80="sh $tmp.core" TRS80_Z80_TIMEOUT=300 perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 t1=$(date +%s)
 rm -f "$tmp.core"
 four=' 4 '
@@ -108,33 +111,33 @@ USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argumen
 
 # --- an undefined entry is ?FC on this side, never sent
 printf '10 X=USR6(0)\n' > "$tmp"
-out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+out=$(TRS80_Z80="$core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 [ "$rc" = "1" ] && [ "$out" = "?FC ERROR IN 10" ] || fail "undefined entry: rc=$rc" "$out"
 
 # --- ERR from the core: ?FC plus the text, and the core stays up
 printf '10 DEFUSR=&H7006:X=USR(0)\n20 PRINT "NOT REACHED"\n' > "$tmp"
-out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+out=$(TRS80_Z80="$core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 want='USR CORE: rom called 0000H, no ROM here
 ?FC ERROR IN 10'
 [ "$rc" = "1" ] && [ "$out" = "$want" ] || fail "ERR path: rc=$rc" "$out"
 printf '10 ON ERROR GOTO 30\n20 DEFUSR=&H7006:X=USR(0)\n30 DEFUSR=&H7003:PRINT USR(4):END\n' > "$tmp"
-out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>/dev/null </dev/null); rc=$?
+out=$(TRS80_Z80="$core" perl "$bound" 30 "$here/basic" "$tmp" 2>/dev/null </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = " 8 " ] || fail "core still up after ERR: rc=$rc" "$out"
 
 # --- the stores a routine made before its ERR arrive ahead of it: BASIC's
 # PEEK and the core's own memory (read back by 7005H) agree afterwards
 printf '10 ON ERROR GOTO 30\n20 DEFUSR=&H700E:X=USR(30000)\n30 RESUME 40\n40 DEFUSR=&H7005:PRINT PEEK(30000);USR(30000)\n' > "$tmp"
-out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>/dev/null </dev/null); rc=$?
+out=$(TRS80_Z80="$core" perl "$bound" 30 "$here/basic" "$tmp" 2>/dev/null </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = " 42  42 " ] || fail "stores before an ERR: rc=$rc" "$out"
 
 # --- timeout: the core is dead for the session, later calls are the stub
 printf '10 DEFUSR=&H7004:X=USR(0)\n' > "$tmp"
-out=$(TRS80_Z80="$core" TRS80_Z80_TIMEOUT=300 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+out=$(TRS80_Z80="$core" TRS80_Z80_TIMEOUT=300 perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 want='USR CORE: no reply within 300 ms; the core is dead for this session, USR is the stub
 ?FC ERROR IN 10'
 [ "$rc" = "1" ] && [ "$out" = "$want" ] || fail "timeout path: rc=$rc" "$out"
 printf '10 ON ERROR GOTO 30\n20 DEFUSR=&H7004:X=USR(0)\n30 DEFUSR=&H7003:PRINT USR(4):END\n' > "$tmp"
-out=$(TRS80_Z80="$core" TRS80_Z80_TIMEOUT=300 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+out=$(TRS80_Z80="$core" TRS80_Z80_TIMEOUT=300 perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 want='USR CORE: no reply within 300 ms; the core is dead for this session, USR is the stub
  4 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead'
@@ -147,7 +150,7 @@ USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argumen
 # stub: dying on request is its feature, not a real core's.
 stub="python3 $here/programs/tests/z80_stub.py"
 printf '10 ON ERROR GOTO 40\n20 DEFUSR=&H7003:PRINT USR(4)\n30 FOR I=1 TO 300:NEXT:PRINT USR(5)\n40 PRINT "HANDLER";ERR/2+1;ERL;USR(6):END\n' > "$tmp"
-out=$(TRS80_Z80="$stub" Z80_STUB_DIE_AFTER=1 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+out=$(TRS80_Z80="$stub" Z80_STUB_DIE_AFTER=1 perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 want=' 8 
 USR CORE: the core has exited; it is dead for this session, USR is the stub
 HANDLER 5  30  6 
@@ -157,20 +160,20 @@ USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argumen
 # of file): which of the two a host gives depends on its pipes, so both are
 # pinned, with the same ending -- never "no reply within N ms", the core is
 # not slow, it is gone
-out=$(TRS80_Z80="$stub" Z80_STUB_DIE_ON_CALL=2 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+out=$(TRS80_Z80="$stub" Z80_STUB_DIE_ON_CALL=2 perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = "$want" ] || fail "core exited, met on the read: rc=$rc" "$out"
 printf '10 DEFUSR=&H7003:PRINT USR(4)\n20 FOR I=1 TO 300:NEXT\n' > "$tmp"
-out=$(TRS80_Z80="$stub" Z80_STUB_DIE_AFTER=1 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+out=$(TRS80_Z80="$stub" Z80_STUB_DIE_AFTER=1 perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = " 8 " ] || fail "BYE to a core that has exited: rc=$rc" "$out"
 
 # --- a core that answers NEED to a FULL frame is a protocol violation, not
 # a request: NEED means "I did not see frame gen-1", and a full frame IS
 # gen 1.  The retry loop took it as one and resent for ever, so a stuck
 # core hung the interpreter with no message and no way out (the 2026-09-19
-# audit, L-47).  It now ends like any other bad line.  `timeout` is the
+# audit, L-47).  It now ends like any other bad line.  The bound is the
 # check: before the fix this never returns.
 printf '10 DEFUSR=&H7000:PRINT "R=";USR(5)\n20 PRINT "AFTER"\n' > "$tmp"
-out=$(TRS80_Z80="$stub" Z80_STUB_ALWAYS_NEED=1 timeout 20 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+out=$(TRS80_Z80="$stub" Z80_STUB_ALWAYS_NEED=1 perl "$bound" 20 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 [ "$rc" != "124" ] || fail "a core stuck on NEED hung the interpreter" "(timed out)"
 case $out in
   *"'NEED' answered a full frame"*"?FC ERROR IN 10"*) ;;
@@ -184,10 +187,10 @@ esac
 # Entry 7002 on purpose: its RET is followed by a write-set, and the field has
 # to be read before those W lines replace the RET line.
 printf '10 DEFUSR=&H7002:X=USR(30000):PRINT "SAME LINE"\n20 PRINT "AFTER"\n' > "$tmp"
-out=$(printf '\nLOAD "%s"\nRUN\nPRINT "B=";PEEK(30001)\n' "$tmp" | TRS80_DUMB=1 TRS80_Z80="$stub" Z80_STUB_READY=1 "$here/basic" 2>&1)
+out=$(printf '\nLOAD "%s"\nRUN\nPRINT "B=";PEEK(30001)\n' "$tmp" | TRS80_DUMB=1 TRS80_Z80="$stub" Z80_STUB_READY=1 perl "$bound" 30 "$here/basic" 2>&1)
 case $out in *"SAME LINE"*|*AFTER*) fail "ready=1: the program ran on past the call" "$out" ;; esac
 case $out in *"B= 66"*) ;; *) fail "ready=1: the write-set was not applied" "$out" ;; esac
-out=$(TRS80_Z80="$stub" "$here/basic" "$tmp" 2>&1 </dev/null)
+out=$(TRS80_Z80="$stub" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null)
 case $out in *AFTER*) ;; *) fail "a plain RET: the program did not run on" "$out" ;; esac
 
 # --- building the frame never reads the keyboard: a byte POKEd at 3800-38FFH
@@ -195,24 +198,24 @@ case $out in *AFTER*) ;; *) fail "a plain RET: the program did not run on" "$out
 # stdin (at a terminal, a keystroke) away from the program.  The core asks
 # for the matrix with K; the frame does not carry it.
 printf '10 POKE 14400,1:DEFUSR=&H7003:X=USR(4):LINE INPUT A$:PRINT X;"GOT ";A$\n' > "$tmp"
-out=$(printf 'HELLO\n' | TRS80_Z80="$stub" "$here/basic" "$tmp" 2>&1)
+out=$(printf 'HELLO\n' | TRS80_Z80="$stub" perl "$bound" 30 "$here/basic" "$tmp" 2>&1)
 want="HELLO
  8 GOT HELLO"
 [ "$out" = "$want" ] || fail "the frame read the keyboard" "$out"
 
 # --- fallbacks: a command that will not start, and a protocol mismatch
 printf '10 DEFUSR=&H7003:PRINT USR(4)\n' > "$tmp"
-out=$(TRS80_Z80="/nonexistent/z80core" "$here/basic" "$tmp" 2>&1 </dev/null | grep -v 'not found\|No such file'); rc=$?
+out=$(TRS80_Z80="/nonexistent/z80core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null | grep -v 'not found\|No such file'); rc=$?
 want="USR CORE: cannot start '/nonexistent/z80core'; USR is the stub for this session
  4 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead"
 [ "$out" = "$want" ] || fail "cannot-start fallback" "$out"
-out=$(TRS80_Z80="$core" Z80_STUB_PROTO=4 "$here/basic" "$tmp" 2>&1 </dev/null)
+out=$(TRS80_Z80="$core" Z80_STUB_PROTO=4 perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null)
 want="USR CORE: '$core' speaks protocol 4, this interpreter speaks 3; USR is the stub for this session
  4 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead"
 [ "$out" = "$want" ] || fail "protocol mismatch fallback" "$out"
-out=$(TRS80_Z80="" "$here/basic" "$tmp" 2>&1 </dev/null)   # empty: no core, even one beside the checkout
+out=$(TRS80_Z80="" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null)   # empty: no core, even one beside the checkout
 want=' 4 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead'
 [ "$out" = "$want" ] || fail "no TRS80_Z80: byte-identical stub" "$out"

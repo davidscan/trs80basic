@@ -52,6 +52,15 @@ else
         have_core=1
     else core=; have_core=; fi
 fi
+# Every part runs under a time bound (programs/tests/bound.pl: its own
+# process group, killed whole, exit 124): a suite whose failure is a hang
+# stopped the run with no verdict (the 2026-09-30 audit, BM-12).  The
+# bounds are about 40x the slowest local time (speed.sh, 7 s).  Without
+# perl the parts run unbounded, as before.
+bounded() {
+    if command -v perl >/dev/null 2>&1; then perl "$here/programs/tests/bound.pl" "$@"
+    else shift; "$@"; fi
+}
 # a failing suite's own output, so a CI log says why and not only what
 show() { echo "--- $1 output (last 40 lines) ---"; tail -40 "$log"; echo "--- end $1 ---"; }
 
@@ -63,8 +72,8 @@ fi
 # 2. the transcripts
 i=1
 while [ $i -le 33 ]; do
-    TRS80_DUMB=1 TRS80_Z80="python3 programs/tests/z80_stub.py" \
-    TRS80_OLLAMA_CURL="sh programs/tests/ollama_stub.sh" \
+    bounded 60 env TRS80_DUMB=1 TRS80_Z80="python3 programs/tests/z80_stub.py" \
+        TRS80_OLLAMA_CURL="sh programs/tests/ollama_stub.sh" \
         gawk -b -f trs80basic.awk < "programs/tests/t$i.txt" >/dev/null 2>&1 \
         || bad "t$i"
     i=$((i+1))
@@ -75,7 +84,7 @@ done
 # failure path that stops raising an error must not pass silently (sysvar.bas
 # did, from 70b0c22 on: its CLEAR 50 erased the DIM its failure path used).
 fixture() {
-    if ! "$@" >"$log" 2>&1; then bad "$b.bas"; show "$b.bas"
+    if ! bounded 60 "$@" >"$log" 2>&1; then bad "$b.bas"; show "$b.bas"
     elif grep -q "FIXTURE FAILED" "$log"; then
         bad "$b.bas (printed FIXTURE FAILED but exited 0)"; show "$b.bas"
     fi
@@ -91,27 +100,27 @@ rm -f "$lp"
 # 4. the shell suites (each pins its own core or stub; z80core, sound and
 # system skip their core parts without one, and skip_check counts that)
 for s in break devvec usr pmtrunc z80 z80core sound tokload system tips_probe hostwrite termsafe special linelen clear memsize clearopt hints print input ready inputnum printcomma onerror ollama randfile using lof crunch auto notty corepath errline goto imgpoke lineedit numov numread inputitem freshline linecut dotline fname notfound inputcomma varptrsign varnames cont lineno name keyword tokens stmttail mem speed lineorder hostmem version lfrecord; do
-    if sh "programs/tests/$s.sh" >"$log" 2>&1; then skip_check "$s.sh"; else bad "$s.sh"; show "$s.sh"; fi
+    if bounded 300 sh "programs/tests/$s.sh" >"$log" 2>&1; then skip_check "$s.sh"; else bad "$s.sh"; show "$s.sh"; fi
 done
 # the protocol suite against the real core, whenever one is checked out beside
 # this repo: the stub alone cannot prove the two sides agree
 if [ -n "$have_core" ]; then
-    TRS80_Z80="$core --fixture" sh programs/tests/z80.sh >"$log" 2>&1 \
+    bounded 300 env TRS80_Z80="$core --fixture" sh programs/tests/z80.sh >"$log" 2>&1 \
         || { bad "z80.sh against the core"; show "z80.sh (core)"; }
 else
     echo "SKIPPED: z80.sh against the core (no core at $corewhere)" >"$log"; skip_check "z80.sh (core)"
 fi
 
 # 5. the examples against their checked-in transcripts
-sh programs/examples/run_examples.sh >"$log" 2>&1 \
+bounded 300 sh programs/examples/run_examples.sh >"$log" 2>&1 \
     || { bad "programs/examples (run_examples.sh)"; show "run_examples.sh"; }
 
 # 6. the tokenizer tools and the guide generator
 if command -v python3 >/dev/null 2>&1; then
-    (cd tools && python3 -m unittest -q test_tok test_detok test_userguide >"$log" 2>&1) \
+    (cd tools && bounded 300 python3 -m unittest -q test_tok test_detok test_userguide >"$log" 2>&1) \
         || { bad "tools/test_*.py"; show "tools/test_*.py"; }
     # 7. the interactive keyboard, through a pseudo-terminal
-    python3 programs/tests/kbd_pty.py >"$log" 2>&1 || { bad "kbd_pty.py"; show "kbd_pty.py"; }
+    bounded 300 python3 programs/tests/kbd_pty.py >"$log" 2>&1 || { bad "kbd_pty.py"; show "kbd_pty.py"; }
 else
     # counted like a missing core, and a failure under TRS80_REQUIRE_CORE
     echo "SKIPPED: tools/test_*.py and kbd_pty.py (no python3)" >"$log"; skip_check "python3 suites"
