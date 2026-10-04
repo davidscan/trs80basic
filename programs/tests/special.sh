@@ -183,15 +183,23 @@ out=$(run ok.bas)
 # interactiveFiction_BASIC's harnesses, which aim its story path at an
 # absolute directory): OPEN "I" and RUN "f" by an absolute path or
 # through .. both work
-mkdir -p sub && echo HELLO > sub/rel.txt
+# The escape targets carry this run's pid and are removed either way: a
+# fixed /tmp/r9esc left by one run failed every later one (BL-35).  The
+# drive-letter arm is pinned on its own (55, 56): "C:\x" has no slash
+# here and "C:/x" names a real subdirectory C:, so only that arm refuses.
+esc=/tmp/r9esc.$$
+rm -f "$esc" "$d/../r9esc.$$"
+mkdir -p sub C: && echo HELLO > sub/rel.txt
 echo OUTSIDE > "$d/../r9read.$$" && echo '10 PRINT "RUN-ABS-OK"' > "$d/../r9run.$$.bas"
 cat > conf.bas <<BAS
 5 ON ERROR GOTO 100
-10 OPEN "O",1,"/tmp/r9esc"
-20 OPEN "E",1,"../r9esc"
-30 OPEN "R",1,"/tmp/r9esc"
-40 KILL "../r9esc"
-50 SAVE "../r9esc"
+10 OPEN "O",1,"$esc"
+20 OPEN "E",1,"../r9esc.$$"
+30 OPEN "R",1,"$esc"
+40 KILL "../r9esc.$$"
+50 SAVE "../r9esc.$$"
+55 OPEN "O",1,"C:\\r9drv"
+56 OPEN "O",2,"C:/r9drv"
 60 OPEN "I",1,"sub/rel.txt":LINE INPUT#1,A\$:CLOSE:PRINT "REL=";A\$
 70 OPEN "I",1,"$d/../r9read.$$":LINE INPUT#1,A\$:CLOSE:PRINT "ABS=";A\$
 80 OPEN "I",1,"../r9read.$$":LINE INPUT#1,A\$:CLOSE:PRINT "DOTDOT=";A\$
@@ -200,10 +208,12 @@ cat > conf.bas <<BAS
 BAS
 out=$(run conf.bas)
 rm -f "$d/../r9read.$$" "$d/../r9run.$$.bas"
-want=$(printf 'E 22  10 \nE 22  20 \nE 22  30 \nE 22  40 \nE 22  50 \nREL=HELLO\nABS=OUTSIDE\nDOTDOT=OUTSIDE\nRUN-ABS-OK')
+made=; [ -e "$esc" ] && made="$esc"; [ -e "$d/../r9esc.$$" ] && made="$made ../r9esc.$$"
+[ -e 'C:\r9drv' ] || [ -e C:/r9drv ] && made="$made C:...r9drv"
+rm -f "$esc" "$d/../r9esc.$$"
+want=$(printf 'E 22  10 \nE 22  20 \nE 22  30 \nE 22  40 \nE 22  50 \nE 22  55 \nE 22  56 \nREL=HELLO\nABS=OUTSIDE\nDOTDOT=OUTSIDE\nRUN-ABS-OK')
 [ "$out" = "$want" ] || fail "cwd confinement of a program's writes, not its reads" "$out"
-[ -e /tmp/r9esc ] && fail "the escaping OPEN created /tmp/r9esc" ""
-[ -e "$d/../r9esc" ] && fail "the escaping OPEN created ../r9esc" ""
+[ -z "$made" ] || fail "an escaping write created:$made" ""
 
 # at READY the name is the user's: an absolute LOAD works
 printf '10 PRINT "ABS-OK"\n' > "$d/abs.bas"
