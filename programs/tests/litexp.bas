@@ -1,0 +1,20 @@
+10 REM AN E EXPONENT MAKES A NUMBER SINGLE, at any length: the reader (0E8CH CP 45H -> 0EA4H
+20 REM -> 0EFFH CALL Z,0AB1H) converts it with CSNG, so 12345678E2 is 1.23457E+09.  Only a D
+30 REM exponent (or a # behind the digits) keeps it double.  READ and INPUT use the same reader:
+40 REM an item with an E exponent or a ! is stored as its single value, even into a double, where
+50 REM a plain 0.1 stays .1.  Until 2026-10-04 eight digits kept an E literal double and READ
+60 REM kept every digit of an E or ! item (the 2026-09-30 audit, BM-3).
+70 F=0:DEFDBL D
+100 IF STR$(12345678E2)<>" 1.23457E+09" OR STR$(1.23456789E0)<>" 1.23457" THEN PRINT "FAIL: an E literal is single:";12345678E2;1.23456789E0:F=1
+110 IF STR$(1.2345678E0*3)<>" 3.7037" OR STR$(123456789E-1)<>" 1.23457E+07" THEN PRINT "FAIL: computes as single:";1.2345678E0*3;123456789E-1:F=1
+120 D=1.23456789E0:IF STR$(D)<>" 1.234567880630493" THEN PRINT "FAIL: into a double:";D:F=1
+130 D=1.23456789E:IF STR$(D)<>" 1.234567880630493" THEN PRINT "FAIL: an empty E:";D:F=1
+140 D=1.23456789D0:IF STR$(D)<>" 1.23456789" OR STR$(1.23456789#)<>" 1.23456789" OR STR$(12345678)<>" 12345678" THEN PRINT "FAIL: D, # and eight plain digits stay double":F=1
+150 IF STR$(VAL("12345678E2"))<>" 1.23457E+09" OR STR$(VAL("1.23456789D0"))<>" 1.23456789" THEN PRINT "FAIL: VAL":F=1
+200 READ D1,D2,D3,D4,D5,D6,D7,D8
+210 IF STR$(D1)<>" 1.234567880630493" OR STR$(D2)<>" .1000000014901161" OR STR$(D3)<>" .1000000014901161" OR STR$(D4)<>" .1000000014901161" THEN PRINT "FAIL: READ of an E item:";D1;D2;D3;D4:F=1
+220 IF STR$(D5)<>" .1000000014901161" OR STR$(D6)<>" 1.234567880630493" THEN PRINT "FAIL: READ of a ! item:";D5;D6:F=1
+230 IF STR$(D7)<>" .1" OR STR$(D8)<>" .1" THEN PRINT "FAIL: a plain or D item is exact:";D7;D8:F=1
+240 DATA 1.23456789E0,0.1E0,.1E,1E-1,0.1!,1.23456789!,0.1,.1D0
+890 IF F THEN PRINT "LITEXP FIXTURE FAILED":ERROR 5
+895 PRINT "LITEXP FIXTURE OK":END

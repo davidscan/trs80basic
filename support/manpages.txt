@@ -1089,7 +1089,8 @@ CSNG(x)   convert x to single precision
   to 16 with D as its exponent letter (1D+20).  A literal is typed as
   the machine reads it: an integer up to 32767 with no point or
   exponent, a single up to 7 significant digits, a double from the
-  eighth or with a D exponent or #.  An operation takes the wider
+  eighth or with a D exponent or #; an E exponent makes it a single at
+  any length (12345678E2 is 1.23457E+09).  An operation takes the wider
   operand's type; / and ^ are never integer, and an integer + - * that
   leaves 16 bits is silently a single.
   See: man DEFINT for the types of variables, man CDBL.

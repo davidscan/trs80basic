@@ -337,7 +337,7 @@ before `--update`.
   to print 1000000; actually it prints `1E+06`, because a literal up to 7
   digits is a single and a single prints to 6 digits, as on the machine.
   An 8-digit literal, a D exponent or a `#` makes a double, which prints
-  16 digits with a D exponent. `A#=1/3` holds the single quotient
+  16 digits with a D exponent; an E exponent makes a single at any length. `A#=1/3` holds the single quotient
   (.3333333432674408) because `1/3` is single division; write `1#/3` for a
   double one. Singles are 24 bits, so `FOR X=0 TO 1 STEP .1` makes 10
   passes, as the machine does. One documented limit: a double holds 53

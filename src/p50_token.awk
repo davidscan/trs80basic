@@ -214,6 +214,10 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
     # bits (0F4BH: past 2^15 it becomes a single), and a single until the
     # EIGHTH significant digit, which makes it double (0F65H-0F74H: the
     # value so far is compared with 1,000,000 before each digit is added).
+    # An E exponent, even an empty one, makes it single whatever its digits
+    # (0E8CH CP 45H -> 0EA4H -> 0EFFH CALL Z,0AB1H, CSNG): 12345678E2 is
+    # 1.23457E+09.  Until 2026-10-04 eight digits kept it double (the
+    # 2026-09-30 audit, BM-3).
     # TSX carries it as I, S or D (or %SN, ?SN at e_prim).
     if (TKSX == "%") TKSX = "I"
     else if (TKSX == "!") TKSX = "S"
@@ -221,7 +225,9 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
     else if (TKSX == "") {
         sig = m; sub(/\./, "", sig); sub(/^0+/, "", sig)
         if (isint && m + 0 <= 32767) TKSX = "I"
-        else if (expd || length(sig) > 7) TKSX = "D"
+        else if (expd) TKSX = "D"
+        else if (hasexp) TKSX = "S"
+        else if (length(sig) > 7) TKSX = "D"
         else TKSX = "S"
     }
     TKNUM = m (hasexp ? "E" exs (ex == "" ? "0" : ex) : "")

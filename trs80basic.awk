@@ -3392,6 +3392,10 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
     # bits (0F4BH: past 2^15 it becomes a single), and a single until the
     # EIGHTH significant digit, which makes it double (0F65H-0F74H: the
     # value so far is compared with 1,000,000 before each digit is added).
+    # An E exponent, even an empty one, makes it single whatever its digits
+    # (0E8CH CP 45H -> 0EA4H -> 0EFFH CALL Z,0AB1H, CSNG): 12345678E2 is
+    # 1.23457E+09.  Until 2026-10-04 eight digits kept it double (the
+    # 2026-09-30 audit, BM-3).
     # TSX carries it as I, S or D (or %SN, ?SN at e_prim).
     if (TKSX == "%") TKSX = "I"
     else if (TKSX == "!") TKSX = "S"
@@ -3399,7 +3403,9 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
     else if (TKSX == "") {
         sig = m; sub(/\./, "", sig); sub(/^0+/, "", sig)
         if (isint && m + 0 <= 32767) TKSX = "I"
-        else if (expd || length(sig) > 7) TKSX = "D"
+        else if (expd) TKSX = "D"
+        else if (hasexp) TKSX = "S"
+        else if (length(sig) > 7) TKSX = "D"
         else TKSX = "S"
     }
     TKNUM = m (hasexp ? "E" exs (ex == "" ? "0" : ex) : "")
@@ -9114,9 +9120,17 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, expl, sig, s
     # 2026-09-27 VAL typed its number as a literal (the 2026-09-26 audit,
     # M-11).  The 0E6CH entry (READ, INPUT) starts at integer and types by
     # tk_number's rule (p50): I while there is no point or exponent and
-    # it fits 15 bits, D from the eighth significant digit or a D exponent.
+    # it fits 15 bits, D from the eighth significant digit or a D exponent,
+    # S for an E exponent at any length.
+    # At both entries an E exponent or a "!" CONVERTS the value to single
+    # (0EFFH CALL Z,0AB1H), so READ or INPUT of 0.1E0, .1E or 0.1! into A#
+    # stores .1000000014901161 and 1.23456789E0 stores 1.234567880630493,
+    # where a plain 0.1 stays .1.  Until 2026-10-04 the value kept every
+    # digit and an E item of eight digits was double (the 2026-09-30
+    # audit, BM-3).
     if (sx != "") VALTYPE = sx
-    else if (dp) VALTYPE = (expl && !expd) ? "S" : "D"
+    else if (expl && !expd) VALTYPE = "S"
+    else if (dp) VALTYPE = "D"
     else {
         sig = m; sub(/\./, "", sig); sub(/^0+/, "", sig)
         if (isint && !dot && ex == "" && !expd && m + 0 <= 32767 && m != "") VALTYPE = "I"
@@ -9125,6 +9139,7 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, expl, sig, s
     }
     if (m == "" || m == ".") m = "0"
     x = numconv(sg m "E" exs (ex == "" ? "0" : ex))
+    if (!E && VALTYPE == "S" && (sx == "S" || expl)) x = sround(x)
     return x
 }
 
