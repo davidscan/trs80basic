@@ -1658,7 +1658,11 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
         if (word == "" || index(word, "\"") || word ~ /'/) continue
         cmd = "ls -1d -- " shq(word) "* 2>/dev/null"
         while ((cmd | getline line) > 0) {
-            if (line ~ /[\001-\037\177]/) continue     # a control byte in the name: never offered
+            # a control byte in the name is never offered: C0, DEL, and C1
+            # (80H-9FH) as UTF-8 encodes it (C2 80-9F) or as a stray byte
+            # after ASCII, which an 8-bit terminal takes as CSI and the
+            # rest (the 2026-09-30 audit, BL-28)
+            if (line ~ /[\001-\037\177]/ || line ~ /\302[\200-\237]/ || line ~ /(^|[\001-\177])[\200-\237]/) continue
             if (nm < 100) mt[++nm] = line
         }
         close(cmd)

@@ -377,6 +377,22 @@ def completion(check):
         b.drain(0.3)
         check(not os.path.exists(os.path.join(d, 'INJECTED')),
               'an unquotable common prefix is never inserted into a cat line', out)
+        # a C1 control (80H-9FH; here UTF-8's C2 9B, the 8-bit CSI) is a
+        # control byte too: never completed, never listed (the 2026-09-30
+        # audit, BL-28)
+        open(os.path.join(d, 'zc1\u009b2Kfoo'), 'w').close()
+        b.send('cat zc1\t', 0.5)
+        out = b.drain(0.3)
+        check('\x9b' not in out and 'foo' not in out, 'a name holding a C1 control is never completed', out)
+        b.send('\x15', 0.3)
+        b.drain(0.2)
+        for n in ('zl1a', 'zl1b', 'zl1\u009bA', 'zl1\u009bB'):
+            open(os.path.join(d, n), 'w').close()
+        b.send('cat zl1\t', 0.5)
+        out = b.drain(0.3)
+        check('zl1a' in out and '\x9b' not in out, 'a list of matches never shows a C1 control', out)
+        b.send('\x15', 0.3)
+        b.drain(0.2)
         b.send('dir\r', 0.6)
         out = b.drain(0.3)
         check('zesc.[2Kfoo' in out and '\x1b[2K' not in out, 'dir shows a control byte as a full stop', out)
