@@ -5757,7 +5757,7 @@ function sp_map_data(tgt, base, len,   j) {
 # The bytes a numeric's value takes: the size recorded when its entry was
 # made (NVZ, AVZ; vt_size), else the name's type.  Until 2026-09-29 every
 # numeric took a single's 4, so A%=513 read back as MBF bytes and a
-# double lost its low half (AUDIT R-8, step 2).
+# double lost its low half (the 2026-09-26 audit, R-8, step 2).
 function sp_nsize(tgt,   k, i) {
     k = substr(tgt, 2)
     if (substr(tgt, 1, 1) == "A") {
@@ -6415,7 +6415,8 @@ function mem_strsz() { return HIMEM - mem_strlo() }                # the string 
 # and the accounting reads the record.  G% is still G here (the 2026-08
 # ruling), so the entry keeps the size of the store that made it.
 # Until 2026-09-29 the size came from the DEF table alone: Z% cost 7
-# bytes, Z# 7, DIM A%(9) 48 (the machine's 5, 11 and 28; AUDIT R-8).
+# bytes, Z# 7, DIM A%(9) 48 (the machine's 5, 11 and 28; the 2026-09-26
+# audit, R-8).
 function vt_size(name, sx,   t) {
     if (strname(name)) return 3
     t = ntype(name, sx)

@@ -179,7 +179,7 @@ READY
 # is 6 + 2 per dimension + its elements at that size.  The entry keeps the
 # type it was made with: a DEFDBL after V%=1 does not resize V.  Until
 # 2026-09-29 the size came from the DEF table alone, so Z% cost 7 and
-# DIM A%(9) 48 (AUDIT R-8's accounting half)
+# DIM A%(9) 48 (the 2026-09-26 audit, R-8, its accounting half)
 out=$(repl 32767 '10 M=MEM:Z%=1:Y#=1:X!=1:PRINT M-MEM\n20 M=MEM:READ R#:FOR I%=1 TO 1:NEXT:DIM Q%:PRINT M-MEM\n30 M=MEM:DIM A%(9),B#(9):C%(1)=1:PRINT M-MEM\n40 M=MEM:V%=1:DEFDBL V:W=1:PRINT M-MEM\n50 DATA 1\nRUN\n')
 want='>10 M=MEM:Z%=1:Y#=1:X!=1:PRINT M-MEM
 >20 M=MEM:READ R#:FOR I%=1 TO 1:NEXT:DIM Q%:PRINT M-MEM

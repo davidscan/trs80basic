@@ -13,5 +13,9 @@ STATUS.local.md
 # session-to-session about the USR seam and memory model; working files, never ships
 handoff/
 
+# ROM-derived material of any kind must never land here at all.
+*.rom
+*.bin
+
 # Claude Code orientation notes for this working copy; versioned locally, never ships
 CLAUDE.md

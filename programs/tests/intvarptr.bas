@@ -1,7 +1,7 @@
 10 REM A numeric's VARPTR bytes are the machine's for its type: an
 20 REM integer 2 (LSB, MSB), a single 4, a double 8 (MBF, exponent last),
 30 REM sized by the suffix, else the DEF table.  Until 2026-09-29 every
-40 REM numeric was a single's 4 bytes (AUDIT R-8, step 2).
+40 REM numeric was a single's 4 bytes (the 2026-09-26 audit, R-8, step 2).
 50 F=0
 100 REM --- an integer: LSB, MSB; a POKE into either changes the value
 110 A%=513:V=VARPTR(A%):IF PEEK(V)<>1 OR PEEK(V+1)<>2 THEN PRINT "FAIL: 513 IS 01 02";PEEK(V);PEEK(V+1):F=1
