@@ -55,8 +55,9 @@ fi
 # Every part runs under a time bound (programs/tests/bound.pl: its own
 # process group, killed whole, exit 124): a suite whose failure is a hang
 # stopped the run with no verdict (the 2026-09-30 audit, BM-12).  The
-# bounds are about 40x the slowest local time (speed.sh, 7 s).  Without
-# perl the parts run unbounded, as before.
+# shell suites' bound is about 40x the slowest local one (speed.sh, 7 s);
+# kbd_pty.py takes 1m40 locally and nearly 5 minutes on CI's runner, so
+# its bound is 1200 s.  Without perl the parts run unbounded, as before.
 bounded() {
     if command -v perl >/dev/null 2>&1; then perl "$here/programs/tests/bound.pl" "$@"
     else shift; "$@"; fi
@@ -120,7 +121,7 @@ if command -v python3 >/dev/null 2>&1; then
     (cd tools && bounded 300 python3 -m unittest -q test_tok test_detok test_userguide >"$log" 2>&1) \
         || { bad "tools/test_*.py"; show "tools/test_*.py"; }
     # 7. the interactive keyboard, through a pseudo-terminal
-    bounded 300 python3 programs/tests/kbd_pty.py >"$log" 2>&1 || { bad "kbd_pty.py"; show "kbd_pty.py"; }
+    bounded 1200 python3 programs/tests/kbd_pty.py >"$log" 2>&1 || { bad "kbd_pty.py"; show "kbd_pty.py"; }
 else
     # counted like a missing core, and a failure under TRS80_REQUIRE_CORE
     echo "SKIPPED: tools/test_*.py and kbd_pty.py (no python3)" >"$log"; skip_check "python3 suites"
