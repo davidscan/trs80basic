@@ -850,9 +850,13 @@ function st_dim(   name, nd, i, v, sz, vz) {
 # a byte, as this did until 2026-09-19, let a loader reading a damaged
 # DATA item poke a wrong byte and carry on, where the machine stops at
 # the bad line.
+# The integer step is CINT's own (2B1FH CALL 2B05H -> 0A7FH), so a double
+# is a single first: to16 (p90).  A=.29 held in a double makes A*100
+# 28.99999916553497, which is 29 on the machine for CHR$, STRING$, LEFT$,
+# TAB, ON and the rest; flooring it raw gave 28 (the 2026-09-30 audit,
+# BM-2, the L-8 sibling).
 function byteconv(x) {
-    x = bfloor(x)
-    if (x < -32768 || x > 32767) { raise(6); return -1 }
+    x = to16(x); if (E) return -1           # ?OV outside -32768..32767
     if (x < 0 || x > 255) { raise(5); return -1 }
     return x
 }
@@ -861,7 +865,7 @@ function byteconv(x) {
 # behind the byte's ?FC or ?OV (raise_host, p90)
 function lenconv(x,   e0) {
     if (HOSTMEM) {
-        x = bfloor(x)
+        x = bfloor(sround(x))               # a double is a single first, as byteconv
         if (x < 0) { raise(5); return -1 }
         return x
     }
