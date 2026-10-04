@@ -93,7 +93,8 @@ rm -f "$lp"
 for s in break devvec usr pmtrunc z80 z80core sound tokload system tips_probe hostwrite special linelen clear memsize clearopt hints print input ready inputnum printcomma onerror ollama randfile using lof crunch auto notty corepath errline goto imgpoke lineedit numov numread inputitem freshline linecut dotline fname notfound inputcomma varptrsign varnames cont lineno name keyword tokens stmttail mem speed lineorder hostmem version lfrecord; do
     if sh "programs/tests/$s.sh" >"$log" 2>&1; then skip_check "$s.sh"; else bad "$s.sh"; show "$s.sh"; fi
 done
-# the protocol suite against the real core, as CLAUDE.md prescribes
+# the protocol suite against the real core, whenever one is checked out beside
+# this repo: the stub alone cannot prove the two sides agree
 if [ -n "$have_core" ]; then
     TRS80_Z80="$core --fixture" sh programs/tests/z80.sh >"$log" 2>&1 \
         || { bad "z80.sh against the core"; show "z80.sh (core)"; }

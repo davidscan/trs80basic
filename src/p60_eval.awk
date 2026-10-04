@@ -305,8 +305,9 @@ function e_prim(   t, s, v, key, sx) {
         # with a zero of the type and allocates nothing (269CH -> 26D5H),
         # so PRINT Y;Z;Y$ leaves MEM where it was.  Only a store (LET at
         # 1F21H, READ, INPUT, FOR, DIM) makes the entry.  A bare SV[s] or
-        # NV[s] here is CLAUDE.md's bare-read trap reaching the memory
-        # accounting (mem_varbytes counts the entries): until 2026-09-27
+        # NV[s] here is awk's bare-read trap (reading an element creates
+        # it) reaching the memory accounting (mem_varbytes counts the
+        # entries): until 2026-09-27
         # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit, M-8).
         if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
         return "N" ntype(s, sx) ((s in NV) ? NV[s] + 0 : 0)

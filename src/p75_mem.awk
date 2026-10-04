@@ -1,6 +1,6 @@
 # ===================== program-memory mapping + VARPTR string space =========
-# Three related pieces of the real Level II memory model (STATUS roadmap:
-# "Program-memory mapping", shipped 2026-08-14):
+# Three related pieces of the real Level II memory model (program-memory
+# mapping, shipped 2026-08-14):
 #
 #  1. THE TOKENIZED PROGRAM IMAGE (writable since 2026-09-12): PEEK of 42E9H (17129) onward sees
 #     the stored program in the authentic crunched cassette format -- per
@@ -135,7 +135,7 @@
 # poke_byte() (p80) is dopeek's twin and its order is CONTRACT for the same
 # reason: a Z80 store from ../trs80_z80_core must land exactly where a POKE of
 # the same address lands, or the two disagree about memory with no error.
-# Requested by that project 2026-09-08 (handoff REPLY 2).  They read the order
+# Requested by that project 2026-09-08.  They read the order
 # off the code themselves and read it correctly; all six rules are theirs,
 # re-verified against st_poke 2026-09-09.  Split 2026-09-11: st_poke is now
 # only the statement parser, and poke_byte(a, b) is the single store

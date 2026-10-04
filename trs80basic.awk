@@ -909,8 +909,8 @@ function kb_mode(m) {
 # One visible difference on such a terminal: INKEY$ no longer sees the
 # terminal's auto-repeat -- which is what Level II did (no auto-repeat).
 # An arrow's repeats are events; a plain key's are NOT: iTerm2 sends them
-# as the plain byte again, and they reached INKEY$ as a stream (HAND_TEST
-# 29, 27 `a`s for a three-second hold; ruled 2026-09-23: drop them).  So
+# as the plain byte again, and they reached INKEY$ as a stream (27 `a`s
+# for a three-second hold at a real terminal; ruled 2026-09-23: drop them).  So
 # kp_repeat drops them in the poll reader.
 function kp_on(   e) {
     e = ENVIRON["TRS80_KBPROTO"]
@@ -935,7 +935,7 @@ function kp_push() {
 # too, until the stuck-key sweep KP_STUCK seconds after that last event --
 # so a program that polled again at once (a RUN typed quickly, a menu
 # loop, CONT) read BREAK as held for most of the window (the 2026-09-19
-# audit, L-7; HAND_TEST 27).  Line mode takes no presses, and a key still
+# audit, L-7; seen at a real terminal).  Line mode takes no presses, and a key still
 # held when poll mode returns is pressed again by its repeat bytes.
 function kp_pop() {
     if (!KPPUSHED) return
@@ -1386,7 +1386,7 @@ function kb_escseq(   c, n, par, a) {
 # backspace (row 6 bit 32).  No Model I key produces 127; the line editor
 # had long taken 127 and 8 alike (readline below) while a program's INKEY$
 # and the matrix saw 127 and no key, so `IF A$=CHR$(8)` never fired for the
-# natural key (HAND_TEST 25, ruled 2026-09-21).  INKEY$, the timed latch
+# natural key (seen at a real terminal, ruled 2026-09-21).  INKEY$, the timed latch
 # and the release protocol's press path all come through here; a piped
 # byte stream stays byte-exact and never does.
 function kb_termkey(c) {
@@ -3742,8 +3742,9 @@ function e_prim(   t, s, v, key, sx) {
         # with a zero of the type and allocates nothing (269CH -> 26D5H),
         # so PRINT Y;Z;Y$ leaves MEM where it was.  Only a store (LET at
         # 1F21H, READ, INPUT, FOR, DIM) makes the entry.  A bare SV[s] or
-        # NV[s] here is CLAUDE.md's bare-read trap reaching the memory
-        # accounting (mem_varbytes counts the entries): until 2026-09-27
+        # NV[s] here is awk's bare-read trap (reading an element creates
+        # it) reaching the memory accounting (mem_varbytes counts the
+        # entries): until 2026-09-27
         # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit, M-8).
         if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
         return "N" ntype(s, sx) ((s in NV) ? NV[s] + 0 : 0)
@@ -5198,8 +5199,8 @@ function st_resume(   p, ty, tx) {
     CLN = (CK == "I") ? DIRECTLN : CK + 0
 }
 # ===================== program-memory mapping + VARPTR string space =========
-# Three related pieces of the real Level II memory model (STATUS roadmap:
-# "Program-memory mapping", shipped 2026-08-14):
+# Three related pieces of the real Level II memory model (program-memory
+# mapping, shipped 2026-08-14):
 #
 #  1. THE TOKENIZED PROGRAM IMAGE (writable since 2026-09-12): PEEK of 42E9H (17129) onward sees
 #     the stored program in the authentic crunched cassette format -- per
@@ -5334,7 +5335,7 @@ function st_resume(   p, ty, tx) {
 # poke_byte() (p80) is dopeek's twin and its order is CONTRACT for the same
 # reason: a Z80 store from ../trs80_z80_core must land exactly where a POKE of
 # the same address lands, or the two disagree about memory with no error.
-# Requested by that project 2026-09-08 (handoff REPLY 2).  They read the order
+# Requested by that project 2026-09-08.  They read the order
 # off the code themselves and read it correctly; all six rules are theirs,
 # re-verified against st_poke 2026-09-09.  Split 2026-09-11: st_poke is now
 # only the statement parser, and poke_byte(a, b) is the single store
@@ -6481,7 +6482,7 @@ function mem_need(n) {
 # side and programs/tests/z80.sh the conformance suite.  Nothing here
 # executes an opcode.
 #
-# The rulings this implements (2026-09-11, STATUS "Machine-language" entry):
+# The rulings this implements (2026-09-11, machine-language support):
 #   * frame OUT = fr_build's sparse, contract-resolved, delta-after-first
 #     memory image (p75), plus slot/entry/arg and sp=SSP (the Z80 stack
 #     seats where Level II's does, at the bottom of string space);

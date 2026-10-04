@@ -6,7 +6,7 @@
 # side and programs/tests/z80.sh the conformance suite.  Nothing here
 # executes an opcode.
 #
-# The rulings this implements (2026-09-11, STATUS "Machine-language" entry):
+# The rulings this implements (2026-09-11, machine-language support):
 #   * frame OUT = fr_build's sparse, contract-resolved, delta-after-first
 #     memory image (p75), plus slot/entry/arg and sp=SSP (the Z80 stack
 #     seats where Level II's does, at the bottom of string space);

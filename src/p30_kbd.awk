@@ -69,8 +69,8 @@ function kb_mode(m) {
 # One visible difference on such a terminal: INKEY$ no longer sees the
 # terminal's auto-repeat -- which is what Level II did (no auto-repeat).
 # An arrow's repeats are events; a plain key's are NOT: iTerm2 sends them
-# as the plain byte again, and they reached INKEY$ as a stream (HAND_TEST
-# 29, 27 `a`s for a three-second hold; ruled 2026-09-23: drop them).  So
+# as the plain byte again, and they reached INKEY$ as a stream (27 `a`s
+# for a three-second hold at a real terminal; ruled 2026-09-23: drop them).  So
 # kp_repeat drops them in the poll reader.
 function kp_on(   e) {
     e = ENVIRON["TRS80_KBPROTO"]
@@ -95,7 +95,7 @@ function kp_push() {
 # too, until the stuck-key sweep KP_STUCK seconds after that last event --
 # so a program that polled again at once (a RUN typed quickly, a menu
 # loop, CONT) read BREAK as held for most of the window (the 2026-09-19
-# audit, L-7; HAND_TEST 27).  Line mode takes no presses, and a key still
+# audit, L-7; seen at a real terminal).  Line mode takes no presses, and a key still
 # held when poll mode returns is pressed again by its repeat bytes.
 function kp_pop() {
     if (!KPPUSHED) return
@@ -546,7 +546,7 @@ function kb_escseq(   c, n, par, a) {
 # backspace (row 6 bit 32).  No Model I key produces 127; the line editor
 # had long taken 127 and 8 alike (readline below) while a program's INKEY$
 # and the matrix saw 127 and no key, so `IF A$=CHR$(8)` never fired for the
-# natural key (HAND_TEST 25, ruled 2026-09-21).  INKEY$, the timed latch
+# natural key (seen at a real terminal, ruled 2026-09-21).  INKEY$, the timed latch
 # and the release protocol's press path all come through here; a piped
 # byte stream stays byte-exact and never does.
 function kb_termkey(c) {

@@ -27,7 +27,8 @@ terminal emulator gives it, and checks:
      key releases itself after KP_STUCK seconds, a release lets go of
      what its press put down where the PC and Model I keyboards differ
      (`: " @`, Ctrl-H: the 2026-09-19 audit, M-20), repeats never reach
-     INKEY$ (events, or iTerm2's plain repeat bytes: HAND_TEST 29), and
+     INKEY$ (events, or iTerm2's plain repeat bytes, measured at a real
+     terminal), and
      the mode is pushed at RUN and popped at READY and BYE;
   7. TAB file-name completion: a unique directory gains "/", and a
      matched name with a quote in it is completed but never parsed by the
@@ -171,7 +172,7 @@ def protocol(check):
     step(b'\x1b[127;1:3u', ['0'], 'its release (kitty code 127) lets it go')
     # a press is the typed byte, a release the PC's unshifted key: where the
     # keyboards differ the release must let go of what the press put down,
-    # SHIFT included (the 2026-09-19 audit, M-20; HAND_TEST 22)
+    # SHIFT included (the 2026-09-19 audit, M-20; seen at a real terminal)
     step(b':', ['4'], 'colon (Shift+; on the PC) presses the Model I colon, row 5 bit 4')
     step(b'\x1b[59;2:3u', ['0'], 'its release names ; and lets the colon go')
     step(b'"', ['5'], 'quote (Shift+\' on the PC) presses shift-2 and SHIFT')
@@ -198,7 +199,7 @@ def protocol(check):
     got = numbers(b.drain(0.2))
     check(got == ['97'], 'INKEY$ gets one byte for a press with three repeats', ' '.join(got))
     # iTerm2 sends a plain key's repeats as the plain byte again, no event
-    # (HAND_TEST 29): they are dropped until the key's release
+    # (measured at a real terminal): they are dropped until the key's release
     b.send(b'aaaa', 0.3)
     b.send(b'aa', 0.3)
     got = numbers(b.drain(0.2))
@@ -236,7 +237,7 @@ def late_reply(check):
     b.send('\r')
     b.drain()
     # a LIST polls BREAK once a line, so it is a poll episode over at
-    # once (HAND_TEST 17's leg A).  The terminal says nothing this time,
+    # once (seen at a real terminal).  The terminal says nothing this time,
     # so the next episode must ask again
     b.send('10 PRINT "SHORT"\rLIST\r', 0.6)
     out = b.drain(0.3)
@@ -281,8 +282,8 @@ def split_event(check):
     audit, L-8).  The held fragment used to be flushed as keys by the very
     next empty poll -- microseconds later, long before the rest arrived --
     so the release was lost and the fragment's scan, ending on the next
-    byte in 64-126, swallowed the next real key.  HAND_TEST 28: a terminal
-    cannot be made to lose this race on command; the pty can."""
+    byte in 64-126, swallowed the next real key.  A real terminal cannot
+    be made to lose this race on command; the pty can."""
     b = Basic([('TRS80_KBPROTO', '1'), ('TRS80_KPSTUCK', str(4 * SLOW))])
     b.drain()
     b.send('\r')
@@ -534,7 +535,7 @@ def main():
     b.drain(0.3)
     # an arrow is the Model I's ONE byte (91 10 8 9; shifted 27 26 24 25), a
     # lone ESC is 27, a key the TRS-80 lacks (PgUp) is no key at all, and
-    # Delete (127) is the left arrow, the machine's backspace (HAND_TEST 25)
+    # Delete (127) is the left arrow, the machine's backspace (ruled 2026-09-21)
     for k in (b'a', b'.', b'Z', b' ', b'\x1b[A', b'\r', b'\x1b', b'\x1b[5~', b'\x1b[1;2D', b'\x1bOC', b'\x1b[B', b'\x7f'):
         b.send(k, 0.15)
     b.send(b'\x03', 0.5)
@@ -576,7 +577,7 @@ def main():
     check('ROW6 32 SH 1' in flat(out), 'SHIFT + left arrow presses the arrow and the shift key', out)
     check('CLEAN' in out and 'JUNK' not in out, 'the escape sequence presses no other key', out)
 
-    # 2c. Delete on the matrix: the left arrow, unshifted (HAND_TEST 25)
+    # 2c. Delete on the matrix: the left arrow, unshifted (ruled 2026-09-21)
     b.send('RUN\r', 0.8)
     b.drain(0.3)
     b.send(b'\x7f', 0.3)
