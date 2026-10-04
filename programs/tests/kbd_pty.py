@@ -44,6 +44,10 @@ terminal emulator gives it, and checks:
      READY in line mode, still turns the protocol on, and an unanswered
      query is asked again at the next poll episode (the 2026-09-19 audit,
      H-15), and a key held at BREAK is up in the next RUN (L-7).
+ 13. in screen mode nothing a program prints, reads from a file or LISTs
+     reaches the terminal as a raw control: no BEL, none of the program's
+     escape sequences, no C1 (the 2026-09-30 audit, BL-39; batch output
+     is pinned in termsafe.sh).
 
 Standard library only; run by run_all.sh when python3 is present (so CI
 exercises the tty reader on Linux, where it was not measured by hand).
@@ -534,6 +538,46 @@ def piped_under_tty(check):
           'a transcript piped in under a controlling tty is read (M-22)', s)
 
 
+def termsafe(check):
+    """Scenario 13: screen mode passes no program-made control to the tty."""
+    with tempfile.TemporaryDirectory() as d:
+        with open(os.path.join(d, 'ctl.dat'), 'wb') as f:
+            f.write(b'P\x1b[38;5;77mQ\x9bR\xc2\x9bS\x07\n')
+        with open(os.path.join(d, 'ctl.bas'), 'wb') as f:
+            f.write(b'10 A$="X\x1b[38;5;123mY\x07\xc2\x9bZ\x9bW\x1b]0;PWNED\x07":PRINT A$\n'
+                    b'20 REM \x1b]0;PWNREM\x07 \xc2\x9b2J\n'
+                    b'30 OPEN "I",1,"ctl.dat":LINE INPUT#1,B$:CLOSE:PRINT B$\n'
+                    b'40 FOR I=0 TO 255:IF I<>13 AND I<>10 THEN PRINT CHR$(I);\n'
+                    b'50 NEXT\n60 PRINT:LIST 10-20\n')
+        pid, fd = pty.fork()
+        if pid == 0:
+            os.chdir(d)
+            os.environ['TRS80_Z80'] = ''
+            os.environ.pop('TRS80_DUMB', None)
+            exe = os.path.join(ROOT, 'basic')
+            os.execv(exe, [exe, '--screen', 'ctl.bas'])
+        out, t0 = b'', time.time()
+        while time.time() - t0 < 15 * SLOW:
+            r, _, _ = select.select([fd], [], [], 0.3)
+            if r:
+                try:
+                    c = os.read(fd, 65536)
+                except OSError:
+                    break
+                if not c:
+                    break
+                out += c
+        os.waitpid(pid, 0)
+        os.close(fd)
+    check(b'\x1b[H' in out, 'the probe ran in screen mode', repr(out[:200]))
+    check(b'\x07' not in out, 'screen mode passes no BEL', repr(out[:200]))
+    leaked = [m for m in (b'\x1b[38;5;123m', b'\x1b[38;5;77m', b'\x1b]0;PWNED', b'\x1b]0;PWNREM') if m in out]
+    check(not leaked, "screen mode passes none of the program's escape sequences", repr(leaked))
+    s = out.decode('utf-8', 'replace')
+    c1 = sorted({hex(ord(c)) for c in s if 0x80 <= ord(c) <= 0x9f})
+    check(not c1 and '\ufffd' not in s, 'screen mode passes no C1 control', repr(c1))
+
+
 def main():
     fails = []
 
@@ -699,6 +743,9 @@ def main():
 
     # 12. a kitty event cut in two by the read
     split_event(check)
+
+    # 13. screen mode passes no program-made control
+    termsafe(check)
 
     if fails:
         print('kbd_pty.py: %d check(s) failed' % len(fails))
