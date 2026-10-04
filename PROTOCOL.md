@@ -113,9 +113,9 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     interpreter then resends the call as a full frame with `gen=1`.
 *   What a delta contains, so the core never has to guess: the 11
     constant and pointer bytes (37E8/9H, 40A4/5H, 40AA-40ACH, 40B1/2H,
-    40F9/FAH) and the 21 system variable window cells (4020H-4022H,
-    4028/4029H, 409BH, 4041H-4046H, 40A2/A3H, 40A6H, 40E1H-40E5H, 411BH) -- these
-    always -- the screen cells (3C00-3FFFH) the interpreter wrote since the
+    40F9/FAH) and the 47 system variable window cells (4020H-4022H,
+    4028/4029H, 409BH, 4041H-4046H, 40A2/A3H, 40A6H, 40E1H-40E5H,
+    4101H-411AH the DEF-type table, 411BH) -- these always -- the screen cells (3C00-3FFFH) the interpreter wrote since the
     last frame (the whole screen after a scroll or CLS; the core's own `V`
     writes are not resent), every VARPTR'd string and numeric cell whose
     value, place or descriptor changed, the program image when it was
@@ -138,7 +138,8 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     any VARPTR'd string, so a routine that rewrites them rewrites the
     BASIC variable through the write-set.  The core converts a numeric
     `arg` as the ROM's 0A7FH routine does when the routine calls that
-    address: floored to an integer, into HL, `ERR ov` when it is outside
+    address: a double rounded to single precision first (0A7FH goes
+    through 0AB9H), then floored to an integer, into HL, `ERR ov` when it is outside
     -32768..32767, and `ERR tm` for a string (see Errors); on success
     0A7FH leaves A = 2 and stores HL at 4121H and 2 at 40AFH, ordinary
     stores that come back in the write-set.
@@ -215,6 +216,9 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
 *   `cycles` is the total T-states for the call (diagnostic).
 *   `break=1` means the call was cut short by BREAK; the interpreter
     reports `BREAK` at the current line after applying the write-set.
+    `CONT` then resumes that statement, so the `USR` call is issued
+    again from its entry with a new frame; the routine does not resume
+    where BREAK stopped it.
 *   `ready=1`, present only when it applies, means the routine ended by
     jumping to the ROM's READY entry, 1A19H, instead of returning: it
     handed the machine back to the prompt, so after applying the
@@ -245,7 +249,8 @@ never ran), `halt` (the routine executed HALT), `bad` (the core could not
 parse a message), and two that are not core faults but the machine's own
 errors, for which the interpreter raises the BASIC error at the `USR`
 call and prints nothing on stderr: `ov`, the routine called 0A7FH (the
-ROM's CINT: the argument is floored to an integer, -32768 accepted
+ROM's CINT: the argument, a double rounded to single first, is floored
+to an integer, -32768 accepted
 exactly, anything else outside -32768..32767 exits through 07B2H) with a
 number out of that range, raised as `?OV`; and `tm`, it called 0A7FH
 with a string argument, raised as `?TM`.  After an `ERR` the core is

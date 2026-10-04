@@ -1750,7 +1750,8 @@ USR(x) / USRn(x)   machine-language call.  With TRS80_Z80 naming the
   enters with A = the type, the value in WRA1 (4121H), and for a string
   DE = the descriptor address, so X$=USR(Z$) print-driver routines that
   rewrite the string's bytes rewrite Z$ in place.  A routine that takes
-  a numeric x through the ROM's 0A7FH gets it floored to an integer;
+  a numeric x through the ROM's 0A7FH gets it floored to an integer (a
+  double rounded to single precision first, so 2.9999999# is 3);
   outside -32768..32767 that is ?OV, and a string there is ?TM, as on
   the machine -- pass an address above 32767 as its negative (IF D>32767
   THEN D=D-65536), or VARPTR's value, which already is.

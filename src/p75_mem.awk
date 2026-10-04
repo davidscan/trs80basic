@@ -1051,8 +1051,8 @@ function lit_bind(tgt,   p, a, s, j, d, c) {
 # resends only what may have changed since the last one, so a listing that
 # calls a scroll routine thousands of times does not pay 14 ms per call.
 # What is resent and why:
-#   * the 11 constant/pointer bytes and the 20 system variable window
-#     cells -- always; cheap.
+#   * the 11 constant/pointer bytes and the 47 system variable window
+#     cells (SVW, the DEF-type table among them) -- always; cheap.
 #   * the screen -- the cells written since the last frame (SCRDIRTY, set
 #     by setcell and s_poke in p20 while FRTRACK is on; a scroll or CLS
 #     sets SCRALL and the whole 1K goes).  The core's own video writes

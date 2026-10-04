@@ -129,6 +129,15 @@ chk '^gen=8 65534:248$'                                          # the POKE of t
 # consume a line of stdin (the 2026-09-26 audit, L-27)
 nochk '^gen=8 14400:'
 
+# A program that shrinks (DELETE) leaves its old tail mapped in the core's
+# memory: the next delta resends those cells as 255, unmapped (fr_build,
+# the 2026-09-30 audit, XM-5 B135).
+dump=$(printf '\n10 X=USR(1)\n20 PRINT "AAAAAAAAAA"\n30 PRINT "BBBBBBBBBB"\nRUN\nDELETE 20-30\nX=USR(2)\nBYE\n' \
+      | TRS80_USR_TRACE=2 TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 >/dev/null \
+      | awk '/^USR FRAME/ { g = $3; print; next } /^  / && g != "" { print g " " $1 }')
+chk '^USR FRAME gen=2 full=0 '
+chk '^gen=2 17129:244,66,10,0,88,213,193,40,49,41,0,0,0,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255,255$'
+
 # The core's own video writes come back through the screen and are ITS
 # bytes: the next delta does not resend them (z80_stub.py paints HI at
 # 7000H); what BASIC prints in between is resent.

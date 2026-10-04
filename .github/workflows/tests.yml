@@ -4,7 +4,11 @@
 # launcher and the suites look for it, so z80core.sh, sound.sh, system.sh
 # and the z80.sh run against the real core all run here; with
 # TRS80_REQUIRE_CORE set, a suite that skips fails the job instead of
-# passing silently.
+# passing silently. The core's own tests that read this repo run here too
+# (the oracle's text anchors into src/, the BASIC loader, PROTOCOL.md's
+# mirror and version), so an edit here that breaks the core fails this
+# job, not the core's next push; the core's commit goes to the job
+# summary, so a run says which pair it tested (the 2026-09-30 audit, XM-3).
 name: tests
 
 on:
@@ -30,9 +34,12 @@ jobs:
         run: sudo apt-get update -q && sudo apt-get install -y -q gawk
       - name: Versions
         run: |
-          gawk --version | head -1 && python3 --version && git -C trs80_z80_core log --oneline -1
+          gawk --version | head -1 && python3 --version
+          echo "trs80_z80_core at $(git -C trs80_z80_core log --oneline -1)" | tee -a "$GITHUB_STEP_SUMMARY"
           # what this gawk says when the time extension loads (the launcher
           # loads it only when this prints nothing; speed.sh loads it itself)
           gawk -l time 'BEGIN { print "time extension: gettimeofday", gettimeofday() > 0 }' 2>&1 || true
       - name: Run the suite
         run: cd trs80basic && TRS80_REQUIRE_CORE=1 sh programs/tests/run_all.sh
+      - name: The core's tests that read this repo
+        run: cd trs80_z80_core && Z80_INTERP_REQUIRE=1 python3 -m unittest tests.test_oracle tests.test_asm tests.test_protocol
