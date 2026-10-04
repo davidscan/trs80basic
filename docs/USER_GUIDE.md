@@ -525,14 +525,13 @@ Honest list, stated as current behavior:
   precision assumed, and without an expression's temporaries; a program
   that loops "until memory is low" ends where the machine's would to
   within a few bytes.
-- **All numerics are doubles.** There is no single/double/integer
-  distinction; `%` `!` `#` suffixes are accepted and stripped (so `G%` and
-  `G` are the same variable). `DEFSNG`/`DEFDBL` set no precision; `DEFINT`
-  and a `%` name round a stored value DOWN and make a value past
-  -32768..32767 `?OV`, as on the machine (`I=7/2` is 3) (DEFSTR *is*
-  honoured, everywhere). Consequence: exact integers print in
-  full — `12345678` where real single-precision hardware shows
-  `1.23457E+07` — and E vs D exponent forms carry no precision difference.
+- **A type suffix does not make a separate variable.** `G%`, `G!`, `G#`
+  and `G` name one variable here, where the machine keeps one for each
+  type ("A$, A%, A!, A# are distinct variable names", Level II manual,
+  section 1): `G%=1:G=2.5:PRINT G%` prints 2 here and 1 on the machine. The
+  name a value is stored or read through still sets its type, so the
+  numbers themselves follow the machine's three types (integer, single,
+  double; see "Numbers have the machine's three types" in the README).
 - **Variable names are the ROM's two characters.** `SUM` is `SU`,
   `FNABC` is `FNAB`, a `$` still keeps `AB$` apart from `AB`, and `LIST`
   still shows the names as typed; a period program that relied on the
