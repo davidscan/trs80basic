@@ -83,7 +83,7 @@ function st_print(   sep, ty, tx, v, col, t) {
             # the test never fires there and a number IS split at the edge
             # (trs-80.com ROM bug 1, present in every revision; kept, ruled
             # 2026-09-25: the documented bugs are followed).
-            t = fmtnum(num(v), vtype(v))
+            t = fmtnum(fnum(v), vtype(v))
             if (VCOL + length(t) - 1 >= 64) s_nl()
             s_puts(t)
         }
@@ -231,7 +231,7 @@ function st_lprint(   sep, ty, tx, v, t) {
         if (isN(v)) {
             # the printer's twin of PRINT's rule, against 132 columns
             # (20D5-20DB: column + length >= 84H)
-            v = fmtnum(num(v), vtype(v))
+            v = fmtnum(fnum(v), vtype(v))
             if (LPCOL + length(v) - 1 >= 132) lp_nl()
             lp_puts(v)
         }
@@ -439,20 +439,15 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         w += 4
         id = PU_IP - ((PU_PLUS || PU_TS != "") ? 0 : 1)    # digits before the point
         nd = id + PU_DP                                     # significant digits
-        if (nd < 1) return pu_ovf(x, vtype(v))
+        if (nd < 1) return pu_ovf(fnum(v), vtype(v))
         if (ax == 0) { k = id; p = 0; ds = "0" }
-        else if (vtype(v) == "D" && d56_load(ax)) {
+        else if (vtype(v) == "D") {
             # a double is the single's case with sixteen digits and 56-bit
             # steps (d56_scale, p90)
+            d56_loadp(substr(v, 3))
             k = d56_scale() + 16
             for (g = nd; g < 16; g++) d56_div10()
             ds = d56_int()
-            for (g = 16; g < nd; g++) ds = ds "0"
-        } else if (vtype(v) == "D") {
-            # a double that uses more than 48 bits (p90): the same shape,
-            # its digits from one exact conversion
-            ds = ddec(ax, 16); k = DDE + 1
-            if (nd < 16) ds = sprintf("%.0f", int(ax / (10 ^ (k - nd)) + 0.5))
             for (g = 16; g < nd; g++) ds = ds "0"
         } else {
             # a single (an integer is made one, 11A5H): scaled to six digits
@@ -479,21 +474,16 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         if (ist == "" && length(lead "0" body) <= w) ist = "0"
         core = lead ist body
     } else {
-        if (ax >= 1e16) return pu_big(ax, vtype(v))
+        if (ax >= 1e16) return pu_big((vtype(v) == "D") ? (neg ? dneg(substr(v, 3)) : substr(v, 3)) : ax, vtype(v))
         if (ax == 0 || vtype(v) == "I") ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
-        else if (vtype(v) == "D" && d56_load(ax)) {
+        else if (vtype(v) == "D") {
             # a double: sixteen digits, 56-bit steps (d56_scale, p90), and
             # otherwise the single's case below
+            d56_loadp(substr(v, 3))
             k = d56_scale()
             for (g = PU_DP; g < -k; g++) d56_div10()
             ds = d56_int()
             for (g = (k > 0 ? -k : (-k > PU_DP ? PU_DP : -k)); g < PU_DP; g++) ds = ds "0"
-        } else if (vtype(v) == "D") {
-            # a double that uses more than 48 bits (p90): one exact
-            # conversion, and still no more than sixteen digits
-            ds = ddec(ax, 16)
-            if (DDE + 1 + PU_DP <= 16) ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
-            else for (g = DDE + 1 + PU_DP; g > 16; g--) ds = ds "0"
         } else {
             # a single: the six digits the scaling leaves (1135H), with
             # zeros behind them wherever the picture asks for more -- 1/3
@@ -672,7 +662,7 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
                     sub(/^[ \t\n]+/, "", x)
                     x = valnum(x, dbl); if (E) return   # ?OV, or ?SN for a bad %: not ?REDO; a double enters as VAL (p90)
                     if (!numrest()) { ok = 0; break }
-                    assignv(name, key, "NS" x)
+                    assignv(name, key, "N" VALTYPE x)
                 }
                 # a store that fails (?OV into an integer, 1F33H -> 0A7FH)
                 # ends the INPUT: the items behind it are not assigned
@@ -839,7 +829,7 @@ function st_read_items(   name, key, x, dbl) {
                 ERR_AT = DLINE[DP]; ERLV = DLINE[DP]; LASTLN = DLINE[DP]
                 return
             }
-            assignv(name, key, "NS" x)
+            assignv(name, key, "N" VALTYPE x)
         }
         if (E) return                       # ?OV at the store: nothing stored
         DP++

@@ -340,9 +340,10 @@ before `--update`.
   16 digits with a D exponent; an E exponent makes a single at any length. `A#=1/3` holds the single quotient
   (.3333333432674408) because `1/3` is single division; write `1#/3` for a
   double one. Singles are 24 bits, so `FOR X=0 TO 1 STEP .1` makes 10
-  passes, as the machine does. One documented limit: a double holds 53
-  bits here against the machine's 56, so the 16th printed digit of a long
-  fraction can differ (`man CDBL`).
+  passes, as the machine does. A double is the machine's too: a 56-bit
+  mantissa, with the ROM's own add, subtract, multiply and divide, so
+  `2#/3#` prints `.6666666666666667` and the machine's quirks come with
+  it (`1D16-.2#` is above `1D16`; `man CDBL`).
 - **`CLEAR MEM-n` is a 16K or 32K listing.** You might expect it to run
   anywhere; actually on the 64K map `MEM` exceeds 32767 and `CLEAR`'s count
   is an integer, so it is `?OV ERROR`, as it would be on a 48K machine.

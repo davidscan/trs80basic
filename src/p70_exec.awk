@@ -475,7 +475,7 @@ function assignv(name, key, v,   isint, tgt, n, ty) {
         # -> 0796H -> 07B2H; L-24) -- a double as it is: a single value
         # stored into a double keeps its 24 bits, so A#=1/3 is
         # .3333333432674408 as on the machine
-        v = isint ? intstore(num(v)) : (ty == "S") ? frange(sround(num(v)), "S") : num(v)
+        v = isint ? intstore(num(v)) : (ty == "S") ? frange(sround(num(v)), "S") : (vtype(v) == "D") ? substr(v, 3) : num(v)   # a double keeps its payload (p91)
         if (E) return
         if (key == "" && !(name in NV)) NVZ[name] = ty_size(ty)   # READ and INPUT make it here
         if (key != "") VA[key] = v; else NV[name] = v   # raw: the type is the name's (ntype)

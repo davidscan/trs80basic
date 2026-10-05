@@ -88,15 +88,18 @@ function raise_host(c) { if (E) return; raise(c); HINTHOST = 1 }
 # to 444444.5), where one exact conversion gives .444444.  sscale()
 # is that loop; PRINT USING scales through it too (pu_num, p80).  A
 # double is scaled the same way in 56-bit steps (d56_scale, below).
-function fmtnum(x, ty,   s, ax, t, nd, ds, e, ip, m) {
+function fmtnum(x, ty,   s, ax, t, nd, ds, e, ip, m, k) {
     if (ty == "I") return (x < 0 ? "" : " ") sprintf("%d", x) " "
+    if (ty == "D") {                          # a payload (p91): the number, then the low three bits
+        k = index(x, " "); k = k ? substr(x, k + 1) + 0 : 0
+        x = x + 0
+    }
     ax = (x < 0) ? -x : x
     if (ax == 0) return " 0 "
     nd = (ty == "D") ? 16 : 6
-    if (ty == "D" && d56_load(ax)) {
+    if (ty == "D") {
+        d56_load(ax); D56M[0] += k
         e = 15 + d56_scale(); ds = d56_int()
-    } else if (ty == "D") {
-        ds = ddec(ax, 16); e = DDE
     } else {
         e = 5 + sscale(ax)
         ds = sprintf("%d", int(SCV + 0.5))       # 12ECH-12F0H: add .5, truncate
@@ -141,20 +144,14 @@ function sscale(ax,   k) {
 # of the value the steps left: the single .7 shown as a double is
 # .6999999880790711, where its exact expansion ends ...071044.
 #
-# A double here is the host's, 53 bits against the machine's 56 (ruled
-# 2026-09-26).  A value that fits in 48 bits -- any single, a whole
-# number, the exact sum or product of two singles -- is exactly the value
-# the machine holds, and is printed through these steps.  A value that
-# uses more is most often a rounded one whose last bits the machine holds
-# differently; its sixteenth digit can differ whatever is done here, and
-# it keeps the one exact conversion in fmtnum (the steps would only add
-# their own drift to the host's rounding).
+# Since the double itself became the machine's (p91) every double is
+# printed through these steps.
 #
 # The mantissa is held as three limbs D56M[2], [1], [0] of 8, 24 and 24
 # bits with the leading bit set, and the value is that integer times 2 ^
 # D56E; D56T[] is the unrounded result of one operation, in 24-bit limbs.
 
-# load ax > 0; returns 1 when it fits in 48 bits (the low byte is zero)
+# load ax > 0 (a host number: the payload's three low bits are added by the caller)
 function d56_load(ax,   e, m) {
     e = int(log(ax) / LN2)
     if (2 ^ e > ax) e--
@@ -249,17 +246,11 @@ function d56_int(   i, b, n, p, sh, hi, lo, q1, t) {
     return hi ? sprintf("%d%08d", hi, lo) : sprintf("%d", lo)
 }
 
-# A double that uses more than 48 bits: its first nd (16 or fewer)
-# digits from one exact conversion, the last rounded half up; DDE is the
-# decimal exponent of the first.  sprintf rounds an exact tie to even
-# (1/512 -> .00195312), so a following digit of 5 is rounded here.
-function ddec(ax, nd,   t) {
-    t = sprintf("%.16e", ax)                 # d.dddddddddddddddde+xx: 17 digits
-    if (substr(t, nd + 2, 1) == "5")         # the digit behind the last kept one: half up
-        ax = ((substr(t, 1, 1) substr(t, 3, nd - 1)) + 1) "e" (substr(t, 20) - (nd - 1))
-    t = sprintf("%." (nd - 1) "e", ax)       # no tie is left, so C's rounding agrees
-    DDE = substr(t, nd + 3) + 0
-    return substr(t, 1, 1) substr(t, 3, nd - 1)
+# load a double's payload (p91), sign dropped, for d56_scale
+function d56_loadp(p,   i, k, x) {
+    i = index(p, " "); k = i ? substr(p, i + 1) + 0 : 0
+    x = p + 0; if (x < 0) x = -x
+    d56_load(x); D56M[0] += k
 }
 
 # The ROM's ASCII-to-binary routine (0E65H/0E6CH), the one reader behind
@@ -347,6 +338,10 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, expl, sig, s
         else VALTYPE = "S"
     }
     if (m == "" || m == ".") m = "0"
+    if (VALTYPE == "D") {                       # the reader's 56-bit steps; the value is a payload (p91)
+        x = dread(m "E" exs (ex == "" ? "0" : ex)); if (E) return 0
+        return (sg == "-") ? dneg(x) : x
+    }
     x = numconv(sg m "E" exs (ex == "" ? "0" : ex))
     if (!E && VALTYPE == "S") {             # scaled as the reader scales it (rdsng)
         x = rdsng(m "E" exs (ex == "" ? "0" : ex))

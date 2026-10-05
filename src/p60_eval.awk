@@ -1,7 +1,7 @@
 # ===================== expression evaluator =================================
 # Values: "N<t><number>" or "S<string>", where t is the number's TYPE as
 # the ROM holds it: I integer (16 bits), S single (24-bit mantissa), D
-# double (56 bits; IEEE's 53 here, ruled 2026-09-26).  Since 2026-09-26
+# double (56 bits, held as a payload: p91).    Since 2026-09-26
 # (the 2026-09-23 audit, M-15 and L-16: printing and arithmetic go by
 # type).  A literal is typed by the ROM's reader (tk_number, p50); a
 # variable by its NAME at the reference (ntype, p70: the suffix, else the
@@ -11,6 +11,8 @@
 #   ^  unary-  * /  + -  relational  NOT  AND  OR
 
 function num(v) { return substr(v, 3) + 0 }
+# what fmtnum takes: a double's payload (p91), else the number
+function fnum(v) { return (substr(v, 2, 1) == "D") ? substr(v, 3) : substr(v, 3) + 0 }
 function vtype(v) { return substr(v, 2, 1) }
 function ptype(a, b,   ta, tb) {
     ta = substr(a, 2, 1); tb = substr(b, 2, 1)
@@ -65,7 +67,8 @@ function e_rel(   v, r, op, a, b, c, f, nb) {
         }
         r = e_add(); if (E) return v
         if (isN(v) != isN(r)) { raise(13); return v }
-        if (isN(v)) { a = num(v); b = num(r) } else { a = vstr(v); b = vstr(r) }
+        if (isN(v) && (vtype(v) == "D" || vtype(r) == "D")) { a = dcmp(substr(v, 3), substr(r, 3)); b = 0 }   # a double's 56 bits (p91)
+        else if (isN(v)) { a = num(v); b = num(r) } else { a = vstr(v); b = vstr(r) }
         c = (and(f, 1) && a > b) || (and(f, 2) && a == b) || (and(f, 4) && a < b)
         v = "NI" (c ? -1 : 0)
     }
@@ -88,9 +91,11 @@ function e_add(   v, r, op, x) {
                 v = "S" vstr(v) vstr(r); continue
             }
             if (isN(v) != isN(r)) { raise(13); return v }
+            if (ptype(v, r) == "D") { x = dadd(substr(v, 3), substr(r, 3)); if (E) return v; v = "ND" x; continue }   # the double add (0C77H; p91)
             x = (ptype(v, r) == "S") ? sadd(num(v), num(r)) : num(v) + num(r)
         } else {
             if (!isN(v) || !isN(r)) { raise(13); return v }
+            if (ptype(v, r) == "D") { x = dadd(substr(v, 3), dneg(substr(r, 3))); if (E) return v; v = "ND" x; continue }   # 0C70H: the sign turned, then the add
             x = (ptype(v, r) == "S") ? sadd(num(v), -num(r)) : num(v) - num(r)
         }
         v = "N" tresult(ptype(v, r), x); if (E) return v
@@ -134,6 +139,7 @@ function fn_int(v,   t, x) {
         if (x >= 32768) { raise(6); return "NI0" }
         return "NI" bfloor(x)
     }
+    if (t == "D") return "ND" dint(substr(v, 3))
     return "N" t bfloor(x)
 }
 
@@ -141,7 +147,8 @@ function fn_fix(v,   t, x, r) {
     t = vtype(v); if (t == "I") return v
     x = num(v)
     if (x >= 0) return fn_int(v)
-    r = fn_int("N" t (-x)); if (E) return "NI0"
+    r = fn_int("N" t ((t == "D") ? dneg(substr(v, 3)) : -x)); if (E) return "NI0"
+    if (vtype(r) == "D") return "ND" dneg(substr(r, 3))
     t = vtype(r); x = -num(r)
     if (t == "I" && x < -32768) t = "S"
     return "N" t x
@@ -156,10 +163,12 @@ function e_mul(   v, r, op, x, d, t) {
         t = ptype(v, r)
         if (op == "/" && t == "I") t = "S"      # division is never integer: both are converted to single (0BD2H's family)
         if (op == "*") {
+            if (t == "D") { x = dmul(substr(v, 3), substr(r, 3)); if (E) return v; v = "ND" x; continue }   # the double multiply (0DA1H; p91)
             x = (t == "S") ? smul(num(v), num(r)) : num(v) * num(r)   # the single multiply (0847H; p90)
         } else {
             d = num(r)
             if (d == 0) { raise(11); return v }
+            if (t == "D") { x = ddiv(substr(v, 3), substr(r, 3)); if (E) return v; v = "ND" x; continue }   # the double divide (0DE5H; p91)
             x = (t == "S") ? sdiv(num(v), d) : num(v) / d              # the single divide (08A2H; p90)
         }
         if (E) return v
@@ -173,6 +182,7 @@ function e_un(   v) {
         CP++
         v = e_un(); if (E) return v
         if (!isN(v)) { raise(13); return v }
+        if (vtype(v) == "D") return "ND" dneg(substr(v, 3))
         return "N" tresult(vtype(v), -num(v))   # -(-32768) leaves 16 bits: a single
     }
     if (TY[CK, CP] == "o" && TK[CK, CP] == "+") { CP++; return e_un() }
@@ -221,6 +231,7 @@ function e_prim(   t, s, v, key, sx) {
         s = TK[CK, CP] + 0; t = TSX[CK, CP]; CP++    # t: the literal's type, as 0E6CH read it (tk_number)
         if (t == "I") return "NI" s
         if (t == "S") s = rdsng(TK[CK, CP - 1])  # scaled as the reader scales it: .29 is 29/10/10 (p90)
+        if (t == "D") { s = dread(TK[CK, CP - 1]); if (E) return "NI0"; return "ND" s }   # the reader's 56-bit steps (p91)
         s = frange(s, t); if (E) return "NI0"    # 1.70142E38, 1E39 ?OV (p10 FMAX; a double literal at DMAX, L-24); 1E-40 is 0
         return "N" t s
     }
@@ -311,7 +322,8 @@ function e_prim(   t, s, v, key, sx) {
         # entries): until 2026-09-27
         # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit, M-8).
         if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
-        return "N" ntype(s, sx) ((s in NV) ? NV[s] + 0 : 0)
+        t = ntype(s, sx)
+        return "N" t ((s in NV) ? ((t == "D") ? NV[s] : NV[s] + 0) : 0)   # a double's payload as it is (p91)
     }
     raise(2)
     return "NI0"
@@ -387,7 +399,7 @@ function fn_user(name,   n, i, p, v, r, sk, sp, av, osn, osv) {
     for (i = 1; i <= n; i++) {
         p = FNPARM[name, i]
         if (strname(p)) { osv[i] = SV[p]; SV[p] = substr(av[i], 2) }
-        else            { osn[i] = NV[p]; NV[p] = num(av[i]) }
+        else            { osn[i] = NV[p]; NV[p] = (vtype(av[i]) == "D") ? substr(av[i], 3) : num(av[i]) }
     }
     sk = CK; sp = CP
     CK = FNKEY[name]; CP = FNPOS[name]
@@ -425,7 +437,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
     else { raise(2); return "NI0" }
 
-    if (name == "ABS") { x = numarg(a1, na); if (E) return "NI0"; return "N" vtype(a1) (x < 0 ? -x : x) }
+    if (name == "ABS") { x = numarg(a1, na); if (E) return "NI0"; if (vtype(a1) == "D") return "ND" (x < 0 ? dneg(substr(a1, 3)) : substr(a1, 3)); return "N" vtype(a1) (x < 0 ? -x : x) }
     if (name == "INT") { x = numarg(a1, na); if (E) return "NI0"; return fn_int(a1) }
     if (name == "FIX") { x = numarg(a1, na); if (E) return "NI0"; return fn_fix(a1) }
     if (name == "SGN") { x = numarg(a1, na); if (E) return "NI0"; return "NI" (x > 0 ? 1 : (x < 0 ? -1 : 0)) }
@@ -462,7 +474,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         return "NI" x
     }
     if (name == "CSNG") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(x) }
-    if (name == "CDBL") { x = numarg(a1, na); if (E) return "NI0"; return "ND" x }
+    if (name == "CDBL") { x = numarg(a1, na); if (E) return "NI0"; return "ND" substr(a1, 3) }   # a double as it is; a single or an integer is exact in one
     if (name == "PEEK") { x = numarg(a1, na); if (E) return "NI0"; x = addrarg(x); if (E) return "NI0"; return "NI" dopeek(x) }
     # INP(p): read Z80 port p (0-255, else ?FC).  Until 2026-09-11 INP had no
     # body, so INP(255) fell through to the array path and died with ?BS --
@@ -494,7 +506,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         s = substr(s, 1, 1)
         return "NI" ((s in ORD) ? ORD[s] : 63)
     }
-    if (name == "VAL") { s = strarg(a1, na); if (E) return "NI0"; x = valnum(s, 1); if (E) return "NI0"; return "N" VALTYPE ((VALTYPE == "S") ? sround(x) : x) }
+    if (name == "VAL") { s = strarg(a1, na); if (E) return "NI0"; x = valnum(s, 1); if (E) return "NI0"; return "N" VALTYPE ((VALTYPE == "S") ? sround(x) : x) }   # a double comes back as its payload (valnum)
     if (name == "CHR$") {
         x = numarg(a1, na); if (E) return "NI0"
         x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
@@ -502,7 +514,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     }
     if (name == "STR$") {
         x = numarg(a1, na); if (E) return "NI0"
-        s = fmtnum(x, vtype(a1))
+        s = fmtnum(fnum(a1), vtype(a1))
         sub(/ $/, "", s)
         return "S" s
     }
@@ -606,10 +618,10 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     }
     if (name == "MKI$") { x = numarg(a1, na); if (E) return "NI0"; s = fio_mki(x); if (E) return "NI0"; return "S" s }
     if (name == "MKS$") { x = numarg(a1, na); if (E) return "NI0"; s = fio_mkf(x, 4); if (E) return "NI0"; return "S" s }
-    if (name == "MKD$") { x = numarg(a1, na); if (E) return "NI0"; s = fio_mkf(x, 8); if (E) return "NI0"; return "S" s }
+    if (name == "MKD$") { x = numarg(a1, na); if (E) return "NI0"; s = dbytes((vtype(a1) == "D") ? substr(a1, 3) : x); if (E) return "NI0"; return "S" s }
     if (name == "CVI") { s = strarg(a1, na); if (E) return "NI0"; x = fio_cvi(s); if (E) return "NI0"; return "NI" x }
     if (name == "CVS") { s = strarg(a1, na); if (E) return "NI0"; x = fio_cvf(s, 4); if (E) return "NI0"; return "NS" x }
-    if (name == "CVD") { s = strarg(a1, na); if (E) return "NI0"; x = fio_cvf(s, 8); if (E) return "NI0"; return "ND" x }
+    if (name == "CVD") { s = strarg(a1, na); if (E) return "NI0"; if (length(s) < 8) { raise(5); return "NI0" }; x = dfrombytes(s); if (E) return "NI0"; return "ND" x }
     if (name == "TAB") { raise(2); return "NI0" }
     raise(2)
     return "NI0"
@@ -692,7 +704,7 @@ function fn_usr(name,   a1, x, r, tgt, cp0, nm, key) {
         } else { a1 = e_or(); if (E) return "NI0" }
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return "NI0" }
         CP++
-        if (isN(a1)) { x = num(a1); usr_setnum(vtype(a1), x) }
+        if (isN(a1)) { x = num(a1); usr_setnum(vtype(a1), fnum(a1)) }
         else {
             if (tgt == "") tgt = usr_strtmp(substr(a1, 2))
             key = sp_materialize(tgt, 1); if (E) return "NI0"
@@ -721,7 +733,7 @@ function fn_usr(name,   a1, x, r, tgt, cp0, nm, key) {
 # descriptor address in 4121/4122H.  The core stores them and they return
 # in the write-set, like the 0A9AH trap's own stores.
 function usr_setnum(t, v,   i, s, off, w) {
-    USR_ARG = v
+    USR_ARG = v + 0
     if (t == "I") {
         USR_TYPE = 2
         i = (v < 0) ? v + 65536 : v
@@ -729,7 +741,7 @@ function usr_setnum(t, v,   i, s, off, w) {
         return
     }
     USR_TYPE = (t == "D") ? 8 : 4
-    s = fio_mkf(v, USR_TYPE); if (E) return
+    s = (USR_TYPE == 8) ? dbytes(v) : fio_mkf(v, 4); if (E) return   # a double's own 56 bits (p91)
     off = 8 - USR_TYPE
     USR_MBF = ""
     for (i = 0; i < 8; i++) {

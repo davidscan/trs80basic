@@ -566,8 +566,8 @@ function sp_nsize(tgt,   k, i) {
     }
     return (k in NVZ) ? NVZ[k] : vt_size(k, "")
 }
-function sp_enc(x, nb) { return (nb == 2) ? fio_mki(x) : fio_mkf(x, nb) }
-function sp_dec(s, nb) { return (nb == 2) ? fio_cvi(s) : fio_cvf(s, nb) }
+function sp_enc(x, nb) { return (nb == 2) ? fio_mki(x) : (nb == 8) ? dbytes(x) : fio_mkf(x, nb) }
+function sp_dec(s, nb) { return (nb == 2) ? fio_cvi(s) : (nb == 8) ? dfrombytes(s) : fio_cvf(s, nb) }
 
 # materialize var (locator tgt, string flag isstr) and return its VARPTR.
 # nb, when given, sizes a numeric with no entry yet (VARPTR's own suffix).
@@ -649,6 +649,10 @@ function sp_sets(tgt, s,   key) {
 }
 function sp_getn(tgt,   key) {
     key = substr(tgt, 2)
+    if (VPNB[tgt] == 8) {                       # a double's payload as it is (p91)
+        if (substr(tgt, 1, 1) == "A") return (key in VA) ? VA[key] "" : "0"
+        return (key in NV) ? NV[key] "" : "0"
+    }
     if (substr(tgt, 1, 1) == "A") return (key in VA) ? VA[key] + 0 : 0
     return (key in NV) ? NV[key] + 0 : 0
 }
@@ -671,7 +675,7 @@ function sp_setn(tgt, x,   key) {
 # the value outdates them, and the next read encodes afresh.
 function sp_nbytes(tgt,   x) {
     x = sp_getn(tgt)
-    if ((tgt in NRAW) && sp_dec(NRAW[tgt], VPNB[tgt]) == x) return NRAW[tgt]
+    if ((tgt in NRAW) && (sp_dec(NRAW[tgt], VPNB[tgt]) "") == (x "")) return NRAW[tgt]
     delete NRAW[tgt]
     return sp_enc(x, VPNB[tgt])
 }
