@@ -2260,7 +2260,10 @@ CSNG(x)   convert x to single precision
   the machine reads it: an integer up to 32767 with no point or
   exponent, a single up to 7 significant digits, a double from the
   eighth or with a D exponent or #; an E exponent makes it a single at
-  any length (12345678E2 is 1.23457E+09).  An operation takes the wider
+  any length (12345678E2 is 1.23457E+09).  Its value is the machine's
+  too: the reader divides by 10 once per digit behind the point, each
+  step rounded, so .29 is 29/10/10 (A#=.29 holds .2900000214576721)
+  and can sit one unit off the nearest single.  An operation takes the wider
   operand's type; / and ^ are never integer, and an integer + - * that
   leaves 16 bits is silently a single.
   See: man DEFINT for the types of variables, man CDBL.

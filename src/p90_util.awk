@@ -171,7 +171,10 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, expl, sig, s
     # stores .1000000014901161 and 1.23456789E0 stores 1.234567880630493,
     # where a plain 0.1 stays .1.  Until 2026-10-04 the value kept every
     # digit and an E item of eight digits was double (the 2026-09-30
-    # audit, BM-3).
+    # audit, BM-3).  A single result is the reader's own (rdsng).
+    # READ and INPUT enter at 0E65H, as VAL does, when the variable is a
+    # double (dp = 1 from their callers): .29 into A# is .29, and 12% is
+    # ?SN there (0EEFH), where into A it is 12.
     if (sx != "") VALTYPE = sx
     else if (expl && !expd) VALTYPE = "S"
     else if (dp) VALTYPE = "D"
@@ -183,7 +186,11 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, expl, sig, s
     }
     if (m == "" || m == ".") m = "0"
     x = numconv(sg m "E" exs (ex == "" ? "0" : ex))
-    if (!E && VALTYPE == "S" && (sx == "S" || expl)) x = sround(x)
+    if (!E && VALTYPE == "S") {             # scaled as the reader scales it (rdsng)
+        x = rdsng(m "E" exs (ex == "" ? "0" : ex))
+        if (sg == "-") x = -x
+        if (x >= FMAX) { raise(6); return 0 }
+    }
     return x
 }
 
@@ -206,6 +213,30 @@ function numconv(s,   x, lim) {
     x = s + 0
     lim = (VALTYPE == "D") ? DMAX : FMAX
     if (x >= lim || x <= -lim) { raise(6); return 0 }
+    return x
+}
+
+# A SINGLE AS THE READER BUILDS IT.  The ROM's reader does not convert the
+# decimal text in one step: it takes the digits as a number (0F29H), and
+# then scales it by ten once for every digit behind the point, less the
+# exponent -- one rounded single multiply (093EH) or divide (0897H) each
+# (0EC7H-0ED0H, 0F0AH, 0F18H).  An E exponent or a "!" first converts the
+# digits to single (0EFBH -> 0AB1H).  So .29 is 29/10/10, 0.29000002, one
+# unit above the nearest single (0.28999999), and about a third of the
+# two-place decimals land one unit off it the same way.  t is a number's
+# text: digits, an optional point, an optional E exponent, no sign.  The
+# double path is not modelled: its 56-bit steps round below what an IEEE
+# double holds, so the exact conversion is the nearer one.  Until
+# 2026-10-05 a single was the nearest single to the text.
+function rdsng(t,   p, ex, fp, x, n, i) {
+    ex = 0
+    if ((p = index(t, "E")) > 0) { ex = substr(t, p + 1) + 0; t = substr(t, 1, p - 1) }
+    fp = ""
+    if ((p = index(t, ".")) > 0) { fp = substr(t, p + 1); t = substr(t, 1, p - 1) }
+    x = sround((t fp) + 0)
+    n = ex - length(fp)
+    for (i = 0; i < n && x != 0 && x < 1E39; i++) x = sround(x * 10)
+    for (i = 0; i > n && x != 0; i--) x = sround(x / 10)
     return x
 }
 

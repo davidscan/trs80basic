@@ -296,7 +296,7 @@ function fio_next_item(n, isnum,   l, i, len, j, c, item, ist) {
     return 1
 }
 
-function st_input_file(   n, nlv, name, key, i, x) {
+function st_input_file(   n, nlv, name, key, i, x, dbl) {
     n = fio_chan(0); if (E) return
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
@@ -306,7 +306,7 @@ function st_input_file(   n, nlv, name, key, i, x) {
     # assignments before it (INPUT#1,I,A(I)), as INPUT and READ do
     for (;;) {
         if (!at_name()) { raise(2); return }
-        name = lvname()
+        name = lvname(); dbl = (LVT == "D")  # a double enters the reader as VAL does (p90)
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
         if (!fio_next_item(n, !strname(name))) { raise(63); return }
@@ -314,7 +314,7 @@ function st_input_file(   n, nlv, name, key, i, x) {
         else {
             # the item is evaluated "by a routine just like the BASIC VAL
             # function" (Disk manual, INPUT#): A12 is 0, 5X is 5, never ?TM
-            x = valnum(FIO_IT, 0); if (E) return   # ?OV: nothing stored
+            x = valnum(FIO_IT, dbl); if (E) return   # ?OV: nothing stored
             assignv(name, key, "NS" x)
         }
         if (E) return

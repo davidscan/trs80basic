@@ -505,7 +505,7 @@ function pu_ovf(x, ty,   t) {
 }
 
 # ---- INPUT -----------------------------------------------------------------
-function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, endp, snpend) {
+function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, endp, snpend, dbl) {
     # the illegal-direct check comes FIRST on the ROM (219AH CALL 2828H,
     # before the # is even looked at), so INPUT#1,A typed at READY is ?ID
     # like any other INPUT (the 2026-09-26 audit, N-5; until then the #
@@ -599,7 +599,7 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
             if (line == "") return
             nib = parse_items(line, nib)
             while (idx <= nlv && idx <= nib) {
-                CP = LV_P[idx]; name = lvname(); key = ""
+                CP = LV_P[idx]; name = lvname(); key = ""; dbl = (LVT == "D")
                 if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
                 CP = endp
                 if (IBBAD[idx] || (IBQ[idx] && !strname(name))) { ok = 0; break }
@@ -609,7 +609,7 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
                     # anything but blanks left over is ?REDO (225A-2260)
                     x = IB[idx]
                     sub(/^[ \t\n]+/, "", x)
-                    x = valnum(x, 0); if (E) return   # ?OV, or ?SN for a bad %: not ?REDO
+                    x = valnum(x, dbl); if (E) return   # ?OV, or ?SN for a bad %: not ?REDO; a double enters as VAL (p90)
                     if (!numrest()) { ok = 0; break }
                     assignv(name, key, "NS" x)
                 }
@@ -742,10 +742,10 @@ function st_read(   dp0) {
     if (E) DP = dp0
 }
 
-function st_read_items(   name, key, x) {
+function st_read_items(   name, key, x, dbl) {
     for (;;) {
         if (!at_name()) { raise(2); return }
-        name = lvname()
+        name = lvname(); dbl = (LVT == "D")  # a double enters the reader as VAL does (p90)
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
         if (DP > NDATA) { raise(4); return }
@@ -772,7 +772,7 @@ function st_read_items(   name, key, x) {
             # own line.
             x = DITEM[DP]
             sub(/^[ \t\n]+/, "", x)
-            x = valnum(x, 0); if (E) return
+            x = valnum(x, dbl); if (E) return
             if (!numrest()) {
                 raise(2)
                 ERR_AT = DLINE[DP]; ERLV = DLINE[DP]; LASTLN = DLINE[DP]

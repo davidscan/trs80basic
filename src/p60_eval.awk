@@ -219,8 +219,8 @@ function e_prim(   t, s, v, key, sx) {
         if (TSX[CK, CP] == "%SN") { raise(2); return "NI0" }
         s = TK[CK, CP] + 0; t = TSX[CK, CP]; CP++    # t: the literal's type, as 0E6CH read it (tk_number)
         if (t == "I") return "NI" s
+        if (t == "S") s = rdsng(TK[CK, CP - 1])  # scaled as the reader scales it: .29 is 29/10/10 (p90)
         s = frange(s, t); if (E) return "NI0"    # 1.70142E38, 1E39 ?OV (p10 FMAX; a double literal at DMAX, L-24); 1E-40 is 0
-        if (t == "S") s = sround(s)
         return "N" t s
     }
     if (t == "s") {
