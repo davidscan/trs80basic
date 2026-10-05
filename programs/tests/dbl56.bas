@@ -19,6 +19,10 @@
 190 A#=123456789012345678#:B#=.1234567890123456789#:IF STR$(A#)<>" 1.234567890123457D+17" OR STR$(B#)<>" .1234567890123457" OR STR$(A#*B#)<>" 1.524157875323884D+16" OR STR$(A#/3#)<>" 4.115226300411523D+16" THEN PRINT "FAIL: long literals:";A#;B#;A#*B#;A#/3#:F=1
 200 A#=1#/3#:B=A#:C#=B:IF STR$(B)<>" .333333" OR STR$(C#)<>" .3333333432674408" OR A#=C# OR STR$(CSNG(2#/3#))<>" .666667" OR CINT(2.5#)<>2 OR CINT(-2.5#)<>-3 THEN PRINT "FAIL: a double to a single and back":F=1
 210 IF 2D-39<>0 OR 3D-39<>0 OR STR$(1.2D-38/1.5#)<>" 8D-39" OR STR$(1D-38*.3#)<>" 3D-39" OR 1D-38*.29#<>0 THEN PRINT "FAIL: the bottom of the range:";1.2D-38/1.5#;1D-38*.3#:F=1
+212 REM a value a hair under a power of ten prints a colon for its first digit (the digit loop
+214 REM counts past "9", 12C2H): the ROM bug list's entry
+216 A#=9.999999999999999D-37:IF STR$(A#)<>" :D-37" OR STR$(9.999999999999999D-7)<>" 9.999999999999999D-07" OR STR$(1D-36)<>" 1D-36" THEN PRINT "FAIL: the colon:";A#:F=1
+218 Y#=1#:FOR I=1 TO 128:Y#=Y#*.5#:NEXT:IF STR$(Y#)<>" 2.938735877055719D-39" OR Y#/1#<>0 OR 1#/Y#<>Y# OR Y#*.5#<>0 OR Y#/.5#<>0 OR STR$(Y#*2#)<>" 5.877471754111438D-39" THEN PRINT "FAIL: the smallest double:";Y#;Y#/1#;1#/Y#:F=1
 220 REM the stored bytes: 1#/3# is AB AA AA AA AA AA 2A 7F, the last mantissa bit rounded up
 230 A#=1#/3#:V=VARPTR(A#):IF PEEK(V)<>171 OR PEEK(V+1)<>170 OR PEEK(V+6)<>42 OR PEEK(V+7)<>127 THEN PRINT "FAIL: the bytes of 1#/3#:";PEEK(V);PEEK(V+1);PEEK(V+6);PEEK(V+7):F=1
 240 A#=1D16-.2#:V=VARPTR(A#):IF PEEK(V)<>1 OR PEEK(V+2)<>4 OR PEEK(V+7)<>182 THEN PRINT "FAIL: the bytes of 1D16-.2#:";PEEK(V);PEEK(V+2);PEEK(V+7):F=1

@@ -100,6 +100,14 @@ function fmtnum(x, ty,   s, ax, t, nd, ds, e, ip, m, k) {
     if (ty == "D") {
         d56_load(ax); D56M[0] += k
         e = 15 + d56_scale(); ds = d56_int()
+        # A value a hair under a power of ten can be multiplied past the
+        # upper bound by the loop's last step, which is not tested again
+        # (123AH leaves through 124CH), and .5 then carries it to 10^16:
+        # seventeen digits.  The digit loop (12C2H-12DEH) counts the first
+        # one up from "0" by subtraction and so writes the character after
+        # "9": 9.999999999999999D-37 prints as :D-37 (the ROM bug list's
+        # colon).
+        if (length(ds) == 17) ds = ":" substr(ds, 3)
     } else {
         e = 5 + sscale(ax)
         ds = sprintf("%d", int(SCV + 0.5))       # 12ECH-12F0H: add .5, truncate
