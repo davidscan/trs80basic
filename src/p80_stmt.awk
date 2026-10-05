@@ -417,7 +417,7 @@ function pu_scan(fmt, i,   j, c, got) {
 #     123.456 is %123.46 (not the plain %123.456), and a trailing sign
 #     still follows
 #   * only a value of 1E16 or more is handed to the plain formatter behind
-#     its % (1110-1123)
+#     its % (1110-1123): "% 1E+16", whatever its sign (pu_big)
 # The exponent form (11AA-11FE) keeps ONE position for the sign unless the
 # field says where the sign goes (a leading +, which is that position, or
 # a trailing + or -): ##.##^^^^ of 234.56 is " 2.35E+02", one digit before
@@ -472,7 +472,7 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         if (ist == "" && length(lead "0" body) <= w) ist = "0"
         core = lead ist body
     } else {
-        if (ax >= 1e16) return pu_ovf(x, vtype(v)) pu_tsign(neg)
+        if (ax >= 1e16) return pu_big(ax, vtype(v))
         if (ax == 0 || vtype(v) != "S") ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
         else {
             # a single: the six digits the scaling leaves (1135H), with
@@ -528,6 +528,20 @@ function pu_str(v, w,   s) {
 function pu_ovf(x, ty,   t) {
     t = fmtnum(x, ty)
     gsub(/^ +| +$/, "", t)
+    return "%" t
+}
+
+# A value of 1E16 or more (1110H-1123H): the magnitude goes back through
+# the plain converter (111DH CALL 0FBDH) and the % is stored in the cell
+# in front of what it wrote (1120H-1121H), then the routine returns.  The
+# converter's text opens with a positive number's blank, so the mark and
+# the digits stand apart, and the sign, which USING had already taken off
+# the value, is never put back: -1D16 in ##.## is "% 1D+16", and a
+# trailing sign field prints nothing behind it (trs-80.com's ROM bug
+# list has this one).  Until 2026-10-05: %-1D+16, and the trailing sign.
+function pu_big(ax, ty,   t) {
+    t = fmtnum(ax, ty)
+    sub(/ +$/, "", t)
     return "%" t
 }
 

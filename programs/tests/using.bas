@@ -33,7 +33,10 @@
 278 DATA "##.##[[[[-",0," 0.00E+00 "
 280 DATA "###[[[[",123456," 12E+04"
 290 DATA "##.##[[[[",.000123," 1.23E-04"
-300 DATA "##,###.##",1E17,"%1E+17"
+300 DATA "##,###.##",1E17,"% 1E+17"
+302 DATA "##.##",-1E17,"% 1E+17"
+304 DATA "##.##-",-1E16,"% 1E+16"
+306 DATA "###########",1.70141E38,"% 1.70141E+38"
 310 DATA "**##.##",1212.12,"1212.12"
 312 REM bug 8: a positive's trailing sign cell is the pad register's,
 313 REM so ** fills it with an asterisk (10C4H-10C7H); a negative's is -
@@ -50,7 +53,8 @@
 390 REM a double's exponent field says D (ROM 1075H-1079H: the letter by type); until 2026-09-27 E (audit L-19)
 400 D#=234.56:PRINT@0,STRING$(20,32);:PRINT@0,USING "##.##^^^^";D#;:W$=" 2.35D+02":GOSUB 500
 402 PRINT@0,STRING$(20,32);:PRINT@0,USING "##.##^^^^";-D#/1000;:W$="-2.35D-01":GOSUB 500
-404 D#=1D17:PRINT@0,STRING$(20,32);:PRINT@0,USING "##,###.##";D#;:W$="%1D+17":GOSUB 500
+403 D#=-1D16:PRINT@0,STRING$(20,32);:PRINT@0,USING "##.##";D#;:W$="% 1D+16":GOSUB 500
+404 D#=1D17:PRINT@0,STRING$(20,32);:PRINT@0,USING "##,###.##";D#;:W$="% 1D+17":GOSUB 500
 405 CLS:FOR I=1 TO F:PRINT M$(I):NEXT
 410 IF F THEN PRINT "USING FIXTURE FAILED":ERROR 5
 420 PRINT "USING FIXTURE OK":END

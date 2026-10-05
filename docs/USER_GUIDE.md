@@ -652,6 +652,8 @@ PRINT [#n,] USING f$; items   format items through picture f$
     too-wide numbers print as % and the number AS THE FIELD FORMATS
     IT: ##.## of 123.456 is %123.46.  A lone 0 before the point gives
     way first: #.## of -.5 is -.50
+    a value of 1E16 or more prints plainly behind "% ", its sign
+    dropped, as on the machine: ##.## of -1D16 is % 1D+16
     ^^^^ keeps one position for the sign unless the field has a leading
     + or a trailing + or -: ##.##^^^^ of 234.56 is " 2.35E+02"
     a single shows six digits, then zeros: #.######## of 1/3 is
