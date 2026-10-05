@@ -580,10 +580,19 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     FS_K[FSN] = CK; FS_LI[FSN] = CLI; FS_P[FSN] = CP
 }
 
+# The index is read only when the statement does not end there (22B6H
+# CALL NZ,260DH), and the reader refuses anything but a name (2612H): so
+# IF I<3 THEN NEXT ELSE PRINT "DONE" is a bare NEXT, its ELSE stored
+# behind a ":" (1C42H), and NEXT TO, NEXT 5 and NEXT ,I are ?SN before
+# any loop steps.  Until 2026-10-04 any identifier, ELSE included, was
+# taken as the index: ?NF (the 2026-09-30 audit, BM-1).
 function st_next(   name, looped) {
     for (;;) {
         name = ""
-        if (TY[CK, CP] == "i") { name = TK[CK, CP]; CP++ }
+        if (!at_stmt_end()) {
+            if (!at_name()) { raise(2); return }
+            name = TK[CK, CP]; CP++
+        }
         looped = do_next(name)
         if (E || looped) return
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
