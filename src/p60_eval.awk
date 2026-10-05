@@ -441,23 +441,28 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "INT") { x = numarg(a1, na); if (E) return "NI0"; return fn_int(a1) }
     if (name == "FIX") { x = numarg(a1, na); if (E) return "NI0"; return fn_fix(a1) }
     if (name == "SGN") { x = numarg(a1, na); if (E) return "NI0"; return "NI" (x > 0 ? 1 : (x < 0 ? -1 : 0)) }
-    if (name == "SQR") { x = numarg(a1, na); if (E) return "NI0"; x = rom_pow(sfl(x), 0.5); if (E) return "NI0"; return "NS" x }   # x ^ .5 (13E7H; p90)
-    if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_sin(sfl(x)) }   # the ROM's series, step for step (p90)
-    if (name == "COS") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_cos(sfl(x)) }
-    if (name == "TAN") { x = numarg(a1, na); if (E) return "NI0"; x = rom_tan(sfl(x)); if (E) return "NI0"; return "NS" x }
-    if (name == "ATN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_atn(sround(x)) }
-    if (name == "LOG") { x = numarg(a1, na); if (E) return "NI0"; x = rom_log(sfl(x)); if (E) return "NI0"; return "NS" x }
+    if (name == "SQR") { x = numarg(a1, na); if (E) return "NI0"; x = rom_pow(csng(x), 0.5); if (E) return "NI0"; return "NS" x }   # x ^ .5 (13E7H; p90)
+    if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; x = csng(x); if (E) return "NI0"; return "NS" rom_sin(x) }   # the ROM's series, step for step (p90)
+    if (name == "COS") { x = numarg(a1, na); if (E) return "NI0"; x = csng(x); if (E) return "NI0"; return "NS" rom_cos(x) }
+    if (name == "TAN") { x = numarg(a1, na); if (E) return "NI0"; x = csng(x); if (E) return "NI0"; x = rom_tan(x); if (E) return "NI0"; return "NS" x }
+    if (name == "ATN") { x = numarg(a1, na); if (E) return "NI0"; x = csng(x); if (E) return "NI0"; return "NS" rom_atn(x) }
+    if (name == "LOG") { x = numarg(a1, na); if (E) return "NI0"; x = csng(x); if (E) return "NI0"; x = rom_log(x); if (E) return "NI0"; return "NS" x }
     if (name == "EXP") {
         x = numarg(a1, na); if (E) return "NI0"
         # the ROM's routine (1439H; rom_exp, p90): EXP(88) is ?OV, and
         # below -128 ln 2 the answer is a quiet 0 (0931H tests the sign)
-        x = rom_exp(sfl(x)); if (E) return "NI0"
+        x = csng(x); if (E) return "NI0"
+        x = rom_exp(x); if (E) return "NI0"
         return "NS" x
     }
     if (name == "RND") {
-        # authentic ROM sequence (rnd_next/sngl, p90): RND(0) = seed'/2^24,
-        # RND(n) = INT(RND(0)*n + 1) with the multiply rounded to single
-        # precision.  The argument goes through CINT first (14C9H -> 0A7FH:
+        # authentic ROM sequence (rnd_next, p90): RND(0) = seed'/2^24,
+        # RND(n) = INT(RND(0)*n + 1), the multiply and the add of 1 both
+        # single operations (14E7H-14EAH: 070BH -> 0716H -> 0796H).  The
+        # add rounds: for the one seed whose RND(0) is .99999994 the sum
+        # reaches n+1, so RND(1) is 2 and RND(2) is 3 once in 16,777,216
+        # draws (the ROM bug list's RND entry).  Until 2026-10-05 the 1
+        # was added after INT and that draw gave n.  The argument goes through CINT first (14C9H -> 0A7FH:
         # rounded down, ?OV outside -32768..32767, so RND(32768) is ?OV);
         # then a negative one is ?FC at 14CEH (the ROM does NOT reseed on
         # negative).  Until 2026-09-25 RND(32768) returned a number.
@@ -466,14 +471,14 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
         if (i < 0) { raise(5); return "NI0" }
         x = rnd_next()
         if (i == 0) return "NS" x
-        return "NS" (int(sngl(x * i)) + 1)
+        return "NS" bfloor(sadd(smul(x, i), 1))
     }
     if (name == "CINT") {
         x = numarg(a1, na); if (E) return "NI0"
         x = to16(x); if (E) return "NI0"           # rounds DOWN (p90 to16)
         return "NI" x
     }
-    if (name == "CSNG") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(x) }
+    if (name == "CSNG") { x = numarg(a1, na); if (E) return "NI0"; x = csng(x); if (E) return "NI0"; return "NS" x }
     if (name == "CDBL") { x = numarg(a1, na); if (E) return "NI0"; return "ND" substr(a1, 3) }   # a double as it is; a single or an integer is exact in one
     if (name == "PEEK") { x = numarg(a1, na); if (E) return "NI0"; x = addrarg(x); if (E) return "NI0"; return "NI" dopeek(x) }
     # INP(p): read Z80 port p (0-255, else ?FC).  Until 2026-09-11 INP had no

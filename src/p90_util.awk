@@ -458,6 +458,16 @@ function sexp(x,   e) {
     return e + 1
 }
 
+# CSNG (0AB1H -> 0AB9H -> 0796H): a number as a single, rounded on the 25th
+# bit; a double that rounds past the single's limit is ?OV (07B2H), so
+# CSNG(1.70141183D38) and SQR of it are ?OV (the 2026-09-30 audit, BL-33;
+# until 2026-10-05 only the store into a single variable tested it).
+function csng(x) {
+    if (x < FMIN && x > -FMIN) return 0
+    x = frange(x, "S"); if (E) return 0
+    return sround(x)
+}
+
 # A single-precision intermediate: rounded to 24 bits, and 0 below the
 # smallest exponent (0793H), as every step of a ROM float routine leaves it.
 function sfl(x) {
