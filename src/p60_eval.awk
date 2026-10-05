@@ -183,11 +183,10 @@ function e_pow(   v, r, a, b, x) {
         CP++
         r = e_powrhs(); if (E) return v
         if (!isN(v) || !isN(r)) { raise(13); return v }
-        a = num(v); b = num(r)
-        if (a < 0 && b != int(b)) { raise(5); return v }
-        if (a == 0 && b < 0) { raise(11); return v }
-        x = a ^ b
-        v = "N" tresult("S", x); if (E) return v   # ^ works in single (13F2H converts an integer base); the double case is VERIFIED in the function-types commit
+        a = frange(num(v), "S"); if (E) return v
+        b = frange(num(r), "S"); if (E) return v
+        x = rom_pow(sround(a), sround(b)); if (E) return v   # ^ works in single (13F2H converts an integer base): EXP(y * LOG(x)), p90
+        v = "NS" x
     }
     return v
 }
@@ -428,32 +427,18 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "INT") { x = numarg(a1, na); if (E) return "NI0"; return fn_int(a1) }
     if (name == "FIX") { x = numarg(a1, na); if (E) return "NI0"; return fn_fix(a1) }
     if (name == "SGN") { x = numarg(a1, na); if (E) return "NI0"; return "NI" (x > 0 ? 1 : (x < 0 ? -1 : 0)) }
-    if (name == "SQR") { x = numarg(a1, na); if (E) return "NI0"; if (x < 0) { raise(5); return "NI0" }; return "NS" sround(sqrt(x)) }
+    if (name == "SQR") { x = numarg(a1, na); if (E) return "NI0"; x = rom_pow(sfl(x), 0.5); if (E) return "NI0"; return "NS" x }   # x ^ .5 (13E7H; p90)
     if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_sin(sfl(x)) }   # the ROM's series, step for step (p90)
     if (name == "COS") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_cos(sfl(x)) }
     if (name == "TAN") { x = numarg(a1, na); if (E) return "NI0"; x = rom_tan(sfl(x)); if (E) return "NI0"; return "NS" x }
     if (name == "ATN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_atn(sround(x)) }
-    if (name == "LOG") { x = numarg(a1, na); if (E) return "NI0"; if (x <= 0) { raise(5); return "NI0" }; return "NS" sround(log(x)) }
+    if (name == "LOG") { x = numarg(a1, na); if (E) return "NI0"; x = rom_log(sfl(x)); if (E) return "NI0"; return "NS" x }
     if (name == "EXP") {
         x = numarg(a1, na); if (E) return "NI0"
-        # ROM 1439-1454.  EXP works on t = x * 1/ln 2 and overflows twice
-        # over: at 144A when the exponent byte of that product has reached
-        # 88H, which is |t| >= 128; and at 1454 when INT(t) has reached
-        # 126, because the series is scaled by 2 ** (INT(t) + 1) and 2^127
-        # is past the top of a single.  So the ceiling is 126*ln 2 =
-        # 87.3365 -- the value itself is only 8.5E+37 there, half of what
-        # a single holds, and EXP(88) IS ?OV on the machine (the audit's
-        # L-24 read the ceiling off the float range instead).  Both exits
-        # go to 0931H, which TESTS THE SIGN first (0931-093B: CALL 0955H,
-        # CPL, OR A, JP P,0778H) -- a negative argument leaves through
-        # 0778H with a result of zero, and only a positive one reaches the
-        # ?OV at 07B2H.  So below -128*ln 2 = -88.7228 the answer is a
-        # quiet 0.  (The L-24 fix made it ?OV for a day: it followed 144A
-        # to 0931H and did not read what 0931H does.)
-        r = x / 0.6931471805599453
-        if (r <= -128) return "NI0"
-        if (bfloor(r) >= 126) { raise(6); return "NI0" }
-        return "NS" sround(exp(x))
+        # the ROM's routine (1439H; rom_exp, p90): EXP(88) is ?OV, and
+        # below -128 ln 2 the answer is a quiet 0 (0931H tests the sign)
+        x = rom_exp(sfl(x)); if (E) return "NI0"
+        return "NS" x
     }
     if (name == "RND") {
         # authentic ROM sequence (rnd_next/sngl, p90): RND(0) = seed'/2^24,

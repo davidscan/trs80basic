@@ -88,8 +88,9 @@
 728 S=53:A=-8.51E37-8.51E37:IF S<>54 THEN PRINT "FAIL: -8.51E37-8.51E37 WAS NOT ?OV  S=";S:F=1
 730 REM exactly the limit overflows too: (2^126-2^101)*2 is (1-2^-25)*2^127, the
 732 REM first value past the largest MBF single, built without an ?OV on the way
-734 S=0:A=(2^126-2^102)*2:IF STR$(A)<>" 1.70141E+38" THEN PRINT "FAIL: ONE UNDER THE LIMIT";A:F=1
-736 S=61:A=(2^126-2^101)*2:IF S<>62 THEN PRINT "FAIL: EXACTLY THE LIMIT WAS NOT ?OV  S=";S:F=1
+733 P=1:FOR I=1 TO 102:P=P*2:NEXT:Q=P:FOR I=1 TO 24:Q=Q*2:NEXT:REM 2^102 and 2^126 (2^126 by ^ is ?OV: EXP's ceiling, 1454H)
+734 S=0:A=(Q-P)*2:IF STR$(A)<>" 1.70141E+38" THEN PRINT "FAIL: ONE UNDER THE LIMIT";A:F=1
+736 S=61:A=(Q-P/2)*2:IF S<>62 THEN PRINT "FAIL: EXACTLY THE LIMIT WAS NOT ?OV  S=";S:F=1
 737 REM the text reader (0E6CH -> 07B2H) overflows at exactly the limit too,
 738 REM before any store (the E exponent types it single; a bare digit string
 739 REM would be a double and measure against the double's limit)

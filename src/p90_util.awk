@@ -519,6 +519,87 @@ function rom_atn(x,   neg, inv, a, a2, s, i) {
     return neg ? -s : s
 }
 
+# LOG, EXP, SQR AND ^ AS THE ROM COMPUTES THEM, in single precision (since
+# 2026-10-05; until then the host's library, rounded).  smul is the single
+# multiply's result (0847H): the product rounded as 0796H rounds, 0 below
+# the smallest exponent, ?OV past the largest.
+#   LOG (0809H-0846H): the exponent byte is taken off (k) and the mantissa
+#   m, in [.5,1), goes through t = 1 - 2c/(m + c) with c the square root
+#   of one half; the series (149AH) over three coefficients gives the
+#   base-2 logarithm of m/c; less .5, plus k (0F89H), times ln 2.
+#   EXP (1439H-1478H): p = x / ln 2; 128 or more in magnitude is 0 for a
+#   negative x and ?OV otherwise (144AH -> 0931H), and so is INT(p) >= 126
+#   (1454H: the result is scaled by 2^(INT(p)+1), and 2^127 is past a
+#   single), so the ceiling is 126 ln 2 = 87.3365 and EXP(88) is ?OV.
+#   t = (INT(p) + 1) ln 2 - x, in (0, ln 2]; the polynomial in t over the
+#   eight coefficients at 147AH (the series' second entry, 14A9H: no
+#   squaring) is e^-t, and the scaling is an exact multiply.
+#   x ^ y (13F2H-1436H): y = 0 is EXP(0); a zero base is 0, or ?/0 for a
+#   negative y; a negative base with a whole y is made positive and the
+#   result negated when y is odd (1413H-142CH), with any other y it reaches
+#   LOG's ?FC; then EXP(y * LOG(x)).  SQR(x) is x ^ .5 (13E7H).
+# So a power is not exact where its factors are: 3^2 is 9.0000029 and
+# SQR(25) is 5.000001, though both print whole (2^2 and SQR(4) do come
+# out whole), and a program's IF SQR(N)=INT(SQR(N)) answers as it did on
+# the machine.
+function smul(a, b,   x) {
+    x = a * b
+    if (x < FMIN && x > -FMIN) return 0
+    x = sround(x)
+    if (x >= FMAX || x <= -FMAX) { raise(6); return 0 }
+    return x
+}
+
+function rom_log(x,   e, t, t2, s) {
+    if (x <= 0) { raise(5); return 0 }
+    e = sexp(x)
+    t = sadd(x / (2 ^ e), SQHALF)
+    t = sround((2 * SQHALF) / t)
+    t = sadd(1, -t)
+    t2 = smul(t, t)
+    s = sadd(smul(LOGC[1], t2), LOGC[2])
+    s = sadd(smul(s, t2), LOGC[3])
+    s = smul(s, t)
+    s = sadd(s, -0.5)
+    s = sadd(s, e)
+    return smul(s, LN2S)
+}
+
+function rom_exp(x,   p, n, t, s, i) {
+    p = smul(x, LOG2E)
+    if (p >= 128 || p <= -128) {
+        if (p < 0) return 0
+        raise(6); return 0
+    }
+    n = bfloor(p)
+    if (n >= 126) { raise(6); return 0 }
+    t = smul(sadd(n, 1), LN2S)
+    t = -sadd(x, -t)
+    s = EXPC[1]
+    for (i = 2; i <= 8; i++) s = sadd(smul(s, t), EXPC[i])
+    return smul(s, 2 ^ (n + 1))
+}
+
+function rom_pow(b, y,   neg, r) {
+    if (y == 0) return rom_exp(0)
+    if (b == 0) {
+        if (y < 0) { raise(11); return 0 }
+        return 0
+    }
+    neg = 0
+    if (b < 0 && y == bfloor(y)) {
+        # odd or even is read off the integer's low byte (1415H, 1420H);
+        # from 2^23 up INT hands back the mantissa's low byte instead
+        # (0B44H-0B49H), so a y of 1E10, whose mantissa is odd, counts as odd
+        r = (y < 0) ? -y : y
+        neg = ((r >= 8388608) ? r / (2 ^ (sexp(r) - 24)) : r) % 2 != 0
+        b = -b
+    }
+    r = rom_log(b); if (E) return 0
+    r = rom_exp(smul(r, y)); if (E) return 0
+    return neg ? -r : r
+}
+
 function rom_tan(x,   s, c) {
     s = rom_sin(x); c = rom_cos(x)
     if (c == 0) { raise(11); return 0 }

@@ -252,6 +252,15 @@ function init_tables(   i, c, m, n) {
     ATNC[1] = 12310346 / 2^32; ATNC[2] = -8678914 / 2^29; ATNC[3] = 11518462 / 2^28
     ATNC[4] = -10105204 / 2^27; ATNC[5] = 14302596 / 2^27; ATNC[6] = -9535432 / 2^26
     ATNC[7] = 13417444 / 2^26; ATNC[8] = -11184748 / 2^25; ATNC[9] = 1
+    # LOG's and EXP's constants (rom_log, rom_exp, p90): the square root of
+    # one half at 0814H (80 35 04 F3), ln 2 at 0841H (80 31 72 18), 1/ln 2
+    # at 143CH (81 38 AA 3B), LOG's three coefficients at 07FDH and EXP's
+    # eight at 147AH, first to last as the tables hold them
+    SQHALF = 11863283 / 2^24; LN2S = 11629080 / 2^24; LOG2E = 12102203 / 2^23
+    LOGC[1] = 10049194 / 2^24; LOGC[2] = 16130801 / 2^24; LOGC[3] = 12102213 / 2^22
+    EXPC[1] = -9711168 / 2^36; EXPC[2] = 11423600 / 2^33; EXPC[3] = -8913518 / 2^30
+    EXPC[4] = 11182310 / 2^28; EXPC[5] = -11184720 / 2^26; EXPC[6] = 16777215 / 2^25
+    EXPC[7] = -1; EXPC[8] = 1
     CLN = DIRECTLN
     CUR = 0; VCOL = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
     FSN = 0; GSN = 0; CONTOK = 0; TRACE = 0

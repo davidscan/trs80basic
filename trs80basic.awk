@@ -252,6 +252,15 @@ function init_tables(   i, c, m, n) {
     ATNC[1] = 12310346 / 2^32; ATNC[2] = -8678914 / 2^29; ATNC[3] = 11518462 / 2^28
     ATNC[4] = -10105204 / 2^27; ATNC[5] = 14302596 / 2^27; ATNC[6] = -9535432 / 2^26
     ATNC[7] = 13417444 / 2^26; ATNC[8] = -11184748 / 2^25; ATNC[9] = 1
+    # LOG's and EXP's constants (rom_log, rom_exp, p90): the square root of
+    # one half at 0814H (80 35 04 F3), ln 2 at 0841H (80 31 72 18), 1/ln 2
+    # at 143CH (81 38 AA 3B), LOG's three coefficients at 07FDH and EXP's
+    # eight at 147AH, first to last as the tables hold them
+    SQHALF = 11863283 / 2^24; LN2S = 11629080 / 2^24; LOG2E = 12102203 / 2^23
+    LOGC[1] = 10049194 / 2^24; LOGC[2] = 16130801 / 2^24; LOGC[3] = 12102213 / 2^22
+    EXPC[1] = -9711168 / 2^36; EXPC[2] = 11423600 / 2^33; EXPC[3] = -8913518 / 2^30
+    EXPC[4] = 11182310 / 2^28; EXPC[5] = -11184720 / 2^26; EXPC[6] = 16777215 / 2^25
+    EXPC[7] = -1; EXPC[8] = 1
     CLN = DIRECTLN
     CUR = 0; VCOL = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
     FSN = 0; GSN = 0; CONTOK = 0; TRACE = 0
@@ -3634,11 +3643,10 @@ function e_pow(   v, r, a, b, x) {
         CP++
         r = e_powrhs(); if (E) return v
         if (!isN(v) || !isN(r)) { raise(13); return v }
-        a = num(v); b = num(r)
-        if (a < 0 && b != int(b)) { raise(5); return v }
-        if (a == 0 && b < 0) { raise(11); return v }
-        x = a ^ b
-        v = "N" tresult("S", x); if (E) return v   # ^ works in single (13F2H converts an integer base); the double case is VERIFIED in the function-types commit
+        a = frange(num(v), "S"); if (E) return v
+        b = frange(num(r), "S"); if (E) return v
+        x = rom_pow(sround(a), sround(b)); if (E) return v   # ^ works in single (13F2H converts an integer base): EXP(y * LOG(x)), p90
+        v = "NS" x
     }
     return v
 }
@@ -3879,32 +3887,18 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "INT") { x = numarg(a1, na); if (E) return "NI0"; return fn_int(a1) }
     if (name == "FIX") { x = numarg(a1, na); if (E) return "NI0"; return fn_fix(a1) }
     if (name == "SGN") { x = numarg(a1, na); if (E) return "NI0"; return "NI" (x > 0 ? 1 : (x < 0 ? -1 : 0)) }
-    if (name == "SQR") { x = numarg(a1, na); if (E) return "NI0"; if (x < 0) { raise(5); return "NI0" }; return "NS" sround(sqrt(x)) }
+    if (name == "SQR") { x = numarg(a1, na); if (E) return "NI0"; x = rom_pow(sfl(x), 0.5); if (E) return "NI0"; return "NS" x }   # x ^ .5 (13E7H; p90)
     if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_sin(sfl(x)) }   # the ROM's series, step for step (p90)
     if (name == "COS") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_cos(sfl(x)) }
     if (name == "TAN") { x = numarg(a1, na); if (E) return "NI0"; x = rom_tan(sfl(x)); if (E) return "NI0"; return "NS" x }
     if (name == "ATN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_atn(sround(x)) }
-    if (name == "LOG") { x = numarg(a1, na); if (E) return "NI0"; if (x <= 0) { raise(5); return "NI0" }; return "NS" sround(log(x)) }
+    if (name == "LOG") { x = numarg(a1, na); if (E) return "NI0"; x = rom_log(sfl(x)); if (E) return "NI0"; return "NS" x }
     if (name == "EXP") {
         x = numarg(a1, na); if (E) return "NI0"
-        # ROM 1439-1454.  EXP works on t = x * 1/ln 2 and overflows twice
-        # over: at 144A when the exponent byte of that product has reached
-        # 88H, which is |t| >= 128; and at 1454 when INT(t) has reached
-        # 126, because the series is scaled by 2 ** (INT(t) + 1) and 2^127
-        # is past the top of a single.  So the ceiling is 126*ln 2 =
-        # 87.3365 -- the value itself is only 8.5E+37 there, half of what
-        # a single holds, and EXP(88) IS ?OV on the machine (the audit's
-        # L-24 read the ceiling off the float range instead).  Both exits
-        # go to 0931H, which TESTS THE SIGN first (0931-093B: CALL 0955H,
-        # CPL, OR A, JP P,0778H) -- a negative argument leaves through
-        # 0778H with a result of zero, and only a positive one reaches the
-        # ?OV at 07B2H.  So below -128*ln 2 = -88.7228 the answer is a
-        # quiet 0.  (The L-24 fix made it ?OV for a day: it followed 144A
-        # to 0931H and did not read what 0931H does.)
-        r = x / 0.6931471805599453
-        if (r <= -128) return "NI0"
-        if (bfloor(r) >= 126) { raise(6); return "NI0" }
-        return "NS" sround(exp(x))
+        # the ROM's routine (1439H; rom_exp, p90): EXP(88) is ?OV, and
+        # below -128 ln 2 the answer is a quiet 0 (0931H tests the sign)
+        x = rom_exp(sfl(x)); if (E) return "NI0"
+        return "NS" x
     }
     if (name == "RND") {
         # authentic ROM sequence (rnd_next/sngl, p90): RND(0) = seed'/2^24,
@@ -9552,6 +9546,87 @@ function rom_atn(x,   neg, inv, a, a2, s, i) {
     s = sfl(s * a)
     if (inv) s = sfl(sadd(HALFPI, -s))
     return neg ? -s : s
+}
+
+# LOG, EXP, SQR AND ^ AS THE ROM COMPUTES THEM, in single precision (since
+# 2026-10-05; until then the host's library, rounded).  smul is the single
+# multiply's result (0847H): the product rounded as 0796H rounds, 0 below
+# the smallest exponent, ?OV past the largest.
+#   LOG (0809H-0846H): the exponent byte is taken off (k) and the mantissa
+#   m, in [.5,1), goes through t = 1 - 2c/(m + c) with c the square root
+#   of one half; the series (149AH) over three coefficients gives the
+#   base-2 logarithm of m/c; less .5, plus k (0F89H), times ln 2.
+#   EXP (1439H-1478H): p = x / ln 2; 128 or more in magnitude is 0 for a
+#   negative x and ?OV otherwise (144AH -> 0931H), and so is INT(p) >= 126
+#   (1454H: the result is scaled by 2^(INT(p)+1), and 2^127 is past a
+#   single), so the ceiling is 126 ln 2 = 87.3365 and EXP(88) is ?OV.
+#   t = (INT(p) + 1) ln 2 - x, in (0, ln 2]; the polynomial in t over the
+#   eight coefficients at 147AH (the series' second entry, 14A9H: no
+#   squaring) is e^-t, and the scaling is an exact multiply.
+#   x ^ y (13F2H-1436H): y = 0 is EXP(0); a zero base is 0, or ?/0 for a
+#   negative y; a negative base with a whole y is made positive and the
+#   result negated when y is odd (1413H-142CH), with any other y it reaches
+#   LOG's ?FC; then EXP(y * LOG(x)).  SQR(x) is x ^ .5 (13E7H).
+# So a power is not exact where its factors are: 3^2 is 9.0000029 and
+# SQR(25) is 5.000001, though both print whole (2^2 and SQR(4) do come
+# out whole), and a program's IF SQR(N)=INT(SQR(N)) answers as it did on
+# the machine.
+function smul(a, b,   x) {
+    x = a * b
+    if (x < FMIN && x > -FMIN) return 0
+    x = sround(x)
+    if (x >= FMAX || x <= -FMAX) { raise(6); return 0 }
+    return x
+}
+
+function rom_log(x,   e, t, t2, s) {
+    if (x <= 0) { raise(5); return 0 }
+    e = sexp(x)
+    t = sadd(x / (2 ^ e), SQHALF)
+    t = sround((2 * SQHALF) / t)
+    t = sadd(1, -t)
+    t2 = smul(t, t)
+    s = sadd(smul(LOGC[1], t2), LOGC[2])
+    s = sadd(smul(s, t2), LOGC[3])
+    s = smul(s, t)
+    s = sadd(s, -0.5)
+    s = sadd(s, e)
+    return smul(s, LN2S)
+}
+
+function rom_exp(x,   p, n, t, s, i) {
+    p = smul(x, LOG2E)
+    if (p >= 128 || p <= -128) {
+        if (p < 0) return 0
+        raise(6); return 0
+    }
+    n = bfloor(p)
+    if (n >= 126) { raise(6); return 0 }
+    t = smul(sadd(n, 1), LN2S)
+    t = -sadd(x, -t)
+    s = EXPC[1]
+    for (i = 2; i <= 8; i++) s = sadd(smul(s, t), EXPC[i])
+    return smul(s, 2 ^ (n + 1))
+}
+
+function rom_pow(b, y,   neg, r) {
+    if (y == 0) return rom_exp(0)
+    if (b == 0) {
+        if (y < 0) { raise(11); return 0 }
+        return 0
+    }
+    neg = 0
+    if (b < 0 && y == bfloor(y)) {
+        # odd or even is read off the integer's low byte (1415H, 1420H);
+        # from 2^23 up INT hands back the mantissa's low byte instead
+        # (0B44H-0B49H), so a y of 1E10, whose mantissa is odd, counts as odd
+        r = (y < 0) ? -y : y
+        neg = ((r >= 8388608) ? r / (2 ^ (sexp(r) - 24)) : r) % 2 != 0
+        b = -b
+    }
+    r = rom_log(b); if (E) return 0
+    r = rom_exp(smul(r, y)); if (E) return 0
+    return neg ? -r : r
 }
 
 function rom_tan(x,   s, c) {
