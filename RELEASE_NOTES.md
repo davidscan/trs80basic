@@ -215,9 +215,9 @@ Simulation notes and deviations:
 - Fielded string variables are refreshed on GET/LSET/RSET; a plain
   `A$="X"` assignment detaches the variable from its buffer until the next
   GET — the same footgun as on real hardware.
-- `MKD$`'s 56-bit mantissa exceeds awk's 53-bit doubles, so the last
-  mantissa byte of extreme values may differ from real hardware (harmless:
-  CVD round-trips exactly).
+- `MKD$` writes a double's eight bytes as the machine holds them (a
+  double is the machine's 56-bit one since v2.1.3), and `CVD` reads them
+  back exactly.
 - OPEN/KILL/statement keywords (OPEN, CLOSE, FIELD, GET, PUT, LSET, RSET,
   KILL, LINE) and function names (EOF, LOF, LOC, MKI$, MKS$, MKD$, CVI,
   CVS, CVD) are now reserved, as in real Disk BASIC.
@@ -384,9 +384,10 @@ maintained outside this repository.
 - DEFSTR is honored (2026-08-12): bare names under a DEFSTR letter range
   resolve as strings everywhere — assignment, arrays, INPUT, READ, FOR
   (?TM), file I/O. DEFINT/DEFSNG/DEFDBL clear the DEFSTR flag for their
-  range but numeric precision is still ignored (all numerics are gawk
-  doubles; `%` `!` `#` suffixes accepted and stripped, so an explicit
-  suffix does not override DEFSTR the way it would on hardware).
+  range, and a number takes the type of the name it is stored through
+  (integer, single or double, the machine's three types; `man DEFINT`).
+  An explicit `%` `!` `#` suffix does not override DEFSTR the way it
+  would on hardware (`DEFSTR A:A%=5` is `?TM` here).
 - PRINT USING honors the picture string: # . , ** $$ **$ fields, leading
   + / trailing + or - signs, ^^^^ exponent form, ! and %spaces% string
   fields, literal passthrough, picture reuse across the value list, and
@@ -400,10 +401,18 @@ maintained outside this repository.
   over formatting for the rest of the statement. PRINT#, LPRINT and
   LLIST accept it in the same places.
 - Numeric literals in E/D exponent form (1E3, 1.5D-2) are parsed in
-  source, VAL, DATA and INPUT; `.5`, `5.` etc. too. Doubles mean exact
-  integers print in full (e.g. 12345678, where real single-precision
-  hardware would show 1.23457E+07), and E vs D carries no precision
-  difference.
+  source, VAL, DATA and INPUT; `.5`, `5.` etc. too. A literal has the
+  machine's type (v2.1.3): up to 7 digits or an E exponent is a single
+  (`12345678E2` prints `1.23457E+09`), an eighth digit, a D exponent or
+  a `#` a double (`12345678` prints in full, as on the machine).
+- The bytes under a zero are zeros (v2.1.3, a documented departure).
+  The ROM makes a number zero by clearing its exponent byte alone
+  (Farvour, 0778H), so a zero's mantissa bytes keep whatever the
+  accumulator last held; here they are all 0. `PEEK` of a zero variable
+  can show it, and so can a zero double divided by a double below .25,
+  where the ROM's divide never tests its dividend: the tiny quotient is
+  always the same here (`0#/.1#` is `1.469367938527859D-38`), where the
+  machine's varies in size and even in sign with the leftover bytes.
 - Variable names are fully significant (the ROM's 2-character rule is not
   enforced): SUM and SU are different variables.
 - Strings may be arbitrarily long (ROM caps at 255).

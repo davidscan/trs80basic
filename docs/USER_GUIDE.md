@@ -532,6 +532,16 @@ Honest list, stated as current behavior:
   name a value is stored or read through still sets its type, so the
   numbers themselves follow the machine's three types (integer, single,
   double; see "Numbers have the machine's three types" in the README).
+- **The bytes under a zero are zeros.** The ROM makes a number zero by
+  clearing its exponent byte alone (Farvour, *Microsoft BASIC Decoded*,
+  0778H); the mantissa bytes keep whatever the accumulator last held,
+  often from an earlier, unrelated statement. Here a zero's bytes are
+  all 0. Two things can show the difference: `PEEK` of a zero variable
+  through `VARPTR`, and a zero double divided by a double below .25,
+  where the ROM's divide does not test its dividend and returns a tiny
+  number instead of 0 (`man CDBL`). That number is always the same here
+  (`0#/.1#` is `1.469367938527859D-38`); on the machine its size, and
+  even its sign, vary with the leftover bytes.
 - **Variable names are the ROM's two characters.** `SUM` is `SU`,
   `FNABC` is `FNAB`, a `$` still keeps `AB$` apart from `AB`, and `LIST`
   still shows the names as typed; a period program that relied on the
@@ -1674,8 +1684,8 @@ DEFSNG / DEFDBL / DEFSTR      integer / single / double / string
   I%+1 past 32767 is silently a single, until it is stored.  A ! or
   # suffix overrides DEFINT for that store.
   DEFSNG and DEFDBL clear DEFINT and DEFSTR for their range.  A single
-  holds 24 bits (about 7 digits, printed to 6) and a double 53 here
-  (the machine's 56: the 16th printed digit can differ), and a value
+  holds 24 bits (about 7 digits, printed to 6) and a double the
+  machine's 56 (printed to 16; man CDBL), and a value
   takes the type of the name it is read through: DEFDBL A: A=1/3 holds
   the SINGLE quotient, .3333333432674408, as on the machine; A=1#/3 is
   double division.  The suffixes do not make separate variables: G%, G!
@@ -2311,6 +2321,12 @@ CDBL(x)   convert x to double precision
     dividing by 2^126 (8.5D37) or more gives 0
     INT of a whole negative double from 32768 up can land one step
     too low: INT(-44800#) is -45056 (FIX is right)
+  One departure: the machine makes a zero by clearing the exponent
+  byte alone, so the other bytes of a zero keep whatever the last
+  calculation left; here they are 0.  PEEK of a zero variable can
+  show it, and so can the 0#/Y# above: here it is always the same
+  tiny number (0#/.1# is 1.469367938527859D-38), where the machine's
+  varies with those bytes, in size and even in sign.
   Ten additions of .1# print 1 but do not equal 1#: compare doubles
   with a tolerance, as on the machine.
   Example: PRINT CDBL(1/3);1#/3;2#/3
