@@ -240,7 +240,8 @@ INPUT ["prompt";] var[,var...]   read values typed at the keyboard
   ends the answer (12:30 is 12 and ?EXTRA IGNORED -- quote it, or use
   LINE INPUT), text right behind a closing quote ("AB"CD) is ?REDO, and
   so is a quoted "12" typed for a number.
-  The prompt may be any string expression, not just a literal.
+  The prompt is a quoted literal, as on the machine: INPUT P$;A reads
+  into P$ and is then ?SN.
   A typed line holds 240 characters, as the ROM's keyboard routine does:
   the 241st key is refused (that goes for program lines and commands
   too).  Piped input has no cursor to stop, so a longer line is cut at

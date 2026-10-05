@@ -50,7 +50,8 @@ stored into the program instead. The guide uses the term throughout.
 
 Requirements: GNU awk 5.x, run with `-b` so strings are bytes (the
 `basic` launcher does this; without it a UTF-8 locale corrupts every byte
-above 127 read from a file, and the interpreter warns once), and a
+above 127 read from a file, and in a UTF-8 locale gawk refuses to start
+the script at all), and a
 VT100/ANSI terminal at least 64x20. No particular locale is needed.
 
 Environment variables the interpreter reads (the OLLAMA ones are in Part
@@ -163,9 +164,9 @@ runs.
 Filenames may be unquoted (`CLOAD programs/demo.bas`), with case, `/` and
 `.` preserved; a `:`-statement cannot follow an unquoted name.
 
-Invalid lines in a loaded file are reported and skipped, never fatal:
-`?FD ERROR - FILE LINE n (reason)`, where `n` is the physical line in the
-file. Only structural problems are caught at load; a well-numbered but
+Invalid lines in a loaded file are reported and skipped, never fatal at
+the prompt: `?FD ERROR - FILE LINE n (reason)`, where `n` is the physical
+line in the file (a batch run that printed one exits 2 without running). Only structural problems are caught at load; a well-numbered but
 syntactically bad line loads and fails at RUN, like the real machine.
 
 `MERGE "f"` interleaves file lines into the current program (no implicit
@@ -208,7 +209,8 @@ printf '5\n10\n' | ./basic prog.bas   # stdin answers the INPUTs
 ```
 
 Exit status: **0** clean, **1** uncaught BASIC error (also on stderr in the
-classic `?SN ERROR IN 40` form), **2** bad invocation. Output is a plain
+classic `?SN ERROR IN 40` form), **2** bad invocation, or a load that
+reported an invalid line. Output is a plain
 text transcript (`--screen` keeps the cursor codes; graphics are not
 rendered in batch). Running out of stdin at an `INPUT` is an error, so a
 test can never hang on a prompt — but there is no loop guard, so wrap a
@@ -496,7 +498,8 @@ because period programs poke at it:
   finds by itself, or named by `TRS80_Z80`), the routine at
   `DEF USRn=addr` (or the POKEd vector at 16526/7) runs for real — video
   it writes shows as it runs, the keyboard is live, Ctrl-C breaks, and
-  the ROM entry points it may call are `01C9H`, `0A7FH` and `0A9AH`,
+  the ROM entry points it may call are `01C9H`, `0A7FH`, `0A9AH` and
+  `1A19H` (READY),
   and its cassette-port sound is heard with `sound on` or kept with
   `sound wav <path>`;
   without it, `USRn(x)` returns its argument and the run
@@ -574,15 +577,15 @@ Honest list, stated as current behavior:
   So a program can state the display it wants instead of asking the user to
   type it first, and a game can slow the loop that needs period pacing
   without slowing its setup. In a loop the line re-fires every pass, which
-  is harmless: both knobs are idempotent, which is *why* only they are
-  allowed. Anything else after `META:` — an unknown directive, a bad
+  is harmless: the knobs are idempotent, which is *why* only they (and
+  `memory`) are allowed. Anything else after `META:` — an unknown directive, a bad
   argument, an English sentence that happens to start that way — is ignored
   in silence. **`dir` and `cat` are deliberately unreachable**: they are
   shell passthroughs, and a file that could fire one would make any
   downloaded `.bas` a shell-execution vector on `LOAD`. With the gate off,
   the line is an ordinary remark, so a listing carrying one is still valid
   Level II on real hardware and survives `CSAVE`/detokenizer round-trips.
-- **Absent**: `EDIT` (by design) and `SYSTEM`; `CMD` is `?SN`. `USR` runs
+- **Absent**: `EDIT` (by design); `CMD` is `?SN`. `USR` and `SYSTEM` run
   only with a Z80 core attached (Part III).
 - `CLEAR` takes any numeric expression (`CLEAR FR!-8000` appears throughout
   period listings and works).
@@ -885,7 +888,8 @@ INPUT ["prompt";] var[,var...]   read values typed at the keyboard
   ends the answer (12:30 is 12 and ?EXTRA IGNORED -- quote it, or use
   LINE INPUT), text right behind a closing quote ("AB"CD) is ?REDO, and
   so is a quoted "12" typed for a number.
-  The prompt may be any string expression, not just a literal.
+  The prompt is a quoted literal, as on the machine: INPUT P$;A reads
+  into P$ and is then ?SN.
   A typed line holds 240 characters, as the ROM's keyboard routine does:
   the 241st key is refused (that goes for program lines and commands
   too).  Piped input has no cursor to stop, so a longer line is cut at

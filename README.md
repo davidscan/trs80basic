@@ -239,8 +239,9 @@ and kept with `sound wav out.wav`; it is machine code only, so BASIC's
 own `OUT 255` stays silent.
 The routine then executes against the same memory `PEEK` and `POKE` see,
 video it writes appears while it runs, the keyboard matrix is live, and
-Ctrl-C still breaks. The core serves three documented ROM entry points
-(`01C9H` CLS, `0A7FH` argument to HL, `0A9AH` HL to result); a call
+Ctrl-C still breaks. The core serves four documented ROM entry points
+(`01C9H` CLS, `0A7FH` argument to HL, `0A9AH` HL to result, `1A19H`
+READY); a call
 anywhere else in ROM space is a `?FC` with the address on stderr, since
 no ROM is shipped. Without the variable nothing changes: `USR` is the
 argument-returning stub described under "Not supported".
