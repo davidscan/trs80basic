@@ -7284,12 +7284,19 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         nd = id + PU_DP                                     # significant digits
         if (nd < 1) return pu_ovf(x, vtype(v))
         if (ax == 0) { k = id; p = 0; ds = "0" }
-        else if (vtype(v) == "D") {
-            k = bfloor(log(ax) / log(10)) + 1               # digits in the integer part
-            p = int(ax / (10 ^ (k - nd)) + 0.5)
-            if (p >= 10 ^ nd) { k++; p = int(ax / (10 ^ (k - nd)) + 0.5) }
-            else if (p < 10 ^ (nd - 1)) { k--; p = int(ax / (10 ^ (k - nd)) + 0.5) }
-            ds = sprintf("%.0f", p)
+        else if (vtype(v) == "D" && d56_load(ax)) {
+            # a double is the single's case with sixteen digits and 56-bit
+            # steps (d56_scale, p90)
+            k = d56_scale() + 16
+            for (g = nd; g < 16; g++) d56_div10()
+            ds = d56_int()
+            for (g = 16; g < nd; g++) ds = ds "0"
+        } else if (vtype(v) == "D") {
+            # a double that uses more than 48 bits (p90): the same shape,
+            # its digits from one exact conversion
+            ds = ddec(ax, 16); k = DDE + 1
+            if (nd < 16) ds = sprintf("%.0f", int(ax / (10 ^ (k - nd)) + 0.5))
+            for (g = 16; g < nd; g++) ds = ds "0"
         } else {
             # a single (an integer is made one, 11A5H): scaled to six digits
             # (11B6H), then divided by ten once per digit the picture lacks
@@ -7316,8 +7323,21 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         core = lead ist body
     } else {
         if (ax >= 1e16) return pu_big(ax, vtype(v))
-        if (ax == 0 || vtype(v) != "S") ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
-        else {
+        if (ax == 0 || vtype(v) == "I") ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
+        else if (vtype(v) == "D" && d56_load(ax)) {
+            # a double: sixteen digits, 56-bit steps (d56_scale, p90), and
+            # otherwise the single's case below
+            k = d56_scale()
+            for (g = PU_DP; g < -k; g++) d56_div10()
+            ds = d56_int()
+            for (g = (k > 0 ? -k : (-k > PU_DP ? PU_DP : -k)); g < PU_DP; g++) ds = ds "0"
+        } else if (vtype(v) == "D") {
+            # a double that uses more than 48 bits (p90): one exact
+            # conversion, and still no more than sixteen digits
+            ds = ddec(ax, 16)
+            if (DDE + 1 + PU_DP <= 16) ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
+            else for (g = DDE + 1 + PU_DP; g > 16; g--) ds = ds "0"
+        } else {
             # a single: the six digits the scaling leaves (1135H), with
             # zeros behind them wherever the picture asks for more -- 1/3
             # in #.######## is 0.33333300, 1234567 in ####### is 1234570.
@@ -9098,18 +9118,16 @@ function raise_host(c) { if (E) return; raise(c); HINTHOST = 1 }
 # stored value: 4/9 prints .444445 (six multiplications carry .44444445
 # to 444444.5), where one exact conversion gives .444444.  sscale()
 # is that loop; PRINT USING scales through it too (pu_num, p80).  A
-# double's steps are 56-bit ones and are not modelled.
+# double is scaled the same way in 56-bit steps (d56_scale, below).
 function fmtnum(x, ty,   s, ax, t, nd, ds, e, ip, m) {
     if (ty == "I") return (x < 0 ? "" : " ") sprintf("%d", x) " "
     ax = (x < 0) ? -x : x
     if (ax == 0) return " 0 "
     nd = (ty == "D") ? 16 : 6
-    if (ty == "D") {
-        t = sprintf("%.16e", ax)                 # d.dddddddddddddddde+xx: 17 digits
-        if (substr(t, nd + 2, 1) == "5")         # the digit behind the last kept one: half up
-            ax = ((substr(t, 1, 1) substr(t, 3, nd - 1)) + 1) "e" (substr(t, 20) - (nd - 1))
-        t = sprintf("%." (nd - 1) "e", ax)       # no tie is left, so C's rounding agrees
-        ds = substr(t, 1, 1) substr(t, 3, nd - 1); e = substr(t, nd + 3) + 0
+    if (ty == "D" && d56_load(ax)) {
+        e = 15 + d56_scale(); ds = d56_int()
+    } else if (ty == "D") {
+        ds = ddec(ax, 16); e = DDE
     } else {
         e = 5 + sscale(ax)
         ds = sprintf("%d", int(SCV + 0.5))       # 12ECH-12F0H: add .5, truncate
@@ -9140,6 +9158,139 @@ function sscale(ax,   k) {
     else while (ax < 99999.9453125) { ax = sround(ax * 10); k-- }
     SCV = ax
     return k
+}
+
+# A DOUBLE IS SCALED IN ROUNDED STEPS TOO, of 56 bits (since 2026-10-05).
+# The same loop (1201H-1268H) first multiplies a value below 65536 by
+# 1E10 (1208H-1220H, the constant at 1364H) until it is not, then
+# divides by ten while the value is not below 1E16 - 1/2 (1374H) or
+# multiplies by ten while it is below 1E15 - 3/64 (136CH), adds .5
+# (12AEH-12B4H) and takes the integer's sixteen digits.  Each of those
+# operations leaves the exact result rounded to the machine's 56-bit
+# mantissa by the first bit below it (the multiply and the add at
+# 0D0EH-0D12H, the divide at 0E14H-0E1AH), so the sixteenth digit is that
+# of the value the steps left: the single .7 shown as a double is
+# .6999999880790711, where its exact expansion ends ...071044.
+#
+# A double here is the host's, 53 bits against the machine's 56 (ruled
+# 2026-09-26).  A value that fits in 48 bits -- any single, a whole
+# number, the exact sum or product of two singles -- is exactly the value
+# the machine holds, and is printed through these steps.  A value that
+# uses more is most often a rounded one whose last bits the machine holds
+# differently; its sixteenth digit can differ whatever is done here, and
+# it keeps the one exact conversion in fmtnum (the steps would only add
+# their own drift to the host's rounding).
+#
+# The mantissa is held as three limbs D56M[2], [1], [0] of 8, 24 and 24
+# bits with the leading bit set, and the value is that integer times 2 ^
+# D56E; D56T[] is the unrounded result of one operation, in 24-bit limbs.
+
+# load ax > 0; returns 1 when it fits in 48 bits (the low byte is zero)
+function d56_load(ax,   e, m) {
+    e = int(log(ax) / LN2)
+    if (2 ^ e > ax) e--
+    else if (2 ^ (e + 1) <= ax) e++
+    D56E = e - 55
+    m = ax / (2 ^ D56E)                       # an integer below 2^56: exact
+    D56M[2] = int(m / 281474976710656); m -= D56M[2] * 281474976710656
+    D56M[1] = int(m / 16777216); D56M[0] = m - D56M[1] * 16777216
+    return (D56M[0] % 256 == 0)
+}
+
+# round the n limbs of D56T[] to 56 bits, half up, into D56M[]
+function d56_round(n,   i, bl, t, s, w, p, q) {
+    for (i = n; i < n + 4; i++) D56T[i] = 0
+    while (n > 1 && D56T[n - 1] == 0) n--
+    bl = 24 * (n - 1)
+    for (t = D56T[n - 1]; t >= 1; t = int(t / 2)) bl++
+    s = bl - 56
+    if (s > 0) {
+        i = int((s - 1) / 24); D56T[i] += 2 ^ ((s - 1) % 24)
+        for (; D56T[i] >= 16777216; i++) { D56T[i] -= 16777216; D56T[i + 1]++ }
+    }
+    w = int(s / 24); p = 2 ^ (s % 24); q = 16777216 / p
+    for (i = 0; i < 3; i++) D56M[i] = int(D56T[i + w] / p) + (D56T[i + w + 1] % p) * q
+    if (D56M[2] >= 256) { D56M[2] = 128; s++ }       # the rounding carried into a 57th bit
+    D56E += s
+}
+
+# times c (below 2^17), exact, into D56T[]; from D56M[] when n is 0
+function d56_mul(c, n,   i, t, cy) {
+    if (!n) { for (i = 0; i < 3; i++) D56T[i] = D56M[i]; n = 3 }
+    cy = 0
+    for (i = 0; i < n; i++) { t = D56T[i] * c + cy; cy = int(t / 16777216); D56T[i] = t - cy * 16777216 }
+    D56T[n] = cy
+    return n + 1
+}
+
+function d56_mul10() { d56_round(d56_mul(10, 0)) }
+function d56_mul1e10() { d56_round(d56_mul(100000, d56_mul(100000, 0))) }
+
+# divided by ten: the quotient of the mantissa times 256, cut, then rounded
+function d56_div10(   i, t, r) {
+    D56T[0] = (D56M[0] % 65536) * 256
+    D56T[1] = int(D56M[0] / 65536) + (D56M[1] % 65536) * 256
+    D56T[2] = int(D56M[1] / 65536) + D56M[2] * 256
+    r = 0
+    for (i = 2; i >= 0; i--) { t = r * 16777216 + D56T[i]; D56T[i] = int(t / 10); r = t - D56T[i] * 10 }
+    D56E -= 8
+    d56_round(3)
+}
+
+# is the mantissa below the one given?
+function d56_lt(k2, k1, k0) {
+    if (D56M[2] != k2) return D56M[2] < k2
+    if (D56M[1] != k1) return D56M[1] < k1
+    return D56M[0] < k0
+}
+
+# the scaling loop; returns the count as sscale does (+ divisions, - multiplications)
+function d56_scale(   k) {
+    k = 0
+    while (D56E <= -40) { d56_mul1e10(); k -= 10 }                       # below 65536
+    if (D56E > -2 || (D56E == -2 && !d56_lt(142, 1821119, 262142))) {   # 8E 1BC9BF 03FFFE: 1E16 - 1/2
+        do { d56_div10(); k++ } while (D56E > -2 || (D56E == -2 && !d56_lt(142, 1821119, 262142)))
+    } else while (D56E < -6 || (D56E == -6 && d56_lt(227, 6269233, 10485757))) {   # E3 5FA931 9FFFFD: 1E15 - 3/64
+        d56_mul10(); k--
+    }
+    return k
+}
+
+# add .5, round, truncate (12AEH-12B8H): the integer's digits.  Behind
+# d56_scale alone there are sixteen; PRINT USING divides further first.
+function d56_int(   i, b, n, p, sh, hi, lo, q1, t) {
+    b = -D56E - 1                             # where .5 stands, in units of the last bit
+    if (b >= 120) return "0"
+    for (i = 0; i < 3; i++) D56T[i] = D56M[i]
+    n = int(b / 24) + 1; if (n < 3) n = 3
+    for (i = 3; i <= n; i++) D56T[i] = 0
+    i = int(b / 24); D56T[i] += 2 ^ (b % 24)
+    for (; D56T[i] >= 16777216; i++) { D56T[i] -= 16777216; D56T[i + 1]++ }
+    d56_round(n + 1)
+    sh = -D56E                                # the fraction's bits
+    if (sh >= 56) return "0"
+    hi = D56M[2] * 16777216 + D56M[1]
+    if (sh >= 24) return sprintf("%d", int(hi / (2 ^ (sh - 24))))
+    p = 2 ^ sh
+    lo = int(D56M[0] / p) + (hi % p) * (16777216 / p); hi = int(hi / p)
+    q1 = int(hi / 100000000)                  # the integer can pass 2^53: split at 10^8
+    t = (hi - q1 * 100000000) * 16777216 + lo
+    hi = q1 * 16777216 + int(t / 100000000)
+    lo = t - int(t / 100000000) * 100000000
+    return hi ? sprintf("%d%08d", hi, lo) : sprintf("%d", lo)
+}
+
+# A double that uses more than 48 bits: its first nd (16 or fewer)
+# digits from one exact conversion, the last rounded half up; DDE is the
+# decimal exponent of the first.  sprintf rounds an exact tie to even
+# (1/512 -> .00195312), so a following digit of 5 is rounded here.
+function ddec(ax, nd,   t) {
+    t = sprintf("%.16e", ax)                 # d.dddddddddddddddde+xx: 17 digits
+    if (substr(t, nd + 2, 1) == "5")         # the digit behind the last kept one: half up
+        ax = ((substr(t, 1, 1) substr(t, 3, nd - 1)) + 1) "e" (substr(t, 20) - (nd - 1))
+    t = sprintf("%." (nd - 1) "e", ax)       # no tie is left, so C's rounding agrees
+    DDE = substr(t, nd + 3) + 0
+    return substr(t, 1, 1) substr(t, 3, nd - 1)
 }
 
 # The ROM's ASCII-to-binary routine (0E65H/0E6CH), the one reader behind

@@ -441,12 +441,19 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         nd = id + PU_DP                                     # significant digits
         if (nd < 1) return pu_ovf(x, vtype(v))
         if (ax == 0) { k = id; p = 0; ds = "0" }
-        else if (vtype(v) == "D") {
-            k = bfloor(log(ax) / log(10)) + 1               # digits in the integer part
-            p = int(ax / (10 ^ (k - nd)) + 0.5)
-            if (p >= 10 ^ nd) { k++; p = int(ax / (10 ^ (k - nd)) + 0.5) }
-            else if (p < 10 ^ (nd - 1)) { k--; p = int(ax / (10 ^ (k - nd)) + 0.5) }
-            ds = sprintf("%.0f", p)
+        else if (vtype(v) == "D" && d56_load(ax)) {
+            # a double is the single's case with sixteen digits and 56-bit
+            # steps (d56_scale, p90)
+            k = d56_scale() + 16
+            for (g = nd; g < 16; g++) d56_div10()
+            ds = d56_int()
+            for (g = 16; g < nd; g++) ds = ds "0"
+        } else if (vtype(v) == "D") {
+            # a double that uses more than 48 bits (p90): the same shape,
+            # its digits from one exact conversion
+            ds = ddec(ax, 16); k = DDE + 1
+            if (nd < 16) ds = sprintf("%.0f", int(ax / (10 ^ (k - nd)) + 0.5))
+            for (g = 16; g < nd; g++) ds = ds "0"
         } else {
             # a single (an integer is made one, 11A5H): scaled to six digits
             # (11B6H), then divided by ten once per digit the picture lacks
@@ -473,8 +480,21 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         core = lead ist body
     } else {
         if (ax >= 1e16) return pu_big(ax, vtype(v))
-        if (ax == 0 || vtype(v) != "S") ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
-        else {
+        if (ax == 0 || vtype(v) == "I") ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
+        else if (vtype(v) == "D" && d56_load(ax)) {
+            # a double: sixteen digits, 56-bit steps (d56_scale, p90), and
+            # otherwise the single's case below
+            k = d56_scale()
+            for (g = PU_DP; g < -k; g++) d56_div10()
+            ds = d56_int()
+            for (g = (k > 0 ? -k : (-k > PU_DP ? PU_DP : -k)); g < PU_DP; g++) ds = ds "0"
+        } else if (vtype(v) == "D") {
+            # a double that uses more than 48 bits (p90): one exact
+            # conversion, and still no more than sixteen digits
+            ds = ddec(ax, 16)
+            if (DDE + 1 + PU_DP <= 16) ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
+            else for (g = DDE + 1 + PU_DP; g > 16; g--) ds = ds "0"
+        } else {
             # a single: the six digits the scaling leaves (1135H), with
             # zeros behind them wherever the picture asks for more -- 1/3
             # in #.######## is 0.33333300, 1234567 in ####### is 1234570.

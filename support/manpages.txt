@@ -60,9 +60,10 @@ PRINT [#n,] USING f$; items   format items through picture f$
     dropped, as on the machine: ##.## of -1D16 is % 1D+16
     ^^^^ keeps one position for the sign unless the field has a leading
     + or a trailing + or -: ##.##^^^^ of 234.56 is " 2.35E+02"
-    a single shows six digits, then zeros: #.######## of 1/3 is
-    0.33333300, ####### of 1234567 is 1234570; and ^^^^ does not move
-    the exponent when rounding carries: ##.##^^^^ of 999999 is 10.00E+05
+    a single shows six digits, then zeros (a double sixteen):
+    #.######## of 1/3 is 0.33333300, ####### of 1234567 is 1234570;
+    and ^^^^ does not move the exponent when rounding carries:
+    ##.##^^^^ of 999999 is 10.00E+05
   string fields: ! first char   %spaces% n+2 chars
   other chars print literally; picture repeats while items remain
   USING need not lead the item list: it may follow anything PRINT
@@ -1111,10 +1112,14 @@ CDBL(x)   convert x to double precision
   Returns x as a double: the value is not made more precise than it
   was, so CDBL(1/3) is the single quotient .3333333432674408, and only
   double operands (1#/3, A#/B#) give a double result.  A double holds
-  53 bits here against the machine's 56, so the sixteenth printed digit
-  of a long fraction can differ from the machine's (2#/3 prints
-  .6666666666666666; the machine .6666666666666667); everything a
-  program can see in 15 digits is the same.
+  53 bits here against the machine's 56.  A value that fits in 48 bits
+  -- any single, a whole number -- is the machine's value and prints
+  exactly as there, through the same rounded steps of ten (the single
+  .7 as a double is .6999999880790711).  A value that uses all 53
+  bits, such as a long fraction, can differ in the sixteenth printed
+  digit (2#/3 prints .6666666666666666; the machine
+  .6666666666666667); everything a program can see in 15 digits is
+  the same.
   Example: PRINT CDBL(1/3);1#/3;2#/3
 
 :VARPTR
