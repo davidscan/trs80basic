@@ -654,6 +654,9 @@ PRINT [#n,] USING f$; items   format items through picture f$
     way first: #.## of -.5 is -.50
     ^^^^ keeps one position for the sign unless the field has a leading
     + or a trailing + or -: ##.##^^^^ of 234.56 is " 2.35E+02"
+    a single shows six digits, then zeros: #.######## of 1/3 is
+    0.33333300, ####### of 1234567 is 1234570; and ^^^^ does not move
+    the exponent when rounding carries: ##.##^^^^ of 999999 is 10.00E+05
   string fields: ! first char   %spaces% n+2 chars
   other chars print literally; picture repeats while items remain
   USING need not lead the item list: it may follow anything PRINT
@@ -2263,7 +2266,9 @@ CSNG(x)   convert x to single precision
   any length (12345678E2 is 1.23457E+09).  Its value is the machine's
   too: the reader divides by 10 once per digit behind the point, each
   step rounded, so .29 is 29/10/10 (A#=.29 holds .2900000214576721)
-  and can sit one unit off the nearest single.  An operation takes the wider
+  and can sit one unit off the nearest single.  A single is printed
+  the same way: scaled by 10, each step rounded, until it holds six
+  digits, so 4/9 prints .444445 as on the machine.  An operation takes the wider
   operand's type; / and ^ are never integer, and an integer + - * that
   leaves 16 bits is silently a single.
   See: man DEFINT for the types of variables, man CDBL.

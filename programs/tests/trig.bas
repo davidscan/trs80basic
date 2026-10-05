@@ -22,12 +22,12 @@
 210 IF STR$(SIN(1))<>" .841471" OR STR$(COS(1))<>" .540302" OR STR$(TAN(.5))<>" .546302" THEN PRINT "FAIL: SIN(1) COS(1) TAN(.5):";SIN(1);COS(1);TAN(.5):F=1
 220 IF SIN(0)<>0 OR COS(0)<>1 OR TAN(0)<>0 THEN PRINT "FAIL: at 0:";SIN(0);COS(0);TAN(0):F=1
 230 IF STR$(SIN(3.14159/2))<>" 1" OR STR$(COS(3.14159))<>"-1" OR STR$(SIN(-1))<>"-.841471" THEN PRINT "FAIL: quadrants:";SIN(3.14159/2);COS(3.14159);SIN(-1):F=1
-240 IF STR$(SIN(2.5))<>" .598472" OR STR$(SIN(4))<>"-.756802" OR STR$(SIN(5.5))<>"-.70554" THEN PRINT "FAIL: the four quarters:";SIN(2.5);SIN(4);SIN(5.5):F=1
+240 IF STR$(SIN(2.5))<>" .598472" OR STR$(SIN(4))<>"-.756802" OR STR$(SIN(5.5))<>"-.705541" THEN PRINT "FAIL: the four quarters:";SIN(2.5);SIN(4);SIN(5.5):F=1
 250 IF STR$(SIN(100))<>"-.506368" OR SIN(1E20)<>0 THEN PRINT "FAIL: many turns:";SIN(100);SIN(1E20):F=1
 260 REM an argument below the quarter's resolution is lost in .25-f (the adder), as on the machine
 270 IF SIN(1E-9)<>0 THEN PRINT "FAIL: SIN(1E-9):";SIN(1E-9):F=1
 300 REM a double argument is a single first (0AB1H), the result a single
-310 IF STR$(SIN(1#))<>" .841471" OR STR$(COS(.5#)/3)<>" .292527" THEN PRINT "FAIL: a double argument:";SIN(1#);COS(.5#)/3:F=1
+310 IF STR$(SIN(1#))<>" .841471" OR STR$(COS(.5#)/3)<>" .292528" THEN PRINT "FAIL: a double argument:";SIN(1#);COS(.5#)/3:F=1
 890 ON ERROR GOTO 0:IF F THEN PRINT "TRIG FIXTURE FAILED":ERROR 5
 895 PRINT "TRIG FIXTURE OK":END
 900 C=ERR/2+1

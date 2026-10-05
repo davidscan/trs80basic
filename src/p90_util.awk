@@ -77,16 +77,32 @@ function raise_host(c) { if (E) return; raise(c); HINTHOST = 1 }
 # 2026-09-26 audit, M-10).  The exponent letter is E or D by type
 # (1075H-1079H), the exponent two digits and signed; trailing zeros
 # and a bare point are dropped (1066H-106EH), so 1E-03, not 1.00000E-03.
+#
+# A SINGLE IS SCALED IN ROUNDED STEPS (1222H-1268H; since 2026-10-05).
+# The loop at 1222H divides the value by ten (0F18H) while it is not
+# below 999999.5, or else multiplies it by ten (0F0BH) while it is below
+# 99999.9453125 (the constant at 1229H: 91 43 4F F9), and every one of
+# those steps is a single-precision operation rounded to 24 bits.  So the
+# six digits are those of the value as the steps left it, not of the
+# stored value: 4/9 prints .444445 (six multiplications carry .44444445
+# to 444444.5), where one exact conversion gives .444444.  sscale()
+# is that loop; PRINT USING scales through it too (pu_num, p80).  A
+# double's steps are 56-bit ones and are not modelled.
 function fmtnum(x, ty,   s, ax, t, nd, ds, e, ip, m) {
     if (ty == "I") return (x < 0 ? "" : " ") sprintf("%d", x) " "
     ax = (x < 0) ? -x : x
     if (ax == 0) return " 0 "
     nd = (ty == "D") ? 16 : 6
-    t = sprintf("%.16e", ax)                 # d.dddddddddddddddde+xx: 17 digits
-    if (substr(t, nd + 2, 1) == "5")         # the digit behind the last kept one: half up
-        ax = ((substr(t, 1, 1) substr(t, 3, nd - 1)) + 1) "e" (substr(t, 20) - (nd - 1))
-    t = sprintf("%." (nd - 1) "e", ax)       # no tie is left, so C's rounding agrees
-    ds = substr(t, 1, 1) substr(t, 3, nd - 1); e = substr(t, nd + 3) + 0
+    if (ty == "D") {
+        t = sprintf("%.16e", ax)                 # d.dddddddddddddddde+xx: 17 digits
+        if (substr(t, nd + 2, 1) == "5")         # the digit behind the last kept one: half up
+            ax = ((substr(t, 1, 1) substr(t, 3, nd - 1)) + 1) "e" (substr(t, 20) - (nd - 1))
+        t = sprintf("%." (nd - 1) "e", ax)       # no tie is left, so C's rounding agrees
+        ds = substr(t, 1, 1) substr(t, 3, nd - 1); e = substr(t, nd + 3) + 0
+    } else {
+        e = 5 + sscale(ax)
+        ds = sprintf("%d", int(SCV + 0.5))       # 12ECH-12F0H: add .5, truncate
+    }
     if (e < -2 || e > nd - 1) {
         m = substr(ds, 2); sub(/0+$/, "", m)
         s = substr(ds, 1, 1) (m == "" ? "" : "." m) (ty == "D" ? "D" : "E") \
@@ -98,6 +114,21 @@ function fmtnum(x, ty,   s, ax, t, nd, ds, e, ip, m) {
         sub(/0+$/, "", s); sub(/\.$/, "", s)
     }
     return (x < 0 ? "-" : " ") s " "
+}
+
+# The output routine's scaling loop for a single (1222H-1268H): ax > 0 is
+# left in SCV as a value from 99999.9453125 up to, not including,
+# 999999.5, and the count of steps is returned: +n for n divisions by
+# ten, -n for n multiplications.  Each step is rounded as the machine
+# rounds a single (sround).  A value of 999999.5 or more is only divided
+# and one below it only multiplied (1265H leaves through 1243H, 123AH
+# through 124CH), so no value is scaled both ways.
+function sscale(ax,   k) {
+    k = 0
+    if (ax >= 999999.5) { while (ax >= 999999.5) { ax = sround(ax / 10); k++ } }
+    else while (ax < 99999.9453125) { ax = sround(ax * 10); k-- }
+    SCV = ax
+    return k
 }
 
 # The ROM's ASCII-to-binary routine (0E65H/0E6CH), the one reader behind

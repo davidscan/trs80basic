@@ -11,7 +11,7 @@
 110 REM The up-arrow is byte 5BH: a period listing shows [[[[, a terminal
 115 REM types ^^^^; both are the exponent field (ROM 2D81H).
 118 REM USING cannot print into a string, so the screen is read back.
-120 F=0:CLS:DIM M$(30)
+120 CLEAR 2000:F=0:CLS:DIM M$(30)
 130 DATA "#.##",-.5,"-.50"
 140 DATA "##.##",123.456,"%123.46"
 150 DATA "##.##-",-123.456,"%123.46-"
@@ -25,7 +25,7 @@
 230 DATA "#.##[[[[",123,"0.12E+03"
 240 DATA "#.##[[[[",-123,"-.12E+03"
 250 DATA ".####^^^^",1234.5,".0123E+05"
-260 DATA "##.##^^^^",999.99," 1.00E+03"
+260 DATA "##.##^^^^",999.99,"10.00E+02"
 270 DATA "##.##[[[[",0," 0.00E+00"
 280 DATA "###[[[[",123456," 12E+04"
 290 DATA "##.##[[[[",.000123," 1.23E-04"

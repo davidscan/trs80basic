@@ -440,17 +440,27 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         id = PU_IP - ((PU_PLUS || PU_TS != "") ? 0 : 1)    # digits before the point
         nd = id + PU_DP                                     # significant digits
         if (nd < 1) return pu_ovf(x, vtype(v))
-        if (ax == 0) { k = id; p = 0 }
-        else {
+        if (ax == 0) { k = id; p = 0; ds = "0" }
+        else if (vtype(v) == "D") {
             k = bfloor(log(ax) / log(10)) + 1               # digits in the integer part
             p = int(ax / (10 ^ (k - nd)) + 0.5)
             if (p >= 10 ^ nd) { k++; p = int(ax / (10 ^ (k - nd)) + 0.5) }
             else if (p < 10 ^ (nd - 1)) { k--; p = int(ax / (10 ^ (k - nd)) + 0.5) }
+            ds = sprintf("%.0f", p)
+        } else {
+            # a single (an integer is made one, 11A5H): scaled to six digits
+            # (11B6H), then divided by ten once per digit the picture lacks
+            # (11D0H), each a rounded step, and .5 added.  The exponent is
+            # the scaling's alone (11F5H-11F7H): when the rounding carries
+            # into a new digit the machine prints it, 10.00E+05 for 999999
+            # in ##.##^^^^, and the field overflows where it has no room.
+            k = sscale(ax) + 6; x = SCV
+            for (g = nd; g < 6; g++) x = sround(x / 10)
+            ds = sprintf("%d", int(x + 0.5))
+            for (g = 6; g < nd; g++) ds = ds "0"
         }
-        ds = sprintf("%.0f", p)
-        while (length(ds) < nd) ds = "0" ds
-        if (id < 0) { ist = ""; dec = "0" ds }              # the sign's place, behind the point
-        else { ist = substr(ds, 1, id); dec = substr(ds, id + 1) }
+        while (length(ds) < (id < 0 ? PU_DP : nd)) ds = "0" ds
+        ist = substr(ds, 1, length(ds) - PU_DP); dec = substr(ds, length(ds) - PU_DP + 1)
         e2 = k - id
         es = sprintf("%s%s%02d", (vtype(v) == "D" ? "D" : "E"), (e2 < 0 ? "-" : "+"), (e2 < 0 ? -e2 : e2))   # 1075H-1079H: the letter by type (L-19)
         body = (PU_DOT ? "." dec : "") es
@@ -458,7 +468,19 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         core = lead ist body
     } else {
         if (ax >= 1e16) return pu_ovf(x, vtype(v)) pu_tsign(neg)
-        ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
+        if (ax == 0 || vtype(v) != "S") ds = sprintf("%.0f", int(ax * (10 ^ PU_DP) + 0.5))
+        else {
+            # a single: the six digits the scaling leaves (1135H), with
+            # zeros behind them wherever the picture asks for more -- 1/3
+            # in #.######## is 0.33333300, 1234567 in ####### is 1234570.
+            # A value scaled up more places than the picture has decimals
+            # is divided back, a rounded step each (1164H), before the .5:
+            # 1.2149999 in ##.## goes to 121500, then 121.5, and is 1.22.
+            k = sscale(ax); x = SCV
+            for (g = PU_DP; g < -k; g++) x = sround(x / 10)
+            ds = sprintf("%d", int(x + 0.5))
+            for (g = (k > 0 ? -k : (-k > PU_DP ? PU_DP : -k)); g < PU_DP; g++) ds = ds "0"
+        }
         while (length(ds) < PU_DP + 1) ds = "0" ds
         ist = substr(ds, 1, length(ds) - PU_DP)
         dec = substr(ds, length(ds) - PU_DP + 1)
