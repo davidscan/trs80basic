@@ -419,6 +419,42 @@ function sround(x,   ax, e, q, r) {
     return (x < 0) ? -r : r
 }
 
+# THE SINGLE ADDER (ROM 0716H-07A9H), behind + and -, NEXT's step and
+# every sum inside SIN and ATN.  The operand with the smaller exponent is
+# shifted right to line up with the other, and only one byte of what is
+# shifted out is kept (07D7H-07F6H): its bits below that guard byte are
+# lost before the 32-bit add or subtract, which is then exact and rounded
+# at 0796H.  And when the exponents differ by 25 or more the larger
+# operand is returned as it is (072FH CP 19H / RET NC).  Both show only
+# in a subtraction: 1 - 4.265E-08 is 1 on the machine, where the exact
+# difference rounds to .99999994.  Since 2026-10-05; until then the exact
+# sum was rounded.
+function sadd(a, b,   t, ea, eb, g, ab) {
+    if (b == 0) return a
+    if (a == 0) return b
+    # nothing is lost when the operands are within 8 binary places of each
+    # other, or are whole numbers below 2^24: the exact sum, rounded
+    t = (a < 0) ? -a : a; ab = (b < 0) ? -b : b
+    if ((t >= ab) ? (ab * 256 >= t) : (t * 256 >= ab)) return sround(a + b)
+    if (t < 16777216 && ab < 16777216 && a == int(a) && b == int(b)) return sround(a + b)
+    ea = sexp(a); eb = sexp(b)
+    if (ea < eb) { t = a; a = b; b = t; t = ea; ea = eb; eb = t }
+    if (ea - eb >= 25) return a
+    g = 2 ^ (ea - 32)                         # one unit of the guard byte
+    ab = (b < 0) ? -b : b
+    ab = int(ab / g) * g
+    return sround(a + ((b < 0) ? -ab : ab))
+}
+
+# the exponent e of a non-zero x: 2^(e-1) <= |x| < 2^e
+function sexp(x,   e) {
+    if (x < 0) x = -x
+    e = int(log(x) / LN2)
+    if (2 ^ e > x) e--
+    else if (2 ^ (e + 1) <= x) e++
+    return e + 1
+}
+
 # A single-precision intermediate: rounded to 24 bits, and 0 below the
 # smallest exponent (0793H), as every step of a ROM float routine leaves it.
 function sfl(x) {
@@ -439,29 +475,49 @@ function sfl(x) {
 #   (Horner in a^2 over the five coefficients at 1594H, times a at 0C32H).
 #   COS (1541H) is SIN(x + pi/2).  TAN (15A8H) is SIN(x)/COS(x) through
 #   the divider at 08A2H, whose zero test (08A5H) is the ?/0.
-# Every product, sum and quotient is rounded as 0796H rounds, so a
-# quarter turn typed as 90*.01745329 or 1.5707963 reduces to EXACTLY 0
-# and COS of it is 0; the one departure a bit-exact machine could show is
-# a last-place difference where the ROM's adder drops bits below its
-# guard byte before rounding.
+# Every product and quotient is rounded as 0796H rounds and every sum
+# goes through the adder (sadd), so a quarter turn typed as 90*.01745329
+# or 1.5707963 reduces to EXACTLY 0 and COS of it is 0.
 function rom_sin(x,   t, f, d, e, a, a2, s) {
     t = sfl(x / TWOPI)
-    f = sfl(t - bfloor(t))
-    d = sfl(0.25 - f)
-    if (d >= 0) a = sfl(0.25 - d)
+    f = sfl(sadd(t, -bfloor(t)))
+    d = sfl(sadd(0.25, -f))
+    if (d >= 0) a = sfl(sadd(0.25, -d))
     else {
-        e = sfl(d + 0.5)
-        a = (e >= 0) ? sfl(e - 0.25) : -sfl(e + 0.25)
+        e = sfl(sadd(d, 0.5))
+        a = (e >= 0) ? sfl(sadd(e, -0.25)) : -sfl(sadd(e, 0.25))
     }
     a2 = sfl(a * a)
-    s = sfl(sfl(SINC1 * a2) + SINC2)
-    s = sfl(sfl(s * a2) + SINC3)
-    s = sfl(sfl(s * a2) + SINC4)
-    s = sfl(sfl(s * a2) + SINC5)
+    s = sfl(sadd(sfl(SINC1 * a2), SINC2))
+    s = sfl(sadd(sfl(s * a2), SINC3))
+    s = sfl(sadd(sfl(s * a2), SINC4))
+    s = sfl(sadd(sfl(s * a2), SINC5))
     return sfl(s * a)
 }
 
-function rom_cos(x) { return rom_sin(sfl(x + HALFPI)) }
+function rom_cos(x) { return rom_sin(sfl(sadd(x, HALFPI))) }
+
+# ATN as the ROM computes it (15BDH-15E2H), in single precision.  A
+# negative argument is made positive and the result negated (15C0H-15C3H).
+# An argument of 1 or more (15C9H CP 81H, the exponent) is replaced by its
+# reciprocal through the divider at 08A2H, and the series' value is then
+# subtracted from pi/2 (15D5H pushes 0710H; the constant at 158BH).  The
+# series is the one SIN uses (149AH): Horner in a^2 over the nine
+# coefficients at 15E3H, times a.  Every step is rounded as 0796H rounds.
+# So ATN(1) is 1.5707963 - series(1) = .78539824, one unit above the
+# nearest single to pi/4, and COS(ATN(1)*2) is -3.74507E-07, not 0.
+# Until 2026-10-05 this was the host's arctangent, rounded.
+function rom_atn(x,   neg, inv, a, a2, s, i) {
+    neg = (x < 0); a = neg ? -x : x
+    inv = (a >= 1)
+    if (inv) a = sfl(1 / a)
+    a2 = sfl(a * a)
+    s = ATNC[1]
+    for (i = 2; i <= 9; i++) s = sfl(sadd(sfl(s * a2), ATNC[i]))
+    s = sfl(s * a)
+    if (inv) s = sfl(sadd(HALFPI, -s))
+    return neg ? -s : s
+}
 
 function rom_tan(x,   s, c) {
     s = rom_sin(x); c = rom_cos(x)

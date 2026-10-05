@@ -248,6 +248,10 @@ function init_tables(   i, c, m, n) {
     TWOPI = 13176795 / 2^21; HALFPI = 13176795 / 2^23
     SINC1 = 10409914 / 2^18; SINC2 = -10036836 / 2^17; SINC3 = 10695768 / 2^17
     SINC4 = -10837472 / 2^18; SINC5 = 13176794 / 2^21
+    # ATN's nine (15E3H-1607H), the first to the last as the table holds them
+    ATNC[1] = 12310346 / 2^32; ATNC[2] = -8678914 / 2^29; ATNC[3] = 11518462 / 2^28
+    ATNC[4] = -10105204 / 2^27; ATNC[5] = 14302596 / 2^27; ATNC[6] = -9535432 / 2^26
+    ATNC[7] = 13417444 / 2^26; ATNC[8] = -11184748 / 2^25; ATNC[9] = 1
     CLN = DIRECTLN
     CUR = 0; VCOL = 0; NL = 0; LASTLN = 0; DATADIRTY = 1; NDATA = 0; DP = 1
     FSN = 0; GSN = 0; CONTOK = 0; TRACE = 0

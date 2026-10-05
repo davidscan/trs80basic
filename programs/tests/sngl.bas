@@ -30,5 +30,11 @@
 410 IF STR$(SQR(2))<>" 1.41421" OR SQR(2)*SQR(2)=2 THEN PRINT "FAIL: SQR(2)^2 is not exactly 2 in 24 bits":F=1
 420 IF VAL(".1E0")<>.1 OR VAL(".1")=.1 THEN PRINT "FAIL: VAL rounds a single (an E exponent); VAL(\".1\") is a double (0E65H)":F=1
 430 IF CSNG(1#/3)<>1/3 THEN PRINT "FAIL: CSNG rounds":F=1
+500 REM the single adder (0716H-07A9H): the operand with the smaller exponent is lined up and
+510 REM keeps one guard byte; 25 or more places apart, the larger operand is the result (072FH)
+520 IF 1-4.265E-8<>1 OR 1-5.9E-8<>1 OR 1-6E-8=1 THEN PRINT "FAIL: 1 minus less than 2^-24 is 1:";1-4.265E-8=1;1-5.9E-8=1;1-6E-8=1:F=1
+530 D#=1-6E-8:E#=100-99.99999:IF STR$(D#)<>" .9999999403953552" OR STR$(E#)<>" 1.52587890625D-05" THEN PRINT "FAIL: 1-6E-8, 100-99.99999:";D#;E#:F=1
+540 D#=.1+.2:IF STR$(D#)<>" .300000011920929" THEN PRINT "FAIL: .1+.2:";D#:F=1
+550 N=0:FOR X=1 TO 1.00001 STEP 6E-8:N=N+1:NEXT:IF N<>84 THEN PRINT "FAIL: NEXT steps through the adder: 84 passes, not";N:F=1
 900 IF F THEN PRINT "SNGL FIXTURE FAILED":ERROR 5
 910 PRINT "SNGL FIXTURE OK":END

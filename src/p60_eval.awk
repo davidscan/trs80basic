@@ -88,10 +88,10 @@ function e_add(   v, r, op, x) {
                 v = "S" vstr(v) vstr(r); continue
             }
             if (isN(v) != isN(r)) { raise(13); return v }
-            x = num(v) + num(r)
+            x = (ptype(v, r) == "S") ? sadd(num(v), num(r)) : num(v) + num(r)
         } else {
             if (!isN(v) || !isN(r)) { raise(13); return v }
-            x = num(v) - num(r)
+            x = (ptype(v, r) == "S") ? sadd(num(v), -num(r)) : num(v) - num(r)
         }
         v = "N" tresult(ptype(v, r), x); if (E) return v
     }
@@ -432,7 +432,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     if (name == "SIN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_sin(sfl(x)) }   # the ROM's series, step for step (p90)
     if (name == "COS") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_cos(sfl(x)) }
     if (name == "TAN") { x = numarg(a1, na); if (E) return "NI0"; x = rom_tan(sfl(x)); if (E) return "NI0"; return "NS" x }
-    if (name == "ATN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" sround(atan2(x, 1)) }
+    if (name == "ATN") { x = numarg(a1, na); if (E) return "NI0"; return "NS" rom_atn(sround(x)) }
     if (name == "LOG") { x = numarg(a1, na); if (E) return "NI0"; if (x <= 0) { raise(5); return "NI0" }; return "NS" sround(log(x)) }
     if (name == "EXP") {
         x = numarg(a1, na); if (E) return "NI0"

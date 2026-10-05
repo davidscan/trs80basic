@@ -2176,9 +2176,10 @@ TAN(x)   the tangent of x, with x in RADIANS
   Grows without limit near PI/2 and its odd multiples, where the true
   value is undefined.  SIN, COS and TAN are the ROM's own series in
   single precision, so an angle that reduces to exactly a quarter turn
-  (1.5707963, or ATN(1)*2) has COS 0 and TAN is ?/0 -- the machine's
-  answer -- while TAN(1.5708) is a large number.  Avoid feeding it an
-  unchecked angle.
+  (1.5707963) has COS 0 and TAN is ?/0 -- the machine's answer --
+  while TAN(1.5708) is a large number, and so is TAN(ATN(1)*2): the
+  machine's ATN(1)*2 is one unit past the quarter turn.  Avoid feeding
+  it an unchecked angle.
   Example: PRINT TAN(0)         ->  0
 ```
 
@@ -2190,6 +2191,8 @@ ATN(x)   the arctangent of x, in RADIANS, between -PI/2 and PI/2
   language does not provide: ATN(1) is PI/4, so ATN(1)*4 is PI.
   Because the result is limited to half a turn, ATN alone cannot tell
   which quadrant a point is in; check the signs of x and y yourself.
+  ATN is the ROM's own series in single precision, like SIN: ATN(1)
+  is .78539824, one unit above the nearest single to PI/4.
   Example: PRINT ATN(1)*4       ->  3.14159
   Example: P=ATN(1)*4           (the usual way to get PI)
 ```

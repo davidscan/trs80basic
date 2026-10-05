@@ -623,8 +623,8 @@ function do_next(name,   j, v, fl, d) {
         if (j <= fl) { raise(1); return 0 }
     }
     FSN = j
-    v = NV[FS_V[j]] + FS_S[j]
-    if (FS_SN[j]) v = sround(v)                 # the add is the single add (0716H): 24 bits, so X=X+.1 drifts as on the machine
+    if (FS_SN[j]) v = sadd(NV[FS_V[j]], FS_S[j])   # the add is the single add (0716H): 24 bits, so X=X+.1 drifts as on the machine
+    else v = NV[FS_V[j]] + FS_S[j]
     # an integer index steps by integer addition (22F9H); a sum past
     # -32768..32767 is ?OV and the index keeps its value (2301H), so
     # FOR I%=32760 TO 32767 stops at the NEXT after 32767, as on the machine

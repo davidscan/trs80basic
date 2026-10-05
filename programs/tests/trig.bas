@@ -2,14 +2,22 @@
 20 REM precision: x/2pi, the turn's fraction, folded to [-.25,.25] against .25 (156DH-1584H),
 30 REM the five-term series at 1594H (149AH), COS = SIN(x+pi/2), TAN = SIN/COS through the
 40 REM divider at 08A2H whose zero test is ?/0.  A quarter turn within one unit of the ROM's
-50 REM pi/2 (1.5707963, ATN(1)*2) reduces to exactly 0: COS is 0 and TAN is ?/0.  Until
+50 REM pi/2 (1.5707963) reduces to exactly 0: COS is 0 and TAN is ?/0.  Until
 60 REM 2026-09-27 the host's libm answered on the raw argument (the 2026-09-26 audit, M-12).
+62 REM ATN is the ROM's routine too (15BDH-15E2H, since 2026-10-05): the series at 15E3H, for an
+64 REM argument of 1 or more on its reciprocal and taken from pi/2.  ATN(1) is .78539824, one
+66 REM unit above the nearest single to pi/4, so ATN(1)*2 is NOT the quarter turn: COS of it is
+68 REM -3.74507E-07 and TAN a value.  Every sum goes through the single adder (0716H).
 70 F=0:S=0:ON ERROR GOTO 900
-100 IF COS(1.5707963)<>0 OR COS(ATN(1)*2)<>0 OR COS(1.5707962)<>0 THEN PRINT "FAIL: COS of the ROM's quarter turn is 0:";COS(1.5707963);COS(ATN(1)*2):F=1
+100 IF COS(1.5707963)<>0 OR COS(1.5707962)<>0 THEN PRINT "FAIL: COS of the ROM's quarter turn is 0:";COS(1.5707963);COS(1.5707962):F=1
 110 S=1:X=TAN(1.5707963)
 120 IF S<>2 THEN PRINT "FAIL: TAN(1.5707963) WAS NOT ?/0":F=1
 130 S=3:X=TAN(ATN(1)*2)
-140 IF S<>4 THEN PRINT "FAIL: TAN(ATN(1)*2) WAS NOT ?/0":F=1
+140 IF S<>3 OR STR$(X)<>"-2.67018E+06" OR STR$(COS(ATN(1)*2))<>"-3.74507E-07" THEN PRINT "FAIL: ATN(1)*2 is one unit past the quarter turn:";X;COS(ATN(1)*2):F=1
+142 D#=ATN(1):IF STR$(D#)<>" .7853982448577881" OR STR$(ATN(1)*4)<>" 3.14159" THEN PRINT "FAIL: ATN(1):";D#;ATN(1)*4:F=1
+144 D#=ATN(10):E#=ATN(.5):IF STR$(D#)<>" 1.47112774848938" OR STR$(E#)<>" .4636476039886475" THEN PRINT "FAIL: ATN(10), ATN(.5):";D#;E#:F=1
+146 D#=ATN(2):E#=ATN(-.3):IF STR$(D#)<>" 1.107148766517639" OR STR$(E#)<>"-.2914567887783051" THEN PRINT "FAIL: ATN(2), ATN(-.3):";D#;E#:F=1
+148 IF ATN(0)<>0 OR STR$(ATN(1E20))<>" 1.5708" OR ATN(-1)+ATN(1)<>0 OR ATN(.000357708)<>.000357708 OR ATN(1E-20)<>1E-20 THEN PRINT "FAIL: ATN at 0, 1E20, -1, small:";ATN(0);ATN(1E20);ATN(-1);ATN(.000357708):F=1
 150 IF ABS(TAN(1.5708))<100000 THEN PRINT "FAIL: TAN(1.5708) returns a value (Model III manual p.239):";TAN(1.5708):F=1
 160 REM the manual's other example: TAN(90*.01745329) is ?/0 (Model III manual p.239).  The
 170 REM reader makes .01745329 one unit above the nearest single (it divides 1745329 by 10 eight
