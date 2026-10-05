@@ -21,10 +21,14 @@
 300 REM underflow is zero, silently
 310 IF 1E-20*1E-20<>0 OR 1.5E-39<>0 THEN PRINT "FAIL: 1E-40 and 1.5E-39 are 0":F=1
 320 IF 1E-38*.1<>0 THEN PRINT "FAIL: 1E-39 is 0":F=1
-330 IF 2.9387E-39*1<>0 OR 2.94E-39=0 THEN PRINT "FAIL: the floor is 2^-128 = 2.93874E-39":F=1
+330 REM a product reaches down to 2^-128; a quotient stops two places higher, because the divide
+332 REM settles its exponent before the mantissas (0914H-0930H, 08ADH): X/2 is 0 one halving after
+334 REM 2^-126.  The reader divides by ten, so a literal below about 1.18E-38 is 0.  (srange.bas)
+336 X=1:FOR I=1 TO 128:X=X*.5:NEXT:IF STR$(X)<>" 2.93874E-39" OR X*.5<>0 THEN PRINT "FAIL: a product's floor is 2^-128:";X;X*.5:F=1
+338 IF 2.94E-39<>0 OR 5.9E-39<>0 OR 1.18E-38=0 OR 1E-38=0 THEN PRINT "FAIL: a literal below the divide's floor is 0":F=1
 340 X=1:C=0:FOR I=1 TO 2000:X=X/2:IF X=0 THEN 360
 350 NEXT
-360 IF I<>129 THEN PRINT "FAIL: X=X/2 reaches 0 at step 129, not";I:F=1
+360 IF I<>127 THEN PRINT "FAIL: X=X/2 reaches 0 at step 127, not";I:F=1
 370 IF 1D-20*1D-20<>0 THEN PRINT "FAIL: a double underflows too":F=1
 400 REM a single result of a function is 24 bits
 410 IF STR$(SQR(2))<>" 1.41421" OR SQR(2)*SQR(2)=2 THEN PRINT "FAIL: SQR(2)^2 is not exactly 2 in 24 bits":F=1

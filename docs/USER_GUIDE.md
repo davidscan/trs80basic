@@ -2284,6 +2284,13 @@ CSNG(x)   convert x to single precision
   digits, so 4/9 prints .444445 as on the machine.  An operation takes the wider
   operand's type; / and ^ are never integer, and an integer + - * that
   leaves 16 bits is silently a single.
+  A single runs from 2.93874E-39 to 1.70141E+38, but * and / test the
+  exponent before they work the digits, as the machine does: a product
+  is ?OV when its operands' binary exponents add past the top even if
+  the answer would fit (1E19*1E19, 8E37*2 and 1.6E38*1 are ?OV; use +
+  to double a large value), and a quotient gives 0 two binary places
+  above the bottom (1E-38/2 is 0, 1E-38*.5 is 5E-39) and wraps at the
+  top (1.6E38/.9 is 0).  A literal below about 1.18E-38 reads as 0.
   See: man DEFINT for the types of variables, man CDBL.
   Example: PRINT CSNG(1#/3)
 ```

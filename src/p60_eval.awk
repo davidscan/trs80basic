@@ -153,14 +153,16 @@ function e_mul(   v, r, op, x, d, t) {
         op = TK[CK, CP]; CP++
         r = e_un(); if (E) return v
         if (!isN(v) || !isN(r)) { raise(13); return v }
-        if (op == "*") x = num(v) * num(r)
-        else {
-            d = num(r)
-            if (d == 0) { raise(11); return v }
-            x = num(v) / d
-        }
         t = ptype(v, r)
         if (op == "/" && t == "I") t = "S"      # division is never integer: both are converted to single (0BD2H's family)
+        if (op == "*") {
+            x = (t == "S") ? smul(num(v), num(r)) : num(v) * num(r)   # the single multiply (0847H; p90)
+        } else {
+            d = num(r)
+            if (d == 0) { raise(11); return v }
+            x = (t == "S") ? sdiv(num(v), d) : num(v) / d              # the single divide (08A2H; p90)
+        }
+        if (E) return v
         v = "N" tresult(t, x); if (E) return v
     }
     return v

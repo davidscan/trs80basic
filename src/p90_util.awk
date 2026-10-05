@@ -398,7 +398,7 @@ function rdsng(t,   p, ex, fp, x, n, i) {
     x = sround((t fp) + 0)
     n = ex - length(fp)
     for (i = 0; i < n && x != 0 && x < 1E39; i++) x = sround(x * 10)
-    for (i = 0; i > n && x != 0; i--) x = sround(x / 10)
+    for (i = 0; i > n && x != 0; i--) x = sdiv(x, 10)
     return x
 }
 
@@ -510,7 +510,7 @@ function rom_cos(x) { return rom_sin(sfl(sadd(x, HALFPI))) }
 function rom_atn(x,   neg, inv, a, a2, s, i) {
     neg = (x < 0); a = neg ? -x : x
     inv = (a >= 1)
-    if (inv) a = sfl(1 / a)
+    if (inv) a = sdiv(1, a)
     a2 = sfl(a * a)
     s = ATNC[1]
     for (i = 2; i <= 9; i++) s = sfl(sadd(sfl(s * a2), ATNC[i]))
@@ -542,9 +542,53 @@ function rom_atn(x,   neg, inv, a, a2, s, i) {
 # SQR(25) is 5.000001, though both print whole (2^2 and SQR(4) do come
 # out whole), and a program's IF SQR(N)=INT(SQR(N)) answers as it did on
 # the machine.
+#
+# THE EXPONENT IS SETTLED BEFORE THE MANTISSA (0914H-0930H; since
+# 2026-10-05).  Multiply and divide first add or subtract the two
+# exponent bytes and test that sum for range, and only then work the
+# mantissas, whose result can still move the exponent one place:
+#   a product whose exponents add to 128 or more is ?OV even when the
+#   mantissas would bring it back under the limit: 1E19*1E19, 8E37*2 and
+#   1.6E38*1 are ?OV, 1.6E38*.9 is 1.44E+38.  (The bottom needs no rule:
+#   what the test zeroes is below 2^-128 anyway.)
+#   a quotient: with t = the dividend's exponent byte less the divisor's,
+#   plus 80H, the routine stores t-1, takes 0 or less as a result of 0
+#   (0922H, 0928H), more than FFH as ?OV, and then adds 2 to the byte
+#   with no test (08ADH-08AEH).  So t of 1 or less is 0 -- X/2 reaches 0
+#   one halving after 2^-126, and a literal below about 1.18E-38, which
+#   the reader divides down by tens, is 0 -- and at the top the byte
+#   wraps: with t = FFH and the dividend's mantissa not below the
+#   divisor's the byte comes out 0, a result of 0 (1.6E38/.9 is 0, the
+#   ROM bug list's entry); with t = 100H the same case leaves a value
+#   2^256 too small (1.6E38/.25 is 5.52715E-39) and the other is ?OV.
 function smul(a, b,   x) {
+    if (a == 0 || b == 0) return 0
     x = a * b
+    if (x < 1E18 && x > -1E18 && (x > 1E-18 || x < -1E-18)) return sround(x)   # far from both ends
+    if (sexp(a) + sexp(b) >= 128) { raise(6); return 0 }
     if (x < FMIN && x > -FMIN) return 0
+    x = sround(x)
+    if (x >= FMAX || x <= -FMAX) { raise(6); return 0 }
+    return x
+}
+
+# the single divide (08A2H): b is not 0 (the caller raised ?/0)
+function sdiv(a, b,   x, t, ea, eb, big) {
+    if (a == 0) return 0
+    x = a / b
+    if (x < 1E18 && x > -1E18 && (x > 1E-18 || x < -1E-18)) return sround(x)   # far from both ends
+    ea = sexp(a); eb = sexp(b)
+    t = ea - eb + 128
+    if (t <= 1) return 0
+    if (t >= 257) { raise(6); return 0 }
+    if (t >= 255) {
+        big = (((a < 0) ? -a : a) / (2 ^ ea) >= ((b < 0) ? -b : b) / (2 ^ eb))   # the dividend's mantissa is not below the divisor's
+        if (t == 255 && big) return 0
+        if (t == 256) {
+            if (!big) { raise(6); return 0 }
+            return sround(x / (2 ^ 128) / (2 ^ 128))
+        }
+    }
     x = sround(x)
     if (x >= FMAX || x <= -FMAX) { raise(6); return 0 }
     return x
@@ -554,7 +598,7 @@ function rom_log(x,   e, t, t2, s) {
     if (x <= 0) { raise(5); return 0 }
     e = sexp(x)
     t = sadd(x / (2 ^ e), SQHALF)
-    t = sround((2 * SQHALF) / t)
+    t = sdiv(2 * SQHALF, t)
     t = sadd(1, -t)
     t2 = smul(t, t)
     s = sadd(smul(LOGC[1], t2), LOGC[2])
@@ -603,8 +647,7 @@ function rom_pow(b, y,   neg, r) {
 function rom_tan(x,   s, c) {
     s = rom_sin(x); c = rom_cos(x)
     if (c == 0) { raise(11); return 0 }
-    s = frange(s / c); if (E) return 0
-    return sround(s)
+    return sdiv(s, c)
 }
 
 # The range of a single or double result: past the type's limit it is
