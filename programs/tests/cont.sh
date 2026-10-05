@@ -40,6 +40,30 @@ READY
 >'
 [ "$out" = "$want" ] || fail "a handler running off the end is ?NR" "$out"
 
+# ?NR is an error like any other: 19C9H-19CDH save the END of the program
+# as the CONT point, so CONT after it is READY, every time; until
+# 2026-10-04 CONT re-ran the trapped statement into the handler and ?NR
+# again (the 2026-09-30 audit, BM-4)
+out=$(run '
+10 ON ERROR GOTO 100
+20 X=1/0
+30 PRINT "THIRTY"
+100 PRINT "H"
+RUN
+CONT
+CONT
+')
+want='>RUN
+H
+?NR ERROR IN 100
+READY
+>CONT
+READY
+>CONT
+READY
+>'
+[ "$out" = "$want" ] || fail "CONT after ?NR is READY" "$out"
+
 # CONT after END goes on too: END and STOP share 1DB4H-1DD1H, which saves
 # the line and the statement behind the END in 40F5H/40F7H; only the
 # BREAK message differs (1DDEH)

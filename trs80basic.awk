@@ -4328,9 +4328,14 @@ function execloop(   ty, tx) {
                 # inside an error handler is ?NR (the 40F2H flag, code
                 # 22H); otherwise 1DC1H-1DD1H save the end as the CONT
                 # point, as END does, so a later CONT ends again at READY
-                # rather than ?CN (the 2026-09-26 audit, M-2 and R-5)
-                if (INHANDLER) { raise(18); report_err(); return }
+                # rather than ?CN (the 2026-09-26 audit, M-2 and R-5).
+                # ?NR is an error like any other: 19C9H-19CDH save the
+                # end as the CONT point first, so CONT after it is READY
+                # (until 2026-10-04 the trapped statement's point stayed,
+                # and CONT re-ran it into the handler: the 2026-09-30
+                # audit, BM-4)
                 CONT_K = CK; CONT_LI = CLI; CONT_P = CP; CONTOK = 1
+                if (INHANDLER) { raise(18); report_err(); return }
                 return
             }
             setline(CLI + 1)
