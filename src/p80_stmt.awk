@@ -464,6 +464,11 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         e2 = k - id
         es = sprintf("%s%s%02d", (vtype(v) == "D" ? "D" : "E"), (e2 < 0 ? "-" : "+"), (e2 < 0 ? -e2 : e2))   # 1075H-1079H: the letter by type (L-19)
         body = (PU_DOT ? "." dec : "") es
+        # a zero is not scaled (11B6H is skipped), and the edit at 10C0H
+        # blanks its leading zeros like any field's: ###.##^^^^ of 0 is
+        # "  0.00E+00", +##.##^^^^ " +0.00E+00", **###.##^^^^ ****0.00E+00.
+        # Until 2026-10-05 the zeros showed (00.00E+00).
+        if (ax == 0 && id >= 1) { ist = "0"; if (PU_AST) fill = "*" }
         if (ist == "" && length(lead "0" body) <= w) ist = "0"
         core = lead ist body
     } else {
