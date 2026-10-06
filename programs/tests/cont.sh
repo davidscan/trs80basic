@@ -140,4 +140,41 @@ READY
 READY
 >'
 [ "$out" = "$want" ] || fail "CONT after a typed LIST or LLIST" "$out"
+# With TRON on, RESUME 0, a bare RESUME and CONT onto a line's FIRST
+# statement print its <n> again: the saved pointer is the 00 ending the
+# line before, and the ROM re-enters through its next-line code (1D35H-
+# 1D59H).  RESUME NEXT, and a resume further along a line, print none
+# (the 2026-09-30 audit, BL-4)
+out=$(run '\n10 TRON:ON ERROR GOTO 100\n20 X=1/Y\n30 PRINT "E":TROFF:END\n100 Y=1:RESUME 0\nRUN\n100 Y=1:RESUME\nRUN\n100 Y=1:RESUME NEXT\nRUN\n20 A=2:X=1/Y\n100 Y=1:RESUME\nRUN\n')
+want='>RUN
+<20><100><20><30>E
+READY
+>100 Y=1:RESUME
+>RUN
+<20><100><20><30>E
+READY
+>100 Y=1:RESUME NEXT
+>RUN
+<20><100><30>E
+READY
+>20 A=2:X=1/Y
+>100 Y=1:RESUME
+>RUN
+<20><100><30>E
+READY
+>'
+[ "$out" = "$want" ] || fail "TRON: RESUME onto a line's first statement" "$out"
+out=$(run '\n10 TRON\n20 X=1/Y\n30 PRINT "E":TROFF:END\nRUN\nY=1\nCONT\n')
+want='>RUN
+<20>
+?/0 ERROR IN 20
+READY
+>Y=1
+READY
+>CONT
+<20><30>E
+READY
+>'
+[ "$out" = "$want" ] || fail "TRON: CONT onto a line's first statement" "$out"
+
 echo "CONT OK"

@@ -4369,6 +4369,15 @@ function setline(i) {
     if (TRACE) s_puts("<" CLN ">")
 }
 
+# RESUME, RESUME 0 and CONT put back a saved statement pointer.  For a
+# line's first statement that pointer is the 00 ending the line before
+# (40E6H, 40EEH), so the ROM re-enters through the next-line code
+# (1D35H-1D59H) and TRON prints the line's <n> again (the 2026-09-30
+# audit, BL-4).  A statement further along the line prints nothing.
+function trace_placed() {
+    if (TRACE && CK != "I" && CP == 1) s_puts("<" CLN ">")
+}
+
 function jumpline(ln) {
     if (!(ln in LIDX)) { raise(8); return }
     setline(LIDX[ln])
@@ -5138,6 +5147,7 @@ function st_cont() {
     CLN = (CK == "I") ? DIRECTLN : CK + 0
     if (CK != "I" && !(CK in TOKD)) tokline(CK, runtext(CLN))
     PLACED = 1                              # 1DE4H replaces the pointer: CONT X continues
+    trace_placed()
 }
 
 function st_run(   n, f, keep, given) {
@@ -5293,6 +5303,7 @@ function st_resume(   p, ty, tx) {
         if (p == 0) {
             CK = ERR_K; CLI = ERR_LI; CP = ERR_CP
             CLN = (CK == "I") ? DIRECTLN : CK + 0
+            trace_placed()
             return
         }
         jumpline(p)
@@ -5301,6 +5312,7 @@ function st_resume(   p, ty, tx) {
     if (!at_stmt_end()) { raise(2); return }
     CK = ERR_K; CLI = ERR_LI; CP = ERR_CP
     CLN = (CK == "I") ? DIRECTLN : CK + 0
+    trace_placed()
 }
 # ===================== program-memory mapping + VARPTR string space =========
 # Three related pieces of the real Level II memory model (program-memory
