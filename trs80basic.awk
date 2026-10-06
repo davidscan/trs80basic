@@ -4886,7 +4886,10 @@ function st_gosub(   ln) {
 # not an error and X=5 never runs: the rest of a GOSUB statement is skipped.
 function st_return() {
     if (!at_stmt_end()) { raise(2); return }
-    if (GSN == 0) { raise(3); return }
+    # with no GOSUB open, the FOR frames are gone before the ?RG: 1EE1H's
+    # walk (1936H) passes every one, 1EE4H-1EE5H keep that stack pointer,
+    # and only 1EE8H tests for the GOSUB (the 2026-09-30 audit, BL-1)
+    if (GSN == 0) { FSN = 0; raise(3); return }
     CK = GS_K[GSN]; CLI = GS_LI[GSN]; CP = GS_P[GSN]
     skipstmt(); PLACED = 1
     # discard FOR frames opened since the GOSUB (early RETURN out of a loop
@@ -4917,6 +4920,10 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     if (isint) { v0 = intstore(v0); if (E) return }
     else if (sng) v0 = sround(v0)
     NV[name] = v0
+    # an open loop on the same index is dropped here, before TO is read
+    # (1CAAH-1CB2H): FOR I=5 TO A$ is ?TM with the old loop already gone
+    for (j = FSN; j > for_floor(); j--)
+        if (FS_V[j] == name) { FSN = j - 1; break }
     if (!(TY[CK, CP] == "i" && TK[CK, CP] == "TO")) { raise(2); return }
     # a DOUBLE index is ?TM, tested after the start is stored and TO is
     # read (1CC5H-1CCBH: RST 20H on the index's type, JP NC,0AF6H): the
@@ -4938,8 +4945,6 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
         if (isint) { stp = intstore(stp); if (E) return }
         else if (sng) stp = sround(stp)
     }
-    for (j = FSN; j > for_floor(); j--)
-        if (FS_V[j] == name) { FSN = j - 1; break }
     if (!mem_need(16)) return               # 1CB6H-1CB8H: sixteen bytes, or ?OM (p75)
     FSN++
     FS_V[FSN] = name; FS_L[FSN] = v1; FS_S[FSN] = stp; FS_I[FSN] = isint; FS_SN[FSN] = sng

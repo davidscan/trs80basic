@@ -1,6 +1,15 @@
 10 REM FOR and NEXT stop their scan of the stack at the GOSUB frame (ROM
 20 REM 1936H): a subroutine cannot see, reuse or NEXT its caller's loops.
 30 F=0:ON ERROR GOTO 900
+31 REM --- RETURN with no GOSUB drops every FOR frame before ?RG (1EE1H-
+32 REM     1EE8H): the NEXT behind it is ?NF, not a second pass
+33 S=5:FOR I=1 TO 3:RETURN
+34 NEXT I
+35 IF S<>7 THEN PRINT "FAIL: ?RG KEPT THE FOR FRAMES, S=";S:F=1
+36 REM --- FOR drops an open loop on its index before TO is read (1CAAH)
+37 S=7:FOR I=1 TO 2:FOR I=5 TO A$
+38 NEXT I
+39 IF S<>9 THEN PRINT "FAIL: FOR KEPT THE OLD LOOP PAST ?TM, S=";S:F=1
 40 REM --- a delay subroutine reusing the caller's variable: the caller's
 50 REM     loop SURVIVES; its NEXT then sees I=11 and the loop ends clean
 60 N=0:FOR I=1 TO 3:N=N+1:GOSUB 500:NEXT I
@@ -35,4 +44,8 @@
 900 C=ERR/2+1
 910 IF S=1 AND C=1 AND ERL=700 THEN S=2:RESUME 130
 920 IF S=3 AND C=1 AND ERL=750 THEN S=4:RESUME 160
+922 IF S=5 AND C=3 AND ERL=33 THEN S=6:RESUME NEXT
+923 IF S=6 AND C=1 AND ERL=34 THEN S=7:RESUME 35
+924 IF S=7 AND C=13 AND ERL=37 THEN S=8:RESUME NEXT
+925 IF S=8 AND C=1 AND ERL=38 THEN S=9:RESUME 39
 930 PRINT "FAIL: UNEXPECTED ERROR";C;"IN";ERL;"S=";S:F=1:RESUME 230

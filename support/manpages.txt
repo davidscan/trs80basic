@@ -173,7 +173,8 @@ RETURN   go back to the statement after the most recent GOSUB
   GOSUB sat mid-line, execution resumes with the next statement on that
   same line.
   A RETURN with no matching GOSUB raises ?RG ERROR -- usually a sign the
-  program ran into a subroutine instead of calling it.
+  program ran into a subroutine instead of calling it. As on the ROM, it
+  closes every open FOR loop first, so a NEXT after it is ?NF.
   Example: 590 RETURN
 
 :FOR
