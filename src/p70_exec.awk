@@ -647,7 +647,12 @@ function do_next(name,   j, v, fl, d) {
         if (j <= fl) { raise(1); return 0 }
     }
     FSN = j
-    if (FS_SN[j]) v = sadd(NV[FS_V[j]], FS_S[j])   # the add is the single add (0716H): 24 bits, so X=X+.1 drifts as on the machine
+    # a single index steps by the single add (0716H): 24 bits, so X=X+.1
+    # drifts as on the machine; and a sum past the single's range is ?OV
+    # there (0796H -> 07B2H) before the store, so the index keeps its value
+    # (the 2026-09-30 audit, BL-5: FOR I=1E38 TO 1.7E38 STEP 1E38 ended
+    # with a single holding 2E+38)
+    if (FS_SN[j]) { v = frange(sadd(NV[FS_V[j]], FS_S[j]), "S"); if (E) return 0 }
     else v = NV[FS_V[j]] + FS_S[j]
     # an integer index steps by integer addition (22F9H); a sum past
     # -32768..32767 is ?OV and the index keeps its value (2301H), so
