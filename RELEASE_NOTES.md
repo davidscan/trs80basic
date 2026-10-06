@@ -441,6 +441,12 @@ maintained outside this repository.
   where the ROM's divide never tests its dividend: the tiny quotient is
   always the same here (`0#/.1#` is `1.469367938527859D-38`), where the
   machine's varies in size and even in sign with the leftover bytes.
+- `MEM` and `FRE(0)` count an open GOSUB as 5 bytes, the machine's
+  frame (Farvour 1EB7H-1EC0H; 6 until 2026-10-05), so `PRINT MEM` inside
+  a subroutine is 1 higher per open GOSUB and a runaway recursion goes
+  deeper before ?OM. One listing of the 4,339-program corpus prints a
+  different number (elcvidwk.bas, `PRINT MEM` in a subroutine). The
+  temporaries of an expression are still not counted.
 - Variable names are the ROM's two characters: SUM and SU are the same
   variable (`memory host` lifts it for new code).
 - Strings are at most 255 characters, as on the machine (?LS past it;

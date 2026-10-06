@@ -6518,7 +6518,9 @@ function fr_dump(   i) {
 # its value (2 an integer, 3 a string's descriptor, 4 single, 8 double:
 # the DEF-type table decides, a name is single without it); an array is
 # a 6-byte header, 2 per dimension and the elements (DIM allocates them
-# all); a GOSUB frame is 6 bytes (1EB1H-1EC1H) and a FOR frame 17 (the
+# all); a GOSUB frame is 5 bytes (1EB7H-1EC0H: PUSH HL, PUSH HL, PUSH
+# AF, INC SP; 1963H is only asked for 6; 6 until 2026-10-05, the
+# 2026-09-30 audit, BL-2) and a FOR frame 17 (the
 # pushes of 1CBBH-1D1DH); and the driver's own depth while a statement
 # runs is 14 bytes, the figure that makes PRINT MEM say 15572 on a 16K
 # machine with no program: 32767 - 50 - 17131 - 14.  Names longer than
@@ -6575,7 +6577,7 @@ function mem_varbytes(   n, k, i, e) {
 # mode the note still explains the ?OM or ?BS that follows.
 function mem_free() {
     pm_sync(); if (!HOSTMEM) pm_truncnote()
-    return (HOSTMEM ? HOSTTOP : mem_strlo()) - 14 - 6 * GSN - 17 * FSN - ((HOSTMEM ? PMFULL : PMEND) + mem_varbytes())
+    return (HOSTMEM ? HOSTTOP : mem_strlo()) - 14 - 5 * GSN - 17 * FSN - ((HOSTMEM ? PMFULL : PMEND) + mem_varbytes())
 }
 # (40D6H) - (40A0H) after the collection: FRE(a$)
 function mem_strfree() { return (HOSTMEM ? HOSTTOP : mem_strsz()) - STRUSED }

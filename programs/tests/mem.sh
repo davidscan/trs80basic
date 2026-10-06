@@ -57,7 +57,8 @@ READY
 
 # in a program: a literal in its line takes no string space, a built string
 # its length; a single is 7 bytes, a string 6, DIM C(9) 48 (6 + 2 + 10 * 4);
-# a GOSUB frame is 6 and a FOR frame 17; CLEAR's errors keep the variables
+# a GOSUB frame is 5 (1EB7H-1EC0H; it was 6 until 2026-10-05, BL-2) and
+# a FOR frame 17; CLEAR's errors keep the variables
 out=$(repl 32767 '10 A$="HELLO":PRINT FRE("");MEM\n20 B$="HEL"+"LO":PRINT FRE("");MEM\n30 DIM C(9):PRINT MEM\n40 X=MEM:GOSUB 100\n50 FOR I=1 TO 1:PRINT X-MEM:NEXT\n60 DEFINT J:J=1:PRINT X-MEM\n70 CLEAR 32000\n80 PRINT "NOT REACHED"\n100 PRINT X-MEM:RETURN\nRUN\nPRINT A$;B$;X\n')
 want='>10 A$="HELLO":PRINT FRE("");MEM
 >20 B$="HEL"+"LO":PRINT FRE("");MEM
@@ -72,7 +73,7 @@ want='>10 A$="HELLO":PRINT FRE("");MEM
  50  15400 
  45  15394 
  15346 
- 6 
+ 5 
  24 
  12 
 ?OM ERROR IN 70
@@ -147,7 +148,8 @@ READY
 [ "$out" = "$want" ] || fail "?OS" "$out"
 
 # ?OM: a GOSUB, a FOR or a DIM that the free memory cannot hold (1963H-
-# 197AH, with its 58-byte margin), so a runaway recursion ends; ERR/2+1
+# 197AH, with its 58-byte margin), so a runaway recursion ends (at 3099
+# five-byte GOSUB frames on a 16K map; 2583 while they counted 6); ERR/2+1
 # is 7, and the variables stay
 out=$(repl 32767 '10 N=N+1:GOSUB 10\nRUN\nPRINT N\nNEW\n10 ON ERROR GOTO 100\n20 D=D+1:IF D<2500 THEN GOSUB 20\n25 IF D=2500 THEN PRINT "DEPTH OK";D\n27 D=D-1:IF D>0 THEN RETURN\n30 DIM A(3000):PRINT "DIM OK":DIM B(5000)\n40 PRINT "NOT REACHED"\n100 PRINT ERR/2+1;ERL;MEM>0:END\nRUN\n')
 want='>10 N=N+1:GOSUB 10
@@ -155,7 +157,7 @@ want='>10 N=N+1:GOSUB 10
 ?OM ERROR IN 10
 READY
 >PRINT N
- 2583 
+ 3099 
 READY
 >NEW
 READY
