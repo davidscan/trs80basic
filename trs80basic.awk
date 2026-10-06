@@ -3234,6 +3234,17 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
         if (c ~ /[0-9]/ || (c == "." && substr(text, i + 1, 1) ~ /[0-9]/)) {
             i = tk_number(text, up, i)
             k++; TK[key, k] = TKNUM; TY[key, k] = "n"; TPO[key, k] = t0; TSX[key, k] = TKSX
+            # A blank behind a # ! % suffix ENDS THE EXPRESSION on the
+            # machine (ROM bug list, bug 7; the ruling of 2026-10-05): the
+            # reader leaves the pointer AT the blank, not past it, and the
+            # evaluator takes a blank for the end.  The token "b" stands
+            # for that blank: no operator loop (p60) continues over it,
+            # so `PRINT 2# +3` is two items and `A=2# +3` is ?SN with A
+            # stored; the statements the ROM lets go on past it skip it
+            # with skipblank().  Only a literal's suffix: a NAME's suffix
+            # is read past blanks (tk_name), and a blank in an exponent
+            # is nothing (1E5 3 is 1E53).
+            if (TKBLANK) { k++; TK[key, k] = " "; TY[key, k] = "b"; TPO[key, k] = i }
             continue
         }
         if (c ~ /[A-Za-z]/) {
@@ -3373,7 +3384,7 @@ function tk_name(text, up, i,   c, j) {
 # Returns the index behind the number; TKNUM is its text in awk's form
 # (the blanks gone, D as E), TKSX its TYPE (I, S, D, or %SN).
 function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) {
-    m = ""; ex = ""; exs = ""; dot = 0; hasexp = 0; isint = 1; expd = 0; TKSX = ""
+    m = ""; ex = ""; exs = ""; dot = 0; hasexp = 0; isint = 1; expd = 0; TKSX = ""; TKBLANK = 0
     for (;;) {
         while (substr(text, i, 1) ~ /^[ \t]$/) i++
         c = substr(text, i, 1)
@@ -3397,6 +3408,11 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
         }
         if (c == "%") { TKSX = (isint && m + 0 <= 32767) ? "%" : "%SN"; i++ }
         else if (c == "!" || c == "#") { TKSX = c; i++ }
+        # the suffix is stepped over by a plain INC HL (0EF2H), not by
+        # RST 10H, which skips blanks; so a blank behind it is the very
+        # next character the evaluator sees, and it ends the expression:
+        # tokline puts a "b" token there (ROM bug 7)
+        if (TKSX != "" && substr(text, i, 1) ~ /^[ \t]$/) TKBLANK = 1
         break
     }
     # The literal's TYPE, as the reader at 0E6CH decides it: % ! # force
@@ -3480,6 +3496,14 @@ function ptype(a, b,   ta, tb) {
 }
 function vstr(v) { return substr(v, 2) }
 function isN(v) { return substr(v, 1, 1) == "N" }
+
+# The "b" token (p50): a blank behind a # ! % literal, where the ROM's
+# evaluator stops.  The verbs that read a value through 2B1CH (a byte:
+# ON, POKE's value, OUT, SET, RESET, TAB(, the counts of STRING$, LEFT$,
+# RIGHT$ and MID$) and CLEAR's count go on past it; every other reader
+# meets it where it wanted ")", THEN, TO, "," or the end: ?SN.  The PRINT
+# list takes what follows as a new item.
+function skipblank() { if (TY[CK, CP] == "b") CP++ }
 
 function e_or(   v, r) {
     v = e_and()
@@ -3884,12 +3908,15 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     na = 0
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) {
         a1 = e_or(); if (E) return "NI0"
+        if (name == "STRING$") skipblank()                      # the count is a byte (2B1CH): a "b" token is passed
         na = 1
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
             CP++; a2 = e_or(); if (E) return "NI0"
+            if (name ~ /^(LEFT|RIGHT|MID)\$$/) skipblank()       # the counts of the string functions too
             na = 2
             if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
                 CP++; a3 = e_or(); if (E) return "NI0"
+                if (name == "MID$") skipblank()
                 na = 3
             }
         }
@@ -5021,6 +5048,7 @@ function st_on(   v, n, mode, cnt, ln) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     n = byteconv(num(v)); if (E) return    # 1F9BH -> 2B1CH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
+    skipblank()
     if (TY[CK, CP] == "i" && (TK[CK, CP] == "GOTO" || TK[CK, CP] == "GOSUB")) {
         mode = TK[CK, CP]; CP++
     } else { raise(2); return }
@@ -5143,6 +5171,7 @@ function st_clear(   v, ty, tx, n) {
         # L-4).
         n = bigint(num(v)); if (E) return
         if (n < 0) { raise(5); return }
+        skipblank()
         # the statement must end here (1E80H-1E82H, RET NZ to the driver's
         # ?SN) before the string area is placed or anything is cleared:
         # CLEAR 100 X keeps the variables.  Until 2026-09-27 the clear ran
@@ -6897,6 +6926,7 @@ function st_print(   sep, ty, tx, v, col, t) {
         # a bare REM token is an item: the evaluator meets it and says ?SN,
         # as at 20B9H -> 2337H (the 2026-09-23 audit, L-10); ' is :REM
         if (ty == "i" && tx == "ELSE") break
+        if (ty == "b") { CP++; continue }                # 2# +3 is two items: 2, then +3 (ROM bug 7; p50)
         if (ty == "o" && tx == "@") { pr_at(); if (E) return; sep = 0; continue }
         if (ty == "i" && tx == "USING") { CP++; pr_using(); return }
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
@@ -6921,6 +6951,7 @@ function st_print(   sep, ty, tx, v, col, t) {
             CP++
             v = e_or(); if (E) return
             if (!isN(v)) { raise(13); return }
+            skipblank()
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
             CP++
             t = byteconv(num(v)); if (E) return   # 2B1BH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
@@ -6993,6 +7024,7 @@ function pu_stmt(sink,   sep, ty, tx, v, n) {
         ty = TY[CK, CP]; tx = TK[CK, CP]
         if (ty == "" || ty == "e" || (ty == "o" && tx == ":")) break
         if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
+        if (ty == "b") { CP++; continue }                # 2# ;3 goes on; 2# 3 is ?SN below, as 2 3 is (ROM bug 7; p50)
         if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
         if (n && !sep) { raise(2); return 0 }            # 2DE2H
         v = e_or(); if (E) return 0
@@ -7065,6 +7097,7 @@ function st_lprint(   sep, ty, tx, v, t) {
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
         if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
+        if (ty == "b") { CP++; continue }                # as PRINT's list (ROM bug 7; p50)
         if (ty == "o" && tx == "@") { pr_at(); if (E) return; sep = 0; continue }
         if (ty == "i" && tx == "USING") { CP++; lp_using(); return }
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
@@ -7083,6 +7116,7 @@ function st_lprint(   sep, ty, tx, v, t) {
             CP++
             v = e_or(); if (E) return
             if (!isN(v)) { raise(13); return }
+            skipblank()
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
             CP++
             t = byteconv(num(v)); if (E) return   # 2B1BH, as PRINT's TAB (L-7)
@@ -7131,11 +7165,13 @@ function st_out(   v, p) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     p = byteconv(num(v)); if (E) return
+    skipblank()
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     v = byteconv(num(v)); if (E) return
+    skipblank()
     if (p == 255) s_setwide(int(v / 8) % 2)
 }
 
@@ -7848,6 +7884,7 @@ function st_poke(   v, a, b) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     b = byteconv(num(v)); if (E) return
+    skipblank()
     poke_byte(a, b)
 }
 
@@ -7921,12 +7958,14 @@ function st_setreset(on,   v, x, y, col) {
     # 2026-09-26 audit, L-7).
     x = byteconv(num(v)); if (E) return
     if (x > 127) { raise(5); return }
+    skipblank()
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     y = byteconv(num(v)); if (E) return
     if (y > 47) { raise(5); return }
+    skipblank()
     col = -1                                # -1 = no color given (textbook)
     if (on && TY[CK, CP] == "o" && TK[CK, CP] == ",") {
         # EXT: SET(x,y,c) -- optional CoCo-style color 0-8.  Valid Level II
@@ -8416,6 +8455,7 @@ function st_print_file(   n, s, sep, ty, tx, v, x) {
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
         if (ty == "i" && tx == "ELSE") break
+        if (ty == "b") { CP++; continue }                # as PRINT's list (ROM bug 7; p50)
         if (ty == "i" && tx == "USING") { CP++; fio_pr_using(n, s); return }
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
@@ -8430,6 +8470,7 @@ function st_print_file(   n, s, sep, ty, tx, v, x) {
             v = e_or(); if (E) return
             if (!isN(v)) { raise(13); return }
             x = bfloor(num(v))
+            skipblank()
             if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
             else { raise(2); return }
             while (length(s) < x) s = s " "

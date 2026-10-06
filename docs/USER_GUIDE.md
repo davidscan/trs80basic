@@ -609,6 +609,13 @@ Honest list, stated as current behavior:
   its output or error codes. In 32-character mode a number that does not
   fit is split at the right edge rather than moved to the next line: the
   ROM measures the column against a line size it never updates from 64.
+  A blank behind a numeric literal's type suffix ends the expression, as
+  the ROM's reader leaves it: `PRINT 2# +3` prints two items, ` 2  3 `,
+  `A=2# +3` stores 2 and is `?SN ERROR`, and so are `IF 2# =2`,
+  `FOR I=1% TO 3` and `(2# +3)`; `ON`, `POKE`'s value, `OUT`, `SET`,
+  `TAB(` and the counts of `STRING$`/`LEFT$`/`RIGHT$`/`MID$` read on past
+  it. Without the blank (`2#+3`) and on a variable's suffix (`A# +3`)
+  nothing changes.
 
 ---
 

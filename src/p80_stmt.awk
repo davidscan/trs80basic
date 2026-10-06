@@ -33,6 +33,7 @@ function st_print(   sep, ty, tx, v, col, t) {
         # a bare REM token is an item: the evaluator meets it and says ?SN,
         # as at 20B9H -> 2337H (the 2026-09-23 audit, L-10); ' is :REM
         if (ty == "i" && tx == "ELSE") break
+        if (ty == "b") { CP++; continue }                # 2# +3 is two items: 2, then +3 (ROM bug 7; p50)
         if (ty == "o" && tx == "@") { pr_at(); if (E) return; sep = 0; continue }
         if (ty == "i" && tx == "USING") { CP++; pr_using(); return }
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
@@ -57,6 +58,7 @@ function st_print(   sep, ty, tx, v, col, t) {
             CP++
             v = e_or(); if (E) return
             if (!isN(v)) { raise(13); return }
+            skipblank()
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
             CP++
             t = byteconv(num(v)); if (E) return   # 2B1BH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
@@ -129,6 +131,7 @@ function pu_stmt(sink,   sep, ty, tx, v, n) {
         ty = TY[CK, CP]; tx = TK[CK, CP]
         if (ty == "" || ty == "e" || (ty == "o" && tx == ":")) break
         if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
+        if (ty == "b") { CP++; continue }                # 2# ;3 goes on; 2# 3 is ?SN below, as 2 3 is (ROM bug 7; p50)
         if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
         if (n && !sep) { raise(2); return 0 }            # 2DE2H
         v = e_or(); if (E) return 0
@@ -201,6 +204,7 @@ function st_lprint(   sep, ty, tx, v, t) {
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
         if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
+        if (ty == "b") { CP++; continue }                # as PRINT's list (ROM bug 7; p50)
         if (ty == "o" && tx == "@") { pr_at(); if (E) return; sep = 0; continue }
         if (ty == "i" && tx == "USING") { CP++; lp_using(); return }
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
@@ -219,6 +223,7 @@ function st_lprint(   sep, ty, tx, v, t) {
             CP++
             v = e_or(); if (E) return
             if (!isN(v)) { raise(13); return }
+            skipblank()
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
             CP++
             t = byteconv(num(v)); if (E) return   # 2B1BH, as PRINT's TAB (L-7)
@@ -267,11 +272,13 @@ function st_out(   v, p) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     p = byteconv(num(v)); if (E) return
+    skipblank()
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     v = byteconv(num(v)); if (E) return
+    skipblank()
     if (p == 255) s_setwide(int(v / 8) % 2)
 }
 
@@ -984,6 +991,7 @@ function st_poke(   v, a, b) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     b = byteconv(num(v)); if (E) return
+    skipblank()
     poke_byte(a, b)
 }
 
@@ -1057,12 +1065,14 @@ function st_setreset(on,   v, x, y, col) {
     # 2026-09-26 audit, L-7).
     x = byteconv(num(v)); if (E) return
     if (x > 127) { raise(5); return }
+    skipblank()
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     y = byteconv(num(v)); if (E) return
     if (y > 47) { raise(5); return }
+    skipblank()
     col = -1                                # -1 = no color given (textbook)
     if (on && TY[CK, CP] == "o" && TK[CK, CP] == ",") {
         # EXT: SET(x,y,c) -- optional CoCo-style color 0-8.  Valid Level II

@@ -712,6 +712,7 @@ function st_on(   v, n, mode, cnt, ln) {
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     n = byteconv(num(v)); if (E) return    # 1F9BH -> 2B1CH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
+    skipblank()
     if (TY[CK, CP] == "i" && (TK[CK, CP] == "GOTO" || TK[CK, CP] == "GOSUB")) {
         mode = TK[CK, CP]; CP++
     } else { raise(2); return }
@@ -834,6 +835,7 @@ function st_clear(   v, ty, tx, n) {
         # L-4).
         n = bigint(num(v)); if (E) return
         if (n < 0) { raise(5); return }
+        skipblank()
         # the statement must end here (1E80H-1E82H, RET NZ to the driver's
         # ?SN) before the string area is placed or anything is cleared:
         # CLEAR 100 X keeps the variables.  Until 2026-09-27 the clear ran

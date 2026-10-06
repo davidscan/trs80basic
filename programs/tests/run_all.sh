@@ -90,7 +90,7 @@ fixture() {
         bad "$b.bas (printed FIXTURE FAILED but exited 0)"; show "$b.bas"
     fi
 }
-for b in varptr intvarptr rawbytes alias literal inp out255 ifcomma intconv defint forstack pokerange mbfpoke round errcode cursor dataitem power using apostrophe controlflow functions types sngl trig intround bytearg bytedbl litexp nextelse rdscale prscale dblscale dbl56 romfn srange dataerr; do
+for b in varptr intvarptr rawbytes alias literal inp out255 ifcomma intconv defint forstack pokerange mbfpoke round errcode cursor dataitem power using apostrophe controlflow functions types sngl trig intround bytearg bytedbl litexp nextelse rdscale prscale dblscale dbl56 romfn srange dataerr suffixblank; do
     fixture env TRS80_Z80= ./basic "programs/tests/$b.bas"
 done
 lp=$(mktemp) || exit 2

@@ -419,6 +419,15 @@ maintained outside this repository.
   machine's type (v2.1.3): up to 7 digits or an E exponent is a single
   (`12345678E2` prints `1.23457E+09`), an eighth digit, a D exponent or
   a `#` a double (`12345678` prints in full, as on the machine).
+  A blank behind a literal's `#` `!` `%` suffix ends the expression, as
+  on the machine (ROM bug list, bug 7; Farvour 0EF2H steps over the
+  suffix without the blank-skipping read): `PRINT 2# +3` prints ` 2  3 `
+  (two items), `A=2# +3` stores 2 and is `?SN`, as are `IF 2# =2`,
+  `FOR I=1% TO 3` and a parenthesis or function argument; `ON`, `POKE`'s
+  value, `OUT`, `SET`/`RESET`, `TAB(` and the counts of `STRING$`,
+  `LEFT$`, `RIGHT$` and `MID$` read on past it. One listing in the
+  4,339-program corpus has the shape (lngracda.bas 230, `RN-65535! :`),
+  on a branch a key press normally forestalls; no seeded output changed.
 - The bytes under a zero are zeros (v2.1.3, a documented departure).
   The ROM makes a number zero by clearing its exponent byte alone
   (Farvour, 0778H), so a zero's mantissa bytes keep whatever the

@@ -21,6 +21,14 @@ function ptype(a, b,   ta, tb) {
 function vstr(v) { return substr(v, 2) }
 function isN(v) { return substr(v, 1, 1) == "N" }
 
+# The "b" token (p50): a blank behind a # ! % literal, where the ROM's
+# evaluator stops.  The verbs that read a value through 2B1CH (a byte:
+# ON, POKE's value, OUT, SET, RESET, TAB(, the counts of STRING$, LEFT$,
+# RIGHT$ and MID$) and CLEAR's count go on past it; every other reader
+# meets it where it wanted ")", THEN, TO, "," or the end: ?SN.  The PRINT
+# list takes what follows as a new item.
+function skipblank() { if (TY[CK, CP] == "b") CP++ }
+
 function e_or(   v, r) {
     v = e_and()
     while (!E && TY[CK, CP] == "i" && TK[CK, CP] == "OR") {
@@ -424,12 +432,15 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
     na = 0
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) {
         a1 = e_or(); if (E) return "NI0"
+        if (name == "STRING$") skipblank()                      # the count is a byte (2B1CH): a "b" token is passed
         na = 1
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
             CP++; a2 = e_or(); if (E) return "NI0"
+            if (name ~ /^(LEFT|RIGHT|MID)\$$/) skipblank()       # the counts of the string functions too
             na = 2
             if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
                 CP++; a3 = e_or(); if (E) return "NI0"
+                if (name == "MID$") skipblank()
                 na = 3
             }
         }

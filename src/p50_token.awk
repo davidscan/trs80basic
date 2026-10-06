@@ -43,6 +43,17 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
         if (c ~ /[0-9]/ || (c == "." && substr(text, i + 1, 1) ~ /[0-9]/)) {
             i = tk_number(text, up, i)
             k++; TK[key, k] = TKNUM; TY[key, k] = "n"; TPO[key, k] = t0; TSX[key, k] = TKSX
+            # A blank behind a # ! % suffix ENDS THE EXPRESSION on the
+            # machine (ROM bug list, bug 7; the ruling of 2026-10-05): the
+            # reader leaves the pointer AT the blank, not past it, and the
+            # evaluator takes a blank for the end.  The token "b" stands
+            # for that blank: no operator loop (p60) continues over it,
+            # so `PRINT 2# +3` is two items and `A=2# +3` is ?SN with A
+            # stored; the statements the ROM lets go on past it skip it
+            # with skipblank().  Only a literal's suffix: a NAME's suffix
+            # is read past blanks (tk_name), and a blank in an exponent
+            # is nothing (1E5 3 is 1E53).
+            if (TKBLANK) { k++; TK[key, k] = " "; TY[key, k] = "b"; TPO[key, k] = i }
             continue
         }
         if (c ~ /[A-Za-z]/) {
@@ -182,7 +193,7 @@ function tk_name(text, up, i,   c, j) {
 # Returns the index behind the number; TKNUM is its text in awk's form
 # (the blanks gone, D as E), TKSX its TYPE (I, S, D, or %SN).
 function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) {
-    m = ""; ex = ""; exs = ""; dot = 0; hasexp = 0; isint = 1; expd = 0; TKSX = ""
+    m = ""; ex = ""; exs = ""; dot = 0; hasexp = 0; isint = 1; expd = 0; TKSX = ""; TKBLANK = 0
     for (;;) {
         while (substr(text, i, 1) ~ /^[ \t]$/) i++
         c = substr(text, i, 1)
@@ -206,6 +217,11 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
         }
         if (c == "%") { TKSX = (isint && m + 0 <= 32767) ? "%" : "%SN"; i++ }
         else if (c == "!" || c == "#") { TKSX = c; i++ }
+        # the suffix is stepped over by a plain INC HL (0EF2H), not by
+        # RST 10H, which skips blanks; so a blank behind it is the very
+        # next character the evaluator sees, and it ends the expression:
+        # tokline puts a "b" token there (ROM bug 7)
+        if (TKSX != "" && substr(text, i, 1) ~ /^[ \t]$/) TKBLANK = 1
         break
     }
     # The literal's TYPE, as the reader at 0E6CH decides it: % ! # force

@@ -410,6 +410,7 @@ function st_print_file(   n, s, sep, ty, tx, v, x) {
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
         if (ty == "i" && tx == "ELSE") break
+        if (ty == "b") { CP++; continue }                # as PRINT's list (ROM bug 7; p50)
         if (ty == "i" && tx == "USING") { CP++; fio_pr_using(n, s); return }
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
@@ -424,6 +425,7 @@ function st_print_file(   n, s, sep, ty, tx, v, x) {
             v = e_or(); if (E) return
             if (!isN(v)) { raise(13); return }
             x = bfloor(num(v))
+            skipblank()
             if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
             else { raise(2); return }
             while (length(s) < x) s = s " "
