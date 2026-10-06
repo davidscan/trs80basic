@@ -165,5 +165,26 @@ READY
 >'
 [ "$out" = "$want" ] || fail "RESUME NEXT from a statement behind THEN or ELSE" "$out"
 
+# RESUME n reads its number with GOTO's reader (1FC1H CALL 1E5AH, 1FC4H
+# RET NZ): digits only, so a point or an exponent behind them, a word, or a
+# number past 65529 is ?SN, trapped by the same handler; blanks between
+# the digits are read through (the 2026-09-30 audit, BL-3)
+for t in '30.5' '1E2' '70000' '30 X'; do
+    out=$(printf '\n10 ON ERROR GOTO 100\n20 X=1/0\n30 PRINT "AT30":END\n100 PRINT "H";ERR/2+1;ERL:IF ERR/2+1=11 THEN RESUME %s\n110 PRINT "TWO":END\nRUN\n' "$t" \
+        | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | sed -n '/^>RUN/,/^READY/p')
+    want='>RUN
+H 11  20 
+H 2  100 
+TWO
+READY'
+    [ "$out" = "$want" ] || fail "RESUME $t is ?SN" "$out"
+done
+out=$(printf '\n10 ON ERROR GOTO 100\n20 X=1/0\n30 PRINT "AT30":END\n100 RESUME 3 0\nRUN\n' \
+    | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | sed -n '/^>RUN/,/^READY/p')
+want='>RUN
+AT30
+READY'
+[ "$out" = "$want" ] || fail "RESUME 3 0 is RESUME 30" "$out"
+
 rm -f "$tmp"
 echo "ONERROR OK"

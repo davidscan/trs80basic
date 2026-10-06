@@ -5283,9 +5283,13 @@ function st_resume(   p, ty, tx) {
             CP++
         }
     }
+    # RESUME n reads its line number with GOTO's reader (1FC1H CALL 1E5AH):
+    # digits only, so RESUME 30.5 and RESUME 1E2 leave text behind it and
+    # are ?SN (1FC4H RET NZ), and RESUME 70000 is ?SN, never ?UL.  Until
+    # 2026-10-05 it took the whole number token (the 2026-09-30 audit, BL-3).
     if (TY[CK, CP] == "n") {
-        p = TK[CK, CP] + 0; CP++
-        if (!at_stmt_end()) { raise(2); return }
+        p = lineno_arg(); if (E) return
+        if (LNREST || !at_stmt_end()) { raise(2); return }
         if (p == 0) {
             CK = ERR_K; CLI = ERR_LI; CP = ERR_CP
             CLN = (CK == "I") ? DIRECTLN : CK + 0
