@@ -778,7 +778,9 @@ DEFSNG / DEFDBL / DEFSTR      integer / single / double / string
   the SINGLE quotient, .3333333432674408, as on the machine; A=1#/3 is
   double division.  The suffixes do not make separate variables: G%, G!
   and G are the same variable, and the name as written at each store
-  or read decides its type.
+  or read decides its type.  Under DEFSTR a % ! # suffix names the
+  number beside the string, as on the machine: DEFSTR G: G="X": G%=5
+  keeps both (G%, G! and G# being one number).
   Example: DEFINT I-N
   Example: DEFSTR S: S="TEXT"          (S=1 would be ?TM)
 

@@ -660,8 +660,8 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
                 CP = LV_P[idx]; name = lvname(); key = ""; dbl = (LVT == "D")
                 if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
                 CP = endp
-                if (IBBAD[idx] || (IBQ[idx] && !strname(name))) { ok = 0; break }
-                if (strname(name)) assignv(name, key, "S" IB[idx])
+                if (IBBAD[idx] || (IBQ[idx] && !strname(name, LVSX))) { ok = 0; break }
+                if (strname(name, LVSX)) assignv(name, key, "S" IB[idx])
                 else {
                     # the ROM's reader takes what it can (valnum, p90);
                     # anything but blanks left over is ?REDO (225A-2260)
@@ -810,12 +810,12 @@ function st_read_items(   name, key, x, dbl) {
         # text behind a closing quote, or a quoted item for a number (the
         # ROM's reader takes nothing from "12" and the quote is no comma):
         # ?SN in the DATA line, the pointer stays (225A-2260 -> 1991H)
-        if (DBAD[DP] || (DQ[DP] && !strname(name))) {
+        if (DBAD[DP] || (DQ[DP] && !strname(name, LVSX))) {
             raise(2)
             ERR_AT = DLINE[DP]; ERLV = DLINE[DP]; LASTLN = DLINE[DP]
             return
         }
-        if (strname(name)) {
+        if (strname(name, LVSX)) {
             if (!HOSTMEM && length(DITEM[DP]) > 255) { raise_host(15); return }   # a DATA item past 255 is ?LS, as a literal is (p60; L-23)
             LITSTORE = 1                    # the item stays in its line: no string space (p75, mem_*)
             assignv(name, key, "S" DITEM[DP])

@@ -400,8 +400,13 @@ maintained outside this repository.
   (?TM), file I/O. DEFINT/DEFSNG/DEFDBL clear the DEFSTR flag for their
   range, and a number takes the type of the name it is stored through
   (integer, single or double, the machine's three types; `man DEFINT`).
-  An explicit `%` `!` `#` suffix does not override DEFSTR the way it
-  would on hardware (`DEFSTR A:A%=5` is `?TM` here).
+  An explicit `%` `!` `#` suffix names the numeric variable of that
+  type under DEFSTR, as on the machine (`DEFSTR A:A%=5:PRINT A%+1` is
+  6; the string A and the number A% share the name here, see "A type
+  suffix does not make a separate variable" in the guide). Until
+  2026-10-05 the DEFSTR letter won and the store was `?TM`; eight
+  listings of the 4,339-program corpus stopped there (`DEFSTR A-H` with
+  `G%`, `DEFSTR X-Z` with `FOR ZZ%`) and run on now.
 - PRINT USING honors the picture string: # . , ** $$ **$ fields, leading
   + / trailing + or - signs, ^^^^ exponent form, ! and %spaces% string
   fields, literal passthrough, picture reuse across the value list, and

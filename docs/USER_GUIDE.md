@@ -535,6 +535,9 @@ Honest list, stated as current behavior:
   name a value is stored or read through still sets its type, so the
   numbers themselves follow the machine's three types (integer, single,
   double; see "Numbers have the machine's three types" in the README).
+  Under DEFSTR the string and the numbers part ways, as on the machine:
+  `DEFSTR G:G="X":G%=5` keeps both, and `G%`, `G!`, `G#` are then one
+  numeric variable beside the string `G`.
 - **The bytes under a zero are zeros.** The ROM makes a number zero by
   clearing its exponent byte alone (Farvour, *Microsoft BASIC Decoded*,
   0778H); the mantissa bytes keep whatever the accumulator last held,
@@ -1701,7 +1704,9 @@ DEFSNG / DEFDBL / DEFSTR      integer / single / double / string
   the SINGLE quotient, .3333333432674408, as on the machine; A=1#/3 is
   double division.  The suffixes do not make separate variables: G%, G!
   and G are the same variable, and the name as written at each store
-  or read decides its type.
+  or read decides its type.  Under DEFSTR a % ! # suffix names the
+  number beside the string, as on the machine: DEFSTR G: G="X": G%=5
+  keeps both (G%, G! and G# being one number).
   Example: DEFINT I-N
   Example: DEFSTR S: S="TEXT"          (S=1 would be ?TM)
 ```

@@ -241,13 +241,13 @@ function st_let(   name, key, v, lp, src, j, n) {
     # a target whose expression fails is still there.  Until 2026-09-27
     # the expression came first (the 2026-09-26 audit, M-8).  An array
     # element's array was made by aref, as the ROM's 260DH makes it.
-    mkvar(name, key, LVT)
+    mkvar(name, key, LVT, LVSX)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     # a string literal, or a plain string variable, alone on the right in a
     # program line: the ROM leaves the string where it is (1F46H-1F57H)
     lp = 0
-    if (CK != "I" && (TY[CK, CP] == "s" || TY[CK, CP] == "i") && strname(name)) {
+    if (CK != "I" && (TY[CK, CP] == "s" || TY[CK, CP] == "i") && strname(name, LVSX)) {
         CP++; if (at_stmt_end()) lp = CP - 1; CP--
     }
     v = e_or(); if (E) return
@@ -375,8 +375,16 @@ function st_deffn(name,   n, i) {
 # is this variable name a string?  An explicit $ suffix always; otherwise a
 # bare name whose first letter is under DEFSTR.  Every type test in the
 # interpreter goes through here so DEFSTR retypes arrays, INPUT, READ, FOR
-# and file I/O consistently.
-function strname(name) {
+# and file I/O consistently.  sx is the suffix written at the reference,
+# where the caller has it: a % ! # names the numeric variable of that
+# type whatever DEFSTR says of the letter (manual, section 1: "A$, A%,
+# A!, A# are distinct variable names"; 2026-10-05, the audit's OC-11),
+# as a $ under DEFINT names the string.  Since % ! # are not part of
+# the name here (G% is G, the 2026-08 ruling), the string G and the
+# number G% share the name and live in SV and NV; G%, G! and G# stay
+# one variable.  Until 2026-10-05 the DEFSTR letter won and G%=5 was ?TM.
+function strname(name, sx) {
+    if (sx == "%" || sx == "!" || sx == "#") return 0
     return name ~ /\$$/ || DEFS[substr(name, 1, 1)]
 }
 
@@ -389,6 +397,7 @@ function lvname(   s) {
     s = TK[CK, CP]
     LVI = intvar(s, TSX[CK, CP])
     LVT = ntype(s, TSX[CK, CP])             # the store's type: S rounds to 24 bits (assignv)
+    LVSX = TSX[CK, CP]                      # the suffix itself, for strname (a % ! # under DEFSTR)
     CP++
     return s
 }
@@ -438,17 +447,18 @@ function bigint(x,   r) {
 # create mode: the 3-byte header and a zero value, 26A0H-26CCH), so MEM
 # and FRE count it from here on; an element's array already exists.
 # ty is the reference's type (I S D), which sizes the entry (vt_size, p75)
-function mkvar(name, key, ty) {
+function mkvar(name, key, ty, sx) {
     if (key != "") return
-    if (strname(name)) { if (!(name in SV)) SV[name] = "" }
+    if (strname(name, sx)) { if (!(name in SV)) SV[name] = "" }
     else if (!(name in NV)) { NV[name] = 0; NVZ[name] = ty_size(ty) }
 }
 
-function assignv(name, key, v,   isint, tgt, n, ty) {
+function assignv(name, key, v,   isint, tgt, n, ty, sx) {
     isint = LVI; LVI = 0
     ty = LVT; LVT = ""
+    sx = LVSX; LVSX = ""
     if (ty == "") ty = isint ? "I" : ntype(name, "")   # a store that did not come through lvname (READ, INPUT, FOR)
-    if (strname(name)) {
+    if (strname(name, sx)) {
         if (isN(v)) { raise(13); return }
         tgt = (key != "") ? "A" key : "V" name
         # the string area's count (p75, mem_*): the new value's bytes,
@@ -539,12 +549,12 @@ function st_return() {
 function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     if (!at_name()) { raise(2); return }
     name = TK[CK, CP]
-    if (strname(name)) { raise(13); return }
+    if (strname(name, TSX[CK, CP])) { raise(13); return }
     isint = intvar(name, TSX[CK, CP])
     sng = (ntype(name, TSX[CK, CP]) == "S")   # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
     dbl = (ntype(name, TSX[CK, CP]) == "D")
     CP++
-    mkvar(name, "", dbl ? "D" : sng ? "S" : "I")   # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
+    mkvar(name, "", dbl ? "D" : sng ? "S" : "I", TSX[CK, CP - 1])   # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     v = e_or(); if (E) return

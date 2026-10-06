@@ -317,7 +317,7 @@ function e_prim(   t, s, v, key, sx) {
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
             key = aref(s); if (E) return "NI0"
             if (ALN && (("A" key) in ALIAS)) return "S" al_read("A" key)   # finding 7 (p75)
-            if (strname(s)) return (key in VA) ? VA[key] : "S"
+            if (strname(s, sx)) return (key in VA) ? VA[key] : "S"
             return "N" ntype(s, sx) ((key in VA) ? VA[key] : 0)
         }
         # a variable read in an expression is NEVER created: the ROM's
@@ -329,7 +329,7 @@ function e_prim(   t, s, v, key, sx) {
         # it) reaching the memory accounting (mem_varbytes counts the
         # entries): until 2026-09-27
         # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit, M-8).
-        if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
+        if (strname(s, sx)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
         t = ntype(s, sx)
         return "N" t ((s in NV) ? ((t == "D") ? NV[s] : NV[s] + 0) : 0)   # a double's payload as it is (p91)
     }

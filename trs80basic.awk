@@ -1644,6 +1644,21 @@ function rl_clear_screen() {
     rl_draw(0, 0)
 }
 
+# does a file name hold a control byte (BL-28's test, in rl_complete)?
+# Byte by byte through ORD[], not a regex: a range over bytes above 127
+# is a parse error to gawk in a UTF-8 locale without -b, so the script
+# did not start at all when run bare (the 2026-10-05 audit, BL-40).
+function ctl_name(s,   i, n, b, p) {
+    n = length(s); p = 0
+    for (i = 1; i <= n; i++) {
+        b = ORD[substr(s, i, 1)]
+        if (b < 32 || b == 127) return 1                              # C0, DEL
+        if (b >= 128 && b <= 159 && (p == 194 || p < 128)) return 1   # C1 as UTF-8 (C2 80-9F), or a stray byte after ASCII
+        p = b
+    }
+    return 0
+}
+
 # TAB filename completion on the word left of the cursor.  Directory and
 # file names contain spaces throughout the archive, so the word boundary
 # cannot simply be the last space: every space/tab/quote left of the cursor
@@ -1675,7 +1690,7 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
             # (80H-9FH) as UTF-8 encodes it (C2 80-9F) or as a stray byte
             # after ASCII, which an 8-bit terminal takes as CSI and the
             # rest (the 2026-09-30 audit, BL-28)
-            if (line ~ /[\001-\037\177]/ || line ~ /\302[\200-\237]/ || line ~ /(^|[\001-\177])[\200-\237]/) continue
+            if (ctl_name(line)) continue
             if (nm < 100) mt[++nm] = line
         }
         close(cmd)
@@ -3793,7 +3808,7 @@ function e_prim(   t, s, v, key, sx) {
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
             key = aref(s); if (E) return "NI0"
             if (ALN && (("A" key) in ALIAS)) return "S" al_read("A" key)   # finding 7 (p75)
-            if (strname(s)) return (key in VA) ? VA[key] : "S"
+            if (strname(s, sx)) return (key in VA) ? VA[key] : "S"
             return "N" ntype(s, sx) ((key in VA) ? VA[key] : 0)
         }
         # a variable read in an expression is NEVER created: the ROM's
@@ -3805,7 +3820,7 @@ function e_prim(   t, s, v, key, sx) {
         # it) reaching the memory accounting (mem_varbytes counts the
         # entries): until 2026-09-27
         # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit, M-8).
-        if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
+        if (strname(s, sx)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
         t = ntype(s, sx)
         return "N" t ((s in NV) ? ((t == "D") ? NV[s] : NV[s] + 0) : 0)   # a double's payload as it is (p91)
     }
@@ -4577,13 +4592,13 @@ function st_let(   name, key, v, lp, src, j, n) {
     # a target whose expression fails is still there.  Until 2026-09-27
     # the expression came first (the 2026-09-26 audit, M-8).  An array
     # element's array was made by aref, as the ROM's 260DH makes it.
-    mkvar(name, key, LVT)
+    mkvar(name, key, LVT, LVSX)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     # a string literal, or a plain string variable, alone on the right in a
     # program line: the ROM leaves the string where it is (1F46H-1F57H)
     lp = 0
-    if (CK != "I" && (TY[CK, CP] == "s" || TY[CK, CP] == "i") && strname(name)) {
+    if (CK != "I" && (TY[CK, CP] == "s" || TY[CK, CP] == "i") && strname(name, LVSX)) {
         CP++; if (at_stmt_end()) lp = CP - 1; CP--
     }
     v = e_or(); if (E) return
@@ -4711,8 +4726,16 @@ function st_deffn(name,   n, i) {
 # is this variable name a string?  An explicit $ suffix always; otherwise a
 # bare name whose first letter is under DEFSTR.  Every type test in the
 # interpreter goes through here so DEFSTR retypes arrays, INPUT, READ, FOR
-# and file I/O consistently.
-function strname(name) {
+# and file I/O consistently.  sx is the suffix written at the reference,
+# where the caller has it: a % ! # names the numeric variable of that
+# type whatever DEFSTR says of the letter (manual, section 1: "A$, A%,
+# A!, A# are distinct variable names"; 2026-10-05, the audit's OC-11),
+# as a $ under DEFINT names the string.  Since % ! # are not part of
+# the name here (G% is G, the 2026-08 ruling), the string G and the
+# number G% share the name and live in SV and NV; G%, G! and G# stay
+# one variable.  Until 2026-10-05 the DEFSTR letter won and G%=5 was ?TM.
+function strname(name, sx) {
+    if (sx == "%" || sx == "!" || sx == "#") return 0
     return name ~ /\$$/ || DEFS[substr(name, 1, 1)]
 }
 
@@ -4725,6 +4748,7 @@ function lvname(   s) {
     s = TK[CK, CP]
     LVI = intvar(s, TSX[CK, CP])
     LVT = ntype(s, TSX[CK, CP])             # the store's type: S rounds to 24 bits (assignv)
+    LVSX = TSX[CK, CP]                      # the suffix itself, for strname (a % ! # under DEFSTR)
     CP++
     return s
 }
@@ -4774,17 +4798,18 @@ function bigint(x,   r) {
 # create mode: the 3-byte header and a zero value, 26A0H-26CCH), so MEM
 # and FRE count it from here on; an element's array already exists.
 # ty is the reference's type (I S D), which sizes the entry (vt_size, p75)
-function mkvar(name, key, ty) {
+function mkvar(name, key, ty, sx) {
     if (key != "") return
-    if (strname(name)) { if (!(name in SV)) SV[name] = "" }
+    if (strname(name, sx)) { if (!(name in SV)) SV[name] = "" }
     else if (!(name in NV)) { NV[name] = 0; NVZ[name] = ty_size(ty) }
 }
 
-function assignv(name, key, v,   isint, tgt, n, ty) {
+function assignv(name, key, v,   isint, tgt, n, ty, sx) {
     isint = LVI; LVI = 0
     ty = LVT; LVT = ""
+    sx = LVSX; LVSX = ""
     if (ty == "") ty = isint ? "I" : ntype(name, "")   # a store that did not come through lvname (READ, INPUT, FOR)
-    if (strname(name)) {
+    if (strname(name, sx)) {
         if (isN(v)) { raise(13); return }
         tgt = (key != "") ? "A" key : "V" name
         # the string area's count (p75, mem_*): the new value's bytes,
@@ -4875,12 +4900,12 @@ function st_return() {
 function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     if (!at_name()) { raise(2); return }
     name = TK[CK, CP]
-    if (strname(name)) { raise(13); return }
+    if (strname(name, TSX[CK, CP])) { raise(13); return }
     isint = intvar(name, TSX[CK, CP])
     sng = (ntype(name, TSX[CK, CP]) == "S")   # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
     dbl = (ntype(name, TSX[CK, CP]) == "D")
     CP++
-    mkvar(name, "", dbl ? "D" : sng ? "S" : "I")   # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
+    mkvar(name, "", dbl ? "D" : sng ? "S" : "I", TSX[CK, CP - 1])   # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     v = e_or(); if (E) return
@@ -6492,7 +6517,7 @@ function mem_strsz() { return HIMEM - mem_strlo() }                # the string 
 # bytes, Z# 7, DIM A%(9) 48 (the machine's 5, 11 and 28; the 2026-09-26
 # audit, R-8).
 function vt_size(name, sx,   t) {
-    if (strname(name)) return 3
+    if (strname(name, sx)) return 3
     t = ntype(name, sx)
     return (t == "I") ? 2 : (t == "D") ? 8 : 4
 }
@@ -7553,8 +7578,8 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
                 CP = LV_P[idx]; name = lvname(); key = ""; dbl = (LVT == "D")
                 if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
                 CP = endp
-                if (IBBAD[idx] || (IBQ[idx] && !strname(name))) { ok = 0; break }
-                if (strname(name)) assignv(name, key, "S" IB[idx])
+                if (IBBAD[idx] || (IBQ[idx] && !strname(name, LVSX))) { ok = 0; break }
+                if (strname(name, LVSX)) assignv(name, key, "S" IB[idx])
                 else {
                     # the ROM's reader takes what it can (valnum, p90);
                     # anything but blanks left over is ?REDO (225A-2260)
@@ -7703,12 +7728,12 @@ function st_read_items(   name, key, x, dbl) {
         # text behind a closing quote, or a quoted item for a number (the
         # ROM's reader takes nothing from "12" and the quote is no comma):
         # ?SN in the DATA line, the pointer stays (225A-2260 -> 1991H)
-        if (DBAD[DP] || (DQ[DP] && !strname(name))) {
+        if (DBAD[DP] || (DQ[DP] && !strname(name, LVSX))) {
             raise(2)
             ERR_AT = DLINE[DP]; ERLV = DLINE[DP]; LASTLN = DLINE[DP]
             return
         }
-        if (strname(name)) {
+        if (strname(name, LVSX)) {
             if (!HOSTMEM && length(DITEM[DP]) > 255) { raise_host(15); return }   # a DATA item past 255 is ?LS, as a literal is (p60; L-23)
             LITSTORE = 1                    # the item stays in its line: no string space (p75, mem_*)
             assignv(name, key, "S" DITEM[DP])
@@ -8354,8 +8379,8 @@ function st_input_file(   n, nlv, name, key, i, x, dbl) {
         name = lvname(); dbl = (LVT == "D")  # a double enters the reader as VAL does (p90)
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
-        if (!fio_next_item(n, !strname(name))) { raise(63); return }
-        if (strname(name)) assignv(name, key, "S" FIO_IT)
+        if (!fio_next_item(n, !strname(name, LVSX))) { raise(63); return }
+        if (strname(name, LVSX)) assignv(name, key, "S" FIO_IT)
         else {
             # the item is evaluated "by a routine just like the BASIC VAL
             # function" (Disk manual, INPUT#): A12 is 0, 5X is 5, never ?TM

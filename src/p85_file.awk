@@ -309,8 +309,8 @@ function st_input_file(   n, nlv, name, key, i, x, dbl) {
         name = lvname(); dbl = (LVT == "D")  # a double enters the reader as VAL does (p90)
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
-        if (!fio_next_item(n, !strname(name))) { raise(63); return }
-        if (strname(name)) assignv(name, key, "S" FIO_IT)
+        if (!fio_next_item(n, !strname(name, LVSX))) { raise(63); return }
+        if (strname(name, LVSX)) assignv(name, key, "S" FIO_IT)
         else {
             # the item is evaluated "by a routine just like the BASIC VAL
             # function" (Disk manual, INPUT#): A12 is 0, 5X is 5, never ?TM

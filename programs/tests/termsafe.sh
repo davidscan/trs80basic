@@ -31,5 +31,17 @@ LC_ALL=C grep -q "$c0" t1 || bad "the C0 check cannot fail"
 LC_ALL=C grep -q "$c1" t2 || bad "the C1 check cannot fail"
 LC_ALL=C grep -Eq "$stray" t3 || bad "the raw-C1 check cannot fail"
 
+# the C1 test in the TAB completion is a byte loop, not a regex over bytes
+# above 127: that regex was a parse error to gawk in a UTF-8 locale without
+# -b, so a bare `gawk -f trs80basic.awk` did not start (BL-40, 2026-10-05).
+# The locale may not exist on the host; then the check measures nothing and
+# says so.
+if LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null | grep -q UTF-8; then
+    out=$(printf '\nPRINT 1+1\nBYE\n' | LC_ALL=en_US.UTF-8 TRS80_DUMB=1 TRS80_Z80= gawk -f "$here/trs80basic.awk" 2>&1)
+    case "$out" in *" 2 "*) ;; *) bad "the script does not start without -b in a UTF-8 locale: $(printf '%s' "$out" | head -2)";; esac
+else
+    echo "termsafe: no UTF-8 locale on this host; the start-without--b check not measured"
+fi
+
 [ $fail = 0 ] && echo "TERMSAFE OK"
 exit $fail

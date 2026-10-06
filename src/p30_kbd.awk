@@ -791,6 +791,21 @@ function rl_clear_screen() {
     rl_draw(0, 0)
 }
 
+# does a file name hold a control byte (BL-28's test, in rl_complete)?
+# Byte by byte through ORD[], not a regex: a range over bytes above 127
+# is a parse error to gawk in a UTF-8 locale without -b, so the script
+# did not start at all when run bare (the 2026-10-05 audit, BL-40).
+function ctl_name(s,   i, n, b, p) {
+    n = length(s); p = 0
+    for (i = 1; i <= n; i++) {
+        b = ORD[substr(s, i, 1)]
+        if (b < 32 || b == 127) return 1                              # C0, DEL
+        if (b >= 128 && b <= 159 && (p == 194 || p < 128)) return 1   # C1 as UTF-8 (C2 80-9F), or a stray byte after ASCII
+        p = b
+    }
+    return 0
+}
+
 # TAB filename completion on the word left of the cursor.  Directory and
 # file names contain spaces throughout the archive, so the word boundary
 # cannot simply be the last space: every space/tab/quote left of the cursor
@@ -822,7 +837,7 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
             # (80H-9FH) as UTF-8 encodes it (C2 80-9F) or as a stray byte
             # after ASCII, which an 8-bit terminal takes as CSI and the
             # rest (the 2026-09-30 audit, BL-28)
-            if (line ~ /[\001-\037\177]/ || line ~ /\302[\200-\237]/ || line ~ /(^|[\001-\177])[\200-\237]/) continue
+            if (ctl_name(line)) continue
             if (nm < 100) mt[++nm] = line
         }
         close(cmd)

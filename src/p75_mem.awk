@@ -1222,7 +1222,7 @@ function mem_strsz() { return HIMEM - mem_strlo() }                # the string 
 # bytes, Z# 7, DIM A%(9) 48 (the machine's 5, 11 and 28; the 2026-09-26
 # audit, R-8).
 function vt_size(name, sx,   t) {
-    if (strname(name)) return 3
+    if (strname(name, sx)) return 3
     t = ntype(name, sx)
     return (t == "I") ? 2 : (t == "D") ? 8 : 4
 }
