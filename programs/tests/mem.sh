@@ -4,23 +4,26 @@
 # 27D4H); FRE(a$) is the string area less the strings in it (27E5H-27F2H);
 # the area is 50 bytes below the top of memory at power-on (00EFH) and n
 # bytes below after CLEAR n (1E7AH-1E9CH), which is ?FC negative, ?OV past
-# 32767 and ?OM when it would reach the program.  The anchor is the
-# manual's own number: PRINT MEM on a 16K machine with no program is
-# 15572.  Until 2026-09-25 MEM and FRE were that constant and CLEAR n was
-# thrown away (the 2026-09-23 audit, L-15, L-4).
+# 32767 and ?OM when it would reach the program.  The manual prints 15572
+# for PRINT MEM on a 16K machine with no program; ROM 1.3 says 15568 at
+# MEM SIZE 32767, which it stores as 32765 (00DEH, 00E7H), and inside the
+# PRINT the evaluator holds 2 more bytes (audit OC-12, p60 e_or).  Until
+# 2026-09-25 MEM and FRE were
+# the constant 15572 and CLEAR n was thrown away (the 2026-09-23 audit,
+# L-15, L-4).
 # Self-checking: exits 1 on a mismatch.  Run from the repo root:
 #     sh programs/tests/mem.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
 fail() { echo "MEM FAILED: $1"; printf '%s\n' "$2"; exit 1; }
 repl() { printf '%b' "$2" | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" -- --memsize "$1" 2>&1 | sed -n '/^>/,$p'; }
 
-# the 16K map with no program: 32767 - 50 - 17131 - 14
+# the 16K map with no program: 32765 - 50 - 17131 - 14 - 2
 out=$(repl 32767 'PRINT MEM\nPRINT FRE(0)\nPRINT FRE("")\nA$="HELLO"+"!":PRINT FRE("")\nCLEAR 1000:PRINT FRE("");MEM\nCLEAR -1\nCLEAR 40000\nCLEAR 32000\nCLEAR\nPRINT FRE("")\n')
 want='>PRINT MEM
- 15572 
+ 15568 
 READY
 >PRINT FRE(0)
- 15572 
+ 15568 
 READY
 >PRINT FRE("")
  50 
@@ -29,7 +32,7 @@ READY
  44 
 READY
 >CLEAR 1000:PRINT FRE("");MEM
- 1000  14622 
+ 1000  14618 
 READY
 >CLEAR -1
 ?FC ERROR
@@ -48,10 +51,11 @@ READY
 >'
 [ "$out" = "$want" ] || fail "MEM, FRE and CLEAR n at READY on a 16K map" "$out"
 
-# the 48K map: 65535 - 50 - 17131 - 14
+# the 48K map: 65535 - 50 - 17131 - 14 - 2 (ENTER; --memsize past 65529
+# is ENTER, since the machine's reader refuses it)
 out=$(repl 65535 'PRINT MEM\n')
 [ "$out" = '>PRINT MEM
- 48340 
+ 48338 
 READY
 >' ] || fail "MEM on the 48K map" "$out"
 
@@ -70,16 +74,16 @@ want='>10 A$="HELLO":PRINT FRE("");MEM
 >80 PRINT "NOT REACHED"
 >100 PRINT X-MEM:RETURN
 >RUN
- 50  15400 
- 45  15394 
- 15346 
- 5 
- 24 
- 12 
+ 50  15396 
+ 45  15390 
+ 15342 
+ 15 
+ 34 
+ 22 
 ?OM ERROR IN 70
 READY
 >PRINT A$;B$;X
-HELLOHELLO 15339 
+HELLOHELLO 15333 
 READY
 >'
 [ "$out" = "$want" ] || fail "MEM's arithmetic inside a program" "$out"
@@ -99,22 +103,22 @@ PRINT MEM
 FOR I=MEM TO 0:PRINT I-MEM:NEXT
 ')
 want='>PRINT Y;Z;Y$;MEM
- 0  0  15572 
+ 0  0  15568 
 READY
 >PRINT MEM
- 15572 
+ 15568 
 READY
 >X=MEM:PRINT X-MEM
- 0 
+ 10 
 READY
 >Z=1/0
 ?/0 ERROR
 READY
 >PRINT MEM
- 15558 
+ 15554 
 READY
 >FOR I=MEM TO 0:PRINT I-MEM:NEXT
- 17 
+ 25 
 READY
 >'
 [ "$out" = "$want" ] || fail "a read never creates a variable; LET creates its target first" "$out"
@@ -157,7 +161,7 @@ want='>10 N=N+1:GOSUB 10
 ?OM ERROR IN 10
 READY
 >PRINT N
- 3099 
+ 3095 
 READY
 >NEW
 READY
@@ -189,10 +193,10 @@ want='>10 M=MEM:Z%=1:Y#=1:X!=1:PRINT M-MEM
 >40 M=MEM:V%=1:DEFDBL V:W=1:PRINT M-MEM
 >50 DATA 1
 >RUN
- 23 
- 21 
- 146 
- 12 
+ 33 
+ 31 
+ 156 
+ 22 
 READY
 >'
 [ "$out" = "$want" ] || fail "type sizes" "$out"

@@ -12,8 +12,9 @@ run() { TRS80_Z80= "$here/basic" "$@" "$tmp" 2>&1 </dev/null; }
 
 printf '10 PRINT PEEK(16561)+256*PEEK(16562)\n' > "$tmp"
 out=$(run);                  [ "$out" = " 65535 " ] || fail "default top of memory" "$out"
-out=$(run --memsize 32767);  [ "$out" = " 32767 " ] || fail "--memsize 32767" "$out"
-out=$(run --memsize=20000);  [ "$out" = " 20000 " ] || fail "--memsize=20000" "$out"
+# the machine stores an answer n as n - 2 (00DEH, 00E7H: audit OC-12)
+out=$(run --memsize 32767);  [ "$out" = " 32765 " ] || fail "--memsize 32767" "$out"
+out=$(run --memsize=20000);  [ "$out" = " 19998 " ] || fail "--memsize=20000" "$out"
 
 # the 16K idiom: the string's address, high byte made signed, POKEd back
 printf '10 A$="AB"+"CD":V=VARPTR(A$):L=PEEK(V+1):H=PEEK(V+2):IF H>127 THEN H=H-256\n20 POKE 16526,L:POKE 16527,H:PRINT "OK";PEEK(16527)\n' > "$tmp"
@@ -39,7 +40,7 @@ want=$(printf ' 123 \n?OV ERROR IN 20')
 
 # at the prompt the option answers MEM SIZE?, so the first piped line is a command
 out=$(printf 'PRINT PEEK(16561)+256*PEEK(16562)\n' | TRS80_DUMB=1 TRS80_Z80= "$here/basic" --memsize 30000 2>&1)
-case $out in *"MEM SIZE? 30000"*" 30000 "*) ;; *) fail "--memsize at the prompt" "$out" ;; esac
+case $out in *"MEM SIZE? 30000"*" 29998 "*) ;; *) fail "--memsize at the prompt" "$out" ;; esac
 
 rm -f "$tmp"
 echo "MEMSIZE OK"

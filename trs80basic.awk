@@ -61,7 +61,7 @@ BEGIN {
     if (!TTYIN && !OPT_SCREEN) DUMB = 1     # no tty: stream plainly (--screen keeps the grid)
     t_init()
     if (BATCH) {
-        if (OPT_MEMSIZE) { HIMEM = OPT_MEMSIZE; SSP = HIMEM }
+        if (OPT_MEMSIZE) { HIMEM = (OPT_MEMSIZE > 65529) ? RAMTOP : OPT_MEMSIZE - 2; SSP = HIMEM }   # as typed (below)
         RC = batch_main()
         fio_closeall()
         t_done()
@@ -80,9 +80,14 @@ BEGIN {
     # it stays present, readable and writable, which is the entire point of
     # reserving it: the classic idiom loads a machine-language routine into
     # exactly that region.  PEEK(16561)+256*PEEK(16562) reports it (the
-    # classic idiom).  ENTER keeps the full 65535.
+    # classic idiom).  ENTER keeps the full 65535.  An answer n is stored
+    # as n - 2: 00DEH and 00E7H each DEC HL before 00F2H saves it at 40B1H,
+    # so MEM SIZE 32767 leaves 32766 and 32767 above the top, and PRINT MEM
+    # says 15568 (until 2026-10-08 n itself, 2 bytes more: audit OC-12).
+    # Past 65529 the machine's reader says ?SN and asks again (1E5AH); here,
+    # as --memsize 65535 always meant, it is the whole map, as ENTER.
     if (BOOTMS ~ /^[ \t]*[0-9]+[ \t]*$/ && BOOTMS + 0 >= 17280 && BOOTMS + 0 <= RAMTOP) {
-        HIMEM = BOOTMS + 0; SSP = HIMEM
+        HIMEM = (BOOTMS + 0 > 65529) ? RAMTOP : BOOTMS - 2; SSP = HIMEM
     }
     s_nl()
     s_puts("R/S L2 BASIC"); s_nl()
@@ -3572,19 +3577,52 @@ function isN(v) { return substr(v, 1, 1) == "N" }
 # list takes what follows as a new item.
 function skipblank() { if (TY[CK, CP] == "b") CP++ }
 
-function e_or(   v, r) {
+# THE EVALUATOR'S STACK (audit OC-12, ruled 2026-10-08: follow the ROM).
+# MEM and FRE(n) are SP minus the top of the arrays (27D4H), and while an
+# expression is being evaluated SP is lower by what the evaluator holds,
+# so the machine's MEM depends on where it stands.  EVSTK is that count:
+# the statement's own (2; LET 4, FOR and PRINT USING 6: execstmt, st_let,
+# st_for, pr_using), plus for each operator still waiting for its right
+# operand: for + - * / 8 and the left operand's bytes, an integer 2, a
+# single 4, a double 8 (2385H-23D1H: the resumption address, the value,
+# the type and operator, 2406H, and the re-entry's push at 233AH); for a
+# string + 2 (298FH-2995H read the right operand directly); for AND and
+# OR 8 (the value as an integer, 23E1H-23E7H); for ^ 10 (as a single,
+# 23D4H-23DFH); for a relation 10 and the value's bytes, or 10 for a
+# string (23F0H-2404H).  6 for each open parenthesis (252CH -> 2335H) and
+# each unary minus or NOT (2532H -> 233AH), and 10 for each function whose
+# arguments are being read (2552H, 252CH -> 2335H; 8 for LEFT$, RIGHT$ and
+# MID$, which call 2335H from 2559H).  So PRINT 0+MEM says 10 less than
+# PRINT MEM, and PRINT 1+(1+(1+(1+MEM))) 58 less.  The evaluator checks
+# for room at every entry (2338H-233DH: two bytes, 1963H), so a nested
+# expression can be ?OM where a flat one fits.  mem_free (p75) subtracts
+# EVSTK.
+function evsize(v) { return (vtype(v) == "D") ? 8 : (vtype(v) == "S") ? 4 : 2 }
+function evcost(v, k) {
+    if (k == "l") return 8                                      # AND, OR: the value as an integer (23E1H-23E7H)
+    if (k == "p") return 10                                     # ^: the value as a single (23D4H-23DFH)
+    if (k == "r") return isN(v) ? 10 + evsize(v) : 10           # relational (23F0H-23F8H, a string's address 23FDH-2404H)
+    return isN(v) ? 8 + evsize(v) : 2                           # + - * / (2385H-23D1H); string + (298FH-2995H)
+}
+function evright(v, k) { EVC = evcost(v, k); EVSTK += EVC; if (mem_free() < 60 && !PMTRUNC) { raise_host(7); return 0 }; return 1 }
+
+function e_or(   v, r, c) {
+    # 2338H-233DH: room for the evaluator's push.  Not for a program whose
+    # image is already cut at 64K (pm_build's truncation, p75): no machine
+    # holds it, and the ruled policy lets it run (pmtrunc.sh)
+    if (mem_free() < 60 && !PMTRUNC) { raise_host(7); return "NI0" }
     v = e_and()
     while (!E && TY[CK, CP] == "i" && TK[CK, CP] == "OR") {
-        CP++; r = e_and(); if (E) return v
+        CP++; if (!evright(v, "l")) return v; c = EVC; r = e_and(); EVSTK -= c; if (E) return v
         v = "NI" bor16(v, r)
     }
     return v
 }
 
-function e_and(   v, r) {
+function e_and(   v, r, c) {
     v = e_not()
     while (!E && TY[CK, CP] == "i" && TK[CK, CP] == "AND") {
-        CP++; r = e_not(); if (E) return v
+        CP++; if (!evright(v, "l")) return v; c = EVC; r = e_not(); EVSTK -= c; if (E) return v
         v = "NI" band16(v, r)
     }
     return v
@@ -3593,7 +3631,7 @@ function e_and(   v, r) {
 function e_not(   v) {
     if (TY[CK, CP] == "i" && TK[CK, CP] == "NOT") {
         CP++
-        v = e_not(); if (E) return v
+        EVSTK += 6; v = e_not(); EVSTK -= 6; if (E) return v
         if (!isN(v)) { raise(13); return v }
         return "NI" (-(to16(num(v)) + 1))
     }
@@ -3606,7 +3644,7 @@ function e_not(   v) {
 # true whatever the compare says) and only a REPEATED character (<<, ==,
 # >>, <=<) reaches ?SN at 1997H.  The tokenizer folds the common pairs
 # (<= =< >= => <> ><) into one token; any longer run is merged here.
-function e_rel(   v, r, op, a, b, c, f, nb) {
+function e_rel(   v, r, op, a, b, c, f, nb, k) {
     v = e_add()
     while (!E && TY[CK, CP] == "o" && TK[CK, CP] ~ /^(=|<|>|<=|>=|<>)$/) {
         f = 0
@@ -3616,7 +3654,7 @@ function e_rel(   v, r, op, a, b, c, f, nb) {
             if (and(f, nb)) { raise(2); return v }
             f = or(f, nb); CP++
         }
-        r = e_add(); if (E) return v
+        if (!evright(v, "r")) return v; k = EVC; r = e_add(); EVSTK -= k; if (E) return v
         if (isN(v) != isN(r)) { raise(13); return v }
         if (isN(v) && (vtype(v) == "D" || vtype(r) == "D")) { a = dcmp(substr(v, 3), substr(r, 3)); b = 0 }   # a double's 56 bits (p91)
         else if (isN(v)) { a = num(v); b = num(r) } else { a = vstr(v); b = vstr(r) }
@@ -3626,11 +3664,11 @@ function e_rel(   v, r, op, a, b, c, f, nb) {
     return v
 }
 
-function e_add(   v, r, op, x) {
+function e_add(   v, r, op, x, c) {
     v = e_mul()
     while (!E && TY[CK, CP] == "o" && (TK[CK, CP] == "+" || TK[CK, CP] == "-")) {
         op = TK[CK, CP]; CP++
-        r = e_mul(); if (E) return v
+        if (!evright(v)) return v; c = EVC; r = e_mul(); EVSTK -= c; if (E) return v
         if (op == "+") {
             if (!isN(v) && !isN(r)) {
                 # ROM 299CH-29A5H adds the two lengths in a byte and takes
@@ -3705,11 +3743,11 @@ function fn_fix(v,   t, x, r) {
     return "N" t x
 }
 
-function e_mul(   v, r, op, x, d, t) {
+function e_mul(   v, r, op, x, d, t, c) {
     v = e_un()
     while (!E && TY[CK, CP] == "o" && (TK[CK, CP] == "*" || TK[CK, CP] == "/")) {
         op = TK[CK, CP]; CP++
-        r = e_un(); if (E) return v
+        if (!evright(v)) return v; c = EVC; r = e_un(); EVSTK -= c; if (E) return v
         if (!isN(v) || !isN(r)) { raise(13); return v }
         t = ptype(v, r)
         if (op == "/" && t == "I") t = "S"      # division is never integer: both are converted to single (0BD2H's family)
@@ -3731,7 +3769,7 @@ function e_mul(   v, r, op, x, d, t) {
 function e_un(   v) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "-") {
         CP++
-        v = e_un(); if (E) return v
+        EVSTK += 6; v = e_un(); EVSTK -= 6; if (E) return v
         if (!isN(v)) { raise(13); return v }
         if (vtype(v) == "D") return "ND" dneg(substr(v, 3))
         return "N" tresult(vtype(v), -num(v))   # -(-32768) leaves 16 bits: a single
@@ -3740,11 +3778,11 @@ function e_un(   v) {
     return e_pow()
 }
 
-function e_pow(   v, r, a, b, x) {
+function e_pow(   v, r, a, b, x, c) {
     v = e_prim()
     while (!E && TY[CK, CP] == "o" && (TK[CK, CP] == "^" || TK[CK, CP] == "[")) {
         CP++
-        r = e_powrhs(); if (E) return v
+        if (!evright(v, "p")) return v; c = EVC; r = e_powrhs(); EVSTK -= c; if (E) return v
         if (!isN(v) || !isN(r)) { raise(13); return v }
         a = frange(num(v), "S"); if (E) return v
         b = frange(num(r), "S"); if (E) return v
@@ -3798,7 +3836,7 @@ function e_prim(   t, s, v, key, sx) {
     }
     if (t == "o" && TK[CK, CP] == "(") {
         CP++
-        v = e_or(); if (E) return v
+        EVSTK += 6; v = e_or(); EVSTK -= 6; if (E) return v
         if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
         else raise(2)
         return v
@@ -3979,11 +4017,12 @@ function fn_user(name,   n, i, p, v, r, sk, sp, av, osn, osv) {
 }
 
 # ---- built-in functions ----------------------------------------------------
-function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
+function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc) {
     CP++
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
     CP++
     na = 0
+    fc = (name ~ /^(LEFT|RIGHT|MID)\$$/) ? 8 : 10; EVSTK += fc   # the call's own stack while its arguments are read
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) {
         a1 = e_or(); if (E) return "NI0"
         if (name == "STRING$") skipblank()                      # the count is a byte (2B1CH): a "b" token is passed
@@ -3999,6 +4038,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r) {
             }
         }
     }
+    EVSTK -= fc
     if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
     else { raise(2); return "NI0" }
 
@@ -4557,6 +4597,7 @@ function dobreak() {
 # ---- statement dispatch ----------------------------------------------------
 function execstmt(   ty, tx) {
     ty = TY[CK, CP]; tx = TK[CK, CP]
+    EVSTK = 2                               # the statement's own stack (OC-12, p60 e_or)
     if (ty == "i") {
         if (tx == "PRINT")   { CP++; st_print(); return }
         if (tx == "LET")     { CP++; st_let(); return }
@@ -4651,6 +4692,7 @@ function skipstmt(   ty, tx) {
 
 # ---- assignment ------------------------------------------------------------
 function st_let(   name, key, v, lp, src, j, n) {
+    EVSTK += 2                              # LET's push (OC-12, p60 e_or)
     if (!at_name()) { raise(2); return }
     name = lvname()
     key = ""
@@ -4983,6 +5025,7 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     mkvar(name, "", dbl ? "D" : sng ? "S" : "I", TSX[CK, CP - 1])   # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
+    EVSTK += 4                              # FOR's pushes and its LET's (OC-12, p60 e_or)
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     # an integer index runs an integer loop: the start through LET (1CA6H ->
@@ -6645,10 +6688,12 @@ function fr_dump(   i) {
 # AF, INC SP; 1963H is only asked for 6; 6 until 2026-10-05, the
 # 2026-09-30 audit, BL-2) and a FOR frame 17 (the
 # pushes of 1CBBH-1D1DH); and the driver's own depth while a statement
-# runs is 14 bytes, the figure that makes PRINT MEM say 15572 on a 16K
-# machine with no program: 32767 - 50 - 17131 - 14.  Names longer than
-# two characters are counted as the ROM would count them, two.  Not
-# counted: the temporaries of an expression, the string data of a FIELD
+# runs is 14 bytes, and the PRINT's own 2 (EVSTK) make PRINT MEM say
+# 15568 at MEM SIZE 32767 with no program: 32765 - 50 - 17131 - 14 - 2.  Names longer than
+# two characters are counted as the ROM would count them, two.  The
+# evaluator's own stack is EVSTK (p60 e_or: 2 inside a PRINT, more in a
+# nested expression; since 2026-10-08, audit OC-12).  Not counted: the
+# string data of a FIELD
 # buffer, and a string that LET or READ left pointing into its program
 # line (1F46H-1F57H), which takes no string space (STRUSED is kept per
 # locator in STRCNT so a re-assignment gives the old count back).
@@ -6700,7 +6745,7 @@ function mem_varbytes(   n, k, i, e) {
 # mode the note still explains the ?OM or ?BS that follows.
 function mem_free() {
     pm_sync(); if (!HOSTMEM) pm_truncnote()
-    return (HOSTMEM ? HOSTTOP : mem_strlo()) - 14 - 5 * GSN - 17 * FSN - ((HOSTMEM ? PMFULL : PMEND) + mem_varbytes())
+    return (HOSTMEM ? HOSTTOP : mem_strlo()) - 14 - EVSTK - 5 * GSN - 17 * FSN - ((HOSTMEM ? PMFULL : PMEND) + mem_varbytes())
 }
 # (40D6H) - (40A0H) after the collection: FRE(a$)
 function mem_strfree() { return (HOSTMEM ? HOSTTOP : mem_strsz()) - STRUSED }
@@ -7104,7 +7149,7 @@ function st_print(   sep, ty, tx, v, col, t) {
         if (ty == "i" && tx == "ELSE") break
         if (ty == "b") { CP++; continue }                # 2# +3 is two items: 2, then +3 (ROM bug 7; p50)
         if (ty == "o" && tx == "@") { pr_at(); if (E) return; sep = 0; continue }
-        if (ty == "i" && tx == "USING") { CP++; pr_using(); return }
+        if (ty == "i" && tx == "USING") { CP++; EVSTK += 4; pr_using(); return }   # USING's pushes (OC-12, p60 e_or)
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
             sep = 1

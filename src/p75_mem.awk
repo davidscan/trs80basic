@@ -1261,10 +1261,12 @@ function fr_dump(   i) {
 # AF, INC SP; 1963H is only asked for 6; 6 until 2026-10-05, the
 # 2026-09-30 audit, BL-2) and a FOR frame 17 (the
 # pushes of 1CBBH-1D1DH); and the driver's own depth while a statement
-# runs is 14 bytes, the figure that makes PRINT MEM say 15572 on a 16K
-# machine with no program: 32767 - 50 - 17131 - 14.  Names longer than
-# two characters are counted as the ROM would count them, two.  Not
-# counted: the temporaries of an expression, the string data of a FIELD
+# runs is 14 bytes, and the PRINT's own 2 (EVSTK) make PRINT MEM say
+# 15568 at MEM SIZE 32767 with no program: 32765 - 50 - 17131 - 14 - 2.  Names longer than
+# two characters are counted as the ROM would count them, two.  The
+# evaluator's own stack is EVSTK (p60 e_or: 2 inside a PRINT, more in a
+# nested expression; since 2026-10-08, audit OC-12).  Not counted: the
+# string data of a FIELD
 # buffer, and a string that LET or READ left pointing into its program
 # line (1F46H-1F57H), which takes no string space (STRUSED is kept per
 # locator in STRCNT so a re-assignment gives the old count back).
@@ -1316,7 +1318,7 @@ function mem_varbytes(   n, k, i, e) {
 # mode the note still explains the ?OM or ?BS that follows.
 function mem_free() {
     pm_sync(); if (!HOSTMEM) pm_truncnote()
-    return (HOSTMEM ? HOSTTOP : mem_strlo()) - 14 - 5 * GSN - 17 * FSN - ((HOSTMEM ? PMFULL : PMEND) + mem_varbytes())
+    return (HOSTMEM ? HOSTTOP : mem_strlo()) - 14 - EVSTK - 5 * GSN - 17 * FSN - ((HOSTMEM ? PMFULL : PMEND) + mem_varbytes())
 }
 # (40D6H) - (40A0H) after the collection: FRE(a$)
 function mem_strfree() { return (HOSTMEM ? HOSTTOP : mem_strsz()) - STRUSED }

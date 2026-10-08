@@ -61,7 +61,7 @@ BEGIN {
     if (!TTYIN && !OPT_SCREEN) DUMB = 1     # no tty: stream plainly (--screen keeps the grid)
     t_init()
     if (BATCH) {
-        if (OPT_MEMSIZE) { HIMEM = OPT_MEMSIZE; SSP = HIMEM }
+        if (OPT_MEMSIZE) { HIMEM = (OPT_MEMSIZE > 65529) ? RAMTOP : OPT_MEMSIZE - 2; SSP = HIMEM }   # as typed (below)
         RC = batch_main()
         fio_closeall()
         t_done()
@@ -80,9 +80,14 @@ BEGIN {
     # it stays present, readable and writable, which is the entire point of
     # reserving it: the classic idiom loads a machine-language routine into
     # exactly that region.  PEEK(16561)+256*PEEK(16562) reports it (the
-    # classic idiom).  ENTER keeps the full 65535.
+    # classic idiom).  ENTER keeps the full 65535.  An answer n is stored
+    # as n - 2: 00DEH and 00E7H each DEC HL before 00F2H saves it at 40B1H,
+    # so MEM SIZE 32767 leaves 32766 and 32767 above the top, and PRINT MEM
+    # says 15568 (until 2026-10-08 n itself, 2 bytes more: audit OC-12).
+    # Past 65529 the machine's reader says ?SN and asks again (1E5AH); here,
+    # as --memsize 65535 always meant, it is the whole map, as ENTER.
     if (BOOTMS ~ /^[ \t]*[0-9]+[ \t]*$/ && BOOTMS + 0 >= 17280 && BOOTMS + 0 <= RAMTOP) {
-        HIMEM = BOOTMS + 0; SSP = HIMEM
+        HIMEM = (BOOTMS + 0 > 65529) ? RAMTOP : BOOTMS - 2; SSP = HIMEM
     }
     s_nl()
     s_puts("R/S L2 BASIC"); s_nl()

@@ -35,7 +35,7 @@ function st_print(   sep, ty, tx, v, col, t) {
         if (ty == "i" && tx == "ELSE") break
         if (ty == "b") { CP++; continue }                # 2# +3 is two items: 2, then +3 (ROM bug 7; p50)
         if (ty == "o" && tx == "@") { pr_at(); if (E) return; sep = 0; continue }
-        if (ty == "i" && tx == "USING") { CP++; pr_using(); return }
+        if (ty == "i" && tx == "USING") { CP++; EVSTK += 4; pr_using(); return }   # USING's pushes (OC-12, p60 e_or)
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
             sep = 1

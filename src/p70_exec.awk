@@ -143,6 +143,7 @@ function dobreak() {
 # ---- statement dispatch ----------------------------------------------------
 function execstmt(   ty, tx) {
     ty = TY[CK, CP]; tx = TK[CK, CP]
+    EVSTK = 2                               # the statement's own stack (OC-12, p60 e_or)
     if (ty == "i") {
         if (tx == "PRINT")   { CP++; st_print(); return }
         if (tx == "LET")     { CP++; st_let(); return }
@@ -237,6 +238,7 @@ function skipstmt(   ty, tx) {
 
 # ---- assignment ------------------------------------------------------------
 function st_let(   name, key, v, lp, src, j, n) {
+    EVSTK += 2                              # LET's push (OC-12, p60 e_or)
     if (!at_name()) { raise(2); return }
     name = lvname()
     key = ""
@@ -569,6 +571,7 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     mkvar(name, "", dbl ? "D" : sng ? "S" : "I", TSX[CK, CP - 1])   # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
+    EVSTK += 4                              # FOR's pushes and its LET's (OC-12, p60 e_or)
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     # an integer index runs an integer loop: the start through LET (1CA6H ->
