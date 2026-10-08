@@ -485,8 +485,8 @@ because period programs poke at it:
   how a listing reserves its own space without asking the user to answer
   the prompt. `MEM`, `FRE(0)` and `FRE("")` are the ROM's arithmetic
   over the program, the variables, the arrays, the FOR/GOSUB frames and
-  the string space `CLEAR n` sets (50 bytes at power-on): 15572 on a 16K
-  map with no program. Program size itself is not limited.
+  the string space `CLEAR n` sets (50 bytes at power-on): 15568 at
+  `MEM SIZE` 32767 with no program. Program size itself is not limited.
 - **LPRINT/LLIST** print to a host stream: set `TRS80_PRINTER=path` to
   append there; unset, output is discarded — the hardware analogue of no
   printer attached. The ROM driver vectors are honoured: `POKE 16414,141:
@@ -526,8 +526,9 @@ Honest list, stated as current behavior:
 
 - **`MEM` and `FRE` count the ROM's layout, not this interpreter's.** The
   figures move as the machine's would (a new single takes 7 bytes, a
-  GOSUB 6, a FOR 17), with the ROM's 2-character names and single
-  precision assumed, and without an expression's temporaries; a program
+  GOSUB 5, a FOR 17), with the ROM's 2-character names and single
+  precision assumed, and with what the expression holds while `MEM` is
+  read (`PRINT 0+MEM` is 10 less than `PRINT MEM`); a program
   that loops "until memory is low" ends where the machine's would to
   within a few bytes.
 - **A type suffix does not make a separate variable.** `G%`, `G!`, `G#`
@@ -2577,9 +2578,12 @@ MEM   the number of bytes of program and variable space still free
   stack, less the end of the arrays.  The program, the variables (7
   bytes a single, 6 a string, 5 an integer, 11 a double), the arrays (a
   6-byte header, 2 per dimension, the elements) and the FOR and GOSUB
-  frames (17 and 6 bytes) are counted as the machine lays them out; an
-  expression's temporaries are not.  On a 16K machine with no program
-  (--memsize 32767) PRINT MEM says 15572, as the manual's example does.
+  frames (17 and 5 bytes) are counted as the machine lays them out, and
+  so is what the expression being read holds at that moment: PRINT
+  0+MEM says 10 less than PRINT MEM, and each parenthesis or function
+  around MEM takes a few bytes more.  With no program at MEM SIZE 32767
+  (--memsize 32767, which leaves the top at 32765, as the machine does)
+  PRINT MEM says 15568; the manual's example shows 15572.
   When it runs out, ?OM: a GOSUB or FOR with fewer than about 60 bytes
   left, or a DIM that does not fit, stops as on the machine -- so a
   subroutine that calls itself without end is ?OM ERROR, not a hang.

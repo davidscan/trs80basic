@@ -1260,9 +1260,12 @@ MEM   the number of bytes of program and variable space still free
   stack, less the end of the arrays.  The program, the variables (7
   bytes a single, 6 a string, 5 an integer, 11 a double), the arrays (a
   6-byte header, 2 per dimension, the elements) and the FOR and GOSUB
-  frames (17 and 6 bytes) are counted as the machine lays them out; an
-  expression's temporaries are not.  On a 16K machine with no program
-  (--memsize 32767) PRINT MEM says 15572, as the manual's example does.
+  frames (17 and 5 bytes) are counted as the machine lays them out, and
+  so is what the expression being read holds at that moment: PRINT
+  0+MEM says 10 less than PRINT MEM, and each parenthesis or function
+  around MEM takes a few bytes more.  With no program at MEM SIZE 32767
+  (--memsize 32767, which leaves the top at 32765, as the machine does)
+  PRINT MEM says 15568; the manual's example shows 15572.
   When it runs out, ?OM: a GOSUB or FOR with fewer than about 60 bytes
   left, or a DIM that does not fit, stops as on the machine -- so a
   subroutine that calls itself without end is ?OM ERROR, not a hang.
