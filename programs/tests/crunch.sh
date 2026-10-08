@@ -19,6 +19,11 @@ cat > "$dir/l.bas" <<'EOF2'
 40 ' and So does this ?
 50 FOR I=17129 TO PEEK(16633)+256*PEEK(16634)-1:PRINT PEEK(I);:NEXT
 EOF2
+# lines 60-90: a TAB after the line number (audit BL-11).  The digit read
+# stops past blanks, TABs and LFs (1D78H-1D88H); 1A8BH backs up over
+# blanks only and one blank is dropped (1A93H), so a TAB goes with all
+# before it, and of blanks alone one goes
+printf '60\tREM T\n70\t  REM U\n80 \tREM V\n90  REM W\n' >> "$dir/l.bas"
 
 # 1. the bytes themselves, line 10: IF A D5 1 THEN PRINT "lower" : ELSE PRINT "q?" ; A
 got=$(cd "$dir" && TRS80_Z80= "$here/basic" l.bas 2>&1 | tr -s ' \n' ' ' | sed 's/^ //; s/ $//; s/^q? 0 //')   # line 10 runs first and prints
@@ -36,6 +41,11 @@ esac
 case "$got" in
     *" 30 0 136 32 97 98 99 44 32 63 120 58 147 32 83 116 97 121 115 32 63 "*) ;;
     *) fail "line 30: DATA and REM are literal" "$got" ;;
+esac
+
+case "$got" in
+    *" 60 0 147 32 84 0 "*" 70 0 32 147 32 85 0 "*" 80 0 147 32 86 0 "*" 90 0 32 147 32 87 0 0 0") ;;
+    *) fail "lines 60-90: a TAB after the number is dropped with what precedes it" "$got" ;;
 esac
 
 # 2. tok.py makes the same image

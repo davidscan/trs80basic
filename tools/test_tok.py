@@ -72,6 +72,7 @@ eq(split_lines(b'10 REM A\n   B\r20 END\r'), [(10, b"REM A\n   B"), (20, b"END")
 eq(split_lines(b"10 CLS\r20 END\r\x00\x00\x00"), [(10, b"CLS"), (20, b"END")], "sector padding is not a line")
 eq(split_lines(b"10 CLS\r20 END\r\x1a"), [(10, b"CLS"), (20, b"END")], "nor is a 1AH end mark")
 eq(split_lines(b"1 5 CLS\n  20 END\n"), [(15, b"CLS"), (20, b"END")], "blanks inside the number are skipped (ROM 1E5AH), leading blanks too")
+eq(split_lines(b"10\tCLS\n20 \tCLS\n30\t  CLS\n40  CLS\n"), [(10, b"CLS"), (20, b"CLS"), (30, b" CLS"), (40, b" CLS")], "a TAB after the number goes with what precedes it; one blank is dropped (1A8BH-1A95H, audit BL-11)")
 eq(split_lines(b"10 CLS\n20\n30 END\n"), [(10, b"CLS"), (30, b"END")],
    "a bare line number deletes the line, as typed (1AADH-1ABFH)")
 eq(split_lines(b"10 CLS\n20 END\n20   \n"), [(10, b"CLS")],

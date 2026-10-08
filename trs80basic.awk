@@ -1837,13 +1837,25 @@ function handle_line(line,   s, ln, rest) {
 # The number in front of a typed or loaded line (ROM 1A81H-1A95H): 1E5AH
 # reads the digits through RST 10H, which SKIPS BLANKS, so 1 5 PRINT is
 # line 15 (it stored line 1 until 2026-09-27: the 2026-09-26 audit,
-# L-14); then 1A8BH backs up to the last digit and ONE blank behind it is
-# dropped (1A93H-1A95H), the rest is the body, blanks and all.  The body
-# is left in LNBODY.  tools/tok.py cuts a listing the same way.
-function cut_lineno(s,   n) {
+# L-14).  That read stops on the first byte past the number that is not a
+# blank, a TAB or an LF (1D78H-1D88H); 1A8BH-1A91H then back up over
+# BLANKS only, and ONE blank there is dropped (1A93H-1A95H).  So with
+# blanks alone one goes, and a TAB after the number is dropped with
+# everything before it: 10<TAB>PRINT and 10 <TAB>PRINT store PRINT, and
+# 10<TAB>  PRINT stores " PRINT" (audit BL-11; until 2026-10-08 the TAB
+# was kept).  The keyboard never sends a raw TAB to this routine -- its
+# right arrow becomes blanks to the next column stop -- so the rule is
+# the one a text file's line meets, as on Disk BASIC's ASCII LOAD.  The
+# rest is the body, blanks and all, left in LNBODY.  tools/tok.py cuts a
+# listing the same way.
+function cut_lineno(s,   n, lead, nb) {
     match(s, /^[0-9]+([ \t]+[0-9]+)*/)
     n = substr(s, 1, RLENGTH); gsub(/[ \t]/, "", n)
-    LNBODY = substr(s, RLENGTH + 1); sub(/^ /, "", LNBODY)
+    LNBODY = substr(s, RLENGTH + 1)
+    match(LNBODY, /^[ \t\n]*/); lead = substr(LNBODY, 1, RLENGTH)
+    LNBODY = substr(LNBODY, RLENGTH + 1)
+    match(lead, / *$/); nb = RLENGTH
+    if (nb > 1) LNBODY = sprintf("%*s", nb - 1, "") LNBODY
     return n + 0
 }
 

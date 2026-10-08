@@ -220,9 +220,18 @@ def split_lines(data):
         number = int(digits)
         if number > MAX_LINE:
             raise TokError(f"line number {number} exceeds the maximum {MAX_LINE}")
-        # detok emits one space after the number unless the body supplied its
-        # own; that separator is not part of the body and must not come back.
-        body = raw[j + 1:] if j < len(raw) and raw[j] == 0x20 else raw[j:]
+        # The digit read stops on the first byte that is not a blank, a TAB
+        # or an LF (1D78H-1D88H); 1A8BH-1A91H back up over blanks only and
+        # drop one (1A93H-1A95H): with blanks alone one goes (detok's
+        # separator), and a TAB after the number goes with everything
+        # before it (audit BL-11).  prog_load's cut_lineno is the same.
+        k = j
+        while k < len(raw) and raw[k] in (0x20, 0x09, 0x0A):
+            k += 1
+        nb = 0
+        while nb < k - j and raw[k - 1 - nb] == 0x20:
+            nb += 1
+        body = b" " * max(nb - 1, 0) + raw[k:]
         if not body.strip(b" \t"):
             # A number followed only by blanks is a DELETION, as typed
             # (1AADH-1ABFH); the interpreter's loader (prog_load) does the
