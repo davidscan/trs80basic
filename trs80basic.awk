@@ -7509,7 +7509,7 @@ function pu_big(ax, ty,   t) {
 }
 
 # ---- INPUT -----------------------------------------------------------------
-function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, endp, snpend, dbl, bad) {
+function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad) {
     # the illegal-direct check comes FIRST on the ROM (219AH CALL 2828H,
     # before the # is even looked at), so INPUT#1,A typed at READY is ?ID
     # like any other INPUT (the 2026-09-26 audit, N-5; until then the #
@@ -7558,85 +7558,78 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
         if (line != "" && !EXTON) raise(2)
         return
     }
-    # The targets are only LOCATED here.  Each one is resolved -- its
-    # subscripts evaluated -- when its value is about to be stored, after
-    # the assignments before it, as the ROM does and as READ does here:
-    # INPUT I,A(I) answered 3,77 stores into A(3).  (Until 2026-09-20 every
-    # subscript was evaluated before the prompt, so that went to A(0).)
-    nlv = 0
-    for (;;) {
-        if (!at_name()) { raise(2); return }
-        nlv++; LV_P[nlv] = CP; CP++
-        if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
-            d = 0
-            do {
-                if (TY[CK, CP] == "" || TY[CK, CP] == "e") { raise(2); return }
-                if (TY[CK, CP] == "o" && TK[CK, CP] == "(") d++
-                else if (TY[CK, CP] == "o" && TK[CK, CP] == ")") d--
-                CP++
-            } while (d > 0)
-        }
-        if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
-        break
-    }
-    endp = CP
-    # the ROM checks the separator per item with RST 08H (21FBH): behind a
-    # stored item anything but a comma or the end is ?SN at once, BEFORE
-    # the leftover-input test -- so INPUT A;B never prints ?EXTRA (N-5)
-    snpend = !at_stmt_end()
-    for (;;) {                              # REDO loop
+    # The answer is read FIRST and the variable list is walked one target
+    # at a time, as the ROM does (21DBH reads the line; 21FDH -> 260DH
+    # locates each variable only when its item is due): a target is
+    # located -- its subscripts evaluated -- after the store before it
+    # (INPUT I,A(I) answered 3,77 stores into A(3)) and before a ?? prompt
+    # for its item, and the byte behind it is tested after its store
+    # (2263H; RST 08H against "," at 21FBH).  So INPUT A,3 answered 5,6
+    # stores A and is then ?SN, answered 5 it is ?SN with no ??, and
+    # INPUT A;B is ?SN behind A's store, never ?EXTRA (N-5).  Until
+    # 2026-10-08 the whole list was checked before the prompt (the
+    # 2026-09-30 audit, BL-9), so nothing was asked or stored, and ENTER
+    # alone could not run past a bad list.
+    lst = CP
+    for (;;) {                              # REDO loop: the list from its start
         if (prompt != "") s_puts(prompt)
         if (pq != 2) s_puts("? ")
-        idx = 1; nib = 0
-        ok = 1
-        for (;;) {                          # fill loop
-            line = rl_read()
-            if (RLCANCEL) { dobreak(); return }
-            if (EOFQUIT) { if (BATCH) batch_ineof(); STOPPED = 1; return }
-            # ENTER alone ends the statement and assigns NOTHING: the ROM
-            # tests the first byte of the buffer and skips to the end of
-            # the INPUT (21E8H; the same at a ?? prompt, 2229H), so "the
-            # variables will have the value they were previously assigned"
-            # (manual p.3-9) -- the press-ENTER-to-keep-the-value prompt.
-            # Values already taken from an earlier line of this INPUT stay.
-            # A line of blanks is not empty: it still reads as 0 or "".
-            if (line == "") return
-            nib = parse_items(line, nib)
-            while (idx <= nlv && idx <= nib) {
-                CP = LV_P[idx]; name = lvname(); key = ""; dbl = (LVT == "D")
-                if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
-                CP = endp
-                # The item is STORED before its terminator is tested: the
-                # ROM jumps to LET's store (2240-224A, JP 1F33H) with 225AH
-                # pushed, and 225A-2260 then finds neither a comma nor the
-                # end.  So 1,2X answered to INPUT A,B leaves B = 2, "Q"R
-                # leaves Q, and a quoted item for a number leaves 0 (the
-                # reader takes nothing), all seen by ENTER after ?REDO.
-                # Until 2026-10-08 nothing was stored (the 2026-09-30
-                # audit, BL-7).
-                bad = IBBAD[idx]
-                if (strname(name, LVSX)) assignv(name, key, "S" IB[idx])
-                else {
-                    # the ROM's reader takes what it can (valnum, p90);
-                    # anything but blanks left over is ?REDO (225A-2260)
-                    x = IBQ[idx] ? "\"" : IB[idx]
-                    sub(/^[ \t\n]+/, "", x)
-                    x = valnum(x, dbl); if (E) return   # ?OV, or ?SN for a bad %: not ?REDO; a double enters as VAL (p90)
-                    if (!numrest()) bad = 1
-                    assignv(name, key, "N" VALTYPE x)
-                }
-                # a store that fails (?OV into an integer, 1F33H -> 0A7FH)
-                # ends the INPUT: the items behind it are not assigned
-                if (E) return
-                if (bad) { ok = 0; break }
-                idx++
+        line = rl_read()
+        if (RLCANCEL) { dobreak(); return }
+        if (EOFQUIT) { if (BATCH) batch_ineof(); STOPPED = 1; return }
+        # ENTER alone ends the statement and assigns NOTHING: the ROM
+        # tests the first byte of the buffer and skips to the end of the
+        # statement without reading the list (21E8H -> 1F04H; the same at
+        # a ?? prompt, 2229H), so "the variables will have the value they
+        # were previously assigned" (manual p.3-9) -- the press-ENTER-to-
+        # keep-the-value prompt -- and a bad list behind it is never seen.
+        # Values already taken from an earlier line of this INPUT stay.
+        # A line of blanks is not empty: it still reads as 0 or "".
+        if (line == "") { skipstmt(); return }
+        nib = parse_items(line, 0); idx = 1
+        CP = lst; ok = 1
+        for (;;) {                          # one target a pass
+            if (!at_name()) { raise(2); return }
+            name = lvname(); key = ""; dbl = (LVT == "D")
+            if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
+            if (idx > nib) {                # the typed items are used up
+                s_puts("?? ")
+                line = rl_read()
+                if (RLCANCEL) { dobreak(); return }
+                if (EOFQUIT) { if (BATCH) batch_ineof(); STOPPED = 1; return }
+                if (line == "") { skipstmt(); return }
+                nib = parse_items(line, nib)
             }
-            if (!ok || idx > nlv) break
-            s_puts("?? ")
+            # The item is STORED before its terminator is tested: the
+            # ROM jumps to LET's store (2240-224A, JP 1F33H) with 225AH
+            # pushed, and 225A-2260 then finds neither a comma nor the
+            # end.  So 1,2X answered to INPUT A,B leaves B = 2, "Q"R
+            # leaves Q, and a quoted item for a number leaves 0 (the
+            # reader takes nothing), all seen by ENTER after ?REDO.
+            # Until 2026-10-08 nothing was stored (the 2026-09-30
+            # audit, BL-7).
+            bad = IBBAD[idx]
+            if (strname(name, LVSX)) assignv(name, key, "S" IB[idx])
+            else {
+                # the ROM's reader takes what it can (valnum, p90);
+                # anything but blanks left over is ?REDO (225A-2260)
+                x = IBQ[idx] ? "\"" : IB[idx]
+                sub(/^[ \t\n]+/, "", x)
+                x = valnum(x, dbl); if (E) return   # ?OV, or ?SN for a bad %: not ?REDO; a double enters as VAL (p90)
+                if (!numrest()) bad = 1
+                assignv(name, key, "N" VALTYPE x)
+            }
+            # a store that fails (?OV into an integer, 1F33H -> 0A7FH)
+            # ends the INPUT: the items behind it are not assigned
+            if (E) return
+            if (bad) { ok = 0; break }
+            idx++
+            if (at_stmt_end()) break
+            if (!(TY[CK, CP] == "o" && TK[CK, CP] == ",")) { raise(2); return }
+            CP++
         }
         if (ok) {
-            if (snpend) { raise(2); return }
-            if (nib > nlv || IBREST) { s_puts("?EXTRA IGNORED"); s_nl() }
+            if (nib >= idx || IBREST) { s_puts("?EXTRA IGNORED"); s_nl() }
             return
         }
         # ROM 2178: the message is the five bytes 3F 52 45 44 4F -- "?REDO"

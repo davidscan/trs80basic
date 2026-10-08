@@ -447,6 +447,13 @@ maintained outside this repository.
   deeper before ?OM. One listing of the 4,339-program corpus prints a
   different number (elcvidwk.bas, `PRINT MEM` in a subroutine). The
   temporaries of an expression are still not counted.
+- INPUT reads the answer before it reads its variable list, as on the
+  machine (Farvour 21DBH, then 21FDH for each variable in turn; until
+  2026-10-08 the list was checked first). A malformed list
+  (`INPUT "PRESS ENTER";;Z9`, `INPUT A,3`) now prompts: ENTER alone
+  runs on past it, and an answer stores what it can before ?SN. Two
+  listings of the 4,339-program corpus have such a line and now stop at
+  the prompt with empty input instead of at ?SN (symscrfl.bas, UPLOAD.bas).
 - Variable names are the ROM's two characters: SUM and SU are the same
   variable (`memory host` lifts it for new code).
 - Strings are at most 255 characters, as on the machine (?LS past it;

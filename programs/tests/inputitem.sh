@@ -94,5 +94,32 @@ P/Q
  7 -1 '
 [ "$out" = "$want" ] || fail "STORED BEFORE ?REDO" "$out"
 
+# The answer is read before the variable list (21DBH), and each target is
+# found only when its item is due (21FDH -> 260DH; BL-9): INPUT A,3 asks,
+# stores A, then is ?SN -- before any ?? when only 5 was typed -- and ENTER
+# alone runs on past a bad list (1F04H skips to the statement's end).
+cat > "$tmp/bl.bas" <<'BAS'
+10 ON ERROR GOTO 100:N=N+1:A=-1
+20 ON N GOTO 30,40,50,60,70
+30 INPUT A,3:PRINT "NEXT";A:GOTO 10
+40 INPUT A,3:PRINT "NEXT";A:GOTO 10
+50 INPUT A,3:PRINT "NEXT";A:GOTO 10
+60 INPUT 3,A:PRINT "NEXT";A:GOTO 10
+70 INPUT A;B:PRINT "NEXT";A:END
+100 PRINT "E";ERR/2+1;ERL;A:RESUME 10
+BAS
+out=$(printf '5,6\n5\n\n5\n\n' | run "$tmp/bl.bas")
+want='? 5,6
+E 2  30  5 
+? 5
+E 2  40  5 
+? 
+NEXT-1 
+? 5
+E 2  60 -1 
+? 
+NEXT-1 '
+[ "$out" = "$want" ] || fail "THE ANSWER BEFORE THE LIST" "$out"
+
 rm -rf "$tmp"
 echo "INPUTITEM OK"
