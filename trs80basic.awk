@@ -7752,6 +7752,13 @@ function st_read(   dp0) {
     if (DATADIRTY) datascan()
     dp0 = DP
     st_read_items()
+    # A list that ends in anything but the statement's end (READ A;B,
+    # READ A)) is READ's own ?SN, raised inside the statement (2263-2266
+    # -> 21FBH, RST 08H against ",") before 2274H commits the pointer, so
+    # the next READ starts again at this statement's first item; the items
+    # stored keep their values.  Until 2026-10-08 the run loop raised it
+    # after the pointer had moved (the 2026-09-30 audit, BL-8).
+    if (!E && !at_stmt_end()) raise(2)
     if (E) DP = dp0
 }
 

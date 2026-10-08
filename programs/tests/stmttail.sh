@@ -123,6 +123,15 @@ rm -f "$tmp.dat"
 check "REM, the apostrophe and DATA own their lines" \
     "$(run '10 REM X=1END\n20 DATA 1 2 3:READ A$:PRINT A$;\n30 PRINT "OK" '"'"' Z=1END\n')" \
     '1 2 3OK '
+# READ tests its own tail (2263H-2266H -> 21FBH) before the DATA pointer is
+# committed (2274H): after READ A;B the next READ starts again at the first
+# item, and A keeps the 1 it stored (BL-8; until 2026-10-08 C read 2)
+check "READ A;B is READ's own ?SN: the DATA pointer stays" \
+    "$(run '10 ON ERROR GOTO 100\n20 READ A;B\n30 READ C:PRINT A;B;C:END\n40 DATA 1,2,3\n100 PRINT "E";ERR/2+1;ERL;:RESUME NEXT\n')" \
+    'E 2  20  1  0  1  '
+check "READ A:READ B;C, then READ D reads B's item again" \
+    "$(run '10 ON ERROR GOTO 100\n20 READ A:READ B;C\n30 READ D:PRINT A;B;D:END\n40 DATA 1,2,3\n100 PRINT "E";:RESUME NEXT\n')" \
+    'E 1  2  2  '
 
 # 5. a line typed at READY goes through the same driver (65535 is the line)
 out=$(repl '\nX=1END\nPRINT 1 2\nEND X\n10 PRINT "A":STOP:PRINT "B"\nRUN\nCONT X\n')
