@@ -369,6 +369,11 @@ function aref(name,   nd, i, v, idx, key, idxs, vz) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
     else { raise(2); return "" }
     if (!(name in ADIM)) {
+        # the auto-DIM creates through DIM's own code (275CH-2774H, shared by
+        # create and locate): past 64K it is ?BS before it is ?OM, so
+        # A(1,1,1,1)=1 on a 48K machine is ?BS, as DIM A(10,10,10,10) is
+        # (until 2026-10-08 ?OM: audit BL-34, L-9's sibling)
+        if (mem_arrbs(6 + 2 * nd, 11 ^ nd * vz)) { raise_host(9); return "" }   # ?BS (p75)
         if (!mem_need(6 + 2 * nd + 11 ^ nd * vz)) return ""   # ?OM (p75)
         ADIM[name] = nd; AVZ[name] = vz
         for (i = 1; i <= nd; i++) ASZ[name, i] = 10

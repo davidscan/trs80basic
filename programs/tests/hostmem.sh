@@ -37,6 +37,17 @@ basic: "*"$HINT"*) ;; *) fail "CLEAR past 32767" "$out" ;; esac
 printf '10 DIM A(20000)\n' > "$tmp"
 out=$(run); case $out in "?BS ERROR IN 10
 basic: "*"$HINT"*) ;; *) fail "a DIM past 64K is ?BS with the note" "$out" ;; esac
+# the auto-DIM makes its array through the same code (275CH-2774H): past
+# 64K ?BS, below it but too big ?OM (audit BL-34)
+printf '10 A(1,1,1,1)=1\n' > "$tmp"
+out=$(run); case $out in "?BS ERROR IN 10
+basic: "*"$HINT"*) ;; *) fail "an auto-DIM past 64K is ?BS with the note" "$out" ;; esac
+printf '10 CLEAR 30000:A(1,1,1)=1:DIM C(20,20,20)\n' > "$tmp"
+out=$(run); case $out in "?OM ERROR IN 10
+basic: "*"$HINT"*) ;; *) fail "an array that ends below 64K but does not fit is ?OM" "$out" ;; esac
+printf '10 CLEAR 30000:B(1,1,1,1)=1\n' > "$tmp"
+out=$(run); case $out in "?BS ERROR IN 10
+basic: "*"$HINT"*) ;; *) fail "an auto-DIM past 64K under CLEAR 30000 is ?BS" "$out" ;; esac
 printf '10 CLEAR 5000:DIM A(11000)\n' > "$tmp"
 out=$(run); case $out in "?OM ERROR IN 10
 basic: "*"$HINT"*) ;; *) fail "a DIM that ends below 64K but does not fit is ?OM with the note" "$out" ;; esac
