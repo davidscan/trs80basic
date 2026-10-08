@@ -59,6 +59,27 @@ printf '10 DATA ABC  ,  DEF  \n20 DATA G :READ A$,B$,C$:PRINT "[";A$;"][";B$;"][
 out=$(run "$tmp/d.bas")
 [ "$out" = "[ABC  ][DEF  ][G ]" ] || fail "DATA" "$out"
 
+# READ finds a DATA statement only where the DATA token begins a statement
+# (2296H-22AFH; BL-10): not behind THEN or ELSE.  An unquoted item ends at
+# ":" past a quote (2869H), and the search starts again there with no
+# quote open, so D" or I" hides the rest of the line, :DATA 9 included.
+cat > "$tmp/dt.bas" <<'BAS'
+10 ON ERROR GOTO 100
+20 IF 1 THEN DATA 5
+30 IF 0 THEN 40 ELSE DATA 6
+40 DATA AB"C:D",E
+50 PRINT "P";: DATA F
+60 DATA G"H:I":DATA 9
+70 DATA J
+80 READ A$,B$,C$,D$:PRINT A$;"/";B$;"/";C$;"/";D$:READ E$
+90 END
+100 PRINT "E";ERR/2+1;ERL:END
+BAS
+out=$(run "$tmp/dt.bas")
+want='PAB"C/F/G"H/J
+E 4  80 '
+[ "$out" = "$want" ] || fail "WHERE READ FINDS DATA" "$out"
+
 # The item that fails the test is STORED first (2240-224A, JP 1F33H with
 # 225AH pushed; the 2026-09-30 audit, BL-7): ENTER after ?REDO keeps it.
 # 2X leaves 2, "Q"R leaves Q, X and a quoted "2" leave 0 for a number,

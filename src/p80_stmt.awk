@@ -737,14 +737,46 @@ function parse_items(line, base,   cnt, i, n, c, j, item, q, bad) {
 }
 
 # ---- DATA / READ / RESTORE -------------------------------------------------
-function datascan(   i, k, j, dn) {
+# READ finds DATA the way the ROM's search does (2296H-22AFH): it walks a
+# line's statements -- from the line's start and from each ":" outside
+# quotes, the quotes counted afresh from where the walk starts (1F05H) --
+# and a DATA statement counts only when the DATA token BEGINS one (22AEH
+# CP 88H, after RST 10H's blanks).  So DATA behind THEN or ELSE is never
+# read.  An item ends at a ":" too, a quote inside it notwithstanding
+# (2869H stops an unquoted item at "," or ":"), and the walk starts again
+# at that ":" with no quote open: DATA AB"C:D",E reads AB"C, and the
+# quote of D" then hides the rest of the line, a later :DATA included.
+# Until 2026-10-08 every DATA text of a line was read whole (the
+# 2026-09-30 audit, BL-10).
+function datascan(   i, k, j, dn, txt, n, p, q, c, DKW, DNO, stop) {
     NDATA = 0
     for (i = 1; i <= NL; i++) {
         k = LNS[i] ""
         if (!(k in TOKD)) tokline(k, runtext(LNS[i]))
-        dn = 0                          # which DATA of the line (p75 lit_addr)
-        for (j = 1; j <= TCN[k]; j++)
-            if (TY[k, j] == "d") data_items(TK[k, j], LNS[i], ++dn)
+        delete DKW; dn = 0              # which DATA of the line (p75 lit_addr)
+        for (j = 1; j < TCN[k]; j++)
+            if (TY[k, j] == "i" && TK[k, j] == "DATA" && TY[k, j + 1] == "d") {
+                DKW[TPO[k, j]] = j + 1; DNO[TPO[k, j]] = ++dn
+            }
+        if (!dn) continue
+        txt = TSRC[k]; n = length(txt); p = 1
+        for (;;) {                      # p: where a statement begins
+            while (p <= n && substr(txt, p, 1) ~ /^[ \t\n]$/) p++
+            if (p in DKW) {
+                j = DKW[p]
+                stop = data_items(TK[k, j], LNS[i], DNO[p])
+                p = TPO[k, j] + (stop ? stop - 1 : length(TK[k, j]))
+            }
+            q = 0                       # to the next ":" outside quotes
+            while (p <= n) {
+                c = substr(txt, p, 1)
+                if (c == "\"") q = !q
+                else if (c == ":" && !q) break
+                p++
+            }
+            if (p > n) break
+            p++
+        }
     }
     DATADIRTY = 0
 }
@@ -754,6 +786,8 @@ function datascan(   i, k, j, dn) {
 # the end of the statement, and finds neither (225A-2260).  That is ?SN
 # when READ REACHES the item, not before; until 2026-09-21 the rest of the
 # line was dropped silently and EF was never read.
+# Returns where in txt the items stopped at a ":" (datascan walks on from
+# there), or 0 when they ran to the end of the DATA text.
 function data_items(txt, ln, dn,   ci, cn, c, j, item, wasq, bad, off) {
     ci = 1; cn = length(txt)
     for (;;) {
@@ -767,15 +801,15 @@ function data_items(txt, ln, dn,   ci, cn, c, j, item, wasq, bad, off) {
             else { item = substr(txt, ci + 1, j - 1); ci = ci + j + 1 }
             wasq = 1
             while (ci <= cn && substr(txt, ci, 1) ~ /^[ \t\n]$/) ci++
-            if (ci <= cn && substr(txt, ci, 1) != ",") {
+            if (ci <= cn && substr(txt, ci, 1) !~ /^[,:]$/) {
                 bad = 1
-                while (ci <= cn && substr(txt, ci, 1) != ",") ci++
+                while (ci <= cn && substr(txt, ci, 1) !~ /^[,:]$/) ci++
             }
         } else {
             j = ci
-            while (j <= cn && substr(txt, j, 1) != ",") j++
-            # every byte up to the comma is the item's, trailing blanks too
-            # (Farvour 2869H-287EH; the 2026-09-26 audit, H-3)
+            while (j <= cn && substr(txt, j, 1) !~ /^[,:]$/) j++
+            # every byte up to the comma or ":" is the item's, trailing
+            # blanks too (Farvour 2869H-287EH; the 2026-09-26 audit, H-3)
             item = substr(txt, ci, j - ci)
             ci = j
             wasq = 0
@@ -783,7 +817,7 @@ function data_items(txt, ln, dn,   ci, cn, c, j, item, wasq, bad, off) {
         NDATA++; DITEM[NDATA] = item; DQ[NDATA] = wasq; DBAD[NDATA] = bad; DLINE[NDATA] = ln
         DLIT[NDATA] = lit_spec(ln, "d", dn, off)   # where READ's string points (2240H)
         if (ci <= cn && substr(txt, ci, 1) == ",") { ci++; continue }
-        break
+        return (ci <= cn) ? ci : 0      # at a ":", or the end
     }
 }
 

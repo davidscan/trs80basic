@@ -945,11 +945,14 @@ READ var[,var...]   assign the next DATA item(s) to variables
 ```text
 DATA const[,const...]   inline constants for READ to consume
   DATA is never executed -- it is a store of values that READ draws
-  from, so it may sit anywhere in the program.  Items are collected in
-  line order across every DATA statement.
-  Unquoted items are taken literally, with surrounding spaces trimmed.
-  Quote an item to keep leading/trailing spaces or to include a comma or
-  a colon, which would otherwise end it.
+  from, so it may sit on any line, but it must begin a statement: READ
+  finds no DATA behind THEN or ELSE, as on the machine.  Items are
+  collected in line order across every DATA statement.
+  Unquoted items are taken literally from their first non-blank, and
+  blanks before the comma are kept (DATA ABC  ,D reads "ABC  ").
+  Quote an item to keep leading spaces or to include a comma or a colon,
+  which would otherwise end it -- even after a quote inside the item:
+  DATA AB"C:D" reads AB"C, and the rest of that line is then skipped.
   Example: DATA 1,2,"HELLO"
   Example: DATA "BOLT, HEX",3      (one string item, then a number)
 ```
