@@ -454,6 +454,12 @@ maintained outside this repository.
   runs on past it, and an answer stores what it can before ?SN. Two
   listings of the 4,339-program corpus have such a line and now stop at
   the prompt with empty input instead of at ?SN (symscrfl.bas, UPLOAD.bas).
+- An operand missing at the statement's end is ?MO, missing operand, as
+  on the machine (`X=1+`, `X=(`, `PRINT LEFT$(A$,`, `FOR I=1 TO`, and
+  before a `:` or ELSE); any other byte where an operand is due is still
+  ?SN (`X=*2`, `PRINT 1+;`). Until 2026-10-08 all of them were ?SN. One
+  listing of the 4,339-program corpus stops at such a line and now
+  reports ?MO (extnbasc.bas 65, a `GET` with no file number).
 - Variable names are the ROM's two characters: SUM and SU are the same
   variable (`memory host` lifts it for new code).
 - Strings are at most 255 characters, as on the machine (?LS past it;

@@ -50,8 +50,9 @@ out=$(TRS80_Z80= "$here/basic" "$tmp" 2>&1 </dev/null)
 [ "$out" = "BREAK IN 0" ] || fail "STOP in line 0" "$out"
 
 # An UNTRAPPED ?SN clears the ERR cell on the way to READY (1A2BH SUB 02H,
-# 2E53H stores the 0 back); every other code stays, and ERL keeps the line
-out=$(printf '\n10 PRINT +\nRUN\nPRINT ERR;ERL\n10 X=1/0\nRUN\nPRINT ERR;ERL\n' | repl | tr '\n' ' ')
+# 2E53H stores the 0 back); every other code stays, and ERL keeps the line.
+# X=*2 is the ?SN: PRINT + is ?MO since 2026-10-08 (OC-13), and keeps 40
+out=$(printf '\n10 X=*2\nRUN\nPRINT ERR;ERL\n10 X=1/0\nRUN\nPRINT ERR;ERL\n' | repl | tr '\n' ' ')
 case $out in *" 0  10 "*" 20  10 "*) ;; *) fail "ERR after an untrapped ?SN is 0" "$out" ;; esac
 
 echo "ERRLINE OK"

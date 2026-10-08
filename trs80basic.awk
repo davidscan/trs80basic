@@ -3802,8 +3802,9 @@ function e_prim(   t, s, v, key, sx) {
         # at 2337H (PRINT 1END, X=END): a variable is never spelled like a
         # keyword, since the tokenizer takes the keyword out of the name
         # (TOTAL is TO TAL, p50).  It read as a variable of that name
-        # before 2026-09-25 (the L-10 remainder).
-        if (TKW[CK, CP]) { raise(2); return "NI0" }
+        # before 2026-09-25 (the L-10 remainder).  ELSE, stored behind a
+        # ":", is the statement's end: ?MO, as below (OC-13).
+        if (TKW[CK, CP]) { raise(at_stmt_end() ? 21 : 2); return "NI0" }
         sx = TSX[CK, CP]; CP++                    # the name's suffix types the value read (ntype, p70)
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
             key = aref(s); if (E) return "NI0"
@@ -3824,7 +3825,12 @@ function e_prim(   t, s, v, key, sx) {
         t = ntype(s, sx)
         return "N" t ((s in NV) ? ((t == "D") ? NV[s] : NV[s] + 0) : 0)   # a double's payload as it is (p91)
     }
-    raise(2)
+    # No operand: the statement's end where one is due (the line's end, a
+    # ":", or the ELSE stored behind one) is ?MO, missing operand, as on
+    # the machine (X=1+, X=(, PRINT B(, LEFT$(A$, , FOR I=1 TO); any other
+    # byte is ?SN (X=*2, PRINT 1+;, IF X= THEN).  Until 2026-10-08 both
+    # were ?SN (the 2026-10-08 oracle finding OC-13).
+    raise(at_stmt_end() ? 21 : 2)
     return "NI0"
 }
 

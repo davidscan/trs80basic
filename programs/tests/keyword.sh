@@ -88,6 +88,17 @@ want '10 IF 1 THEN 30 ELSE 20
 out=$(run '10 PRINT 1END')     # the 1 is printed, then the END token is an operand: ?SN (2337H)
 case "$out" in *"?SN ERROR IN 10|") ;; *) fail "1END is 1 then the END token, ?SN as an operand" "$out" ;; esac
 want '10 X=END' '?SN ERROR IN 10|' 'a statement keyword as an operand is ?SN, never a variable'
+# where an operand is due, the statement's end -- the line's end, ":" or the
+# ELSE stored behind one -- is ?MO, missing operand (OC-13); any other byte
+# stays ?SN (until 2026-10-08 all of these were ?SN)
+want '10 X=1+' '?MO ERROR IN 10|' 'X=1+ at the line end is ?MO'
+want '10 X=(:PRINT 2' '?MO ERROR IN 10|' 'X=( before a colon is ?MO'
+want '10 PRINT LEFT$(A$,' '?MO ERROR IN 10|' 'a function argument missing at the end is ?MO'
+want '10 FOR I=1 TO' '?MO ERROR IN 10|' 'FOR I=1 TO is ?MO'
+want '10 IF 1 THEN X=1+ ELSE 20' '?MO ERROR IN 10|' 'an operand missing before ELSE is ?MO'
+want '10 X=*2' '?SN ERROR IN 10|' 'X=*2 stays ?SN'
+want '10 PRINT 1+;' '?SN ERROR IN 10|' 'PRINT 1+; stays ?SN'
+want '10 X=(1' '?SN ERROR IN 10|' 'a missing ) after an operand stays ?SN'
 want '10 PRINT 5%;32767%' ' 5  32767 |' '% behind an integer'
 want '10 PRINT 1.5%' '?SN ERROR IN 10|' '% behind a fraction is ?SN'
 want '10 PRINT 32768%' '?SN ERROR IN 10|' '% past 32767 is ?SN'
