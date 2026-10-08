@@ -100,7 +100,7 @@ rm -f "$lp"
 
 # 4. the shell suites (each pins its own core or stub; z80core, sound and
 # system skip their core parts without one, and skip_check counts that)
-for s in break devvec usr pmtrunc protocol z80 z80core sound tokload system tips_probe hostwrite termsafe special linelen clear memsize clearopt hints print input ready inputnum printcomma onerror ollama randfile using lof crunch auto notty corepath errline goto imgpoke lineedit numov numread inputitem freshline linecut dotline fname notfound inputcomma varptrsign varnames cont lineno name keyword tokens stmttail mem speed lineorder hostmem version lfrecord; do
+for s in break devvec usr pmtrunc protocol z80 z80core sound tokload system tips_probe hostwrite termsafe special linelen clear memsize clearopt hints print input ready inputnum printcomma onerror ollama randfile using lof crunch auto notty corepath errline goto imgpoke lineedit numov numread inputitem freshline linecut dotline fname notfound inputcomma varptrsign varnames cont lineno name keyword tokens stmttail mem speed lineorder hostmem version lfrecord listform; do
     if bounded 300 sh "programs/tests/$s.sh" >"$log" 2>&1; then skip_check "$s.sh"; else bad "$s.sh"; show "$s.sh"; fi
 done
 # the protocol suite against the real core, whenever one is checked out beside

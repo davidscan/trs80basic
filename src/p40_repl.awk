@@ -251,11 +251,16 @@ function st_list(   i, ln) {
         if (ln < RA) continue
         if (ln > RB) break
         LASTLN = ln                         # "." is the line just listed (ROM 2B5BH)
-        s_puts(ln " " prog[ln]); s_nl()
+        s_puts(ln " " listtext(ln)); s_nl()
         if (pollbrk()) break
     }
     to_ready()
 }
+
+# the text LIST, LLIST, SAVE and CSAVE show for line ln: a typed line as the
+# ROM stored it (pm_list, p75; audit BM-5), a line from a tokenized image
+# as its rendering in prog[] (R1)
+function listtext(ln) { return (ln in ESC) ? prog[ln] : pm_list(ln) }
 
 # LLIST: LIST to the printer stream (all the same range forms)
 function st_llist(   i, ln) {
@@ -266,7 +271,7 @@ function st_llist(   i, ln) {
         if (ln < RA) continue
         if (ln > RB) break
         LASTLN = ln
-        lp_puts(ln " " prog[ln]); lp_nl()
+        lp_puts(ln " " listtext(ln)); lp_nl()
         if (E) return                         # the printer path refused (lp_refuse, p80)
     }
     to_ready()
@@ -673,7 +678,7 @@ function st_csave(   f) {
 function save_prog(f,   i, ln) {
     if ((!WINNATIVE && f ~ /'/) || !host_writable(f)) { raise(22); return }
     printf "" > f
-    for (i = 1; i <= NL; i++) { ln = LNS[i]; print ln " " prog[ln] > f }
+    for (i = 1; i <= NL; i++) { ln = LNS[i]; print ln " " listtext(ln) > f }
     close(f)
 }
 

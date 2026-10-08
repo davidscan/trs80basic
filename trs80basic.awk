@@ -1989,11 +1989,16 @@ function st_list(   i, ln) {
         if (ln < RA) continue
         if (ln > RB) break
         LASTLN = ln                         # "." is the line just listed (ROM 2B5BH)
-        s_puts(ln " " prog[ln]); s_nl()
+        s_puts(ln " " listtext(ln)); s_nl()
         if (pollbrk()) break
     }
     to_ready()
 }
+
+# the text LIST, LLIST, SAVE and CSAVE show for line ln: a typed line as the
+# ROM stored it (pm_list, p75; audit BM-5), a line from a tokenized image
+# as its rendering in prog[] (R1)
+function listtext(ln) { return (ln in ESC) ? prog[ln] : pm_list(ln) }
 
 # LLIST: LIST to the printer stream (all the same range forms)
 function st_llist(   i, ln) {
@@ -2004,7 +2009,7 @@ function st_llist(   i, ln) {
         if (ln < RA) continue
         if (ln > RB) break
         LASTLN = ln
-        lp_puts(ln " " prog[ln]); lp_nl()
+        lp_puts(ln " " listtext(ln)); lp_nl()
         if (E) return                         # the printer path refused (lp_refuse, p80)
     }
     to_ready()
@@ -2411,7 +2416,7 @@ function st_csave(   f) {
 function save_prog(f,   i, ln) {
     if ((!WINNATIVE && f ~ /'/) || !host_writable(f)) { raise(22); return }
     printf "" > f
-    for (i = 1; i <= NL; i++) { ln = LNS[i]; print ln " " prog[ln] > f }
+    for (i = 1; i <= NL; i++) { ln = LNS[i]; print ln " " listtext(ln) > f }
     close(f)
 }
 
@@ -5389,7 +5394,7 @@ function st_resume(   p, ty, tx) {
 #     machine: its bytes are the line's own (lit_bind, below; since
 #     2026-09-23), and only its descriptor is allocated here.  Documented
 #     deviations: other strings' bytes are a mem[]-backed COPY, SAVE and
-#     LIST show a line as typed even after a POKE into its literal, the data
+#     LIST show a line's crunched bytes even after a POKE into its literal, the data
 #     region a string outgrew is unmapped rather than left as stale bytes,
 #     and POKEing the descriptor's address cells is ignored.  POKE of the
 #     length byte truncates the live value, or grows it over the cells that
@@ -5669,6 +5674,32 @@ function pm_detok(body, raw,   out, i, n, b, c, ins, ind, lit, kw, nxt) {
     return out
 }
 
+# the text LIST, LLIST, SAVE and CSAVE show for line ln: its stored bytes
+# expanded as the ROM's LIST does (2B7E-2BC4; audit BM-5).  A byte below 80H
+# is copied, a token is replaced by its keyword with no blank added, and
+# nothing knows about quotes, so a token byte inside a string or a REM
+# expands too.  The ' token first takes back the four characters before
+# it (the ":REM" it is stored behind, 2B98-2B9F) and ELSE takes back one
+# (its ":", 2BA2 -> 0B24H), whatever those characters were.  So what was
+# typed in lower case lists in upper case, ? lists as PRINT and GO TO as
+# GOTO.  The expansion stops at 255 characters (D counts down from 0FFH,
+# 2B85, 2B8A-2B8B, 2BB9-2BBA), so a line of crunched PRINTs lists cut.
+# From the line's crunched bytes, not the live image: a POKE into
+# the program still never shows in LIST (dopeek rule 5).
+function pm_list(ln,   out, j, b) {
+    if (!TOKIDX) pm_init_index()
+    pm_body(ln)
+    out = ""
+    for (j = 1; j <= PMBN; j++) {
+        b = PMB[j]
+        if (b < 128 || !(b in TOKW)) { out = out CHR[b]; continue }
+        if (b == 251) out = substr(out, 1, length(out) > 4 ? length(out) - 4 : 0)
+        else if (b == 149) out = substr(out, 1, length(out) > 1 ? length(out) - 1 : 0)
+        out = out TOKW[b]
+    }
+    return substr(out, 1, 255)
+}
+
 # the bytes of one line for the image: the escrowed originals when the line
 # came from a tokenized file (R1), else the crunched text
 function pm_body(ln,   body, j) {
@@ -5687,8 +5718,8 @@ function pm_body(ln,   body, j) {
 #   * a letter is matched, and stored, in UPPER case: 1C00-1C0B upper-cases
 #     a symbol's first character in the buffer, 1C2D-1C31 compares the rest
 #     that way, and every unmatched letter comes round as a first character.
-#     prog[] keeps what was typed, for LIST; the image is what the machine
-#     would hold.  `up` is the text the matching is done on.
+#     prog[] keeps what was typed; the image is what the machine would
+#     hold, and LIST shows the image's form (pm_list).  `up` is the text the matching is done on.
 #   * `?` is the PRINT token (1BE4-1BE8).
 #   * every other character outside those regions is tried against the
 #     keyword table (kw_at, above): TOTAL is stored as TO "TAL", and GO TO
@@ -6296,7 +6327,7 @@ function al_clear(name, key,   tgt, d) {
 # Direct statements copy, as the ROM does (the input buffer is below the
 # program).  Documented deviations: before the first VARPTR a POKE into the
 # literal does not change the string's value; LIST and CSAVE still show the
-# line as typed.  A literal whose image bytes do not match the value (a line
+# line's crunched bytes, without the POKE.  A literal whose image bytes do not match the value (a line
 # the image could not hold) is copied as before.
 function lit_spec(ln, kind, n, off) { return ln SUBSEP kind SUBSEP n SUBSEP off }
 

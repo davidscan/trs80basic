@@ -1274,7 +1274,10 @@ LIST [n][-[m]]   display program lines on the screen
                     may stand at either end: LIST .- from it to the end,
                     LIST 100-. up to it.
   Listing shows the program as stored, so it is the way to check what a
-  line really contains after an edit.
+  line really contains after an edit: letters outside strings, DATA and
+  REM come back in upper case, ? as PRINT, GO TO as GOTO, keywords with
+  no blank added.  A line longer than 255 characters once expanded is
+  listed cut at 255.
   Example: LIST 100-200
 ```
 
