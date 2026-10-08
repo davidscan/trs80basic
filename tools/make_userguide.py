@@ -68,7 +68,7 @@ CATEGORIES = [
     # Lowercase deliberately: these are recognised in lowercase only, so the
     # reference must show the form that actually works.
     ("Metacommands", [
-        "man", "help", "dir", "cat", "ext", "memory", "version", "fullscreen", "speed", "sound",
+        "man", "help", "dir", "cat", "ext", "memory", "spaced", "version", "fullscreen", "speed", "sound",
         "history", "h", "@dump",
     ]),
 ]

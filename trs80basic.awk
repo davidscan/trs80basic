@@ -163,6 +163,12 @@ function init_tables(   i, c, m, n) {
     # REM META: memory host under the ext gate.  MEM and FRE count the ROM's
     # bytes against HOSTTOP so a program can still watch what it uses.
     # programs/tests/hostmem.sh pins it.
+    # EXT `spaced` (ruled 2026-10-03 with Q-7): LIST and LLIST show a
+    # blank around each keyword, FOR I=1 TO 3 where the machine lists the
+    # stored FORI=1TO3.  Display only -- the stored bytes, SAVE, MEM and RUN
+    # never see it -- and off by default: TRS80_SPACED=1 (or on), the
+    # `spaced` metacommand, or REM META: spaced on under the ext gate.
+    SPACED = ("TRS80_SPACED" in ENVIRON && ENVIRON["TRS80_SPACED"] ~ /^(1|on)$/)
     HOSTMEM = ("TRS80_MEMORY" in ENVIRON && ENVIRON["TRS80_MEMORY"] == "host")
     if (OPT_MEMORY != "") HOSTMEM = (OPT_MEMORY == "host")
     HOSTTOP = 2147483647
@@ -1812,6 +1818,11 @@ function handle_line(line,   s, ln, rest) {
         return 1
     }
     if (s ~ /^version[ \t]*$/) { t_man(version_text()); return 1 }   # p45
+    if (s ~ /^spaced($|[ \t])/) {
+        rest = substr(s, 7); sub(/^[ \t]+/, "", rest); sub(/[ \t]+$/, "", rest)
+        st_spaced(rest)
+        return 1
+    }
     if (s ~ /^memory($|[ \t])/) {
         rest = substr(s, 7); sub(/^[ \t]+/, "", rest); sub(/[ \t]+$/, "", rest)
         st_memory(rest)
@@ -2007,10 +2018,10 @@ function st_list(   i, ln) {
     to_ready()
 }
 
-# the text LIST, LLIST, SAVE and CSAVE show for line ln: a typed line as the
-# ROM stored it (pm_list, p75; audit BM-5), a line from a tokenized image
-# as its rendering in prog[] (R1)
-function listtext(ln) { return (ln in ESC) ? prog[ln] : pm_list(ln) }
+# the text LIST and LLIST show for line ln: the line as the ROM stored it
+# (pm_list, p75; audits BM-5, BL-13), keywords spaced apart under the EXT
+# `spaced on` (display only: SAVE, MEM and RUN never see it)
+function listtext(ln) { return pm_list(ln, SPACED ? "s" : "") }
 
 # LLIST: LIST to the printer stream (all the same range forms)
 function st_llist(   i, ln) {
@@ -2203,12 +2214,24 @@ function rem_meta(   s, cmd, arg) {
     } else if (cmd == "fullscreen") {
         if (arg == "on" || arg == "off" || arg == "1" || arg == "0")
             st_fullscreen(arg)              # silent for these four; bare is not
+    } else if (cmd == "spaced") {
+        if (arg == "on" || arg == "off") SPACED = (arg == "on")   # silent; bare is not
     } else if (cmd == "memory") {
         if ((arg == "host" || arg == "rom") && HOSTMEM != (arg == "host")) {   # silent; bare is not
             HOSTMEM = (arg == "host")
             STALEK = CK; inval_cache_all()  # the name rule changed: every other line is tokenized again when
         }                                   # reached; this one at the next setline (p70), its tokens are live
     }
+}
+
+# --- spaced metacommand: EXT keyword spacing in what LIST and LLIST show ----
+# (p10, SPACED).  The machine lists a line exactly as stored (pm_list, p75),
+# so a compressed listing reads FORI=1TO3; `spaced on` shows FOR I=1 TO 3.
+# Display only: SAVE, the image, MEM and RUN are the same either way.
+function st_spaced(arg) {
+    if (arg == "") { t_man("SPACED " (SPACED ? "ON (EXT: LIST and LLIST show a blank around each keyword)" : "OFF (LIST shows each line as stored, as the machine does)")); return }
+    if (arg == "on" || arg == "off") { SPACED = (arg == "on"); return }
+    t_man("USAGE: spaced on|off")
 }
 
 # --- memory metacommand: the machine's capacity ceilings, or the host's ----
@@ -2266,6 +2289,7 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  history | h           list this session's typed commands\n" \
               "  man <KEYWORD>         syntax + example for a BASIC command\n" \
               "  memory host|rom       lift the machine's capacity limits, or keep them (bare: show state)\n" \
+              "  spaced on|off         LIST/LLIST show keywords spaced apart (bare: show state)\n" \
               "  help meta             this list\n" \
               "  help keys             terminal key bindings\n" \
               "  help <text>           search BASIC commands\n" \
@@ -2274,7 +2298,7 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  sound wav <path>|off  ...and/or capture it to a WAV file (bare: state)\n" \
               "  version               the interpreter's release and build\n" \
               "  @dump                 dump the screen buffer (debug)\n" \
-              "IN A PROGRAM (needs ext on): a REM fires speed/fullscreen/memory\n" \
+              "IN A PROGRAM (needs ext on): a REM fires speed/fullscreen/memory/spaced\n" \
               "when execution reaches it --  10 REM META:fullscreen on")
         return
     }
@@ -2428,7 +2452,7 @@ function st_csave(   f) {
 function save_prog(f,   i, ln) {
     if ((!WINNATIVE && f ~ /'/) || !host_writable(f)) { raise(22); return }
     printf "" > f
-    for (i = 1; i <= NL; i++) { ln = LNS[i]; print ln " " listtext(ln) > f }
+    for (i = 1; i <= NL; i++) { ln = LNS[i]; print ln " " pm_list(ln, "f") > f }
     close(f)
 }
 
@@ -2934,15 +2958,20 @@ function tok_header(data,   i, c) {
 # arrived this way -- ESC[ln] -- and pm_build (p75) images those bytes
 # verbatim instead of re-crunching the text, so PEEK into the image and the
 # USR frame see the file's bytes exactly, relinked at 42E9H.  prog[ln] holds
-# the detokenized text (pm_detok, p75, keyword spacing included) for LIST,
-# EDIT and RUN, and is what a program's real BASIC lines run from.
+# the detokenized text (pm_detok, p75, keyword spacing included) for CLOAD?
+# and NAME, and runtext (p75) is what a program's real BASIC lines run from.
+# LIST, LLIST, SAVE and CSAVE expand the escrowed bytes themselves
+# (pm_list, p75; since 2026-10-08, audit BL-13).
 #
 # THE THREE USER-VISIBLE DECISIONS, taken 2026-09-12 (the defaults the
 # session recommended; the user did not object):
-#   * LIST shows the detokenized text, as the machine's LIST did.  A payload
-#     line lists as the glyph soup it always listed as.
-#   * The loader is ONE-WAY: CSAVE and SAVE write text, as before.  Writing
-#     the tokenized form back is a separate feature if it is ever wanted.
+#   * LIST shows the stored bytes expanded, as the machine's LIST did (no
+#     added blanks since 2026-10-08, ruled with Q-7).  A payload line lists
+#     as the glyph soup it always listed as.
+#   * The loader is ONE-WAY: CSAVE and SAVE write text, the same text, so
+#     SAVE + reLOAD gives back the bytes but for a CR or LF in a line and
+#     an empty body.  Writing the tokenized form back is a separate feature
+#     if it is ever wanted.
 #   * ESCROW INVALIDATION: any typed replacement of a line (storeline, AUTO),
 #     DELETE, NEW, MERGE of a text file over the line, and NAME (renumber,
 #     which drops EVERY line's escrow, since it rewrites references in
@@ -5693,28 +5722,62 @@ function pm_detok(body, raw,   out, i, n, b, c, ins, ind, lit, kw, nxt) {
 }
 
 # the text LIST, LLIST, SAVE and CSAVE show for line ln: its stored bytes
-# expanded as the ROM's LIST does (2B7E-2BC4; audit BM-5).  A byte below 80H
-# is copied, a token is replaced by its keyword with no blank added, and
-# nothing knows about quotes, so a token byte inside a string or a REM
-# expands too.  The ' token first takes back the four characters before
-# it (the ":REM" it is stored behind, 2B98-2B9F) and ELSE takes back one
-# (its ":", 2BA2 -> 0B24H), whatever those characters were.  So what was
-# typed in lower case lists in upper case, ? lists as PRINT and GO TO as
-# GOTO.  The expansion stops at 255 characters (D counts down from 0FFH,
-# 2B85, 2B8A-2B8B, 2BB9-2BBA), so a line of crunched PRINTs lists cut.
-# From the line's crunched bytes, not the live image: a POKE into
-# the program still never shows in LIST (dopeek rule 5).
-function pm_list(ln,   out, j, b) {
+# expanded as the ROM's LIST does (2B7E-2BC4; audits BM-5, BL-13).  A byte
+# below 80H is copied, a token is replaced by its keyword with no blank
+# added, and nothing knows about quotes, so a token byte inside a string
+# or a REM expands too.  The ' token first takes back the four characters
+# before it (the ":REM" it is stored behind, 2B98-2B9F) and ELSE takes
+# back one (its ":", 2BA2 -> 0B24H), whatever those characters were.  So
+# what was typed in lower case lists in upper case, ? lists as PRINT and
+# GO TO as GOTO, and a line loaded from a tokenized image lists exactly
+# as stored (FORI=1TO3 stays so).  The expansion stops at 255 characters
+# (D counts down from 0FFH, 2B85, 2B8A-2B8B, 2BB9-2BBA), so a line of
+# crunched PRINTs lists cut (SAVE writes it whole: the ROM's CSAVE writes
+# bytes, and the file must load back to them).  From the line's own bytes, not the live
+# image: a POKE into the program still never shows in LIST (dopeek rule 5).
+#
+# mode "s" is the EXT `spaced` display (LIST and LLIST only, never SAVE):
+# a keyword gets a blank before it when the character before would glue
+# onto it (ELSE, whose colon LIST takes back, always) and one after it when
+# a letter or digit follows, as pm_detok spaces, outside strings and REM
+# text.  Mode "f" is SAVE's text: a CR or
+# LF byte (only an image line can hold one) cannot stand in a text line,
+# so inside a string it becomes the "+CHR$(n)+" splice and elsewhere a
+# blank, as pm_detok renders it, and an empty body (an image can hold one;
+# LIST shows "3 ") is written as REM, since a bare number loads back as a
+# deletion.  Those are the only places SAVE + reLOAD cannot give back the
+# stored bytes.  The quote tracking serves those two
+# modes only; the expansion itself stays the ROM's.
+function pm_list(ln, mode,   out, j, b, ins, ind, lit, kw, nb) {
     if (!TOKIDX) pm_init_index()
     pm_body(ln)
-    out = ""
+    out = ""; ins = 0; ind = 0; lit = 0
     for (j = 1; j <= PMBN; j++) {
         b = PMB[j]
-        if (b < 128 || !(b in TOKW)) { out = out CHR[b]; continue }
+        if (b < 128 || !(b in TOKW)) {
+            if (mode == "f" && (b == 10 || b == 13)) {
+                out = out ((ins && !ind && !lit) ? "\"+CHR$(" b ")+\"" : " ")
+                continue
+            }
+            if (b == 34 && !lit) ins = !ins
+            else if (b == 58 && !ins && !lit) ind = 0
+            out = out CHR[b]; continue
+        }
         if (b == 251) out = substr(out, 1, length(out) > 4 ? length(out) - 4 : 0)
         else if (b == 149) out = substr(out, 1, length(out) > 1 ? length(out) - 1 : 0)
-        out = out TOKW[b]
+        kw = TOKW[b]
+        if (mode == "s" && !ins && !lit) {
+            if ((kw ~ /^[A-Za-z]/ && out ~ /[A-Za-z0-9$.#]$/) || (b == 149 && out ~ /[^ ]$/)) out = out " "
+            out = out kw
+            nb = (j < PMBN) ? PMB[j + 1] : 0
+            if (kw ~ /[A-Za-z0-9]$/ && nb < 128 && CHR[nb] ~ /^[A-Za-z0-9]$/) out = out " "
+        } else out = out kw
+        if (!ins && !lit) {
+            if (b == 147 || b == 251) lit = 1
+            else if (b == 136) ind = 1
+        }
     }
+    if (mode == "f") return (out == "") ? "REM" : out    # "3 " would load back as a deletion
     return substr(out, 1, 255)
 }
 

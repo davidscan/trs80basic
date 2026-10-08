@@ -10,7 +10,12 @@
 #   1. the program image (PEEK from 42E9H to the 40F9H end) is the file's
 #      bytes exactly, relinked at 42E9H -- CR bytes and all;
 #   2. the real BASIC lines run (keyword spacing: FORI=1TO3, IFA=1THEN, GOTO259);
-#   3. LIST/CSAVE show the detokenized text with the rewrites detok makes;
+#   3. CSAVE writes each line as the ROM's LIST shows it (no blank added,
+#      ELSE without its colon, ' without :REM: audit BL-13), with the two
+#      rewrites a text file needs: a CR in a string is the CHR$(13) splice,
+#      an empty body is REM; LIST shows the empty body as "3 "; the EXT
+#      `spaced` switch spaces LIST and LLIST only; SAVE + reLOAD of a
+#      compressed image gives back its bytes;
 #   4. CLOAD? verifies the loaded program against the same image;
 #   5. a typed replacement, DELETE and NAME drop the escrow (the image is
 #      re-crunched from text and no longer byte-identical), NEW clears it;
@@ -100,18 +105,55 @@ printf '\nCLOAD "%s"\nCSAVE "%s/text.bas"\nCLOAD? "%s"\nPRINT "VERIFIED"\n' "$tm
     | TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" > "$tmp/out2" 2>&1
 grep -q '^VERIFIED' "$tmp/out2" || fail "CLOAD? did not verify" "$(cat "$tmp/out2")"
 grep -q '^BAD' "$tmp/out2" && fail "CLOAD? said BAD" "$(cat "$tmp/out2")"
-want='1 GOTO 259
+want='1 GOTO259
 3 REM
-259 FOR I=1 TO 3:A=A+I:NEXT
-260 IF A=6 THEN PRINT"SUM OK":ELSE PRINT"SUM BAD"
+259 FORI=1TO3:A=A+I:NEXT
+260 IFA=6THENPRINT"SUM OK"ELSEPRINT"SUM BAD"
 261 PRINT"A"+CHR$(13)+"B":REM LF HERE
-262 PRINT LEN("X"):'"'"' TICK
+262 PRINTLEN("X"):'"'"' TICK
 263 DATA 1, 2
 264 N=PEEK(16548)+256*PEEK(16549):PRINT"PAY";PEEK(N+9+4);PEEK(N+9+4+3)
 265 PRINT"DONE"'
 got=$(grep -v '^2 ' "$tmp/text.bas")
 [ "$got" = "$want" ] || fail "detokenized text" "$got"
 grep -q '^2 ' "$tmp/text.bas" || fail "payload line missing from the text"
+
+# --- 3b: LIST shows the stored text as the ROM's LIST does (audit BL-13):
+# no blank added, the empty body as "3 "; the EXT `spaced on` (metacommand,
+# TRS80_SPACED, REM META under ext on) adds keyword spacing to LIST and
+# LLIST only -- CSAVE writes the same bytes either way
+printf '\nCLOAD "%s"\nLIST 3-260\nspaced on\nLIST 259-260\nCSAVE "%s/sp.bas"\nspaced\n' "$tmp/img.bas" "$tmp" \
+    | TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" > "$tmp/out3" 2>&1
+got=$(grep -E '^(3|259|260) ' "$tmp/out3")
+want='3 
+259 FORI=1TO3:A=A+I:NEXT
+260 IFA=6THENPRINT"SUM OK"ELSEPRINT"SUM BAD"
+259 FOR I=1 TO 3:A=A+I:NEXT
+260 IF A=6 THEN PRINT"SUM OK" ELSE PRINT"SUM BAD"'
+[ "$got" = "$want" ] || fail "LIST as stored, then spaced on" "$got"
+grep -q '^SPACED ON' "$tmp/out3" || fail "bare spaced reports the state" "$(cat "$tmp/out3")"
+cmp -s "$tmp/sp.bas" "$tmp/text.bas" || fail "spaced on changed what CSAVE wrote" "$(diff "$tmp/text.bas" "$tmp/sp.bas")"
+got=$(printf '\nCLOAD "%s"\nLIST 259\n' "$tmp/img.bas" | TRS80_SPACED=1 TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 | grep '^259 ')
+[ "$got" = "259 FOR I=1 TO 3:A=A+I:NEXT" ] || fail "TRS80_SPACED=1 spaces LIST" "$got"
+got=$(printf '\next on\n10 REM META:spaced on\n20 FORI=1TO2:NEXT\nRUN\nLIST 20\n' | TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 | grep '^20 ')
+[ "$got" = "20 FOR I=1 TO 2:NEXT" ] || fail "REM META:spaced on spaces LIST" "$got"
+
+# --- 3c: SAVE + reLOAD gives back the image's bytes (ruled with Q-7): an
+# image of compressed lines, ELSE behind its colon and the ' form
+python3 - "$tmp" "$here" <<'PYEOF' || fail "could not build the round-trip image" ""
+import sys, os
+d, here = sys.argv[1], sys.argv[2]
+sys.path.insert(0, os.path.join(here, "tools"))
+import tok, detok
+img = tok.tokenize(b'10 FORI=1TO3:IFI=2THENPRINT"TWO"ELSEPRINTI\n20 NEXT:A$="a b":\'NOTE\n30 DATA x,"y:z"\n', detok.load_tokens())
+open(os.path.join(d, "rt.bas"), "wb").write(img)
+PYEOF
+dump='FOR I=17129 TO PEEK(16633)+256*PEEK(16634)-1:PRINT PEEK(I);:NEXT:PRINT "/"'
+got=$(printf '\nCLOAD "%s"\n%s\nSAVE "%s/rt.txt"\nNEW\nCLOAD "%s/rt.txt"\n%s\n' "$tmp/rt.bas" "$dump" "$tmp" "$tmp" "$dump" \
+    | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep -E '^ [0-9]' | tr -s ' \n' '  ')
+one=${got%%/*}; rest=${got#*/}; two=${rest%%/*}
+[ -n "$one" ] && [ "$one" = "$two" ] || fail "SAVE + reLOAD changed the image's bytes" "$got
+$(cat "$tmp/rt.txt")"
 
 # --- 5: escrow invalidation -- after each edit the image must NOT equal the file
 check_changed() {

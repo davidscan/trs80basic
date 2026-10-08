@@ -65,6 +65,7 @@ II):
 | `TRS80_PRINTER` | unset (discard) | file that `LPRINT`/`LLIST` append to |
 | `TRS80_EXT` | `0` | `1` turns on the EXT gate (Part IV); `ext on` does the same |
 | `TRS80_MEMORY` | `rom` (the machine) | `host` lifts the machine's capacity limits and makes every character of a variable name count (`man memory`); `--memory` overrides it |
+| `TRS80_SPACED` | unset | `1` (or `on`) makes `LIST` and `LLIST` show keywords spaced apart (`man spaced`); display only |
 | `TRS80_MANFILE` | `support/manpages.txt` | where `man` reads its text |
 | `TRS80_KMHOLD` | `100` ms at a terminal, `4` polls in batch | how long one keypress holds its key on the keyboard matrix |
 | `TRS80_USR` | unset | `strict` makes a `USR` call raise `?FC` instead of returning its argument |
@@ -987,7 +988,8 @@ REM text   a remark; the rest of the line is ignored
   metacommand, which runs when execution REACHES that line -- so a
   program can ask for the display it wants, change the throttle
   part-way through, or declare that it needs the host's memory.  Only
-  three are allowed, `speed`, `fullscreen` and `memory` (man memory),
+  four are allowed, `speed`, `fullscreen`, `memory` (man memory) and
+  `spaced` (man spaced),
   spelled exactly as at the prompt; anything else after META: is ignored
   in silence, and a file can never reach `dir`, `cat` or the filesystem.
   Inside a loop it re-fires every pass, which is harmless for both.
@@ -1278,7 +1280,9 @@ LIST [n][-[m]]   display program lines on the screen
   line really contains after an edit: letters outside strings, DATA and
   REM come back in upper case, ? as PRINT, GO TO as GOTO, keywords with
   no blank added.  A line longer than 255 characters once expanded is
-  listed cut at 255.
+  listed cut at 255.  A program loaded from a tokenized image lists
+  exactly as its bytes are, so a compressed one reads FORI=1TO3; the EXT
+  `spaced on` (man spaced) shows FOR I=1 TO 3 instead.
   Example: LIST 100-200
 ```
 
@@ -2744,6 +2748,26 @@ memory              report the current state
   Metacommand: lowercase only.
   Example: memory host
   Example: memory            -> MEMORY ROM (the machine: ...)
+```
+
+#### spaced
+
+```text
+spaced on | off   LIST and LLIST show keywords spaced apart, or as stored
+spaced            report the current state
+  EXT.  The machine's LIST prints each line exactly as stored, and a
+  program saved in compressed form is stored without blanks:
+  FORI=1TO3:PRINTI;:NEXT.  With `spaced on`, LIST and LLIST put a blank
+  around each keyword where it would glue to a name or a number, and
+  before ELSE: FOR I=1 TO 3:PRINT I;:NEXT.  Display only: SAVE and CSAVE
+  write the stored text either way, and the program image, MEM and RUN
+  never change.  Off by default.
+  Turn it on from the shell with TRS80_SPACED=1, at the prompt with
+  `spaced on`, or in the listing with 10 REM META:spaced on, which needs
+  `ext on` like every META: directive.
+  Metacommand: lowercase only.
+  Example: spaced on
+  Example: spaced            -> SPACED OFF (LIST shows each line as stored, ...)
 ```
 
 #### fullscreen

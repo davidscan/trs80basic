@@ -343,28 +343,62 @@ function pm_detok(body, raw,   out, i, n, b, c, ins, ind, lit, kw, nxt) {
 }
 
 # the text LIST, LLIST, SAVE and CSAVE show for line ln: its stored bytes
-# expanded as the ROM's LIST does (2B7E-2BC4; audit BM-5).  A byte below 80H
-# is copied, a token is replaced by its keyword with no blank added, and
-# nothing knows about quotes, so a token byte inside a string or a REM
-# expands too.  The ' token first takes back the four characters before
-# it (the ":REM" it is stored behind, 2B98-2B9F) and ELSE takes back one
-# (its ":", 2BA2 -> 0B24H), whatever those characters were.  So what was
-# typed in lower case lists in upper case, ? lists as PRINT and GO TO as
-# GOTO.  The expansion stops at 255 characters (D counts down from 0FFH,
-# 2B85, 2B8A-2B8B, 2BB9-2BBA), so a line of crunched PRINTs lists cut.
-# From the line's crunched bytes, not the live image: a POKE into
-# the program still never shows in LIST (dopeek rule 5).
-function pm_list(ln,   out, j, b) {
+# expanded as the ROM's LIST does (2B7E-2BC4; audits BM-5, BL-13).  A byte
+# below 80H is copied, a token is replaced by its keyword with no blank
+# added, and nothing knows about quotes, so a token byte inside a string
+# or a REM expands too.  The ' token first takes back the four characters
+# before it (the ":REM" it is stored behind, 2B98-2B9F) and ELSE takes
+# back one (its ":", 2BA2 -> 0B24H), whatever those characters were.  So
+# what was typed in lower case lists in upper case, ? lists as PRINT and
+# GO TO as GOTO, and a line loaded from a tokenized image lists exactly
+# as stored (FORI=1TO3 stays so).  The expansion stops at 255 characters
+# (D counts down from 0FFH, 2B85, 2B8A-2B8B, 2BB9-2BBA), so a line of
+# crunched PRINTs lists cut (SAVE writes it whole: the ROM's CSAVE writes
+# bytes, and the file must load back to them).  From the line's own bytes, not the live
+# image: a POKE into the program still never shows in LIST (dopeek rule 5).
+#
+# mode "s" is the EXT `spaced` display (LIST and LLIST only, never SAVE):
+# a keyword gets a blank before it when the character before would glue
+# onto it (ELSE, whose colon LIST takes back, always) and one after it when
+# a letter or digit follows, as pm_detok spaces, outside strings and REM
+# text.  Mode "f" is SAVE's text: a CR or
+# LF byte (only an image line can hold one) cannot stand in a text line,
+# so inside a string it becomes the "+CHR$(n)+" splice and elsewhere a
+# blank, as pm_detok renders it, and an empty body (an image can hold one;
+# LIST shows "3 ") is written as REM, since a bare number loads back as a
+# deletion.  Those are the only places SAVE + reLOAD cannot give back the
+# stored bytes.  The quote tracking serves those two
+# modes only; the expansion itself stays the ROM's.
+function pm_list(ln, mode,   out, j, b, ins, ind, lit, kw, nb) {
     if (!TOKIDX) pm_init_index()
     pm_body(ln)
-    out = ""
+    out = ""; ins = 0; ind = 0; lit = 0
     for (j = 1; j <= PMBN; j++) {
         b = PMB[j]
-        if (b < 128 || !(b in TOKW)) { out = out CHR[b]; continue }
+        if (b < 128 || !(b in TOKW)) {
+            if (mode == "f" && (b == 10 || b == 13)) {
+                out = out ((ins && !ind && !lit) ? "\"+CHR$(" b ")+\"" : " ")
+                continue
+            }
+            if (b == 34 && !lit) ins = !ins
+            else if (b == 58 && !ins && !lit) ind = 0
+            out = out CHR[b]; continue
+        }
         if (b == 251) out = substr(out, 1, length(out) > 4 ? length(out) - 4 : 0)
         else if (b == 149) out = substr(out, 1, length(out) > 1 ? length(out) - 1 : 0)
-        out = out TOKW[b]
+        kw = TOKW[b]
+        if (mode == "s" && !ins && !lit) {
+            if ((kw ~ /^[A-Za-z]/ && out ~ /[A-Za-z0-9$.#]$/) || (b == 149 && out ~ /[^ ]$/)) out = out " "
+            out = out kw
+            nb = (j < PMBN) ? PMB[j + 1] : 0
+            if (kw ~ /[A-Za-z0-9]$/ && nb < 128 && CHR[nb] ~ /^[A-Za-z0-9]$/) out = out " "
+        } else out = out kw
+        if (!ins && !lit) {
+            if (b == 147 || b == 251) lit = 1
+            else if (b == 136) ind = 1
+        }
     }
+    if (mode == "f") return (out == "") ? "REM" : out    # "3 " would load back as a deletion
     return substr(out, 1, 255)
 }
 

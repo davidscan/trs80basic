@@ -74,6 +74,11 @@ function handle_line(line,   s, ln, rest) {
         return 1
     }
     if (s ~ /^version[ \t]*$/) { t_man(version_text()); return 1 }   # p45
+    if (s ~ /^spaced($|[ \t])/) {
+        rest = substr(s, 7); sub(/^[ \t]+/, "", rest); sub(/[ \t]+$/, "", rest)
+        st_spaced(rest)
+        return 1
+    }
     if (s ~ /^memory($|[ \t])/) {
         rest = substr(s, 7); sub(/^[ \t]+/, "", rest); sub(/[ \t]+$/, "", rest)
         st_memory(rest)
@@ -269,10 +274,10 @@ function st_list(   i, ln) {
     to_ready()
 }
 
-# the text LIST, LLIST, SAVE and CSAVE show for line ln: a typed line as the
-# ROM stored it (pm_list, p75; audit BM-5), a line from a tokenized image
-# as its rendering in prog[] (R1)
-function listtext(ln) { return (ln in ESC) ? prog[ln] : pm_list(ln) }
+# the text LIST and LLIST show for line ln: the line as the ROM stored it
+# (pm_list, p75; audits BM-5, BL-13), keywords spaced apart under the EXT
+# `spaced on` (display only: SAVE, MEM and RUN never see it)
+function listtext(ln) { return pm_list(ln, SPACED ? "s" : "") }
 
 # LLIST: LIST to the printer stream (all the same range forms)
 function st_llist(   i, ln) {
@@ -465,12 +470,24 @@ function rem_meta(   s, cmd, arg) {
     } else if (cmd == "fullscreen") {
         if (arg == "on" || arg == "off" || arg == "1" || arg == "0")
             st_fullscreen(arg)              # silent for these four; bare is not
+    } else if (cmd == "spaced") {
+        if (arg == "on" || arg == "off") SPACED = (arg == "on")   # silent; bare is not
     } else if (cmd == "memory") {
         if ((arg == "host" || arg == "rom") && HOSTMEM != (arg == "host")) {   # silent; bare is not
             HOSTMEM = (arg == "host")
             STALEK = CK; inval_cache_all()  # the name rule changed: every other line is tokenized again when
         }                                   # reached; this one at the next setline (p70), its tokens are live
     }
+}
+
+# --- spaced metacommand: EXT keyword spacing in what LIST and LLIST show ----
+# (p10, SPACED).  The machine lists a line exactly as stored (pm_list, p75),
+# so a compressed listing reads FORI=1TO3; `spaced on` shows FOR I=1 TO 3.
+# Display only: SAVE, the image, MEM and RUN are the same either way.
+function st_spaced(arg) {
+    if (arg == "") { t_man("SPACED " (SPACED ? "ON (EXT: LIST and LLIST show a blank around each keyword)" : "OFF (LIST shows each line as stored, as the machine does)")); return }
+    if (arg == "on" || arg == "off") { SPACED = (arg == "on"); return }
+    t_man("USAGE: spaced on|off")
 }
 
 # --- memory metacommand: the machine's capacity ceilings, or the host's ----
@@ -528,6 +545,7 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  history | h           list this session's typed commands\n" \
               "  man <KEYWORD>         syntax + example for a BASIC command\n" \
               "  memory host|rom       lift the machine's capacity limits, or keep them (bare: show state)\n" \
+              "  spaced on|off         LIST/LLIST show keywords spaced apart (bare: show state)\n" \
               "  help meta             this list\n" \
               "  help keys             terminal key bindings\n" \
               "  help <text>           search BASIC commands\n" \
@@ -536,7 +554,7 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  sound wav <path>|off  ...and/or capture it to a WAV file (bare: state)\n" \
               "  version               the interpreter's release and build\n" \
               "  @dump                 dump the screen buffer (debug)\n" \
-              "IN A PROGRAM (needs ext on): a REM fires speed/fullscreen/memory\n" \
+              "IN A PROGRAM (needs ext on): a REM fires speed/fullscreen/memory/spaced\n" \
               "when execution reaches it --  10 REM META:fullscreen on")
         return
     }
@@ -690,7 +708,7 @@ function st_csave(   f) {
 function save_prog(f,   i, ln) {
     if ((!WINNATIVE && f ~ /'/) || !host_writable(f)) { raise(22); return }
     printf "" > f
-    for (i = 1; i <= NL; i++) { ln = LNS[i]; print ln " " listtext(ln) > f }
+    for (i = 1; i <= NL; i++) { ln = LNS[i]; print ln " " pm_list(ln, "f") > f }
     close(f)
 }
 
@@ -1196,15 +1214,20 @@ function tok_header(data,   i, c) {
 # arrived this way -- ESC[ln] -- and pm_build (p75) images those bytes
 # verbatim instead of re-crunching the text, so PEEK into the image and the
 # USR frame see the file's bytes exactly, relinked at 42E9H.  prog[ln] holds
-# the detokenized text (pm_detok, p75, keyword spacing included) for LIST,
-# EDIT and RUN, and is what a program's real BASIC lines run from.
+# the detokenized text (pm_detok, p75, keyword spacing included) for CLOAD?
+# and NAME, and runtext (p75) is what a program's real BASIC lines run from.
+# LIST, LLIST, SAVE and CSAVE expand the escrowed bytes themselves
+# (pm_list, p75; since 2026-10-08, audit BL-13).
 #
 # THE THREE USER-VISIBLE DECISIONS, taken 2026-09-12 (the defaults the
 # session recommended; the user did not object):
-#   * LIST shows the detokenized text, as the machine's LIST did.  A payload
-#     line lists as the glyph soup it always listed as.
-#   * The loader is ONE-WAY: CSAVE and SAVE write text, as before.  Writing
-#     the tokenized form back is a separate feature if it is ever wanted.
+#   * LIST shows the stored bytes expanded, as the machine's LIST did (no
+#     added blanks since 2026-10-08, ruled with Q-7).  A payload line lists
+#     as the glyph soup it always listed as.
+#   * The loader is ONE-WAY: CSAVE and SAVE write text, the same text, so
+#     SAVE + reLOAD gives back the bytes but for a CR or LF in a line and
+#     an empty body.  Writing the tokenized form back is a separate feature
+#     if it is ever wanted.
 #   * ESCROW INVALIDATION: any typed replacement of a line (storeline, AUTO),
 #     DELETE, NEW, MERGE of a text file over the line, and NAME (renumber,
 #     which drops EVERY line's escrow, since it rewrites references in

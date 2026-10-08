@@ -163,6 +163,12 @@ function init_tables(   i, c, m, n) {
     # REM META: memory host under the ext gate.  MEM and FRE count the ROM's
     # bytes against HOSTTOP so a program can still watch what it uses.
     # programs/tests/hostmem.sh pins it.
+    # EXT `spaced` (ruled 2026-10-03 with Q-7): LIST and LLIST show a
+    # blank around each keyword, FOR I=1 TO 3 where the machine lists the
+    # stored FORI=1TO3.  Display only -- the stored bytes, SAVE, MEM and RUN
+    # never see it -- and off by default: TRS80_SPACED=1 (or on), the
+    # `spaced` metacommand, or REM META: spaced on under the ext gate.
+    SPACED = ("TRS80_SPACED" in ENVIRON && ENVIRON["TRS80_SPACED"] ~ /^(1|on)$/)
     HOSTMEM = ("TRS80_MEMORY" in ENVIRON && ENVIRON["TRS80_MEMORY"] == "host")
     if (OPT_MEMORY != "") HOSTMEM = (OPT_MEMORY == "host")
     HOSTTOP = 2147483647
