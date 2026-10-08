@@ -7509,7 +7509,7 @@ function pu_big(ax, ty,   t) {
 }
 
 # ---- INPUT -----------------------------------------------------------------
-function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, endp, snpend, dbl) {
+function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, endp, snpend, dbl, bad) {
     # the illegal-direct check comes FIRST on the ROM (219AH CALL 2828H,
     # before the # is even looked at), so INPUT#1,A typed at READY is ?ID
     # like any other INPUT (the 2026-09-26 audit, N-5; until then the #
@@ -7606,20 +7606,29 @@ function st_input(   prompt, pq, nlv, name, key, i, line, nib, idx, ok, x, d, en
                 CP = LV_P[idx]; name = lvname(); key = ""; dbl = (LVT == "D")
                 if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
                 CP = endp
-                if (IBBAD[idx] || (IBQ[idx] && !strname(name, LVSX))) { ok = 0; break }
+                # The item is STORED before its terminator is tested: the
+                # ROM jumps to LET's store (2240-224A, JP 1F33H) with 225AH
+                # pushed, and 225A-2260 then finds neither a comma nor the
+                # end.  So 1,2X answered to INPUT A,B leaves B = 2, "Q"R
+                # leaves Q, and a quoted item for a number leaves 0 (the
+                # reader takes nothing), all seen by ENTER after ?REDO.
+                # Until 2026-10-08 nothing was stored (the 2026-09-30
+                # audit, BL-7).
+                bad = IBBAD[idx]
                 if (strname(name, LVSX)) assignv(name, key, "S" IB[idx])
                 else {
                     # the ROM's reader takes what it can (valnum, p90);
                     # anything but blanks left over is ?REDO (225A-2260)
-                    x = IB[idx]
+                    x = IBQ[idx] ? "\"" : IB[idx]
                     sub(/^[ \t\n]+/, "", x)
                     x = valnum(x, dbl); if (E) return   # ?OV, or ?SN for a bad %: not ?REDO; a double enters as VAL (p90)
-                    if (!numrest()) { ok = 0; break }
+                    if (!numrest()) bad = 1
                     assignv(name, key, "N" VALTYPE x)
                 }
                 # a store that fails (?OV into an integer, 1F33H -> 0A7FH)
                 # ends the INPUT: the items behind it are not assigned
                 if (E) return
+                if (bad) { ok = 0; break }
                 idx++
             }
             if (!ok || idx > nlv) break
@@ -7746,21 +7755,21 @@ function st_read(   dp0) {
     if (E) DP = dp0
 }
 
-function st_read_items(   name, key, x, dbl) {
+function st_read_items(   name, key, x, dbl, bad) {
     for (;;) {
         if (!at_name()) { raise(2); return }
         name = lvname(); dbl = (LVT == "D")  # a double enters the reader as VAL does (p90)
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
         if (DP > NDATA) { raise(4); return }
-        # text behind a closing quote, or a quoted item for a number (the
-        # ROM's reader takes nothing from "12" and the quote is no comma):
-        # ?SN in the DATA line, the pointer stays (225A-2260 -> 1991H)
-        if (DBAD[DP] || (DQ[DP] && !strname(name, LVSX))) {
-            raise(2)
-            ERR_AT = DLINE[DP]; ERLV = DLINE[DP]; LASTLN = DLINE[DP]
-            return
-        }
+        # The item is STORED before its terminator is tested, as INPUT's
+        # is (2240-224A, JP 1F33H with 225AH pushed): text behind a closing
+        # quote, a quoted item for a number (the reader takes nothing from
+        # "12", so 0 is stored) or junk behind a number is ?SN in the DATA
+        # line AFTER the store, the pointer stays (225A-2260 -> 1991H).
+        # DATA 1,2X read into A,B leaves B = 2 for an ON ERROR handler.
+        # Until 2026-10-08 nothing was stored (the 2026-09-30 audit, BL-7).
+        bad = DBAD[DP]
         if (strname(name, LVSX)) {
             if (!HOSTMEM && length(DITEM[DP]) > 255) { raise_host(15); return }   # a DATA item past 255 is ?LS, as a literal is (p60; L-23)
             LITSTORE = 1                    # the item stays in its line: no string space (p75, mem_*)
@@ -7774,17 +7783,18 @@ function st_read_items(   name, key, x, dbl) {
             # message, ERL and "." all name it: 19A2H-19A8H).  A bad % is
             # ?SN from inside the reader (1997H), which names the READ's
             # own line.
-            x = DITEM[DP]
+            x = DQ[DP] ? "\"" : DITEM[DP]
             sub(/^[ \t\n]+/, "", x)
             x = valnum(x, dbl); if (E) return
-            if (!numrest()) {
-                raise(2)
-                ERR_AT = DLINE[DP]; ERLV = DLINE[DP]; LASTLN = DLINE[DP]
-                return
-            }
+            if (!numrest()) bad = 1
             assignv(name, key, "N" VALTYPE x)
         }
         if (E) return                       # ?OV at the store: nothing stored
+        if (bad) {
+            raise(2)
+            ERR_AT = DLINE[DP]; ERLV = DLINE[DP]; LASTLN = DLINE[DP]
+            return
+        }
         DP++
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
         return

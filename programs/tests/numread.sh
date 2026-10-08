@@ -34,7 +34,9 @@ X KEPT 7 "
 [ "$out" = "$want" ] || fail "VAL" "$out"
 
 # READ: the same forms; what is left over after the number is ?SN in the
-# DATA line, a bad % is ?SN in the READ's line and the pointer stays
+# DATA line, a bad % is ?SN in the READ's line and the pointer stays.  The
+# number read is STORED before the leftover is tested (BL-7): 12X leaves
+# K = 12 for the handler (until 2026-10-08 K stayed 0)
 cat > "$tmp/read.bas" <<'BAS'
 10 ON ERROR GOTO 100
 20 READ A,B,C,D%,E,F#:PRINT A;B;C;D%;E;F#
@@ -56,7 +58,7 @@ ERR 2 IN 50
 H 0 
 J 3 
 ERR 2 IN 95 
-K 0 "
+K 12 "
 [ "$out" = "$want" ] || fail "READ" "$out"
 
 # INPUT: the same reader; left-over text is ?REDO, a bad % is ?SN

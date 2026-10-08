@@ -59,5 +59,40 @@ printf '10 DATA ABC  ,  DEF  \n20 DATA G :READ A$,B$,C$:PRINT "[";A$;"][";B$;"][
 out=$(run "$tmp/d.bas")
 [ "$out" = "[ABC  ][DEF  ][G ]" ] || fail "DATA" "$out"
 
+# The item that fails the test is STORED first (2240-224A, JP 1F33H with
+# 225AH pushed; the 2026-09-30 audit, BL-7): ENTER after ?REDO keeps it.
+# 2X leaves 2, "Q"R leaves Q, X and a quoted "2" leave 0 for a number,
+# 7.5Q into an integer leaves 7; the items behind it keep their values.
+cat > "$tmp/st.bas" <<'BAS'
+10 A=-1:B=-1:C=-1:A$="-":B$="-":A%=-1
+20 INPUT A,B:PRINT A;B
+30 A=-1:B=-1:INPUT A$,B$:PRINT A$;"/";B$
+40 INPUT A,B,C:PRINT A;B;C
+50 A=-1:B=-1:INPUT A,B:PRINT A;B
+60 B=-1:INPUT A%,B:PRINT A%;B
+BAS
+out=$(printf '1,2X\n\nP,"Q"R\n\n1,X\n\n1,"2"\n\n7.5Q,1\n\n' | run "$tmp/st.bas")
+want='? 1,2X
+?REDO
+? 
+ 1  2 
+? P,"Q"R
+?REDO
+? 
+P/Q
+? 1,X
+?REDO
+? 
+ 1  0 -1 
+? 1,"2"
+?REDO
+? 
+ 1  0 
+? 7.5Q,1
+?REDO
+? 
+ 7 -1 '
+[ "$out" = "$want" ] || fail "STORED BEFORE ?REDO" "$out"
+
 rm -rf "$tmp"
 echo "INPUTITEM OK"

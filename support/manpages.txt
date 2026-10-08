@@ -240,7 +240,10 @@ INPUT ["prompt";] var[,var...]   read values typed at the keyboard
   A typed line ends where a DATA statement would: a colon outside quotes
   ends the answer (12:30 is 12 and ?EXTRA IGNORED -- quote it, or use
   LINE INPUT), text right behind a closing quote ("AB"CD) is ?REDO, and
-  so is a quoted "12" typed for a number.
+  so is a quoted "12" typed for a number.  What was read is stored
+  before the bad text is found, as on the machine: INPUT A,B answered
+  1,2X has put 2 in B, "AB"CD leaves AB and "12" leaves 0, so ENTER at
+  the ?REDO prompt keeps them.
   The prompt is a quoted literal, as on the machine: INPUT P$;A reads
   into P$ and is then ?SN.
   A typed line holds 240 characters, as the ROM's keyboard routine does:
@@ -268,7 +271,9 @@ READ var[,var...]   assign the next DATA item(s) to variables
   the error is reported at the DATA line, not the READ line.  That goes
   for a quoted "12" too, and for text between an item's closing quote
   and its comma (DATA "AB"CD): ?SN when READ reaches the item, and the
-  pointer stays on it.
+  pointer stays on it.  The variable is stored before the error, as on
+  the machine: an ON ERROR handler sees 2 from DATA 2X, AB from "AB"CD
+  and 0 from a quoted "12".
   Running out of items raises ?OD ERROR (out of data).
   Example: FOR I=1 TO 3:READ N$,P:PRINT N$;"=";P:NEXT I
            DATA WIDGET,5,GADGET,12,"BOLT, HEX",3
