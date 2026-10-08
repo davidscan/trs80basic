@@ -154,10 +154,11 @@ the program after loading and *keeps* open channels.
 appropriation: at its `*?` prompt a name is a host file holding a Model I
 SYSTEM tape as a byte stream or a /CMD load module (`name`, `name.cas`,
 `name.cmd`), `/` runs it at the file's entry, `/nnnnn` at a decimal
-address, BREAK returns to BASIC, and a checksum error prints `C` as the
+address, BREAK returns to READY, and a checksum error prints `C` as the
 manual says. The program runs in the Z80 core until it returns, reaches
 0A9AH, or jumps to the ROM's READY entry; `man SYSTEM` has the rest.
-Disk BASIC's `SYSTEM "command"` ran a DOS command and is `?FC` here.
+Anything after `SYSTEM` on its line is ignored, as on Level II, so a
+later DOS's `SYSTEM "command"` just shows the `*?` prompt.
 
 `RUN "file"` loads and
 runs.
@@ -1378,16 +1379,19 @@ SYSTEM   the Level II monitor: load an object file and run it
   with no entry record: where its first block loaded), or /nnnnn to run
   at decimal address nnnnn.  The program owns the screen
   and keyboard until it returns, reaches 0A9AH, or jumps to the ROM's
-  READY entry (1A19H).  After a return it is READY, or the next statement
+  READY entry (1A19H).  After a return it is READY, or the next line
   when a program issued the SYSTEM; a jump to 1A19H is READY either way
   and ends the program, as it does for a USR routine.  BREAK at the
-  prompt returns to BASIC; ENTER alone is ?SN, and so is an address
-  past 65529.
+  prompt goes to READY with no Break message (a program ends there, and
+  CONT still continues whatever it could before); ENTER alone is ?SN,
+  and so is an address past 65529.
   A checksum error prints C and prompts again, as the manual says; a
   name that is not a file, or not one of the two formats, is ?FD.
   Needs the Z80 core (see: man USR); without it the run is the stub and
   is reported the way an unexecuted USR is.
-  Disk BASIC's SYSTEM "command" ran a DOS command: not served, ?FC.
+  Anything after SYSTEM on its line is ignored, as on Level II:
+  SYSTEM X, or a later DOS's SYSTEM "command", just prompts *?, and a
+  statement behind it on the line never runs.
   Example: SYSTEM          then  *? game     then  *? /
   Example: SYSTEM          then  *? /32000   (run what is already in memory)
 ```

@@ -2453,15 +2453,21 @@ function st_cload(   f, verify) {
 # Why it cannot break a period program: every listing that reaches SYSTEM
 # stopped with ?SN before; the corpus holds seven, all waiting for a tape
 # or a DOS that is not there.
+# Whatever follows SYSTEM on its line is never read (02B2H goes straight to
+# the prompt): SYSTEM X, SYSTEM "DIR" and SYSTEM:PRINT 5 all prompt, and the
+# PRINT never runs.  BREAK at the prompt jumps to 06CCH -> 19AEH, READY with
+# no Break message and the CONT state untouched.  Until 2026-10-08 a tail was
+# ?SN (?FC for a string, taken for a DOS command) and BREAK printed BREAK and
+# armed CONT (audit BL-12).
 function st_system(   line, a, s) {
     if (TY[CK, CP] == "s") {
-        # the program's own bytes go into the message: a control byte is a
-        # full stop, never raw to the terminal (the 2026-09-23 audit, L-8)
+        # a note only: Model 4 style SYSTEM "command" has no DOS behind it.
+        # The program's own bytes go into it: a control byte is a full stop,
+        # never raw to the terminal (the 2026-09-23 audit, L-8)
         s = TK[CK, CP]; gsub(/[^ -~]/, ".", s)
-        diag_err("SYSTEM \"" s "\": a DOS command; no DOS is served here (?FC)")
-        raise(5); return
+        diag_err("SYSTEM \"" s "\": Level II ignores the text after SYSTEM; no DOS is served here")
     }
-    if (!(TY[CK, CP] == "" || TY[CK, CP] == "e")) { raise(2); return }
+    CP = eolpos()
     if (SYSENTRY == "") SYSENTRY = -1
     # ROM 02B2H-02C7H: every prompt is a carriage return (20FEH), "*" and
     # 1BB3H's "? "; an empty answer is ?SN (02C6H-02C7H: the end of the
@@ -2472,7 +2478,7 @@ function st_system(   line, a, s) {
     for (;;) {
         s_nl(); s_puts("*? ")
         line = rl_read()
-        if (RLCANCEL) { dobreak(); return }
+        if (RLCANCEL) { kb_flush(); to_ready(); return }
         if (EOFQUIT) { if (BATCH) batch_ineof(); STOPPED = 1; return }
         gsub(/^[ \t]+|[ \t]+$/, "", line)
         if (line == "") { raise(2); return }

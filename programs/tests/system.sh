@@ -5,8 +5,9 @@
 # Run from the repo root:  sh programs/tests/system.sh
 #
 # Two parts.  With the stub (TRS80_Z80=) the LOADS are checked: every byte
-# lands where the tape says (PEEK sees it), the entry is taken, the DOS
-# form is ?FC, a missing name is ?FD, a bad checksum prints C and prompts
+# lands where the tape says (PEEK sees it), the entry is taken, the text
+# after SYSTEM is ignored (02B2H prompts at once; a string gets a stderr
+# note), a missing name is ?FD, a bad checksum prints C and prompts
 # again, and `/` is tallied as an unexecuted USR call.  With the real core
 # beside the checkout the RUNS are checked too: the tape writes HI on the
 # screen and RETurns, the load module ends with JP 1A19H (READY), `/32000`
@@ -52,9 +53,14 @@ programs/tests/sysrdy.cmd
 /
 PRINT "B";PEEK(32256);PEEK(32257);PEEK(32263)
 SYSTEM "I"
+
 PRINT "PASSFC"
 SYSTEM "I${esc}[2KZ"
+
 PRINT "PASSESC"
+SYSTEM X:PRINT "NEVER"
+
+PRINT "PASSTAIL"
 SYSTEM
 nosuchfile
 PRINT "PASSFD"
@@ -65,9 +71,15 @@ PRINT "PASSC"
 EOF
 grep -q "A 33  0  60  201" "$tmp" || fail "the tape's bytes did not land at 7D00H" "$(cat "$tmp")"
 grep -q "B 62  9  26" "$tmp" || fail "the load module's bytes did not land at 7E00H" "$(cat "$tmp")"
-grep -q "?FC ERROR" "$tmp" || fail "SYSTEM \"I\" (a DOS command) must be ?FC" "$(cat "$tmp")"
-grep -q "^PASSFC" "$tmp" || fail "?FC did not let the next line run" "$(cat "$tmp")"
-# the ?FC message quotes the program's own bytes: a control byte in them is
+# the text after SYSTEM is never read (02B2H): SYSTEM "I" and SYSTEM X
+# prompt, ENTER alone ends them with ?SN, and the rest of the line never runs
+grep -q "?FC ERROR" "$tmp" && fail "SYSTEM \"I\" must prompt, not raise ?FC" "$(cat "$tmp")"
+[ "$(grep -c '^?SN ERROR$' "$tmp")" -ge 3 ] || fail "SYSTEM \"I\", SYSTEM \"I..\" and SYSTEM X must each prompt" "$(cat "$tmp")"
+grep -q "^PASSFC" "$tmp" || fail "SYSTEM \"I\" did not let the next line run" "$(cat "$tmp")"
+grep -q "^NEVER" "$tmp" && fail "the statement after SYSTEM X: ran" "$(cat "$tmp")"
+grep -q "^PASSTAIL" "$tmp" || fail "SYSTEM X did not let the next line run" "$(cat "$tmp")"
+grep -q 'SYSTEM "I": Level II ignores' "$tmp.err" || fail "SYSTEM \"I\" must leave a note on stderr" "$(cat "$tmp.err")"
+# the note quotes the program's own bytes: a control byte in them is
 # shown as a full stop, never sent raw to the terminal (the 2026-09-23 audit, L-8)
 grep -q "^PASSESC" "$tmp" || fail "SYSTEM with an ESC byte in the string did not let the next line run" "$(cat "$tmp")"
 LC_ALL=C grep -q "$esc" "$tmp.err" && fail "a raw ESC byte from SYSTEM's string reached stderr" "$(LC_ALL=C od -c "$tmp.err" | head -20)"

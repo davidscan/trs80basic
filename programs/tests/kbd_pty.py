@@ -19,6 +19,7 @@ terminal emulator gives it, and checks:
      and both still work after a keystroke the program never read;
   4. INPUT takes a line with a period in it through the line editor,
      and the editor refuses the 241st character, as the ROM's does;
+  4d. BREAK at SYSTEM's *? is READY with no message, CONT state kept;
   5. BYE exits;
   6. in a second session, the kitty keyboard protocol (TRS80_KBPROTO=1,
      the pty playing a terminal that answers the query): a key is down
@@ -717,6 +718,26 @@ def main():
     b.send('\r', 0.6)
     out = b.drain()
     check('LEN 240' in flat(out), 'the line editor stops at 240 characters', out)
+
+    # 4d. BREAK at SYSTEM's *? goes to READY with no Break message and leaves
+    # the CONT state alone (06CCH -> 19AEH; audit BL-12): CONT after it goes
+    # on from the earlier STOP; in a program the rest of the line never runs
+    b.send('NEW\r10 PRINT "ONE":STOP:PRINT "TWO"\rRUN\r', 0.6)
+    b.drain(0.3)
+    b.send('SYSTEM\r', 0.4)
+    b.send(b'\x03', 0.5)
+    out = b.drain(0.4, 4)
+    check('*?' in out and 'BREAK' not in out and 'READY' in out,
+          'BREAK at *? is READY with no BREAK message', out)
+    b.send('CONT\r', 0.5)
+    out = b.drain(0.4, 4)
+    check('TWO' in out and '?CN' not in out, 'CONT after BREAK at *? goes on from the STOP', out)
+    b.send('NEW\r10 SYSTEM X:PRINT "SEVEN"\r20 PRINT "EIGHT"\rRUN\r', 0.6)
+    b.send(b'\x03', 0.5)
+    out = b.drain(0.4, 4).split('>RUN', 1)[-1]
+    check('*?' in out and '?SN' not in out and 'BREAK' not in out and 'SEVEN' not in out
+          and 'EIGHT' not in out and 'READY' in out,
+          'SYSTEM X in a program prompts, and BREAK ends the program quietly', out)
 
     # 5. BYE
     b.send('BYE\r', 0.5)
