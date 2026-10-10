@@ -119,5 +119,46 @@ _unknown = {}
 eq(expand(b"\xfc", TBL, _unknown), b"\xfc", "an unknown token byte passes through")
 eq(_unknown, {0xFC: 1}, "an unknown token byte is counted")
 
+# --- -o DIR never writes over an input ----------------------------------
+# DIR/<stem>.bas is refused, before anything is written, when it is one of the
+# inputs (by file identity: a link or a case variant counts) or when two
+# inputs would write the same output.
+
+import contextlib  # noqa: E402
+import io  # noqa: E402
+import tempfile  # noqa: E402
+from pathlib import Path  # noqa: E402
+
+from detok import main  # noqa: E402
+
+
+def cli(argv):
+    with contextlib.redirect_stderr(io.StringIO()):
+        try:
+            return main([str(a) for a in argv])
+        except SystemExit as exc:
+            return exc.code
+
+
+with tempfile.TemporaryDirectory() as _d:
+    _d = Path(_d)
+    _img = image((10, b"\x84"))
+    (_d / "a").mkdir(); (_d / "b").mkdir()
+    (_d / "a" / "x.bas").write_bytes(_img)
+    (_d / "b" / "x.bas").write_bytes(_img)
+    (_d / "b" / "X.img").write_bytes(_img)
+
+    eq(cli(["-o", _d / "a", _d / "a" / "x.bas"]), 2, "-o naming the input's own folder is refused")
+    eq((_d / "a" / "x.bas").read_bytes(), _img, "and the input is untouched")
+    eq(cli(["-o", _d / "out", _d / "a" / "x.bas", _d / "b" / "x.bas"]), 2, "two inputs, one output: refused")
+    eq((_d / "out" / "x.bas").exists(), False, "and nothing is written")
+    eq(cli(["-o", _d / "out", _d / "a" / "x.bas", _d / "b" / "X.img"]), 2, "a case variant is the same output")
+    (_d / "lnk").mkdir()
+    (_d / "lnk" / "x.bas").symlink_to(_d / "a" / "x.bas")
+    eq(cli(["-o", _d / "lnk", _d / "a" / "x.bas"]), 2, "an output that is a link to the input is refused")
+    eq((_d / "a" / "x.bas").read_bytes(), _img, "and the input is untouched")
+    eq(cli(["-o", _d / "out", _d / "a" / "x.bas"]), 0, "a separate folder still works")
+    eq((_d / "out" / "x.bas").read_bytes(), b"10 CLS\n", "and writes the listing")
+
 print("\n%d passed, %d failed" % (_PASS, _FAIL))
 sys.exit(1 if _FAIL else 0)

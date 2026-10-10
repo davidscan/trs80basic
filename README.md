@@ -437,7 +437,7 @@ with `-o`; otherwise to stdout.
 
 | argument | default | what it does | when you'd use it |
 |---|---|---|---|
-| `-o DIR`, `--outdir DIR` | stdout | write one `.bas` per input into DIR | converting more than one file |
+| `-o DIR`, `--outdir DIR` | stdout | write one `.bas` per input into DIR; refused (exit 2, nothing written) when an output would be one of the inputs or two inputs share a name | converting more than one file |
 | `-s`, `--space-keywords` | off | re-separate keywords the ROM ran together (`FORX=1TOR` → `FOR X=1 TO R`) | for reading; the interpreter reads `FORX` as `FOR X`, as the machine does |
 | `--check` | off | parse only, report problems, write nothing | finding out whether a file is really a tokenized image |
 | `--raw-newlines` | off | keep CR/LF inside strings and REMs byte-for-byte | archival fidelity only; the result will not reload |
@@ -450,7 +450,7 @@ with `-o`, else stdout.
 
 | argument | default | what it does | when you'd use it |
 |---|---|---|---|
-| `-o DIR`, `--outdir DIR` | stdout | write one image per input | producing files for a real machine or emulator |
+| `-o DIR`, `--outdir DIR` | stdout | write one image per input; refused as for detok when an output would be an input or two inputs share a name | producing files for a real machine or emulator |
 | `--round-trip` | off | detokenize each *image*, re-tokenize, compare bytes; writes nothing | checking that a conversion is lossless |
 | `--base ADDR` | `0x42E9` | load address for the line pointers | matching a specific machine's memory layout |
 | `-v` | off | show every mismatch in `--round-trip` | when a round trip fails |

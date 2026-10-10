@@ -4,7 +4,7 @@
 Turns a plain-ASCII listing back into a tokenized ("crunched") cassette image.
 
     tok.py FILE                     image to stdout
-    tok.py -o DIR FILE...           DIR/<name>.bas per input
+    tok.py -o DIR FILE...           DIR/<name>.bas per input (never over an input)
     tok.py --round-trip FILE...     re-tokenize a detok'd image, compare bytes
 
 `--round-trip` is why this exists. Every other measure of detok is a proxy
@@ -43,6 +43,7 @@ from detok import (  # noqa: E402
     TOK_REM,
     DetokError,
     load_tokens,
+    plan_outputs,
 )
 
 # Level II loads a cassette program at 42E9H. The stored next-line pointers are
@@ -346,15 +347,18 @@ def main(argv=None):
 
     if args.outdir and args.round_trip:
         ap.error("--outdir and --round-trip are mutually exclusive")
-    if args.outdir:
-        args.outdir.mkdir(parents=True, exist_ok=True)
     if not args.outdir and not args.round_trip and len(args.files) > 1:
         ap.error("refusing to concatenate several images to stdout; use -o DIR")
+    if args.outdir:
+        outs, why = plan_outputs(args.files, args.outdir)
+        if why:
+            ap.error(why)
+        args.outdir.mkdir(parents=True, exist_ok=True)
 
     table = load_tokens()
     failed = shown = rewritten = 0
 
-    for path in args.files:
+    for i, path in enumerate(args.files):
         try:
             if args.round_trip:
                 bad = round_trip(path, table)
@@ -377,7 +381,7 @@ def main(argv=None):
             continue
 
         if args.outdir:
-            (args.outdir / (path.stem + ".bas")).write_bytes(image)
+            outs[i].write_bytes(image)
         else:
             sys.stdout.buffer.write(image)
 

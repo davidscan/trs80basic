@@ -6,7 +6,7 @@ CLOAD accepts.  Standalone: it reads its keyword table from level2_tokens.tsv
 and knows nothing about the interpreter.
 
     detok.py FILE...              detokenize to stdout
-    detok.py -o DIR FILE...       write DIR/<name>.bas per input
+    detok.py -o DIR FILE...       write DIR/<name>.bas per input (never over an input)
     detok.py --check FILE...      parse only; report failures and unknown bytes
 
 Output is bytes, not text.  Level II listings legitimately contain raw
@@ -289,6 +289,37 @@ def detokenize(data, table, unknown=None, stats=None, raw_newlines=False,
     return b"\n".join(lines) + b"\n"
 
 
+def plan_outputs(files, outdir):
+    """DIR/<stem>.bas for each input, or the reason to refuse the whole run.
+
+    Refused before anything is written: an output that IS an input (by file
+    identity, so a link or a case-insensitive file system counts), and two
+    inputs that would write the same output (stems compared case-blind, as
+    the default macOS file system does)."""
+    inputs = set()
+    for path in files:
+        try:
+            st = path.stat()
+            inputs.add((st.st_dev, st.st_ino))
+        except OSError:
+            pass                        # reported when it is read
+    outs, seen = [], {}
+    for path in files:
+        out = outdir / (path.stem + ".bas")
+        key = out.name.lower()
+        if key in seen:
+            return None, "%s and %s would both write %s" % (seen[key], path, out)
+        seen[key] = path
+        try:
+            st = out.stat()
+            if (st.st_dev, st.st_ino) in inputs:
+                return None, "%s would overwrite an input; use another -o DIR" % out
+        except OSError:
+            pass                        # not there yet: cannot be an input
+        outs.append(out)
+    return outs, None
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         prog="detok.py", description="Detokenize TRS-80 Level II BASIC images."
@@ -315,17 +346,20 @@ def main(argv=None):
 
     if args.outdir and args.check:
         ap.error("--outdir and --check are mutually exclusive")
-    if args.outdir:
-        args.outdir.mkdir(parents=True, exist_ok=True)
     if not args.outdir and not args.check and len(args.files) > 1:
         ap.error("refusing to concatenate several programs to stdout; use -o DIR")
+    if args.outdir:
+        outs, why = plan_outputs(args.files, args.outdir)
+        if why:
+            ap.error(why)
+        args.outdir.mkdir(parents=True, exist_ok=True)
 
     table = load_tokens(args.table)
     unknown = {}
     stats = {}
     failed = []
 
-    for path in args.files:
+    for i, path in enumerate(args.files):
         try:
             listing = detokenize(
                 path.read_bytes(), table, unknown, stats, args.raw_newlines,
@@ -339,7 +373,7 @@ def main(argv=None):
         if args.check:
             continue
         if args.outdir:
-            (args.outdir / (path.stem + ".bas")).write_bytes(listing)
+            outs[i].write_bytes(listing)
         else:
             sys.stdout.buffer.write(listing)
 
