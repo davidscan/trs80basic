@@ -118,7 +118,10 @@ bounded 300 sh programs/examples/run_examples.sh >"$log" 2>&1 \
 
 # 6. the tokenizer tools and the guide generator
 if command -v python3 >/dev/null 2>&1; then
-    (cd tools && bounded 300 python3 -m unittest -q test_tok test_detok test_userguide >"$log" 2>&1) \
+    # test_tok and test_detok are scripts that exit when imported: under one
+    # `python3 -m unittest` the first exit ended the run, so the others never
+    # ran. Each runs on its own.
+    (cd tools && bounded 300 sh -c 'python3 test_tok.py && python3 test_detok.py && python3 -m unittest -q test_userguide' >"$log" 2>&1) \
         || { bad "tools/test_*.py"; show "tools/test_*.py"; }
     # 7. the interactive keyboard, through a pseudo-terminal
     bounded 1200 python3 programs/tests/kbd_pty.py >"$log" 2>&1 || { bad "kbd_pty.py"; show "kbd_pty.py"; }
