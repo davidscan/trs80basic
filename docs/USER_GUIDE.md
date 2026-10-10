@@ -2711,14 +2711,14 @@ ext            report the current state
 
 ```text
 version   the interpreter's release, and the exact build in a checkout
-  Prints "trs80basic v1.4", and behind it "(build v1.4-3-gabcdef0)" when
+  Prints "trs80basic v2.1.4", and behind it "(build v2.1.4-3-gabcdef0)" when
   the launcher found a git checkout more than the tag: the number of
   commits past it and the hash, "-dirty" with uncommitted edits.
   `./basic --version` prints the same line from the shell.  A release
   is an annotated tag on the public repository; the number is bumped in
   the commit that carries the tag.
   Metacommand: lowercase only.
-  Example: version            -> trs80basic v1.4
+  Example: version            -> trs80basic v2.1.4
 ```
 
 #### memory
