@@ -171,5 +171,19 @@ printf '10 OPEN "O",1,"inlink.dat":PRINT#1,"NEW":CLOSE\n20 OPEN "O",1,"insub/y.d
 out=$(TRS80_Z80= "$here/basic" t.bas 2>&1)
 [ "$out" = INSIDE ] && [ "$(cat real.dat)" = NEW ] && [ "$(cat sub/y.dat)" = Y ] || bad "links that stay inside: $out"
 
+# the transcript is reopened at every exchange: one that became a directory
+# after OPEN (here the stand-in for curl swaps it during the request) fails
+# that exchange with ?FD, never a gawk fatal (until 2026-10-10 the probe ran
+# at OPEN only)
+printf '%s\n' 'rm -f swap.ollama && mkdir swap.ollama' 'exec sh "$@"' > swap.sh
+printf '10 OPEN "O",1,"OLLAMA:m:swap"\n20 PRINT#1,"HI"\n30 LINE INPUT#1,A$\n40 PRINT "NOT REACHED"\n' > t.bas
+out=$(TRS80_Z80= TRS80_OLLAMA_CURL="sh swap.sh $here/programs/tests/ollama_stub.sh" \
+      "$here/basic" t.bas 2>&1)
+rc=$?
+case "$out" in
+  *"?FD ERROR IN 30"*) [ "$rc" = 1 ] || bad "a transcript replaced mid-thread: rc=$rc, want 1" ;;
+  *) bad "a transcript replaced mid-thread: $out" ;;
+esac
+
 [ $fail = 0 ] && echo "HOSTWRITE OK"
 exit $fail

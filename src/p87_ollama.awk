@@ -243,6 +243,11 @@ function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok,
         AI_TOKENS[n] = ""
     }
     sub(/\n+$/, "", content)                # models often pad with blank lines
+    # ai_log reopens the transcript at every exchange, and a failed awk
+    # redirect is fatal: the OPEN probe does not cover a file that became a
+    # directory or read-only since.  Probe again, and fail the exchange as a
+    # failed send does (the 2026-09-30 audit, BM-7).
+    if (AI_TFILE[n] != "" && !host_writable(AI_TFILE[n])) { ai_unsend(n); raise(22); return }
     ai_log(n, "u", AI_MSG[n, AI_NMSG[n]])   # transcript only records completed exchanges
     AI_NMSG[n]++
     AI_ROLE[n, AI_NMSG[n]] = "a"

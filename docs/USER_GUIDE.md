@@ -403,7 +403,9 @@ How it works:
   A *named* thread persists each exchange to `<thread>.ollama` in the
   current directory and reloads it on OPEN — the conversation survives
   CLOSE, RUN, and interpreter restarts. `KILL "<thread>.ollama"` forgets
-  it. `LOC(n)` = messages in history. Multiple channels with independent
+  it. A transcript that cannot be written (a directory or read-only
+  `.ollama`, at OPEN or later) is `?FD`, and that exchange is not kept.
+  `LOC(n)` = messages in history. Multiple channels with independent
   threads can be open at once.
 - **Directives** — a `PRINT #n` line starting with `@` steers the channel
   and is never sent to the model:
