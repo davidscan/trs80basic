@@ -43,7 +43,9 @@ class TestManpageReading(unittest.TestCase):
         for header, body in mug.parse_manpages():
             bodies[header[0]] = body
         keys = sorted(bodies)
-        env = dict(os.environ, TRS80_DUMB="1", TRS80_Z80="",
+        # every TRS80_* goes (AM-4's sibling): the caller's must not reach the run
+        env = {k: v for k, v in os.environ.items() if not k.startswith("TRS80_")}
+        env.update(TRS80_DUMB="1", TRS80_Z80="",
                    TRS80_MANFILE=str(mug.MANPAGES))
         script = "\n" + "".join("man %s\n" % k for k in keys)
         p = subprocess.run(["gawk", "-b", "-f", str(awk)], input=script,
