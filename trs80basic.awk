@@ -4520,8 +4520,11 @@ function execloop(   ty, tx) {
             # the poll falls BETWEEN statements: the one behind is done, so
             # CONT starts the one in front (Farvour 1D1E, 1DB4H saves the
             # pointer past the finished verb); SK/SLI/SCP still name the
-            # finished one, which CONT would run twice (2026-09-26 audit, H-2)
-            if (CK != "I" && pollbrk()) { SK = CK; SLI = CLI; SCP = CP; dobreak(); return }
+            # finished one, which CONT would run twice (2026-09-26 audit, H-2).
+            # A line typed at READY is polled too (1D1E runs for it as for a
+            # program line), so a typed loop can be broken; until 2026-10-10
+            # it could not, and only killing gawk ended it.
+            if (pollbrk()) { SK = CK; SLI = CLI; SCP = CP; dobreak(); return }
         }
         if (THROTTLE_D > 0) {           # emulate a slow clock (set_speed, thr_wait: p10)
             DACC += THROTTLE_D
@@ -4585,11 +4588,16 @@ function execloop(   ty, tx) {
     }
 }
 
+# A line typed at READY (line 65535) breaks with a bare BREAK and leaves the
+# CONT point alone (1DC1H-1DC9H skip the save), as STOP and the error path do:
+# CONT then goes on from an earlier STOP, or is ?CN.
 function dobreak() {
     if (BATCH) diag("BREAK" inln(CLN))      # not program output: stderr
     else { s_fresh(); s_puts("BREAK" inln(CLN)); s_nl() }   # ROM 1DD7H: no blank line from column 0
-    CONT_K = SK; CONT_LI = SLI; CONT_P = SCP
-    CONTOK = 1
+    if (CK != "I") {
+        CONT_K = SK; CONT_LI = SLI; CONT_P = SCP
+        CONTOK = 1
+    }
     STOPPED = 1
     kb_flush()
 }

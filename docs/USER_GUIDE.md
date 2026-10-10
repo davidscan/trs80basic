@@ -82,7 +82,7 @@ or unshifted.
 
 | key | does |
 |---|---|
-| Ctrl-C | **BREAK**: stops a running program (`BREAK IN nnnn`), cancels the input line, stops LIST, exits AUTO. `CONT` resumes after BREAK/STOP/END, and after an error (re-running the statement that failed). A program can disable it with `POKE 16396,23` (Part III); three presses in a row break anyway |
+| Ctrl-C | **BREAK**: stops a running program (`BREAK IN nnnn`; a line typed at READY, such as a `FOR` loop, stops with a bare `BREAK`), cancels the input line, stops LIST, exits AUTO. `CONT` resumes after BREAK/STOP/END, and after an error (re-running the statement that failed). A program can disable it with `POKE 16396,23` (Part III); three presses in a row break anyway |
 | Ctrl-S | pause a running program or LIST (the real SHIFT-@); any key resumes, Ctrl-C breaks |
 | Ctrl-L | CLEAR: wipe the screen at the `>` prompt |
 | Ctrl-U | erase the input line (SHIFT-left-arrow) |
@@ -1534,7 +1534,8 @@ RANDOM   reseed the random number generator
 
 ```text
 BREAK   the BREAK key is Ctrl-C: stops the program ("BREAK IN n"), CONT
-  resumes.  A program can DISABLE it the period way, POKE 16396,23 (or
+  resumes.  A line typed at READY stops too, with a bare BREAK; CONT then
+  goes on from an earlier STOP, if any.  A program can DISABLE it the period way, POKE 16396,23 (or
   175, 165) -- 16396 is the ROM's BREAK vector -- and re-enable it with
   POKE 16396,201.  While disabled, three Ctrl-C presses in a row break
   anyway, so a runaway program can always be stopped.  The keyboard

@@ -1458,7 +1458,8 @@ OUT p,v   write value v to Z80 port p
 
 :BREAK
 BREAK   the BREAK key is Ctrl-C: stops the program ("BREAK IN n"), CONT
-  resumes.  A program can DISABLE it the period way, POKE 16396,23 (or
+  resumes.  A line typed at READY stops too, with a bare BREAK; CONT then
+  goes on from an earlier STOP, if any.  A program can DISABLE it the period way, POKE 16396,23 (or
   175, 165) -- 16396 is the ROM's BREAK vector -- and re-enable it with
   POKE 16396,201.  While disabled, three Ctrl-C presses in a row break
   anyway, so a runaway program can always be stopped.  The keyboard

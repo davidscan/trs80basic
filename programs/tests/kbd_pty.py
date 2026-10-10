@@ -687,6 +687,28 @@ def main():
     check(quiet == '', 'Ctrl-S pauses after an unread keystroke', quiet)
     check('BREAK IN 10' in after, 'and Ctrl-C breaks after the pause', after)
 
+    # 3c. a loop typed at READY breaks too: the per-statement poll (Farvour
+    # 1D1E) runs for a typed line, which then prints a bare BREAK and leaves
+    # the CONT point alone (1DC1H-1DC9H), so CONT goes on from an earlier
+    # STOP.  Until 2026-10-10 only killing gawk ended a typed loop.
+    b.send('NEW\r10 STOP\r20 PRINT "TWENTY"\rRUN\r', 0.5)
+    b.drain(0.3)
+    b.send('FOR I=1 TO 100000000:NEXT\r', 0.5)
+    b.send(b'\x03', 0.6)
+    out = b.drain(0.5, 3)
+    bare = re.search(r'BREAK *\r?\n', out) is not None and 'BREAK IN' not in out
+    check(bare, 'Ctrl-C breaks a loop typed at READY, with a bare BREAK', out)
+    if not bare:                                       # do not leave the loop running under the rest
+        b.close(); print('kbd_pty.py: %d check(s) failed' % len(fails))
+        for f in fails: print('  ' + f)
+        return 1
+    b.send('PRINT I>1\r', 0.4)
+    out = b.drain()
+    check('-1' in out, 'the broken loop keeps its variable', out)
+    b.send('CONT\r', 0.4)
+    out = b.drain()
+    check('TWENTY' in out, 'CONT after it goes on from the earlier STOP', out)
+
     # 4. INPUT with a period, through the line editor
     b.send('NEW\r10 INPUT "NAME";A$:PRINT "["A$"]"\rRUN\r', 0.6)
     b.drain(0.3)
