@@ -179,8 +179,8 @@ image.
 
 ## Tests
 
-    python3 tools/test_detok.py        # 32 checks, stdlib only
-    python3 tools/test_tok.py          # 22 checks, stdlib only
+    python3 tools/test_detok.py        # stdlib only
+    python3 tools/test_tok.py          # stdlib only
 
 These pin the decisions a corpus sweep cannot localise --- literal-region
 handling, the two rewrites, the `ELSE` colon, the `-s` spacing rules, framing
