@@ -49,6 +49,10 @@ terminal emulator gives it, and checks:
      reaches the terminal as a raw control: no BEL, none of the program's
      escape sequences, no C1 (the 2026-09-30 audit, BL-39; batch output
      is pinned in termsafe.sh).
+ 14. at the interactive grid an interpreter note (here SYSTEM "X"'s) is
+     drawn below the 64x16 screen, once, and not over it: on stderr, the
+     same terminal, it landed at the cursor and the next redraw wiped it
+     (Defense Command's "rom called 002BH", 2026-10-12).
 
 Standard library only; run by run_all.sh when python3 is present (so CI
 exercises the tty reader on Linux, where it was not measured by hand).
@@ -579,6 +583,79 @@ def termsafe(check):
     check(not c1 and '\ufffd' not in s, 'screen mode passes no C1 control', repr(c1))
 
 
+def rows_of(raw):
+    """Replay a capture's cursor moves and clears into 24 rows of text."""
+    rows = [[' '] * 80 for _ in range(24)]
+    r = c = i = 0
+    while i < len(raw):
+        m = re.match(rb'\x1b\[(\d*);?(\d*)H', raw[i:])
+        if m:
+            r, c = int(m.group(1) or 1) - 1, int(m.group(2) or 1) - 1
+            i += m.end(); continue
+        m = re.match(rb'\x1b\[(\d*)J', raw[i:])
+        if m:
+            if m.group(1) == b'2':
+                rows = [[' '] * 80 for _ in range(24)]
+            else:
+                rows[r][c:] = [' '] * (80 - c)
+                for k in range(r + 1, 24):
+                    rows[k] = [' '] * 80
+            i += m.end(); continue
+        m = re.match(rb'\x1b\[2K', raw[i:])
+        if m:
+            rows[r] = [' '] * 80; i += m.end(); continue
+        m = re.match(rb'\x1b[\[()][?0-9;]*[A-Za-z]', raw[i:])
+        if m:
+            i += m.end(); continue
+        b = raw[i]; i += 1
+        if b == 13:
+            c = 0
+        elif b == 10:
+            r = min(r + 1, 23)
+        elif 32 <= b < 127 and r < 24 and c < 80:
+            rows[r][c] = chr(b); c += 1
+    return [''.join(x).rstrip() for x in rows]
+
+
+def notes_below(check):
+    """Scenario 14: the grid's interpreter notes go below it, once."""
+    pid, fd = pty.fork()
+    if pid == 0:
+        os.chdir(ROOT)
+        os.environ['TRS80_Z80'] = ''
+        os.environ.pop('TRS80_DUMB', None)
+        exe = os.path.join(ROOT, 'basic')
+        os.execv(exe, [exe])
+    out = b''
+
+    def pump(quiet=0.5):
+        nonlocal out
+        last = time.time()
+        while time.time() - last < quiet * SLOW:
+            r, _, _ = select.select([fd], [], [], 0.05)
+            if r:
+                try:
+                    c = os.read(fd, 65536)
+                except OSError:
+                    return
+                if not c:
+                    return
+                out += c
+                last = time.time()
+
+    for keys in (b'\r', b'SYSTEM "X"\r', b'\x03', b'BYE\r'):
+        pump()
+        os.write(fd, keys)
+    pump()
+    os.waitpid(pid, 0)
+    os.close(fd)
+    note = b'Level II ignores the text after SYSTEM'
+    rows = rows_of(out)
+    check(out.count(note) == 1, 'the note is written once', repr(out[-300:]))
+    check(any('Level II ignores' in x for x in rows[17:]), 'the note is below the grid', repr(rows))
+    check(not any('Level II ignores' in x for x in rows[:16]), 'the note is not on the 64x16 screen', repr(rows))
+
+
 def main():
     fails = []
 
@@ -789,6 +866,9 @@ def main():
 
     # 13. screen mode passes no program-made control
     termsafe(check)
+
+    # 14. the grid's notes go below it
+    notes_below(check)
 
     if fails:
         print('kbd_pty.py: %d check(s) failed' % len(fails))

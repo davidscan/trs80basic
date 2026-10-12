@@ -3251,9 +3251,35 @@ function diag(msg) {
 }
 
 function diag_err(msg) {
+    # at the interactive grid, stderr is the same terminal: a line printed
+    # there landed wherever the cursor was, over the 64x16 screen, and the
+    # next redraw (or a running program's own screen) wiped it -- Defense
+    # Command's name entry showed only ?FC ERROR, its "USR CORE: rom called
+    # 002BH" gone (2026-10-12).  The grid's notes go below it instead, in
+    # the window man and help use; stderr still gets them when it is not
+    # the terminal (2>file).  Batch and plain-text mode are unchanged.
+    if (!BATCH && !DUMB) {
+        note_below(msg)
+        if (stderr_is_tty()) return
+    }
     fflush()                                # keep stdout/stderr in order
     printf "%s\n", msg > "/dev/stderr"
     fflush("/dev/stderr")
+}
+
+# the last five notes, in the below-grid window (t_man, p20); a man or help
+# page replaces them, as it replaces the banner
+function note_below(msg,   i, s) {
+    NOTEN++; NOTEL[NOTEN] = msg
+    for (i = (NOTEN > 5 ? NOTEN - 4 : 1); i <= NOTEN; i++)
+        s = s (s == "" ? "" : "\n") NOTEL[i]
+    t_man(s)
+}
+
+# probed once; native Windows has no `test -t`, and is taken as a terminal
+function stderr_is_tty() {
+    if (STDERRTTY == "") STDERRTTY = WINNATIVE ? 1 : (system("test -t 2") == 0)
+    return STDERRTTY
 }
 
 # stdin ran dry while an INPUT was waiting: the fixture under-fed the program

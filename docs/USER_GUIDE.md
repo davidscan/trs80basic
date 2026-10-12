@@ -75,6 +75,14 @@ II):
 | `TRS80_SOUND_WAV` | unset | file the core writes that audio to; `sound wav <path>` does the same |
 | `TRS80_SOUND_RATE` | `22050` | the sample rate for both |
 
+At the interactive screen, the interpreter's own notes -- the Z80 core's
+messages (`USR CORE: rom called 002BH, no ROM here`: a machine-language
+routine called a ROM entry the core does not provide), an input line cut
+at 240 characters, the text `SYSTEM` ignores -- appear below the grid, the
+last five at a time, where `man` and `help` print; the 64x16 screen stays
+the program's. With stderr redirected (`2>file`) they also go there. In
+batch and plain-text mode they go to stderr as before.
+
 ### Keys
 
 `help keys` inside the interpreter lists these; control keys work shifted
