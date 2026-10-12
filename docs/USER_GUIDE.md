@@ -509,7 +509,8 @@ because period programs poke at it:
   without it, `USRn(x)` returns its argument and the run
   ends with one stderr line naming the entry addresses not executed;
   `TRS80_USR=strict` raises `?FC` on the call instead. `SYSTEM` does not
-  exist and `CMD` is `?SN`.
+  exist and `CMD` is `?SN`, except Disk BASIC's clock switches `CMD"T"` and
+  `CMD"R"`, which do nothing and go on.
 - **`speed` / `TRS80_MHZ`** charge each statement a delay derived from the
   target clock — games become playable at their intended pace.
 
@@ -593,7 +594,10 @@ Honest list, stated as current behavior:
   downloaded `.bas` a shell-execution vector on `LOAD`. With the gate off,
   the line is an ordinary remark, so a listing carrying one is still valid
   Level II on real hardware and survives `CSAVE`/detokenizer round-trips.
-- **Absent**: `EDIT` (by design); `CMD` is `?SN`. `USR` and `SYSTEM` run
+- **Absent**: `EDIT` (by design); `CMD` is `?SN`, except `CMD"T"` and
+  `CMD"R"` (Disk BASIC's clock switches), which are accepted and do nothing:
+  352 corpus listings turn the clock off before a tape read or a timed loop.
+  `USR` and `SYSTEM` run
   only with a Z80 core attached (Part III).
 - `CLEAR` takes any numeric expression (`CLEAR FR!-8000` appears throughout
   period listings and works).
@@ -1401,6 +1405,20 @@ SYSTEM   the Level II monitor: load an object file and run it
   statement behind it on the line never runs.
   Example: SYSTEM          then  *? game     then  *? /
   Example: SYSTEM          then  *? /32000   (run what is already in memory)
+```
+
+#### CMD
+
+```text
+CMD"T"  CMD"R"   Disk BASIC's clock switches: accepted, and do nothing
+  On a disk system CMD"T" turns the real-time clock interrupt off -- a
+  program did it before reading a cassette or timing a loop -- and CMD"R"
+  turns it back on.  There is no clock interrupt here to switch, so both
+  just go on to the next statement; TIME$ keeps reading the host clock.
+  Only those two exact forms, alone in their statement.  Every other CMD
+  is a TRSDOS service there is no DOS to run, and is ?SN: CMD"S",
+  CMD"D", CMD"TIME", CMD"t", CMD"T"X, CMD A$.
+  Example: 10 CMD"T":FOR I=1 TO 500:NEXT:CMD"R"
 ```
 
 #### CSAVE

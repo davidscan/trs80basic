@@ -1163,16 +1163,35 @@ function gpoint(x, y,   p, b) {
 
 # ---- CMD -------------------------------------------------------------------
 # CMD calls a TRSDOS service.  A cassette Level II machine has no DOS to call,
-# so every form raises ?SN exactly as it always has -- except the one Model III
-# TRSDOS 1.3 easter egg, CMD"&"&, which printed a hidden message from the
-# people who wrote that DOS.  Ours says who wrote this one.
-# EXT.  Safe as an always-on extension: the trigger is the literal three-token
-# sequence CMD "&" & , which no Level II program can execute (CMD always
-# errored on a cassette machine) and no OCR damage can plausibly spell.
+# so every form raises ?SN exactly as it always has -- except two Disk BASIC
+# forms and the one Model III TRSDOS 1.3 easter egg, CMD"&"&, which printed a
+# hidden message from the people who wrote that DOS.  Ours says who wrote
+# this one.
+# EXT.  CMD"T" and CMD"R" are Disk BASIC's clock-interrupt switches: "T" turns
+# the real-time clock off, as a program did before reading a cassette or
+# timing a loop, and "R" turns it back on (Barden, More TRS-80 Assembly-
+# Language Programming (1982) p.269: "Turn off real-time-clock in Disk
+# BASIC"; TRS-80 Assembly Language (Prentice Hall, 1981) p.126: "DI ;SAME
+# AS CMD"T""; the Model III Disk System manual's CMD"T" and CMD"R").
+# There is no interrupt to switch here, so both do nothing and the program
+# goes on; TIME$ keeps reading the host clock either way.  352 corpus
+# listings use CMD"T", most of them otherwise Level II, and in 294 T and R
+# are the only CMD forms (measured 2026-10-12).  Safe always on: on a
+# cassette machine CMD only ever errored, so the one program this changes is
+# one that ran CMD"T" to find out whether it was on a disk system.  Only the
+# exact strings "T" and "R", alone in their statement; CMD"TIME" and the
+# rest are still ?SN.
+# The egg: safe as an always-on extension because the trigger is the literal
+# three-token sequence CMD "&" & , which no Level II program can execute and
+# no OCR damage can plausibly spell.
 # Dispatch (execstmt, p70) only routes here when a string LITERAL follows CMD,
 # so `CMD A$` and CMD-as-a-variable-name keep the behavior they had.
 function st_cmd(   s) {
     s = TK[CK, CP]; CP++                    # the string literal after CMD
+    if (s == "T" || s == "R") {
+        if (!at_stmt_end()) raise(2)
+        return
+    }
     if (s != "&" || TY[CK, CP] != "o" || TK[CK, CP] != "&") { raise(2); return }
     CP++
     if (!at_stmt_end()) { raise(2); return }

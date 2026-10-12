@@ -378,7 +378,9 @@ maintained outside this repository.
   implicit NEW; file lines overwrite/interleave, variables clear,
   returns to command level), and NAME (2026-08-14: renumber with full
   reference rewrite — GOTO/GOSUB/ON.. lists/THEN/ELSE/RESTORE/RESUME/
-  RUN; ERL comparisons cannot be fixed). Still absent: CMD (raises ?SN).
+  RUN; ERL comparisons cannot be fixed). CMD"T" and CMD"R", Disk
+  BASIC's clock-interrupt switches, are accepted and do nothing
+  (2026-10-12); every other CMD is still absent (raises ?SN).
 - CLEAR takes any numeric expression (2026-08-12 conformance fix —
   CLEAR M, CLEAR FR!-8000 appear throughout period listings).
 - Gated extensions (2026-08-12): `ext on` (metacommand; or TRS80_EXT=1)

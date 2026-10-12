@@ -37,7 +37,7 @@ CATEGORIES = [
     ]),
     ("Command level", [
         "RUN", "LIST", "NEW", "CONT", "AUTO", "DELETE", "CLOAD", "CSAVE",
-        "LOAD", "SAVE", "MERGE", "NAME", "SYSTEM", "BYE", "TRON", "TROFF", "BREAK",
+        "LOAD", "SAVE", "MERGE", "NAME", "SYSTEM", "CMD", "BYE", "TRON", "TROFF", "BREAK",
         "RANDOM",
     ]),
     ("Graphics", ["SET", "RESET", "POINT"]),

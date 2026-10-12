@@ -608,6 +608,17 @@ SYSTEM   the Level II monitor: load an object file and run it
   Example: SYSTEM          then  *? game     then  *? /
   Example: SYSTEM          then  *? /32000   (run what is already in memory)
 
+:CMD
+CMD"T"  CMD"R"   Disk BASIC's clock switches: accepted, and do nothing
+  On a disk system CMD"T" turns the real-time clock interrupt off -- a
+  program did it before reading a cassette or timing a loop -- and CMD"R"
+  turns it back on.  There is no clock interrupt here to switch, so both
+  just go on to the next statement; TIME$ keeps reading the host clock.
+  Only those two exact forms, alone in their statement.  Every other CMD
+  is a TRSDOS service there is no DOS to run, and is ?SN: CMD"S",
+  CMD"D", CMD"TIME", CMD"t", CMD"T"X, CMD A$.
+  Example: 10 CMD"T":FOR I=1 TO 500:NEXT:CMD"R"
+
 :CSAVE
 CSAVE "name"   write the program out as a plain-text listing
   The "cassette" here is an ordinary host file, and what it holds is the
