@@ -510,8 +510,8 @@ because period programs poke at it:
   finds by itself, or named by `TRS80_Z80`), the routine at
   `DEF USRn=addr` (or the POKEd vector at 16526/7) runs for real — video
   it writes shows as it runs, the keyboard is live, Ctrl-C breaks, and
-  the ROM entry points it may call are `01C9H`, `0A7FH`, `0A9AH` and
-  `1A19H` (READY),
+  the ROM entry points it may call are `01C9H`, `0A7FH`, `0A9AH`,
+  `1A19H` (READY) and `002BH` (the keyboard scan),
   and its cassette-port sound is heard with `sound on` or kept with
   `sound wav <path>`;
   without it, `USRn(x)` returns its argument and the run

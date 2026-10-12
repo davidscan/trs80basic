@@ -336,8 +336,8 @@ maintained outside this repository.
   `PROTOCOL.md`; `TRS80_Z80_TIMEOUT` is the per-reply guard in
   milliseconds, default 5000) — a full Z80 validated against 1.6 million
   single-step vectors, serving 01C9H (CLS), 0A7FH (argument to HL),
-  0A9AH (HL to result) and 1A19H (READY: the program ends, no error) as
-  the only ROM entry points, the USR return pushed as the
+  0A9AH (HL to result), 1A19H (READY: the program ends, no error) and
+  002BH (the keyboard scan, core 2026-10-12) as the only ROM entry points, the USR return pushed as the
   sentinel 2FFDH, port FFH reading 127 and every OUT discarded; any other
   jump into ROM space is ?FC with the address on stderr. Without a core the
   call is a stub that returns its argument — and is no longer silent: a
