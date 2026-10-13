@@ -570,7 +570,7 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  up / down       recall command history at the > prompt\n" \
               "  PgUp / PgDn     page long output below the grid (fn-up/down\n" \
               "                  on a Mac laptop; Ctrl-B / Ctrl-F also work)\n" \
-              "  TAB             complete a filename at the > prompt")
+              "  TAB             complete a filename at the > prompt and SYSTEM's *?")
         return
     }
     if (MANN == 0) { t_man("NO MANUAL ENTRIES LOADED (support/manpages.txt missing?)"); return }
@@ -769,7 +769,7 @@ function st_system(   line, a, s) {
     # 2026-09-26 audit, L-15).
     for (;;) {
         s_nl(); s_puts("*? ")
-        line = rl_read()
+        line = rl_read(2)                   # 2: TAB completes the file name (p30)
         if (RLCANCEL) { kb_flush(); to_ready(); return }
         if (EOFQUIT) { if (BATCH) batch_ineof(); STOPPED = 1; return }
         gsub(/^[ \t]+|[ \t]+$/, "", line)

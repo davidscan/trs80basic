@@ -33,7 +33,8 @@ terminal emulator gives it, and checks:
      the mode is pushed at RUN and popped at READY and BYE;
   7. TAB file-name completion: a unique directory gains "/", and a
      matched name with a quote in it is completed but never parsed by the
-     shell (the directory test once ran it as a command, the 2026-09-19 audit, C-2).
+     shell (the directory test once ran it as a command, the 2026-09-19 audit, C-2);
+     and at SYSTEM's *? prompt, which takes a host file name (2026-10-12).
 
   8. a gawk that dies without its exit path (killed here; a gawk fatal
      ends the same way) does not leave the terminal raw: the launcher
@@ -405,6 +406,26 @@ def completion(check):
         b.send('dir\r', 0.6)
         out = b.drain(0.3)
         check('zesc.[2Kfoo' in out and '\x1b[2K' not in out, 'dir shows a control byte as a full stop', out)
+        # SYSTEM's *? takes a host file name, and TAB completes it there too
+        # (2026-10-12); ambiguous, the list is shown and *? comes back
+        for n in ('zgame01.cmd', 'zgame02.cmd', 'zone.cas'):
+            open(os.path.join(d, n), 'w').close()
+        b.send('SYSTEM\r', 0.6)
+        b.drain(0.3)
+        b.send('zon\t', 0.5)
+        out = b.drain(0.3)
+        check('zone.cas' in out, 'TAB completes a unique name at *?', out)
+        b.send('\x15', 0.3)
+        b.drain(0.2)
+        b.send('zga\t', 0.5)
+        out = b.drain(0.3)
+        check('zgame0' in out, 'TAB extends to the common prefix at *?', out)
+        b.send('\t', 0.5)
+        out = b.drain(0.3)
+        check('zgame01.cmd' in out and 'zgame02.cmd' in out and '*? zgame0' in out,
+              'TAB lists the matches at *? and gives the prompt back', out)
+        b.send('\x03', 0.6)                            # BREAK: *? to READY
+        b.drain(0.3)
         b.send('BYE\r', 0.5)
         b.drain(0.3, 2)
         b.close()

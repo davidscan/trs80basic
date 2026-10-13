@@ -98,7 +98,7 @@ or unshifted.
 | left / right arrow keys | move the cursor; insertion happens at the cursor |
 | up / down arrow keys | command history at the `>` prompt (`history` lists it; per-session) |
 | PgUp / PgDn | page long output below the grid (Ctrl-B / Ctrl-F also work) |
-| TAB | filename completion at the `>` prompt — longest common prefix, candidates listed below the grid when ambiguous |
+| TAB | filename completion at the `>` prompt and at `SYSTEM`'s `*?` — longest common prefix, candidates listed below the grid when ambiguous |
 
 The arrow-key line editor, history, and TAB completion are of course
 **EXT** — 1978 gave you SHIFT-left-arrow and resignation. One tuning knob:
@@ -1408,6 +1408,7 @@ SYSTEM   the Level II monitor: load an object file and run it
   name that is not a file, or not one of the two formats, is ?FD.
   Needs the Z80 core (see: man USR); without it the run is the stub and
   is reported the way an unexecuted USR is.
+  At *? TAB completes the file name, as at the > prompt (EXT).
   Anything after SYSTEM on its line is ignored, as on Level II:
   SYSTEM X, or a later DOS's SYSTEM "command", just prompts *?, and a
   statement behind it on the line never runs.

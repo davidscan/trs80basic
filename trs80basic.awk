@@ -1509,7 +1509,10 @@ function kb_matrix(sel,   out, r) {
 # Buffer RLS + cursor RLP (chars left of cursor).  Keys: Ctrl-A/E start/end,
 # Ctrl-U erase line, left/right arrows, BS/DEL.  With repl=1 (the ">" prompt
 # only): up/down history, TAB filename completion, Ctrl-L = CLEAR key.
+# With repl=2 (SYSTEM's "*?", which takes a host file name): TAB completion
+# alone (EXT, as at ">"; the user, 2026-10-12).
 function rl_read(repl,   c, r, s, oldl, oldp) {
+    RLMODE = repl
     VCOL = 0                                # 0365H: the input routine zeroes 40A6H (p20)
     RLCANCEL = 0
     RLWAIT = 1                              # a waiting read shows the cursor
@@ -1554,11 +1557,11 @@ function rl_read(repl,   c, r, s, oldl, oldp) {
         if (c == 1) { if (RLP > 0) { RLP = 0; rl_draw(oldl, oldp) } continue }        # Ctrl-A
         if (c == 5) { if (RLP < oldl) { RLP = oldl; rl_draw(oldl, oldp) } continue }  # Ctrl-E
         if (c == 21) { if (oldl) { RLS = ""; RLP = 0; rl_draw(oldl, oldp) } continue }# Ctrl-U
-        if (c == 12 && repl) { rl_clear_screen(); continue }                          # Ctrl-L
+        if (c == 12 && repl == 1) { rl_clear_screen(); continue }                          # Ctrl-L
         if (c == 2) { pgr_page(-1); continue }                                        # Ctrl-B: page up
         if (c == 6) { pgr_page(1); continue }                                         # Ctrl-F: page down
         if (c == 9 && repl) { rl_complete(); continue }                               # TAB
-        if (c == 27) { rl_arrow(repl); continue }
+        if (c == 27) { rl_arrow(repl == 1); continue }
         if (c >= 32 && c < 127 && oldl < RLMAX) {
             RLS = substr(RLS, 1, RLP) CHR[c] substr(RLS, RLP + 1)
             RLP++
@@ -1745,7 +1748,7 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
     for (j = 1; j <= nm && j <= 28; j++) out = out "\n  " mt[j]
     if (nm > 28) out = out "\n  ..."
     t_man(out)
-    if (DUMB) { s_putc(62); rl_draw(0, 0) }
+    if (DUMB) { s_puts(RLMODE == 2 ? "*? " : ">"); rl_draw(0, 0) }
 }
 # ===================== REPL and program management ==========================
 
@@ -2319,7 +2322,7 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  up / down       recall command history at the > prompt\n" \
               "  PgUp / PgDn     page long output below the grid (fn-up/down\n" \
               "                  on a Mac laptop; Ctrl-B / Ctrl-F also work)\n" \
-              "  TAB             complete a filename at the > prompt")
+              "  TAB             complete a filename at the > prompt and SYSTEM's *?")
         return
     }
     if (MANN == 0) { t_man("NO MANUAL ENTRIES LOADED (support/manpages.txt missing?)"); return }
@@ -2518,7 +2521,7 @@ function st_system(   line, a, s) {
     # 2026-09-26 audit, L-15).
     for (;;) {
         s_nl(); s_puts("*? ")
-        line = rl_read()
+        line = rl_read(2)                   # 2: TAB completes the file name (p30)
         if (RLCANCEL) { kb_flush(); to_ready(); return }
         if (EOFQUIT) { if (BATCH) batch_ineof(); STOPPED = 1; return }
         gsub(/^[ \t]+|[ \t]+$/, "", line)
