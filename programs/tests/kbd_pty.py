@@ -54,6 +54,10 @@ terminal emulator gives it, and checks:
      drawn below the 64x16 screen, once, and not over it: on stderr, the
      same terminal, it landed at the cursor and the next redraw wiped it
      (Defense Command's "rom called 002BH", 2026-10-12).
+ 15. `basic game.cmd` at a terminal is played, not batched (EXT, 2026-10-12):
+     the grid comes up with no MEM SIZE?, a load module that waits on
+     002BH for a key ends when one is typed (with the core), and a file
+     that is not a load module exits 2 with its message after the grid.
 
 Standard library only; run by run_all.sh when python3 is present (so CI
 exercises the tty reader on Linux, where it was not measured by hand).
@@ -677,6 +681,60 @@ def notes_below(check):
     check(not any('Level II ignores' in x for x in rows[:16]), 'the note is not on the 64x16 screen', repr(rows))
 
 
+def played_cmd(check):
+    """Scenario 15: `basic game.cmd` at a terminal runs with the keyboard live."""
+    def run(path, keys, core):
+        pid, fd = pty.fork()
+        if pid == 0:
+            os.chdir(ROOT)
+            os.environ['TRS80_Z80'] = core
+            os.environ.pop('TRS80_DUMB', None)
+            exe = os.path.join(ROOT, 'basic')
+            os.execv(exe, [exe, path])
+        out, st, t0, sent = b'', None, time.time(), False
+        while time.time() - t0 < 15 * SLOW:
+            if not sent and time.time() - t0 > 1.5 * SLOW:
+                for k in keys:
+                    os.write(fd, k)
+                    time.sleep(0.3 * SLOW)
+                sent = True
+            r, _, _ = select.select([fd], [], [], 0.05)
+            if r:
+                try:
+                    c = os.read(fd, 65536)
+                except OSError:
+                    c = b''
+                out += c
+            w = os.waitpid(pid, os.WNOHANG)
+            if w[0]:
+                st = os.waitstatus_to_exitcode(w[1])
+                break
+        if st is None:
+            os.kill(pid, 9)
+            os.waitpid(pid, 0)
+        os.close(fd)
+        return out, st
+
+    with tempfile.TemporaryDirectory() as d:
+        bad = os.path.join(d, 'bad.cmd')
+        with open(bad, 'wb') as f:
+            f.write(b'x')
+        out, st = run(bad, [], '')
+        check(st == 2, 'a .cmd that is not a load module exits 2', repr(out[-200:]))
+        check(b'\x1b[?1049h' in out and b'MEM SIZE' not in out, 'the grid comes up with no MEM SIZE?', repr(out[:200]))
+        check(out.find(b'is not a /CMD load module') > out.find(b'\x1b[?1049l') > 0,
+              'the message comes after the grid is gone', repr(out[-200:]))
+        core = os.path.join(os.path.dirname(ROOT), 'trs80_z80_core', 'core.py')
+        if not os.path.isfile(core):
+            return
+        # ORG 7E00H: CALL 002BH / OR A / JR Z,7E00H / JP 1A19H
+        key = os.path.join(d, 'key.cmd')
+        with open(key, 'wb') as f:
+            f.write(bytes([1, 11, 0, 0x7E, 0xCD, 0x2B, 0, 0xB7, 0x28, 0xFA, 0xC3, 0x19, 0x1A, 2, 2, 0, 0x7E]))
+        out, st = run(key, [b'a'], 'python3 ' + core)
+        check(st == 0, 'a load module waiting on 002BH ends when a key is typed (exit 0)', repr(out[-200:]))
+
+
 def main():
     fails = []
 
@@ -890,6 +948,9 @@ def main():
 
     # 14. the grid's notes go below it
     notes_below(check)
+
+    # 15. basic game.cmd at a terminal
+    played_cmd(check)
 
     if fails:
         print('kbd_pty.py: %d check(s) failed' % len(fails))

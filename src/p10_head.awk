@@ -55,6 +55,10 @@ BEGIN {
     # and an uninitialised RAMTOP would compare as "" in gawk, silently
     # rejecting every legal answer.  Keep both in this BEGIN block.
     init_tables()
+    # `basic game.cmd` at a terminal is played, not batched (EXT, p45);
+    # a file that is not there is batch's error, with no grid flashed first
+    SYSPLAY = (BATCH && batch_is_cmd() && !WINNATIVE && system("[ -t 0 ] && [ -t 1 ]") == 0 && sys_find(BATCHFILE) != "")
+    if (SYSPLAY) BATCH = 0
     if (BATCH && !OPT_SCREEN) DUMB = 1      # batch output is plain by default
     if (OPT_SCREEN) DUMB = 0
     kb_init()
@@ -65,6 +69,16 @@ BEGIN {
         RC = batch_main()
         fio_closeall()
         t_done()
+        exit RC
+    }
+    if (SYSPLAY) {
+        if (OPT_MEMSIZE) { HIMEM = (OPT_MEMSIZE > 65529) ? RAMTOP : OPT_MEMSIZE - 2; SSP = HIMEM }
+        s_cls()
+        RC = batch_system()
+        fio_closeall()
+        t_done()
+        if (SYSMSG != "") SYSNOTES = SYSMSG "\n" SYSNOTES
+        if (SYSNOTES != "") printf "%s", SYSNOTES > "/dev/stderr"
         exit RC
     }
     s_cls()

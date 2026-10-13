@@ -3,6 +3,7 @@
 #
 #   ./basic                  interactive READY prompt
 #   ./basic mygame.bas       LOAD + RUN it, then exit (see `./basic --help`)
+#   ./basic game.cmd         load the /CMD file and run it (SYSTEM name, /)
 #
 # The companion Z80 core (USR routines executed): TRS80_Z80 names the command
 # that runs it.  When the variable is unset and the core is checked out beside

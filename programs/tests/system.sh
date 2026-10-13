@@ -224,6 +224,17 @@ $ne.cas
 EOF
 grep -q "?FD ERROR" "$tmp" || fail "an empty SYSTEM file is ?FD" "$(cat "$tmp")"
 
+# `basic file.cmd` (EXT, p45): a /CMD argument is SYSTEM, its name, `/`.
+# Piped, it is a batch run: until 2026-10-12 every line was ?FD and exit 2.
+bat() { TRS80_DUMB=1 TRS80_Z80="$1" ./basic "$2" </dev/null >"$tmp" 2>"$tmp.err"; }
+bat "" programs/tests/sysrdy.cmd; st=$?
+[ "$st" = 0 ] || fail "basic sysrdy.cmd: exit $st, not 0" "$(cat "$tmp.err")"
+grep -q "?FD" "$tmp.err" && fail "basic sysrdy.cmd read the load module as a listing" "$(cat "$tmp.err")"
+grep -q "USR STUB" "$tmp.err" || fail "basic sysrdy.cmd did not reach the entry (no stub tally)" "$(cat "$tmp.err")"
+printf 'x' > "$ne.cmd"
+bat "" "$ne.cmd"; st=$?
+[ "$st" = 2 ] && grep -q "is not a /CMD load module" "$tmp.err" || fail "a .cmd that is not a load module: exit $st" "$(cat "$tmp.err")"
+
 # ---- part 2: the runs, with the real core ----------------------------------
 core=${TRS80_Z80:-"python3 $here/../trs80_z80_core/core.py"}
 set -- $core
@@ -273,5 +284,14 @@ $a5.cmd
 PRINT "G";PEEK(32576)
 EOF
 grep -q "G 5" "$tmp" || fail "the load module holding A5H 55H did not run" "$(cat "$tmp"; cat "$tmp.err")"
+# `basic file.cmd` with the core: JP 1A19H is a clean end (exit 0); a
+# CALL 0038H the core cannot serve is ?FC, exit 1.  The module is
+# 01 05 7E00H CD 38 00 (CALL 0038H), 02 02 7E00H (entry).
+bat "$core" programs/tests/sysrdy.cmd; st=$?
+[ "$st" = 0 ] || fail "basic sysrdy.cmd with the core: exit $st, not 0" "$(cat "$tmp.err")"
+grep -q "USR STUB" "$tmp.err" && fail "basic sysrdy.cmd: the core was not used" "$(cat "$tmp.err")"
+printf '\001\005\000\176\315\070\000\002\002\000\176' > "$ne.cmd"
+bat "$core" "$ne.cmd"; st=$?
+[ "$st" = 1 ] && grep -q "?FC ERROR" "$tmp.err" || fail "basic file.cmd ending in ?FC: exit $st" "$(cat "$tmp.err")"
 echo "SYSTEM: loads and runs OK"
 exit 0

@@ -167,7 +167,11 @@ address, BREAK returns to READY, and a checksum error prints `C` as the
 manual says. The program runs in the Z80 core until it returns, reaches
 0A9AH, or jumps to the ROM's READY entry; `man SYSTEM` has the rest.
 Anything after `SYSTEM` on its line is ignored, as on Level II, so a
-later DOS's `SYSTEM "command"` just shows the `*?` prompt.
+later DOS's `SYSTEM "command"` just shows the `*?` prompt. From the shell,
+`./basic game.cmd` does the same three steps (EXT): at a terminal the
+program is played on the screen with the live keyboard, no `MEM SIZE?`
+first, and the interpreter exits when it ends, repeating any error on
+the terminal; piped, it is a batch run with batch's exit status.
 
 `RUN "file"` loads and
 runs.

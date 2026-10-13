@@ -55,6 +55,10 @@ BEGIN {
     # and an uninitialised RAMTOP would compare as "" in gawk, silently
     # rejecting every legal answer.  Keep both in this BEGIN block.
     init_tables()
+    # `basic game.cmd` at a terminal is played, not batched (EXT, p45);
+    # a file that is not there is batch's error, with no grid flashed first
+    SYSPLAY = (BATCH && batch_is_cmd() && !WINNATIVE && system("[ -t 0 ] && [ -t 1 ]") == 0 && sys_find(BATCHFILE) != "")
+    if (SYSPLAY) BATCH = 0
     if (BATCH && !OPT_SCREEN) DUMB = 1      # batch output is plain by default
     if (OPT_SCREEN) DUMB = 0
     kb_init()
@@ -65,6 +69,16 @@ BEGIN {
         RC = batch_main()
         fio_closeall()
         t_done()
+        exit RC
+    }
+    if (SYSPLAY) {
+        if (OPT_MEMSIZE) { HIMEM = (OPT_MEMSIZE > 65529) ? RAMTOP : OPT_MEMSIZE - 2; SSP = HIMEM }
+        s_cls()
+        RC = batch_system()
+        fio_closeall()
+        t_done()
+        if (SYSMSG != "") SYSNOTES = SYSMSG "\n" SYSNOTES
+        if (SYSNOTES != "") printf "%s", SYSNOTES > "/dev/stderr"
         exit RC
     }
     s_cls()
@@ -3160,9 +3174,11 @@ function version_text() {
 
 # dest "" = stdout (--help), "/dev/stderr" = usage error (with the reason)
 function usage(dest,   t) {
-    t = "Usage: basic [options] [program.bas]\n" \
+    t = "Usage: basic [options] [program.bas | game.cmd]\n" \
         "\n" \
         "With a program file, LOAD and RUN it non-interactively, then exit.\n" \
+        "With a /CMD file, load it and run it at its entry (SYSTEM name, /);\n" \
+        "at a terminal it is played on the screen, then exits.\n" \
         "With no file, start the interactive READY prompt.\n" \
         "\n" \
         "  --seed N     seed RND and RANDOM for repeatable runs\n" \
@@ -3191,6 +3207,11 @@ function usage(dest,   t) {
 # LOAD + RUN the batch program; returns the process exit status
 function batch_main() {
     BATCHERR = 0
+    if (batch_is_cmd()) {
+        RC = batch_system()
+        if (SYSMSG != "") diag_err(SYSMSG)
+        return RC
+    }
     if (!prog_load(BATCHFILE, 0)) {
         # /dev/stdin and the shell's <(...) (/dev/fd/N) are refused by name
         # (host_special, p90), and "cannot read" alone sent the user looking
@@ -3209,6 +3230,37 @@ function batch_main() {
         }
     }
     exec_immediate("RUN")                   # the same path as typing RUN
+    return (BATCHERR ? 1 : 0)
+}
+
+# EXT: `basic game.cmd` is SYSTEM, the file's name, then `/`: the load
+# module goes into memory through sys_load (p40) and runs at its entry
+# address through the USR frame, as the typed command does.  A /CMD file
+# holds machine code, not a listing: read as one it was every line ?FD.
+# Why it cannot break a period program: no BASIC listing is a load module.
+# --clear does not apply (no BASIC program runs); --memsize and --seed do.
+# With a terminal on stdin and stdout it is played, not batched (SYSPLAY,
+# p10; user, 2026-10-12): the live keyboard and the grid, no banner or
+# MEM SIZE?, and the process exits 0/1/2 when the code is over, as batch
+# does.  Batch's keyboard is stdin by lines, which no game can be played
+# on, and its plain stream never shows video memory.  The grid is gone
+# once it exits, so its error and notes are said again on stderr then.
+function batch_is_cmd() {
+    return tolower(substr(BATCHFILE, length(BATCHFILE) - 3)) == ".cmd"
+}
+
+function batch_system(   a) {
+    a = sys_load(BATCHFILE)
+    SYSMSG = ""
+    if (a == "") { SYSMSG = "basic: cannot read '" BATCHFILE "'"; return 2 }
+    if (a != 1) { SYSMSG = "basic: '" BATCHFILE "' is not a /CMD load module"; return 2 }
+    tokline("I", "")
+    CK = "I"; CLI = 0; CLN = DIRECTLN; CP = 1
+    E = 0; HALT = 0; STOPPED = 0
+    usr_stub_reset()
+    sys_exec(SYSENTRY)
+    if (E) report_err()
+    usr_stub_notice()
     return (BATCHERR ? 1 : 0)
 }
 
@@ -3263,7 +3315,7 @@ function diag_err(msg) {
     # the terminal (2>file).  Batch and plain-text mode are unchanged.
     if (!BATCH && !DUMB) {
         note_below(msg)
-        if (stderr_is_tty()) return
+        if (stderr_is_tty()) { if (SYSPLAY) SYSNOTES = SYSNOTES msg "\n"; return }
     }
     fflush()                                # keep stdout/stderr in order
     printf "%s\n", msg > "/dev/stderr"
@@ -9455,6 +9507,7 @@ function report_err(   c, msg) {
     # only UNCAUGHT errors reach here (ON ERROR GOTO is handled in execloop),
     # so this is the one place batch mode needs for its exit-1 status
     if (BATCH) { BATCHERR = 1; diag_err(msg); batch_hint(c); return }
+    if (SYSPLAY) { BATCHERR = 1; SYSNOTES = SYSNOTES msg "\n" }   # said again after the grid (p45)
     if (CUR % 64 != 0) s_nl()
     s_puts(msg); s_nl()
     sync_cursor()
