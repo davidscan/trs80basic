@@ -32,10 +32,11 @@ case "$got" in
     "11 67 $l10 "*) ;;
     *) fail "line 10: upper case, ? as PRINT, ELSE behind a colon" "$got" ;;
 esac
-# line 20: the colon that is already there is not doubled; go to is GOTO
+# line 20: a typed ":ELSE" is stored "::ELSE", the cruncher's colon
+# always added (Farvour 1C42-1C49); go to is GOTO
 case "$got" in
-    *" 20 0 143 32 65 32 202 32 51 48 58 149 32 141 32 52 48 0 "*) ;;
-    *) fail "line 20: :ELSE keeps one colon, GO TO is 8DH" "$got" ;;
+    *" 20 0 143 32 65 32 202 32 51 48 58 58 149 32 141 32 52 48 0 "*) ;;
+    *) fail "line 20: :ELSE is stored with two colons, GO TO is 8DH" "$got" ;;
 esac
 # line 30: DATA and REM keep their case and their question marks
 case "$got" in
@@ -57,5 +58,11 @@ if command -v python3 >/dev/null 2>&1; then
     [ "$got" = "$want" ] || fail "tok.py and the interpreter's image differ" "interp: $got
 tok.py: $want"
 fi
+# 3. &H digits end where a keyword begins: the cruncher has made ELSE a
+# token before &H is read (1BC0-1C8F), so "&HFFELSE" -- how LIST shows
+# "&HFF:ELSE" -- is FF then ELSE when run, as in the image
+printf '10 A=1:IF A THEN Y=&HFFELSE Y=3\n20 PRINT Y;\n30 IF 0 THEN Y=&HFFELSE Y=3\n40 PRINT Y;\n50 PRINT &H3C\n' > "$dir/h.bas"
+got=$(cd "$dir" && TRS80_Z80= "$here/basic" h.bas 2>&1 | tr -s ' \n' ' ' | sed 's/^ //; s/ $//')
+[ "$got" = "255 3 60" ] || fail "&HFFELSE is FF then ELSE" "$got"
 rm -rf "$dir"
 echo "CRUNCH OK"

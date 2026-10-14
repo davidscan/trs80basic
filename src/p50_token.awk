@@ -131,6 +131,12 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
             c2 = toupper(substr(text, i + 1, 1))    # &H/&O literal (Disk
             if (c2 == "H") match(substr(text, i + 2), /^[0-9A-Fa-f]+/)  # BASIC)
             else           match(substr(text, i + 2), /^[0-7]+/)
+            # the digits end where a keyword begins: the cruncher tried the
+            # keyword table at every letter (1BC0-1C8F) before &H was ever
+            # read, so "&HFFFFELSE" (as LIST shows "&HFFFF:ELSE") is FFFF
+            # then ELSE, as pm_crunch stores it
+            if (c2 == "H") for (j = i + 2; j < i + 2 + RLENGTH; j++)
+                if (kw_at(up, j) != "") { RLENGTH = j - i - 2; break }
             if (RLENGTH > 0) {
                 s = substr(text, i + 2, RLENGTH)
                 j = (c2 == "H") ? strtonum("0x" s) : strtonum("0" s)

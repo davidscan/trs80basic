@@ -67,9 +67,14 @@ eq(expand(b'\xb2"\xb2\xb2"', TBL), b'PRINT"\xb2\xb2"', "semigraphics in a string
 eq(expand(b"\x93 \xb2\x81", TBL), b"REM \xb2\x81", "REM text is literal to end of line")
 # ' is stored as :REM' (3A 93 FB); LIST shows only the apostrophe.
 eq(expand(b"\x84:\x93\xfb hi \xb2", TBL), b"CLS' hi \xb2", "apostrophe comment collapses its stored colon")
-# The colon before ELSE must survive: "B=C:ELSE" collapsed to "B=CELSE" re-lexes
-# as the identifier CELSE and the branch silently never runs.
-eq(expand(b"\x8f A\xcaB\xd5C:\x95 D", TBL), b"IF ATHENB=C:ELSE D", "ELSE keeps its stored colon")
+# ELSE is stored behind the colon the cruncher adds; LIST takes it back
+# (2BA0), and so does detok, so a typed ":ELSE" (stored "::ELSE") lists as
+# typed.  -s adds no blank in the colon's place (the cruncher would store it).
+eq(expand(b"\x8f A\xcaB\xd5C:\x95 D", TBL), b"IF ATHENB=CELSE D", "LIST takes ELSE's stored colon back")
+eq(expand(b"\x8f A\xcaB\xd5C::\x95 D", TBL), b"IF ATHENB=C:ELSE D", "a typed :ELSE (two stored) lists with one")
+eq(expand(b"\x8f A\xcaB\xd5C:\x95 D", TBL, space_keywords=True), b"IF A THEN B=CELSE D", "-s adds no blank where the colon was")
+eq(expand(b"\x8f A\xcaB\xd5C \x95 D", TBL, space_keywords=True), b"IF A THEN B=C ELSE D", "no stored colon: -s spaces as usual")
+eq(expand(b"\x8f A\xca 5 \x95 9", TBL), b"IF ATHEN 5 ELSE 9", "no stored colon: nothing is taken")
 eq(expand(b"\x88 \xb2,\xb2:\xb2", TBL), b"DATA \xb2,\xb2:PRINT", "DATA items are literal until a colon")
 # The quote branches are checked before the DATA branch precisely for this.
 eq(expand(b'\x88 "a:b",\xb2', TBL), b'DATA "a:b",\xb2', "a colon inside a quoted DATA item does not end it")

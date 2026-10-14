@@ -3475,6 +3475,12 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
             c2 = toupper(substr(text, i + 1, 1))    # &H/&O literal (Disk
             if (c2 == "H") match(substr(text, i + 2), /^[0-9A-Fa-f]+/)  # BASIC)
             else           match(substr(text, i + 2), /^[0-7]+/)
+            # the digits end where a keyword begins: the cruncher tried the
+            # keyword table at every letter (1BC0-1C8F) before &H was ever
+            # read, so "&HFFFFELSE" (as LIST shows "&HFFFF:ELSE") is FFFF
+            # then ELSE, as pm_crunch stores it
+            if (c2 == "H") for (j = i + 2; j < i + 2 + RLENGTH; j++)
+                if (kw_at(up, j) != "") { RLENGTH = j - i - 2; break }
             if (RLENGTH > 0) {
                 s = substr(text, i + 2, RLENGTH)
                 j = (c2 == "H") ? strtonum("0x" s) : strtonum("0" s)
@@ -5944,11 +5950,10 @@ function pm_body(ln,   body, j) {
 #     as GOTO.  Digits, ":" and ";" (30H-3BH, 1BEC-1BF2) are stored without
 #     a try; no keyword begins with one, so kw_at agrees.
 #   * ELSE is stored behind a ":" (1C42-1C49) -- the byte that lets the
-#     ROM's IF skip to it.  ONE DEPARTURE, shared with tok.py: a ":" that
-#     is already there is not doubled.  A listing made by tools/detok.py
-#     shows the stored colon as ":ELSE" on purpose, and image -> listing ->
-#     image has to be the identity.  The ROM, given "A:ELSE" typed by hand,
-#     stores two.
+#     ROM's IF skip to it -- ALWAYS, so a typed ":ELSE" is stored "::ELSE"
+#     and LIST, which takes one colon back (2BA0), shows it as typed.
+#     tools/tok.py does the same, and tools/detok.py takes the colon back
+#     as LIST does, so image -> listing -> image stays the identity.
 function pm_crunch(text,   i, n, c, ins, ind, lit, w, up) {
     PMBN = 0
     up = toupper(text)                      # ASCII letters only under -b
@@ -5969,7 +5974,7 @@ function pm_crunch(text,   i, n, c, ins, ind, lit, w, up) {
         w = kw_at(up, i)
         if (w != "") {
             if (KWVAL == 251) { PMB[++PMBN] = 58; PMB[++PMBN] = 147; PMB[++PMBN] = 251 }
-            else if (KWVAL == 149 && !(PMBN > 0 && PMB[PMBN] == 58)) { PMB[++PMBN] = 58; PMB[++PMBN] = 149 }
+            else if (KWVAL == 149) { PMB[++PMBN] = 58; PMB[++PMBN] = 149 }
             else PMB[++PMBN] = KWVAL
             if (KWVAL == 147 || KWVAL == 251) lit = 1
             else if (KWVAL == 136) ind = 1

@@ -82,10 +82,16 @@ the interpreter rejects one, but these images contain them. Each becomes a bare
 `REM`, which keeps the line as a branch target instead of dropping a possible
 `GOTO` destination.
 
-One thing deliberately *not* done: the stored colon before `ELSE` is kept. LIST
-hides it, but dropping it turns `B=C:ELSE` into `B=CELSE`, which re-lexes as the
-identifier `CELSE` --- the branch then silently never runs. Verified against the
-interpreter; silent wrong output is worse than an ugly listing.
+**The colon before `ELSE` is taken back, as LIST does (since 2026-10-13).**
+The cruncher stores every `ELSE` behind a colon it adds (Farvour 1C42-1C49),
+so a typed `:ELSE` is stored `::ELSE`; LIST takes one colon back (2BA0), and
+detok does the same, so the listing reads as typed and `tok.py`, which adds
+the colon again, gives back the image. Without `-s`, `B=C:ELSE` lists as
+`B=CELSE`, as on the machine: Level II's cruncher reads that as `C` then
+`ELSE`. `-s` adds no blank there either: the cruncher would store it ahead of
+the colon it adds back, one byte the image does not have. Until 2026-10-13 detok kept the stored
+colon and the crunchers did not double a typed one; the corpus listings were
+regenerated when this changed.
 
 ## Known limits
 

@@ -146,11 +146,13 @@ def expand(body, table, unknown=None, stats=None, raw_newlines=False,
             continue
 
         # ' is stored as the three bytes :REM' and LIST shows just the quote.
-        # ELSE is stored with a leading colon too, but that colon is NOT
-        # dropped: it is the only thing separating ELSE from whatever precedes
-        # it, and "B=C:ELSE" collapsed to "B=CELSE" re-lexes as the identifier
-        # CELSE -- the branch then silently never runs.  Keeping the colon is
-        # both safer and closer to the stored bytes.
+        # ELSE is stored behind a colon too (the cruncher adds one, always:
+        # a typed ":ELSE" is stored "::ELSE"), and LIST takes one back
+        # (2BA0); so does the ELSE branch below, so that tok.py, which adds
+        # it again, gives back the image.  "B=C:ELSE" lists as "B=CELSE",
+        # which Level II's cruncher reads as C then ELSE; -s adds no blank
+        # there either, since the cruncher would store it ahead of the colon
+        # it adds back: one byte the image does not have.
         if b == COLON and i + 1 < n:
             nxt = body[i + 1]
             if nxt == TOK_REM and i + 2 < n and body[i + 2] == TOK_APOS:
@@ -181,6 +183,9 @@ def expand(body, table, unknown=None, stats=None, raw_newlines=False,
                     unknown[b] = unknown.get(b, 0) + 1
                 out.append(b)
             else:
+                took = b == TOK_ELSE and out[-1:] == bytes([COLON]) and body[i - 1] == COLON
+                if took:
+                    del out[-1]
                 if space_keywords:
                     # Level II LIST runs tokens together (FORX=1TOR), and a
                     # text-based interpreter cannot re-lex that -- FORX is one
@@ -188,7 +193,7 @@ def expand(body, table, unknown=None, stats=None, raw_newlines=False,
                     # exactly, so separating them here needs no guesswork: this
                     # is the whole ambiguity that a text de-compressor has to
                     # resolve heuristically, already solved by construction.
-                    if kw[:1].isalpha() and out and _joins(out[-1]):
+                    if kw[:1].isalpha() and out and _joins(out[-1]) and not took:
                         out.append(0x20)
                     out += kw
                     nxt = body[i + 1] if i + 1 < n else 0

@@ -137,8 +137,9 @@ eq(crunch("REM ?", IDX), bytes([0x93]) + b" ?", "? in a REM stays")
 eq(crunch("IFATHEN5ELSE9", IDX),
    bytes([0x8F]) + b"A" + bytes([0xCA]) + b"5" + bytes([0x3A, 0x95]) + b"9",
    "ELSE is stored behind a colon")
-eq(crunch("IFATHEN5:ELSE9", IDX), crunch("IFATHEN5ELSE9", IDX),
-   "the colon detok shows is not doubled")
+eq(crunch("IFATHEN5:ELSE9", IDX),
+   bytes([0x8F]) + b"A" + bytes([0xCA]) + b"5" + bytes([0x3A, 0x3A, 0x95]) + b"9",
+   "a typed colon before ELSE is doubled, as the ROM stores it (1C42)")
 eq(crunch("IFATHEN5 ELSE9", IDX),
    bytes([0x8F]) + b"A" + bytes([0xCA]) + b"5 " + bytes([0x3A, 0x95]) + b"9",
    "a blank before ELSE stays before the colon")

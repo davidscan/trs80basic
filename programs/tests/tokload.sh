@@ -139,13 +139,16 @@ got=$(printf '\next on\n10 REM META:spaced on\n20 FORI=1TO2:NEXT\nRUN\nLIST 20\n
 [ "$got" = "20 FOR I=1 TO 2:NEXT" ] || fail "REM META:spaced on spaces LIST" "$got"
 
 # --- 3c: SAVE + reLOAD gives back the image's bytes (ruled with Q-7): an
-# image of compressed lines, ELSE behind its colon and the ' form
+# image of compressed lines, ELSE behind its colon and the ' form, and a
+# typed ":ELSE", stored "::ELSE" (Farvour 1C42): SAVE writes ":ELSE", and
+# the reLOAD must store both colons again
 python3 - "$tmp" "$here" <<'PYEOF' || fail "could not build the round-trip image" ""
 import sys, os
 d, here = sys.argv[1], sys.argv[2]
 sys.path.insert(0, os.path.join(here, "tools"))
 import tok, detok
-img = tok.tokenize(b'10 FORI=1TO3:IFI=2THENPRINT"TWO"ELSEPRINTI\n20 NEXT:A$="a b":\'NOTE\n30 DATA x,"y:z"\n', detok.load_tokens())
+img = tok.tokenize(b'10 FORI=1TO3:IFI=2THENPRINT"TWO"ELSEPRINTI\n20 NEXT:A$="a b":\'NOTE\n30 DATA x,"y:z"\n40 IFATHEN10:ELSE20\n', detok.load_tokens())
+assert b'::\x95' in img
 open(os.path.join(d, "rt.bas"), "wb").write(img)
 PYEOF
 dump='FOR I=17129 TO PEEK(16633)+256*PEEK(16634)-1:PRINT PEEK(I);:NEXT:PRINT "/"'

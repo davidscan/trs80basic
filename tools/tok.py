@@ -112,10 +112,9 @@ def crunch(text, index):
       * `?` is the PRINT token (1BE4-1BE8);
       * ELSE is stored behind a `:` (1C42-1C49), which is what lets the
         ROM's IF skip to it.  An image made without it never takes ELSE on
-        the machine.  ONE DEPARTURE: when the text already has the colon
-        -- detok shows the stored one as ":ELSE", on purpose -- no second
-        one is added, or image -> listing -> image would grow a byte per
-        ELSE per trip.  The ROM, given "A:ELSE" typed by hand, stores two.
+        the machine.  ALWAYS, as the ROM does: a typed "A:ELSE" is stored
+        with two.  detok takes one colon back as LIST does (2BA0), so
+        image -> listing -> image stays the identity.
     """
     src = text.encode("latin-1") if isinstance(text, str) else text
     up = src.upper()            # bytes.upper() touches ASCII letters only
@@ -165,7 +164,7 @@ def crunch(text, index):
                 # back to a bare quote, so re-crunching must restore all three.
                 if value == TOK_APOS:
                     out += bytes([COLON, TOK_REM, TOK_APOS])
-                elif value == TOK_ELSE and out[-1:] != bytes([COLON]):
+                elif value == TOK_ELSE:
                     out += bytes([COLON, TOK_ELSE])
                 else:
                     out.append(value)
