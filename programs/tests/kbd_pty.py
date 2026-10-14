@@ -691,13 +691,19 @@ def played_cmd(check):
             os.environ.pop('TRS80_DUMB', None)
             exe = os.path.join(ROOT, 'basic')
             os.execv(exe, [exe, path])
-        out, st, t0, sent = b'', None, time.time(), False
+        # the keys go again every second until the child exits: one typed
+        # before the session reads the keyboard (a slow CI start) is lost,
+        # and the program then waits until it is killed
+        out, st, t0, sent = b'', None, time.time(), 0.0
         while time.time() - t0 < 15 * SLOW:
-            if not sent and time.time() - t0 > 1.5 * SLOW:
+            if keys and time.time() - t0 > 1.5 * SLOW and time.time() - sent > 1.0:
                 for k in keys:
-                    os.write(fd, k)
+                    try:
+                        os.write(fd, k)
+                    except OSError:
+                        pass
                     time.sleep(0.3 * SLOW)
-                sent = True
+                sent = time.time()
             r, _, _ = select.select([fd], [], [], 0.05)
             if r:
                 try:
