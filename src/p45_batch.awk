@@ -104,7 +104,8 @@ function usage(dest,   t) {
         "\n" \
         "With a program file, LOAD and RUN it, then exit.  With a /CMD file,\n" \
         "load it and run it at its entry (SYSTEM name, /).  At a terminal\n" \
-        "either is played on the screen with the live keyboard; piped, or\n" \
+        "either is played on the screen with the live keyboard, and the\n" \
+        "last screen stays up until a key is pressed; piped, or\n" \
         "with --batch, it runs non-interactively (stdin feeds INPUT).\n" \
         "With no file, start the interactive READY prompt.\n" \
         "\n" \
@@ -170,7 +171,8 @@ function batch_main() {
 # With a terminal on stdin and stdout, a .cmd or a listing is played, not
 # batched (PLAY, p10; user, 2026-10-12 for .cmd, 2026-10-14 for listings):
 # the live keyboard and the grid, no banner or MEM SIZE?, and the process
-# exits 0/1/2 when the program is over, as batch does.  Batch's keyboard is
+# exits 0/1/2 when the program is over (after a key: play_pause), as
+# batch does.  Batch's keyboard is
 # stdin by lines, which no game can be played on, and its plain stream
 # never shows video memory.  --batch keeps a terminal run a batch run, for
 # testing.  The grid is gone once it exits, so its error and notes are
@@ -192,6 +194,24 @@ function batch_system(   a) {
     if (E) report_err()
     usr_stub_notice()
     return (BATCHERR ? 1 : 0)
+}
+
+# PLAY: when the program is over the grid stays up until a key is pressed,
+# so its last screen (a score, a closing message, an error) can be read
+# before the terminal's own screen comes back (user, 2026-10-14).  Keys
+# typed while it ran, and any in the next half second (the game's last
+# keystroke, a key still repeating), are dropped first, so none of them
+# is taken for the answer.  Not in plain mode: there the output stays in
+# the terminal's scrollback anyway.  End of input exits without waiting.
+function play_pause() {
+    if (DUMB || !TTYIN) return
+    note_below("-- press any key to exit --")
+    s_settle()
+    system("sleep 0.5")
+    kb_mode("poll")
+    while (kb_fill_tty() > 0) ;
+    kb_flush()
+    kb_get()
 }
 
 # A note on stderr behind the ROM's error message, in batch mode only, for

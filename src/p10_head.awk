@@ -78,6 +78,7 @@ BEGIN {
         s_cls()
         RC = batch_is_cmd() ? batch_system() : batch_main()
         fio_closeall()
+        if (RC != 2) play_pause()           # a program ran: its last screen stays up
         t_done()
         if (SYSMSG != "") SYSNOTES = SYSMSG "\n" SYSNOTES
         if (SYSNOTES != "") printf "%s", SYSNOTES > "/dev/stderr"

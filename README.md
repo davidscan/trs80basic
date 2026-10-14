@@ -125,15 +125,16 @@ there.
 
 Runs the interpreter. With a file, LOADs and RUNs it and exits: at a
 terminal (stdin and stdout both) it is played on the screen with the live
-keyboard and no `MEM SIZE?`; piped, or with `--batch`, it runs
+keyboard and no `MEM SIZE?`, and when the program ends its last screen
+stays up until you press a key; piped, or with `--batch`, it runs
 non-interactively. Without a file, starts the interactive prompt. **Writes:** nothing on its
 own. Whatever the BASIC program `OPEN`s, `CSAVE`s or `SAVE`s lands relative to
 *your current directory*, not the repo.
 
 | argument | default | what it does | when you'd use it |
 |---|---|---|---|
-| `program.bas` | none (interactive) | LOAD + RUN it, then exit 0/1/2. At a terminal it is played on the screen (EXT): the grid, the live keyboard, no `MEM SIZE?`, and any error said again on the terminal once the screen is gone; piped, or with `--batch`, it is a batch run | playing a listing straight from the shell; scripting, tests, piping `INPUT` answers from stdin |
-| `game.cmd` | | EXT: a /CMD load module is `SYSTEM`, its name, `/`: loaded and run at its entry address (machine code needs the Z80 core). At a terminal it is played on the screen with the live keyboard and no `MEM SIZE?`; piped, or with `--batch`, it is a batch run. Either way it exits 0/1/2 when the code ends (`READY`, or an error such as `?FC` at a ROM call the core does not serve) | starting a machine-code game straight from the shell |
+| `program.bas` | none (interactive) | LOAD + RUN it, then exit 0/1/2. At a terminal it is played on the screen (EXT): the grid, the live keyboard, no `MEM SIZE?`; at the end the last screen stays up until a key, and any error is said again on the terminal once the screen is gone; piped, or with `--batch`, it is a batch run | playing a listing straight from the shell; scripting, tests, piping `INPUT` answers from stdin |
+| `game.cmd` | | EXT: a /CMD load module is `SYSTEM`, its name, `/`: loaded and run at its entry address (machine code needs the Z80 core). At a terminal it is played on the screen with the live keyboard and no `MEM SIZE?`, and the last screen stays up until a key; piped, or with `--batch`, it is a batch run. Either way it exits 0/1/2 when the code ends (`READY`, or an error such as `?FC` at a ROM call the core does not serve) | starting a machine-code game straight from the shell |
 | `--seed N` | time-based | seeds the random generator, so `RND` and every `RANDOM` repeat run to run (each `RANDOM` draws a fresh 0-127 seed byte from it, as the machine's 7-bit R register does) | repeatable runs, transcripts you can diff |
 | `--memsize N` | 65535 | answers `MEM SIZE?` with N (17280-65535), in batch and at the prompt | a program that only ran on a 16K machine: it POKEs an address byte it made signed (`IF H>127 THEN H=H-256`), which is `?FC` above 32767 on the hardware too; `--memsize 32767` is that machine |
 | `--clear N` | none (string space stays 50 bytes) | types `CLEAR N` before `RUN` (after LOAD in batch, at the first `READY` at the prompt); N is 0-32767 | a listing that stops with `?OS ERROR`: it was written for a machine where `CLEAR 1000` had been typed before `RUN`, outside the listing. The program's own `CLEAR n` still wins, and `FRE("")` reports the space |

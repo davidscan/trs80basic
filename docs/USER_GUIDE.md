@@ -170,8 +170,9 @@ Anything after `SYSTEM` on its line is ignored, as on Level II, so a
 later DOS's `SYSTEM "command"` just shows the `*?` prompt. From the shell,
 `./basic game.cmd` does the same three steps (EXT): at a terminal the
 program is played on the screen with the live keyboard, no `MEM SIZE?`
-first, and the interpreter exits when it ends, repeating any error on
-the terminal; piped, or with `--batch`, it is a batch run with batch's
+first; when it ends the last screen stays up until you press a key
+(keys typed while it ran do not count), then the interpreter exits,
+repeating any error on the terminal; piped, or with `--batch`, it is a batch run with batch's
 exit status. `./basic game.bas` is played the same way.
 
 `RUN "file"` loads and
@@ -219,7 +220,7 @@ terminal without `--batch` it is played on the screen instead, as
 `game.cmd` is.
 
 ```bash
-./basic prog.bas               # at a terminal: play it on the screen, exit at END
+./basic prog.bas               # at a terminal: play it on the screen, a key at the end exits
 ./basic --batch prog.bas       # LOAD, RUN, exit, as a batch run
 printf '5\n10\n' | ./basic prog.bas   # stdin answers the INPUTs
 ./basic --seed 42 prog.bas     # repeatable RND

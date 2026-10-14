@@ -63,7 +63,8 @@ terminal emulator gives it, and checks:
      (Dungeon Escape lost half its commands, 2026-10-14); and a key
      INKEY$ read is down on the matrix for the PEEK after it.
  17. `basic game.bas` at a terminal is played too (EXT, 2026-10-14): the
-     grid with no MEM SIZE?, INPUT from the live keyboard, exit 0 at END;
+     grid with no MEM SIZE?, INPUT from the live keyboard, and at END the
+     grid stays up until a key, then exit 0;
      an error exits 1 with its message after the grid; --batch keeps a
      terminal run a batch run; a missing file is batch's exit 2, no grid.
 
@@ -759,7 +760,7 @@ def played_bas(check):
             os.environ.pop('TRS80_DUMB', None)
             exe = os.path.join(ROOT, 'basic')
             os.execv(exe, [exe] + args)
-        out, st, t0, sent = b'', None, time.time(), False
+        out, st, t0, sent, ended = b'', None, time.time(), False, None
         while time.time() - t0 < 15 * SLOW:
             # the answer goes once, a second after the prompt is drawn (the
             # grid writes it a cell at a time): a key typed before INPUT
@@ -768,6 +769,13 @@ def played_bas(check):
                 time.sleep(1.0 * SLOW)
                 os.write(fd, answer)
                 sent = True
+            # at the end the grid waits for a key; give it one 1.5 s later,
+            # past the half second whose keys are dropped
+            if ended is None and b'press any key to exit' in out:
+                ended = time.time()
+            if ended and time.time() - ended > 1.5 * SLOW:
+                os.write(fd, b' ')
+                ended = 0
             r, _, _ = select.select([fd], [], [], 0.05)
             if r:
                 try:
@@ -783,7 +791,9 @@ def played_bas(check):
             os.kill(pid, 9)
             os.waitpid(pid, 0)
         os.close(fd)
-        return out, st
+        # ended is 0 once the key went: the run was still up 1.5 s after
+        # the prompt, waiting for it
+        return out, (st if ended in (None, 0) else 'exited before the key')
 
     with tempfile.TemporaryDirectory() as d:
         with open(os.path.join(d, 'ask.bas'), 'w') as f:
@@ -791,7 +801,10 @@ def played_bas(check):
         with open(os.path.join(d, 'div.bas'), 'w') as f:
             f.write('10 PRINT 1/0\n')
         out, st = run(d, ['ask.bas'], b'42\r')
-        check(st == 0, 'a listing played at a terminal exits 0 at END', repr(out[-300:]))
+        check(st == 0 and b'press any key to exit' in out,
+              'a listing played at a terminal waits for a key at END, then exits 0', repr(out[-300:]))
+        check(out.find(b'press any key to exit') < out.rfind(b'\x1b[?1049l'),
+              'the grid stays up until that key', repr(out[-300:]))
         check(b'\x1b[?1049h' in out and b'MEM SIZE' not in out,
               'a played listing comes up on the grid with no MEM SIZE?', repr(out[:200]))
         check(b'TWICE 84' in re.sub(rb'\x1b\[[?0-9;]*[A-Za-z]', b'', out),
