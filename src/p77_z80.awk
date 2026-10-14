@@ -292,6 +292,9 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
         # `ERR tm`: the routine took a STRING argument through 0A7FH, the
         # ROM's CINT, which is ?TM there -- a BASIC error, not a core fault
         if (Z80LINE ~ /^ERR tm( |$)/) { raise(13); return 0 }
+        # `ERR fc`: the routine called 14C9H (RND) with a negative number,
+        # ?FC on the machine (14CEH) -- a BASIC error, not a core fault
+        if (Z80LINE ~ /^ERR fc( |$)/) { raise(5); return 0 }
         if (Z80LINE ~ /^ERR /) { z80_notice(substr(Z80LINE, 5)); raise(5); return 0 }
         z80_notice("unexpected '" Z80LINE "'; the core is dead for this session, USR is the stub")
         z80_close(); raise(5); return 0

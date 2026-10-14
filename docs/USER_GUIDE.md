@@ -515,7 +515,9 @@ because period programs poke at it:
   `DEF USRn=addr` (or the POKEd vector at 16526/7) runs for real — video
   it writes shows as it runs, the keyboard is live, Ctrl-C breaks, and
   the ROM entry points it may call are `01C9H`, `0A7FH`, `0A9AH`,
-  `1A19H` (READY) and `002BH` (the keyboard scan),
+  `1A19H` (READY), `002BH` (the keyboard scan), `0049H` (wait for a
+  key), `0060H` (delay), `01D3H` (RANDOM), `14C9H` (RND) and `05D9H`
+  (line input),
   and its cassette-port sound is heard with `sound on` or kept with
   `sound wav <path>`;
   without it, `USRn(x)` returns its argument and the run

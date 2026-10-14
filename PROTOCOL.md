@@ -142,7 +142,10 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     through 0AB9H), then floored to an integer, into HL, `ERR ov` when it is outside
     -32768..32767, and `ERR tm` for a string (see Errors); on success
     0A7FH leaves A = 2 and stores HL at 4121H and 2 at 40AFH, ordinary
-    stores that come back in the write-set.
+    stores that come back in the write-set.  Once the routine, or a
+    served entry such as 14C9H (RND), has stored into WRA1 (411DH-4124H)
+    or 40AFH, 0A7FH converts WRA1 as it then stands, by the type flag,
+    with the same errors: what the ROM's routine reads.
 *   `argtype` is the ROM's type flag (40AFH): 2 integer, 3 string, 4
     single, 8 double.  `mbf` is the eight bytes 411DH-4124H as the ROM's
     evaluator left them -- an integer's two bytes in 4121/4122H, a single
@@ -246,14 +249,17 @@ ROM space that is neither the sentinel nor a served trap; when no frame
 and no store ever wrote the entry address, the text adds `-- no routine
 at XXXXH: its memory was never written`, the signature of a loader that
 never ran), `halt` (the routine executed HALT), `bad` (the core could not
-parse a message), and two that are not core faults but the machine's own
+parse a message), and three that are not core faults but the machine's own
 errors, for which the interpreter raises the BASIC error at the `USR`
 call and prints nothing on stderr: `ov`, the routine called 0A7FH (the
 ROM's CINT: the argument, a double rounded to single first, is floored
 to an integer, -32768 accepted
 exactly, anything else outside -32768..32767 exits through 07B2H) with a
-number out of that range, raised as `?OV`; and `tm`, it called 0A7FH
-with a string argument, raised as `?TM`.  After an `ERR` the core is
+number out of that range, raised as `?OV`; `tm`, it called 0A7FH
+with a string argument, raised as `?TM` (14C9H converts its argument
+the same way, with the same two errors); and `fc`, it called 14C9H
+(RND) with a negative number, raised as `?FC`.  An interpreter that
+predates `fc` raises the same `?FC` with the text on stderr.  After an `ERR` the core is
 still up and the next call proceeds normally.
 
 An `ERR` that ends a routine already running is preceded by the stores the

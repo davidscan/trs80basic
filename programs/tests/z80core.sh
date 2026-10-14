@@ -74,6 +74,10 @@ cat > "$tmp" <<'EOF2'
 291 FOR I=0 TO 8:READ B:POKE 31500+I,B:NEXT
 292 DATA 58,175,64,111,38,0,195,154,10
 293 A%=7:A#=7:A$="X":DEFUSR9=31500:IF USR9(A%)<>2 OR USR9(A)<>4 OR USR9(A#)<>8 OR USR9(A$)<>3 THEN PRINT "FAIL argument type codes";USR9(A%);USR9(A);USR9(A#);USR9(A$):F=1
+294 REM --- RND through the core (14C9H, then 0A7FH for the integer): BASIC's own sequence, and the seed comes back
+295 FOR I=0 TO 19:READ B:POKE 31600+I,B:NEXT:POKE 16554,0:POKE 16555,21:POKE 16556,0
+296 DATA 62,2,50,175,64,33,50,0,34,33,65,205,201,20,205,127,10,195,154,10
+297 DEFUSR9=31600:X=USR9(0):Y=RND(50):Z=RND(32767):IF X<>46 OR Y<>46 OR Z<>7051 THEN PRINT "FAIL RND through the core";X;Y;Z:F=1
 298 IF F THEN PRINT "Z80 CORE FIXTURE FAILED":END
 299 PRINT "Z80 CORE FIXTURE OK"
 EOF2
@@ -96,5 +100,17 @@ EOF2
 out=$(printf '\nLOAD "%s"\nRUN\nPRINT "B=";PEEK(32064)\n' "$tmp" | TRS80_DUMB=1 TRS80_Z80="$core" "$here/basic" 2>&1)
 case $out in *"RAN ON"*) fail "JP 1A19H: the program ran on past the call" "$out" ;; esac
 case $out in *"B= 9"*) ;; *) fail "JP 1A19H: the store before it was lost" "$out" ;; esac
+# RND of a negative number from a routine (14C9H with HL = -1) is the
+# machine's own ?FC: `ERR fc`, raised with no USR CORE notice.
+cat > "$tmp" <<'EOF2'
+10 FOR I=0 TO 14:READ B:POKE 32000+I,B:NEXT
+20 DATA 62,2,50,175,64,33,255,255,34,33,65,205,201,20,201
+30 DEFUSR=32000:X=USR(0):PRINT "RAN ON"
+EOF2
+out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>"$tmp.err" </dev/null); rc=$?
+err=$(cat "$tmp.err")
+[ "$rc" = "1" ] || fail "RND(-1) in a routine: rc=$rc" "$out
+$err"
+[ "$err" = "?FC ERROR IN 30" ] || fail "RND(-1) in a routine: stderr" "$err"
 rm -f "$tmp" "$tmp.err"
 echo "Z80 CORE FIXTURE OK"
