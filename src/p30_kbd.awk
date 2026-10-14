@@ -38,7 +38,7 @@ function kb_mode(m) {
     if (m == "line") system("stty raw -echo min 1 time 0 < /dev/tty")
     else             system("stty raw -echo min 0 time 0 < /dev/tty")
     KBMODE = m
-    if (m == "poll") kp_push(); else kp_pop()
+    if (m == "poll") kp_push(); else { kp_pop(); KMNEW = -1 }   # a poll's key is not typed ahead into INPUT
 }
 
 # ==== key release: the kitty keyboard protocol (EXT, 2026-09-16) =============
@@ -394,7 +394,7 @@ function pollbrk(   i, c, j) {
     return 0
 }
 
-function kb_flush() { KH = 0; KT = 0; KSCAN = 0 }
+function kb_flush() { KH = 0; KT = 0; KSCAN = 0; KMNEW = -1 }
 
 function kb_poll_wait(tries,   i, c) {
     for (i = 0; i < tries; i++) {
@@ -458,7 +458,7 @@ function km_init(   i) {
     KMCLOCK = ("gettimeofday" in FUNCTAB) ? "gettimeofday" : ""
     THR_SLICE = (KMCLOCK != "") ? 0.01 : 0.03      # the throttle's slice (thr_wait, p10)
     KMHOLD = (ENVIRON["TRS80_KMHOLD"] + 0 > 0) ? ENVIRON["TRS80_KMHOLD"] + 0 : (KMCLOCK != "" ? 100 : 4)
-    KMR = -1; KMSH = 0
+    KMR = -1; KMSH = 0; KMNEW = -1
     KBPROTO = 0; KPQUERIED = 0; KPPUSHED = 0; KPPART = ""; KPSHIFT = 0; KPLAST = 0
     for (i = 0; i < 8; i++) KPDOWN[i] = 0
     # a shifted symbol's PC key, US layout: the code its release event names
@@ -579,8 +579,28 @@ function km_pump(   c) {
     BRKFORCE = 0
     if (TTYIN) c = kb_termkey(c)                  # an arrow, Delete, or no TRS-80 key (-1)
     else if (c == 27) c = kb_escseq()             # a piped ESC [ A is still an arrow
-    if (c in KMR_) km_latch(KMR_[c], KMB_[c], KMS_[c] + 0)
+    if (c in KMR_) { km_latch(KMR_[c], KMB_[c], KMS_[c] + 0); if (TTYIN) km_unread_set(c) }
     else { KMR = -1; KMSH = 0 }                   # key with no matrix position
+}
+
+# A key the matrix took is still INKEY$'s to report (not an EXT: the ROM's
+# INKEY$ is 002BH scanning the same matrix, so a key still down at its
+# scan is returned once, whoever PEEKed 3800H meanwhile).  Both readers
+# consume one byte queue, so a loop that PEEKs the matrix AND calls INKEY$
+# (Dungeon Escape: A=INKEY$:N=PEEK(14400)) lost every byte the PEEK took:
+# about half its commands, at random.  It does not expire with the key's
+# hold: an interpreted poll loop is slower than the ROM's (one pass of
+# Dungeon Escape's can outlast a 100 ms tap), and a byte INKEY$ had not
+# read waited in the queue anyway.  The next key the matrix takes
+# replaces it; line mode (INPUT, READY) drops it.  At a terminal only:
+# batch INKEY$ stays byte-exact (ruling 2026-09-19), the batch suites
+# unchanged.
+function km_unread_set(c) { KMNEW = c }
+
+# the byte the matrix took that INKEY$ has not returned; -1 if none
+function km_unread(   c) {
+    c = KMNEW; KMNEW = -1
+    return c
 }
 
 # one press byte under the release protocol: the key goes down and stays.
@@ -602,6 +622,7 @@ function kp_byte(c,   raw, pk) {
     c = kb_termkey(c)                             # the protocol only runs at a terminal
     if (!(c in KMR_)) return
     kp_press(KMR_[c], KMB_[c], KMS_[c] + 0)
+    km_unread_set(c)
     if ((pk = kp_pckey(raw)) >= 0) kp_owns(pk, KMR_[c], KMB_[c])
 }
 

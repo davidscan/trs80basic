@@ -58,6 +58,9 @@ terminal emulator gives it, and checks:
      the grid comes up with no MEM SIZE?, a load module that waits on
      002BH for a key ends when one is typed (with the core), and a file
      that is not a load module exits 2 with its message after the grid.
+ 16. a loop calling INKEY$ and PEEKing the matrix gets every key from
+     INKEY$, once, in order, with and without the release protocol
+     (Dungeon Escape lost half its commands, 2026-10-14).
 
 Standard library only; run by run_all.sh when python3 is present (so CI
 exercises the tty reader on Linux, where it was not measured by hand).
@@ -741,6 +744,41 @@ def played_cmd(check):
         check(st == 0, 'a load module waiting on 002BH ends when a key is typed (exit 0)', repr(out[-200:]))
 
 
+def inkey_and_matrix(check):
+    """Scenario 16: a loop that calls INKEY$ AND PEEKs the matrix gets
+    every key from INKEY$, once, in order -- under the timed latch and under
+    the release protocol.  The two read one byte queue, and a byte the PEEK
+    took never reached INKEY$: Dungeon Escape (A=INKEY$:N=PEEK(14400)) lost
+    about half its commands (2026-10-14).  The ROM's INKEY$ scans the same
+    matrix, so a key down at its scan is returned whoever PEEKed."""
+    for env, answer in (((), None), ((('TRS80_KBPROTO', '1'),), b'\x1b[?0u')):
+        b = Basic(env)
+        b.drain()
+        b.send('\r')
+        b.drain()
+        b.send('10 A$=INKEY$:N=PEEK(14591):IF A$="" THEN 10\r'
+               '20 PRINT ASC(A$);:GOTO 10\rRUN\r', 0.6)
+        b.drain(0.3)
+        if answer:
+            b.send(answer, 0.3)
+            b.drain(0.2)
+        out = ''
+        for k in 'abcdefgh':
+            b.send(k.encode(), 0.25)
+            if answer:
+                b.send(b'\x1b[%d;1:3u' % ord(k), 0.1)     # its release
+            out += b.drain(0.1, 1)
+        b.send(b'\x03', 0.5)
+        out += b.drain()
+        got = flat(out.split('BREAK')[0]).split()
+        check([t for t in got if t.isdigit()] == [str(ord(k)) for k in 'abcdefgh'],
+              'INKEY$ beside a matrix PEEK gets every key once, in order (%s)'
+              % ('release protocol' if answer else 'timed latch'), out)
+        b.send('BYE\r', 0.5)
+        b.drain(0.3, 2)
+        b.close()
+
+
 def main():
     fails = []
 
@@ -957,6 +995,9 @@ def main():
 
     # 15. basic game.cmd at a terminal
     played_cmd(check)
+
+    # 16. INKEY$ beside a matrix PEEK loses no key
+    inkey_and_matrix(check)
 
     if fails:
         print('kbd_pty.py: %d check(s) failed' % len(fails))
