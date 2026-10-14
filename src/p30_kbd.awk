@@ -38,7 +38,12 @@ function kb_mode(m) {
     if (m == "line") system("stty raw -echo min 1 time 0 < /dev/tty")
     else             system("stty raw -echo min 0 time 0 < /dev/tty")
     KBMODE = m
-    if (m == "poll") kp_push(); else { kp_pop(); KMNEW = -1 }   # a poll's key is not typed ahead into INPUT
+    # line mode takes no presses: a poll's key is not typed ahead into
+    # INPUT, and the matrix lets go of it, as kp_pop does under the
+    # protocol.  Without the clock a key's hold ages only by PEEKs, so a
+    # key INKEY$ read last (km_inkey_down) stayed down across BREAK and
+    # READY, and the next program's first PEEK saw it.
+    if (m == "poll") kp_push(); else { kp_pop(); KMNEW = -1; KMR = -1; KMSH = 0 }
 }
 
 # ==== key release: the kitty keyboard protocol (EXT, 2026-09-16) =============
