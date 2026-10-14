@@ -65,8 +65,9 @@ Developed and tested on MacOS (iTerm2), untested but probably works fine under L
   ASCII if your font lacks them), plus optional color for `SET`.
 - **Period pacing.** `speed 1.77408` runs a game at the Model I's clock rate.
 - **Disk BASIC file I/O**, sequential and random-access.
-- **Batch mode for scripts.** `./basic prog.bas` reads `INPUT` from stdin,
-  puts BASIC errors on stderr and exits 0, 1 or 2.
+- **Batch mode for scripts.** `./basic prog.bas` piped, or `--batch`, reads
+  `INPUT` from stdin, puts BASIC errors on stderr and exits 0, 1 or 2. At a
+  terminal the same command plays the program on the screen.
 
 ## Helper scripts
 
@@ -122,19 +123,22 @@ there.
 
 ### `./basic [options] [program.bas | game.cmd]`
 
-Runs the interpreter. With a file, LOADs and RUNs it non-interactively and
-exits; without one, starts the interactive prompt. **Writes:** nothing on its
+Runs the interpreter. With a file, LOADs and RUNs it and exits: at a
+terminal (stdin and stdout both) it is played on the screen with the live
+keyboard and no `MEM SIZE?`; piped, or with `--batch`, it runs
+non-interactively. Without a file, starts the interactive prompt. **Writes:** nothing on its
 own. Whatever the BASIC program `OPEN`s, `CSAVE`s or `SAVE`s lands relative to
 *your current directory*, not the repo.
 
 | argument | default | what it does | when you'd use it |
 |---|---|---|---|
-| `program.bas` | none (interactive) | LOAD + RUN it, then exit 0/1/2 | scripting, tests, piping `INPUT` answers from stdin |
-| `game.cmd` | | EXT: a /CMD load module is `SYSTEM`, its name, `/`: loaded and run at its entry address (machine code needs the Z80 core). At a terminal it is played on the screen with the live keyboard and no `MEM SIZE?`; piped, it is a batch run. Either way it exits 0/1/2 when the code ends (`READY`, or an error such as `?FC` at a ROM call the core does not serve) | starting a machine-code game straight from the shell |
+| `program.bas` | none (interactive) | LOAD + RUN it, then exit 0/1/2. At a terminal it is played on the screen (EXT): the grid, the live keyboard, no `MEM SIZE?`, and any error said again on the terminal once the screen is gone; piped, or with `--batch`, it is a batch run | playing a listing straight from the shell; scripting, tests, piping `INPUT` answers from stdin |
+| `game.cmd` | | EXT: a /CMD load module is `SYSTEM`, its name, `/`: loaded and run at its entry address (machine code needs the Z80 core). At a terminal it is played on the screen with the live keyboard and no `MEM SIZE?`; piped, or with `--batch`, it is a batch run. Either way it exits 0/1/2 when the code ends (`READY`, or an error such as `?FC` at a ROM call the core does not serve) | starting a machine-code game straight from the shell |
 | `--seed N` | time-based | seeds the random generator, so `RND` and every `RANDOM` repeat run to run (each `RANDOM` draws a fresh 0-127 seed byte from it, as the machine's 7-bit R register does) | repeatable runs, transcripts you can diff |
 | `--memsize N` | 65535 | answers `MEM SIZE?` with N (17280-65535), in batch and at the prompt | a program that only ran on a 16K machine: it POKEs an address byte it made signed (`IF H>127 THEN H=H-256`), which is `?FC` above 32767 on the hardware too; `--memsize 32767` is that machine |
 | `--clear N` | none (string space stays 50 bytes) | types `CLEAR N` before `RUN` (after LOAD in batch, at the first `READY` at the prompt); N is 0-32767 | a listing that stops with `?OS ERROR`: it was written for a machine where `CLEAR 1000` had been typed before `RUN`, outside the listing. The program's own `CLEAR n` still wins, and `FRE("")` reports the space |
 | `--memory host` | `rom` (the machine) | EXT: lifts the machine's capacity limits at once: the 64K behind `MEM`/`?OM`, `CLEAR n` string space (`?OS`), the 255-character string and its counts (`?LS`), subscripts, `DIM` bounds and `CLEAR` counts past 32767, the 255-byte `INPUT#` cut and the 240-byte piped line; and every character of a variable name counts (`SUM` and `SU` are two variables, where the machine folds them into one). `PEEK`, `POKE`, `VARPTR` and `USR` keep the 64K machine. Also `TRS80_MEMORY=host`, the `memory` metacommand, or `REM META: memory host` under `ext on` | new code written for this interpreter rather than for the machine: a program whose tables or prose would never fit a TRS-80 |
+| `--batch` | off | run the file as a batch run even at a terminal | a test or a transcript taken at a terminal |
 | `--screen` | off | keep the TRS-80 cursor/screen control codes in batch output | capturing what the 64x16 screen looked like rather than a text transcript |
 | `--` | | end of options | a program file whose name starts with `-` |
 | `-h`, `--help` | | usage and exit status meanings | |
@@ -152,9 +156,9 @@ message alone.
 Running out of stdin while a program is at `INPUT` is a BASIC error
 (`?BATCH: END OF INPUT`). Batch mode also has **no raw keyboard**: `INKEY$`
 reads whole lines from stdin instead of single keypresses, so a program
-whose menu is an `INKEY$` loop cannot be played with `./basic game.bas` —
-your keys echo and it never leaves the loop. Play it interactively instead:
-`./basic`, then `CLOAD "game.bas"` and `RUN`.
+whose menu is an `INKEY$` loop cannot be played with `./basic --batch
+game.bas` — your keys echo and it never leaves the loop. Play it at a
+terminal without `--batch` instead.
 
 Note: `--screen` and the `fullscreen` metacommand are near-opposites despite
 the similar names — `--screen` *keeps* the 64x16 grid's control codes in

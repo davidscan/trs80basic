@@ -62,6 +62,10 @@ terminal emulator gives it, and checks:
      INKEY$, once, in order, with and without the release protocol
      (Dungeon Escape lost half its commands, 2026-10-14); and a key
      INKEY$ read is down on the matrix for the PEEK after it.
+ 17. `basic game.bas` at a terminal is played too (EXT, 2026-10-14): the
+     grid with no MEM SIZE?, INPUT from the live keyboard, exit 0 at END;
+     an error exits 1 with its message after the grid; --batch keeps a
+     terminal run a batch run; a missing file is batch's exit 2, no grid.
 
 Standard library only; run by run_all.sh when python3 is present (so CI
 exercises the tty reader on Linux, where it was not measured by hand).
@@ -589,7 +593,7 @@ def termsafe(check):
             os.environ['TRS80_Z80'] = ''
             os.environ.pop('TRS80_DUMB', None)
             exe = os.path.join(ROOT, 'basic')
-            os.execv(exe, [exe, '--screen', 'ctl.bas'])
+            os.execv(exe, [exe, '--batch', '--screen', 'ctl.bas'])
         out, t0 = b'', time.time()
         while time.time() - t0 < 15 * SLOW:
             r, _, _ = select.select([fd], [], [], 0.3)
@@ -743,6 +747,65 @@ def played_cmd(check):
             f.write(bytes([1, 11, 0, 0x7E, 0xCD, 0x2B, 0, 0xB7, 0x28, 0xFA, 0xC3, 0x19, 0x1A, 2, 2, 0, 0x7E]))
         out, st = run(key, [b'a'], 'python3 ' + core)
         check(st == 0, 'a load module waiting on 002BH ends when a key is typed (exit 0)', repr(out[-200:]))
+
+
+def played_bas(check):
+    """Scenario 17: `basic game.bas` at a terminal is played, not batched."""
+    def run(d, args, answer=None):
+        pid, fd = pty.fork()
+        if pid == 0:
+            os.chdir(d)
+            os.environ['TRS80_Z80'] = ''
+            os.environ.pop('TRS80_DUMB', None)
+            exe = os.path.join(ROOT, 'basic')
+            os.execv(exe, [exe] + args)
+        out, st, t0, sent = b'', None, time.time(), False
+        while time.time() - t0 < 15 * SLOW:
+            # the answer goes once, a second after the prompt is drawn (the
+            # grid writes it a cell at a time): a key typed before INPUT
+            # reads the keyboard can be dropped
+            if answer and not sent and b'\x1b[1;2H?' in out:
+                time.sleep(1.0 * SLOW)
+                os.write(fd, answer)
+                sent = True
+            r, _, _ = select.select([fd], [], [], 0.05)
+            if r:
+                try:
+                    c = os.read(fd, 65536)
+                except OSError:
+                    c = b''
+                out += c
+            w = os.waitpid(pid, os.WNOHANG)
+            if w[0]:
+                st = os.waitstatus_to_exitcode(w[1])
+                break
+        if st is None:
+            os.kill(pid, 9)
+            os.waitpid(pid, 0)
+        os.close(fd)
+        return out, st
+
+    with tempfile.TemporaryDirectory() as d:
+        with open(os.path.join(d, 'ask.bas'), 'w') as f:
+            f.write('10 INPUT "N";N\n20 PRINT "TWICE";N*2\n30 END\n')
+        with open(os.path.join(d, 'div.bas'), 'w') as f:
+            f.write('10 PRINT 1/0\n')
+        out, st = run(d, ['ask.bas'], b'42\r')
+        check(st == 0, 'a listing played at a terminal exits 0 at END', repr(out[-300:]))
+        check(b'\x1b[?1049h' in out and b'MEM SIZE' not in out,
+              'a played listing comes up on the grid with no MEM SIZE?', repr(out[:200]))
+        check(b'TWICE 84' in re.sub(rb'\x1b\[[?0-9;]*[A-Za-z]', b'', out),
+              "a played listing's INPUT reads the live keyboard", repr(out[-300:]))
+        out, st = run(d, ['div.bas'])
+        check(st == 1, 'an error in a played listing exits 1', repr(out[-300:]))
+        check(out.rfind(b'?/0 ERROR IN 10') > out.find(b'\x1b[?1049l') > 0,
+              "a played listing's error is said again after the grid is gone", repr(out[-300:]))
+        out, st = run(d, ['--batch', 'div.bas'])
+        check(st == 1 and b'\x1b[?1049h' not in out and b'?/0 ERROR IN 10' in out,
+              '--batch at a terminal is a batch run (no grid)', repr(out[-300:]))
+        out, st = run(d, ['nosuch.bas'])
+        check(st == 2 and b'\x1b[?1049h' not in out and b'cannot read' in out,
+              'a missing listing is exit 2 with no grid', repr(out[-300:]))
 
 
 def inkey_and_matrix(check):
@@ -1015,6 +1078,9 @@ def main():
 
     # 16. INKEY$ beside a matrix PEEK loses no key
     inkey_and_matrix(check)
+
+    # 17. basic game.bas at a terminal
+    played_bas(check)
 
     if fails:
         print('kbd_pty.py: %d check(s) failed' % len(fails))

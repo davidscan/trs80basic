@@ -1409,11 +1409,12 @@ INKEY$   the key being pressed right now, or "" if none
   key produces 127.  Keys the TRS-80 does not have -- PgUp, the function
   keys -- return nothing.
     IF K$=CHR$(8) THEN X=X-1          ' left arrow
-  NEEDS THE INTERACTIVE MODE.  Batch mode (./basic prog.bas) turns the raw
-  keyboard off, so INKEY$ there reads whole lines from stdin instead of
-  single keypresses -- at a terminal your keys echo and the program never
-  sees them.  To play a program whose menu is an INKEY$ loop, start ./basic
-  with no file, then CLOAD "prog.bas" and RUN.
+  NEEDS THE INTERACTIVE MODE.  Batch mode (./basic prog.bas piped, or
+  ./basic --batch prog.bas) turns the raw keyboard off, so INKEY$ there
+  reads whole lines from stdin instead of single keypresses -- your keys
+  echo and the program never sees them.  To play a program whose menu is
+  an INKEY$ loop, run ./basic prog.bas at a terminal without --batch, or
+  start ./basic with no file, then CLOAD "prog.bas" and RUN.
   Example: K$=INKEY$:IF K$="Q" THEN END
 
 :LPRINT

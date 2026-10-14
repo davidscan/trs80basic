@@ -9,11 +9,11 @@
 #               1 uncaught BASIC error, or stdin exhausted at an INPUT
 #               2 bad arguments, unreadable file, or unloadable source
 
-# parse ARGV; returns 0 on a usage error.  Sets BATCH/BATCHFILE, OPT_SCREEN,
+# parse ARGV; returns 0 on a usage error.  Sets BATCH/BATCHFILE, OPT_BATCH, OPT_SCREEN,
 # SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_CLEAR, OPT_MEMORY, OPT_HELP, OPT_VERSION.  gawk never reads the operands itself: the whole
 # interpreter lives in BEGIN and exits there.
 function parse_args(   i, a, nofl) {
-    BATCH = 0; BATCHFILE = ""; OPT_SCREEN = 0; OPT_HELP = 0; OPT_VERSION = 0
+    BATCH = 0; BATCHFILE = ""; OPT_BATCH = 0; OPT_SCREEN = 0; OPT_HELP = 0; OPT_VERSION = 0
     SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; OPT_MEMORY = ""; nofl = 0
     for (i = 1; i < ARGC; i++) {
         a = ARGV[i]
@@ -81,6 +81,7 @@ function parse_args(   i, a, nofl) {
             continue
         }
         if (!nofl && a == "--screen") { OPT_SCREEN = 1; continue }
+        if (!nofl && a == "--batch") { OPT_BATCH = 1; continue }
         if (!nofl && (a == "-h" || a == "--help")) { OPT_HELP = 1; return 1 }
         if (!nofl && a == "--version") { OPT_VERSION = 1; return 1 }
         if (!nofl && a ~ /^-./) { ARGMSG = "unknown option " a; return 0 }
@@ -101,9 +102,10 @@ function version_text() {
 function usage(dest,   t) {
     t = "Usage: basic [options] [program.bas | game.cmd]\n" \
         "\n" \
-        "With a program file, LOAD and RUN it non-interactively, then exit.\n" \
-        "With a /CMD file, load it and run it at its entry (SYSTEM name, /);\n" \
-        "at a terminal it is played on the screen, then exits.\n" \
+        "With a program file, LOAD and RUN it, then exit.  With a /CMD file,\n" \
+        "load it and run it at its entry (SYSTEM name, /).  At a terminal\n" \
+        "either is played on the screen with the live keyboard; piped, or\n" \
+        "with --batch, it runs non-interactively (stdin feeds INPUT).\n" \
         "With no file, start the interactive READY prompt.\n" \
         "\n" \
         "  --seed N     seed RND and RANDOM for repeatable runs\n" \
@@ -114,6 +116,7 @@ function usage(dest,   t) {
         "  --memory M   host: lift the machine's capacity limits for new code\n" \
         "               (64K, string space, 255-byte strings, subscripts to\n" \
         "               32767); rom (the default) keeps them\n" \
+        "  --batch      run the file non-interactively even at a terminal\n" \
         "  --screen     keep the TRS-80 screen/cursor control codes\n" \
         "               (output is plain text by default without a tty)\n" \
         "  -h, --help   show this message\n" \
@@ -164,12 +167,14 @@ function batch_main() {
 # holds machine code, not a listing: read as one it was every line ?FD.
 # Why it cannot break a period program: no BASIC listing is a load module.
 # --clear does not apply (no BASIC program runs); --memsize and --seed do.
-# With a terminal on stdin and stdout it is played, not batched (SYSPLAY,
-# p10; user, 2026-10-12): the live keyboard and the grid, no banner or
-# MEM SIZE?, and the process exits 0/1/2 when the code is over, as batch
-# does.  Batch's keyboard is stdin by lines, which no game can be played
-# on, and its plain stream never shows video memory.  The grid is gone
-# once it exits, so its error and notes are said again on stderr then.
+# With a terminal on stdin and stdout, a .cmd or a listing is played, not
+# batched (PLAY, p10; user, 2026-10-12 for .cmd, 2026-10-14 for listings):
+# the live keyboard and the grid, no banner or MEM SIZE?, and the process
+# exits 0/1/2 when the program is over, as batch does.  Batch's keyboard is
+# stdin by lines, which no game can be played on, and its plain stream
+# never shows video memory.  --batch keeps a terminal run a batch run, for
+# testing.  The grid is gone once it exits, so its error and notes are
+# said again on stderr then.
 function batch_is_cmd() {
     return tolower(substr(BATCHFILE, length(BATCHFILE) - 3)) == ".cmd"
 }
@@ -227,7 +232,10 @@ function batch_hint(c) {
 # screen when interactive
 function diag(msg) {
     if (BATCH) diag_err(msg)
-    else { s_puts(msg); s_nl() }
+    else {
+        s_puts(msg); s_nl()
+        if (PLAY) SYSNOTES = SYSNOTES msg "\n"     # the grid is gone at exit (p10)
+    }
 }
 
 function diag_err(msg) {
@@ -240,7 +248,7 @@ function diag_err(msg) {
     # the terminal (2>file).  Batch and plain-text mode are unchanged.
     if (!BATCH && !DUMB) {
         note_below(msg)
-        if (stderr_is_tty()) { if (SYSPLAY) SYSNOTES = SYSNOTES msg "\n"; return }
+        if (stderr_is_tty()) { if (PLAY) SYSNOTES = SYSNOTES msg "\n"; return }
     }
     fflush()                                # keep stdout/stderr in order
     printf "%s\n", msg > "/dev/stderr"

@@ -55,10 +55,12 @@ BEGIN {
     # and an uninitialised RAMTOP would compare as "" in gawk, silently
     # rejecting every legal answer.  Keep both in this BEGIN block.
     init_tables()
-    # `basic game.cmd` at a terminal is played, not batched (EXT, p45);
-    # a file that is not there is batch's error, with no grid flashed first
-    SYSPLAY = (BATCH && batch_is_cmd() && !WINNATIVE && system("[ -t 0 ] && [ -t 1 ]") == 0 && sys_find(BATCHFILE) != "")
-    if (SYSPLAY) BATCH = 0
+    # `basic game.cmd` or `basic game.bas` at a terminal is played, not
+    # batched (EXT, p45); --batch keeps it a batch run.  A file that is not
+    # there is batch's error, with no grid flashed first
+    PLAY = (BATCH && !OPT_BATCH && !WINNATIVE && system("[ -t 0 ] && [ -t 1 ]") == 0 \
+            && (batch_is_cmd() ? sys_find(BATCHFILE) != "" : host_exists(BATCHFILE)))
+    if (PLAY) BATCH = 0
     if (BATCH && !OPT_SCREEN) DUMB = 1      # batch output is plain by default
     if (OPT_SCREEN) DUMB = 0
     kb_init()
@@ -71,10 +73,10 @@ BEGIN {
         t_done()
         exit RC
     }
-    if (SYSPLAY) {
+    if (PLAY) {
         if (OPT_MEMSIZE) { HIMEM = (OPT_MEMSIZE > 65529) ? RAMTOP : OPT_MEMSIZE - 2; SSP = HIMEM }
         s_cls()
-        RC = batch_system()
+        RC = batch_is_cmd() ? batch_system() : batch_main()
         fio_closeall()
         t_done()
         if (SYSMSG != "") SYSNOTES = SYSMSG "\n" SYSNOTES

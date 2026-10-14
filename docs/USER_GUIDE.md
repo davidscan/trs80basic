@@ -171,7 +171,8 @@ later DOS's `SYSTEM "command"` just shows the `*?` prompt. From the shell,
 `./basic game.cmd` does the same three steps (EXT): at a terminal the
 program is played on the screen with the live keyboard, no `MEM SIZE?`
 first, and the interpreter exits when it ends, repeating any error on
-the terminal; piped, it is a batch run with batch's exit status.
+the terminal; piped, or with `--batch`, it is a batch run with batch's
+exit status. `./basic game.bas` is played the same way.
 
 `RUN "file"` loads and
 runs.
@@ -212,8 +213,14 @@ loader does for the text it shows. `tools/tok.py` is the inverse;
 
 ### Batch mode (EXT)
 
+A file named on the command line is a batch run when stdin or stdout is
+not a terminal (a pipe, a redirect, `$(...)`), or with `--batch`. At a
+terminal without `--batch` it is played on the screen instead, as
+`game.cmd` is.
+
 ```bash
-./basic prog.bas               # LOAD, RUN, exit
+./basic prog.bas               # at a terminal: play it on the screen, exit at END
+./basic --batch prog.bas       # LOAD, RUN, exit, as a batch run
 printf '5\n10\n' | ./basic prog.bas   # stdin answers the INPUTs
 ./basic --seed 42 prog.bas     # repeatable RND
 ./basic --clear 1000 prog.bas  # CLEAR 1000 typed before RUN, as on the machine
@@ -2647,11 +2654,12 @@ INKEY$   the key being pressed right now, or "" if none
   key produces 127.  Keys the TRS-80 does not have -- PgUp, the function
   keys -- return nothing.
     IF K$=CHR$(8) THEN X=X-1          ' left arrow
-  NEEDS THE INTERACTIVE MODE.  Batch mode (./basic prog.bas) turns the raw
-  keyboard off, so INKEY$ there reads whole lines from stdin instead of
-  single keypresses -- at a terminal your keys echo and the program never
-  sees them.  To play a program whose menu is an INKEY$ loop, start ./basic
-  with no file, then CLOAD "prog.bas" and RUN.
+  NEEDS THE INTERACTIVE MODE.  Batch mode (./basic prog.bas piped, or
+  ./basic --batch prog.bas) turns the raw keyboard off, so INKEY$ there
+  reads whole lines from stdin instead of single keypresses -- your keys
+  echo and the program never sees them.  To play a program whose menu is
+  an INKEY$ loop, run ./basic prog.bas at a terminal without --batch, or
+  start ./basic with no file, then CLOAD "prog.bas" and RUN.
   Example: K$=INKEY$:IF K$="Q" THEN END
 ```
 
