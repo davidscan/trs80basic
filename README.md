@@ -22,8 +22,8 @@ confined, and names you type at the `READY` prompt are your own).
 
 ## Very brief FAQ:
 - Why awk??\
-A. It's funny, and there's an inside joke about it.\
-B. I wanted to see if Claude could deal with such a ridiculous request.  Its first pass included everything I had asked for, which was probably around 90% of BASIC.
+A. It's funny.  It's stupid.  It's unique.\
+B. I wanted to see if Claude could deal with such a ridiculous request.  Its first pass included everything I had initially asked for, which was probably around 90% of BASIC.
 
 - Does it run Dancing Demon?\
 Yes, including the embedded machine language and sound.
