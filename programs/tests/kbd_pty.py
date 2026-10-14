@@ -60,7 +60,8 @@ terminal emulator gives it, and checks:
      that is not a load module exits 2 with its message after the grid.
  16. a loop calling INKEY$ and PEEKing the matrix gets every key from
      INKEY$, once, in order, with and without the release protocol
-     (Dungeon Escape lost half its commands, 2026-10-14).
+     (Dungeon Escape lost half its commands, 2026-10-14); and a key
+     INKEY$ read is down on the matrix for the PEEK after it.
 
 Standard library only; run by run_all.sh when python3 is present (so CI
 exercises the tty reader on Linux, where it was not measured by hand).
@@ -773,6 +774,22 @@ def inkey_and_matrix(check):
         got = flat(out.split('BREAK')[0]).split()
         check([t for t in got if t.isdigit()] == [str(ord(k)) for k in 'abcdefgh'],
               'INKEY$ beside a matrix PEEK gets every key once, in order (%s)'
+              % ('release protocol' if answer else 'timed latch'), out)
+        # the other way round: a key INKEY$ read is down on the matrix too,
+        # so the PEEK right after it sees it (an arrow: row 6 bit 8; a: row 0 bit 2)
+        b.send('NEW\r10 A$=INKEY$:IF A$="" THEN 10\r'
+               '20 PRINT "K";ASC(A$);PEEK(14591):GOTO 10\rRUN\r', 0.6)
+        b.drain(0.3)
+        out = ''
+        for k, rel in ((b'\x1b[A', b'\x1b[1;1:3A'), (b'a', b'\x1b[97;1:3u')):
+            b.send(k, 0.25)
+            if answer:
+                b.send(rel, 0.1)
+            out += b.drain(0.1, 1)
+        b.send(b'\x03', 0.5)
+        out += b.drain()
+        check('K 91  8 ' in out and 'K 97  2 ' in out,
+              'a key INKEY$ read is down on the matrix for the next PEEK (%s)'
               % ('release protocol' if answer else 'timed latch'), out)
         b.send('BYE\r', 0.5)
         b.drain(0.3, 2)

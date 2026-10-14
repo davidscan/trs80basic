@@ -890,7 +890,7 @@ function usr_stub_notice(   i, s) {
     usr_stub_reset()
 }
 
-function fn_inkey(   c) {
+function fn_inkey(   c, raw) {
     if (CK == "I" && !TTYIN) return "S"
     if (TTYIN && (c = km_unread()) >= 0) { BRKFORCE = 0; return "S" CHR[c] }   # the matrix took it (p30)
     c = kb_poll1()
@@ -900,7 +900,7 @@ function fn_inkey(   c) {
     # at a terminal an arrow key is the Model I's one byte, not ESC [ A, and
     # Delete is the left arrow (p30 kb_termkey); piped input is a byte
     # stream and stays as sent
-    if (TTYIN) { c = kb_termkey(c); if (c < 0) return "S" }
+    if (TTYIN) { raw = c; c = kb_termkey(c); if (c < 0) return "S"; km_inkey_down(c, raw) }
     return "S" CHR[c]
 }
 

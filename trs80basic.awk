@@ -1481,6 +1481,21 @@ function km_unread(   c) {
     return c
 }
 
+# ... and the other way round: a key INKEY$ read from the queue goes down
+# on the matrix as well, as a key the matrix took does, so a PEEK right
+# after sees it held (the hardware key is down for both reads).  Dungeon
+# Escape reads its arrows from the matrix and its letters from INKEY$:
+# an arrow INKEY$ read first was a key no PEEK ever saw.  c is the Model I
+# byte (after kb_termkey), raw the terminal's byte, for the release
+# protocol's PC key.  At a terminal only, as above.
+function km_inkey_down(c, raw,   pk) {
+    if (!(c in KMR_)) return
+    if (KBPROTO) {
+        kp_press(KMR_[c], KMB_[c], KMS_[c] + 0)
+        if ((pk = kp_pckey(raw)) >= 0) kp_owns(pk, KMR_[c], KMB_[c])
+    } else km_latch(KMR_[c], KMB_[c], KMS_[c] + 0)
+}
+
 # one press byte under the release protocol: the key goes down and stays.
 # The press is the TYPED byte and the release names the PC's UNSHIFTED key,
 # and the two part company wherever the keyboards do: `:` is its own key on
@@ -4546,7 +4561,7 @@ function usr_stub_notice(   i, s) {
     usr_stub_reset()
 }
 
-function fn_inkey(   c) {
+function fn_inkey(   c, raw) {
     if (CK == "I" && !TTYIN) return "S"
     if (TTYIN && (c = km_unread()) >= 0) { BRKFORCE = 0; return "S" CHR[c] }   # the matrix took it (p30)
     c = kb_poll1()
@@ -4556,7 +4571,7 @@ function fn_inkey(   c) {
     # at a terminal an arrow key is the Model I's one byte, not ESC [ A, and
     # Delete is the left arrow (p30 kb_termkey); piped input is a byte
     # stream and stays as sent
-    if (TTYIN) { c = kb_termkey(c); if (c < 0) return "S" }
+    if (TTYIN) { raw = c; c = kb_termkey(c); if (c < 0) return "S"; km_inkey_down(c, raw) }
     return "S" CHR[c]
 }
 
