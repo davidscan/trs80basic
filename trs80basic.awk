@@ -2492,13 +2492,13 @@ function parse_fname(   t, f) {
     if (fname_is_expr()) {
         f = e_or(); if (E) return ""
         if (isN(f)) { raise(13); return "" }
-        return vstr(f)
+        return dos_name(vstr(f))            # NAME/EXT is the file NAME.EXT (p90)
     }
     if (t == "" || t == "e") return ""
     f = substr(TSRC[CK], TPO[CK, CP])
     gsub(/^[ \t]+|[ \t]+$/, "", f)
     while (!(TY[CK, CP] == "" || TY[CK, CP] == "e")) CP++
-    return f
+    return dos_name(f)
 }
 
 function st_csave(   f) {
@@ -8519,7 +8519,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     CP++
     v = e_or(); if (E) return
     if (isN(v)) { raise(13); return }
-    f = vstr(v)
+    f = dos_name(vstr(v))                   # NAME/EXT is the file NAME.EXT (p90)
     if (f == "") { raise(21); return }
     rlen = 256
     if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
@@ -8640,7 +8640,7 @@ function fio_closeall(   i) {
 function st_kill(   v, f, i) {
     v = e_or(); if (E) return
     if (isN(v)) { raise(13); return }
-    f = vstr(v)
+    f = dos_name(vstr(v))                   # NAME/EXT is the file NAME.EXT (p90)
     if (f == "") { raise(21); return }
     for (i = 1; i <= 15; i++)
         if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
@@ -10351,6 +10351,36 @@ function host_outside(f) {
         "case $t in /*) p=$t ;; *) p=$(dirname -- \"$p\")/$t ;; esac; done; " \
         "r=$(cd -- \"$(dirname -- \"$p\")\" 2>/dev/null && pwd -P) || exit 0; " \
         "case $r in \"$c\"|\"$c\"/*) exit 1 ;; esac; exit 0") == 0
+}
+
+# THE TRSDOS FILE NAME (ruled 2026-10-14).  A program written for the
+# Disk System names its files NAME/EXT -- up to 8 capital letters and
+# digits, a letter first, then up to 3 -- and may add .PASSWORD and :d
+# (a drive).
+# On the host that is the file NAME.EXT, password and drive dropped: they
+# mean nothing here.  Until 2026-10-14 the slash was a directory, so
+# OPEN "O",1,"BOB/DE" stopped ?FD unless a directory BOB existed
+# (Dungeon Escape's KEEP GAME); the corpus names 3,541 such files.  A
+# name with a lower-case letter is a host path, as is one whose NAME part
+# IS a directory here: a program made for this interpreter means
+# data/x.dat (and the suites write nodir/x.dat to test a missing one).  Applied where a
+# program or a typed command names a file (OPEN, KILL, LOAD, SAVE, RUN,
+# MERGE, CLOAD, CSAVE); SYSTEM's tape names are not Disk names.
+function dos_name(f,   a, n, e) {
+    if (f !~ /^[A-Z][A-Z0-9]*\/[A-Z0-9]+(\.[A-Z0-9]+)?(:[0-9])?$/) return f
+    split(f, a, "/")
+    n = a[1]; e = a[2]
+    sub(/:[0-9]$/, "", e)
+    if (index(e, ".")) { if (length(substr(e, index(e, ".") + 1)) > 8) return f; e = substr(e, 1, index(e, ".") - 1) }
+    if (length(n) > 8 || length(e) > 3) return f
+    if (host_isdir(n)) return f
+    return n "." e
+}
+
+# 1 when d is a directory here (one shell-out; cmd.exe: "if exist d\")
+function host_isdir(d) {
+    if (WINNATIVE) return d !~ /"/ && system("if exist \"" d "\\\" (exit 0) else (exit 1)") == 0
+    return system("test -d " shq(d)) == 0
 }
 
 # what f names: "f" a regular file (through a symbolic link), "x" anything

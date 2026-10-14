@@ -690,13 +690,13 @@ function parse_fname(   t, f) {
     if (fname_is_expr()) {
         f = e_or(); if (E) return ""
         if (isN(f)) { raise(13); return "" }
-        return vstr(f)
+        return dos_name(vstr(f))            # NAME/EXT is the file NAME.EXT (p90)
     }
     if (t == "" || t == "e") return ""
     f = substr(TSRC[CK], TPO[CK, CP])
     gsub(/^[ \t]+|[ \t]+$/, "", f)
     while (!(TY[CK, CP] == "" || TY[CK, CP] == "e")) CP++
-    return f
+    return dos_name(f)
 }
 
 function st_csave(   f) {

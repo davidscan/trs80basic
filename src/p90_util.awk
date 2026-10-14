@@ -847,6 +847,36 @@ function host_outside(f) {
         "case $r in \"$c\"|\"$c\"/*) exit 1 ;; esac; exit 0") == 0
 }
 
+# THE TRSDOS FILE NAME (ruled 2026-10-14).  A program written for the
+# Disk System names its files NAME/EXT -- up to 8 capital letters and
+# digits, a letter first, then up to 3 -- and may add .PASSWORD and :d
+# (a drive).
+# On the host that is the file NAME.EXT, password and drive dropped: they
+# mean nothing here.  Until 2026-10-14 the slash was a directory, so
+# OPEN "O",1,"BOB/DE" stopped ?FD unless a directory BOB existed
+# (Dungeon Escape's KEEP GAME); the corpus names 3,541 such files.  A
+# name with a lower-case letter is a host path, as is one whose NAME part
+# IS a directory here: a program made for this interpreter means
+# data/x.dat (and the suites write nodir/x.dat to test a missing one).  Applied where a
+# program or a typed command names a file (OPEN, KILL, LOAD, SAVE, RUN,
+# MERGE, CLOAD, CSAVE); SYSTEM's tape names are not Disk names.
+function dos_name(f,   a, n, e) {
+    if (f !~ /^[A-Z][A-Z0-9]*\/[A-Z0-9]+(\.[A-Z0-9]+)?(:[0-9])?$/) return f
+    split(f, a, "/")
+    n = a[1]; e = a[2]
+    sub(/:[0-9]$/, "", e)
+    if (index(e, ".")) { if (length(substr(e, index(e, ".") + 1)) > 8) return f; e = substr(e, 1, index(e, ".") - 1) }
+    if (length(n) > 8 || length(e) > 3) return f
+    if (host_isdir(n)) return f
+    return n "." e
+}
+
+# 1 when d is a directory here (one shell-out; cmd.exe: "if exist d\")
+function host_isdir(d) {
+    if (WINNATIVE) return d !~ /"/ && system("if exist \"" d "\\\" (exit 0) else (exit 1)") == 0
+    return system("test -d " shq(d)) == 0
+}
+
 # what f names: "f" a regular file (through a symbolic link), "x" anything
 # else that is there (a directory, a device, a FIFO, a socket, a dangling
 # link), "" nothing.  One shell-out; cmd.exe knows only "is it there".

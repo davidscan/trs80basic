@@ -56,7 +56,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     CP++
     v = e_or(); if (E) return
     if (isN(v)) { raise(13); return }
-    f = vstr(v)
+    f = dos_name(vstr(v))                   # NAME/EXT is the file NAME.EXT (p90)
     if (f == "") { raise(21); return }
     rlen = 256
     if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
@@ -177,7 +177,7 @@ function fio_closeall(   i) {
 function st_kill(   v, f, i) {
     v = e_or(); if (E) return
     if (isN(v)) { raise(13); return }
-    f = vstr(v)
+    f = dos_name(vstr(v))                   # NAME/EXT is the file NAME.EXT (p90)
     if (f == "") { raise(21); return }
     for (i = 1; i <= 15; i++)
         if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
