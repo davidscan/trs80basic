@@ -524,8 +524,11 @@ because period programs poke at it:
   it writes shows as it runs, the keyboard is live, Ctrl-C breaks, and
   the ROM entry points it may call are `01C9H`, `0A7FH`, `0A9AH`,
   `1A19H` (READY), `002BH` (the keyboard scan), `0049H` (wait for a
-  key), `0060H` (delay), `01D3H` (RANDOM), `14C9H` (RND) and `05D9H`
-  (line input),
+  key), `0060H` (delay), `01D3H` (RANDOM), `14C9H` (RND), `05D9H`
+  (line input), `0033H` and `033AH` (a character on the screen),
+  `2B05H` (WRA1 to an integer in DE), and `RST 08H` and `RST 18H`
+  through the vectors at 4000H and 4006H (with none stored there,
+  `RST 18H` compares HL with DE),
   and its cassette-port sound is heard with `sound on` or kept with
   `sound wav <path>`;
   without it, `USRn(x)` returns its argument and the run

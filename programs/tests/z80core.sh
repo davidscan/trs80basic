@@ -112,5 +112,31 @@ err=$(cat "$tmp.err")
 [ "$rc" = "1" ] || fail "RND(-1) in a routine: rc=$rc" "$out
 $err"
 [ "$err" = "?FC ERROR IN 30" ] || fail "RND(-1) in a routine: stderr" "$err"
+# 0033H and 033AH, the video driver, put a string where BASIC's own PRINT
+# puts it: the same screen bytes, the same cursor, the same POS (033AH only).
+# The string has a character in each class: lower case, graphics, space
+# compression, CR, the arrows, erase to the end of the line, backspace.
+cat > "$tmp" <<'EOF2'
+10 DIM S(575):T$="":FOR I=1 TO 15:READ B:T$=T$+CHR$(B):POKE 31799+I,B:NEXT:POKE 31815,0
+20 DATA 65,98,191,195,13,88,89,24,90,30,26,81,8,10,87
+30 FOR I=0 TO 13:READ B:POKE 31700+I,B:NEXT
+40 DATA 33,56,124,126,183,40,6,205,51,0,35,24,246,201
+45 GOTO 50
+46 CLS:FOR I=15808 TO 16383:POKE I,46:NEXT:RETURN
+50 GOSUB 46:PRINT@448,T$;:C=PEEK(16416)+256*PEEK(16417):P=POS(0):FOR I=0 TO 575:S(I)=PEEK(15808+I):NEXT
+60 GOSUB 46:PRINT@448,"";:DEFUSR=31700:X=USR(0)
+70 IF PEEK(16416)+256*PEEK(16417)<>C THEN PRINT "FAIL 0033H cursor";PEEK(16416)+256*PEEK(16417);C:F=1
+80 FOR I=0 TO 575:IF PEEK(15808+I)<>S(I) THEN PRINT "FAIL 0033H screen at";448+I;PEEK(15808+I);S(I):F=1:I=575
+90 NEXT
+100 POKE 31708,58:POKE 31709,3:GOSUB 46:PRINT@448,"";:X=USR(0)
+110 IF POS(0)<>P THEN PRINT "FAIL 033AH column";POS(0);P:F=1
+120 CLS:IF F THEN PRINT "Z80 CORE FIXTURE FAILED":END
+130 PRINT:PRINT "OK"
+EOF2
+out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>"$tmp.err" </dev/null); rc=$?
+err=$(cat "$tmp.err")
+last=$(printf '%s\n' "$out" | tail -n 1)
+[ "$rc" = "0" ] && [ "$last" = "OK" ] && [ -z "$err" ] || fail "0033H/033AH against PRINT: rc=$rc" "$out
+$err"
 rm -f "$tmp" "$tmp.err"
 echo "Z80 CORE FIXTURE OK"
