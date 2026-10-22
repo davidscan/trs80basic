@@ -96,7 +96,7 @@ function e_not(   v) {
 # true whatever the compare says) and only a REPEATED character (<<, ==,
 # >>, <=<) reaches ?SN at 1997H.  The tokenizer folds the common pairs
 # (<= =< >= => <> ><) into one token; any longer run is merged here.
-function e_rel(   v, r, op, a, b, c, f, nb, k) {
+function e_rel(   v, r, op, a, b, c, f, nb, k, cn, rs) {
     v = e_add()
     while (!E && TY[CK, CP] == "o" && TK[CK, CP] ~ /^(=|<|>|<=|>=|<>)$/) {
         f = 0
@@ -106,12 +106,29 @@ function e_rel(   v, r, op, a, b, c, f, nb, k) {
             if (and(f, nb)) { raise(2); return v }
             f = or(f, nb); CP++
         }
-        if (!evright(v, "r")) return v; k = EVC; r = e_add(); EVSTK -= k; if (E) return v
+        if (!evright(v, "r")) return v; k = EVC; cn = CATN; r = e_add(); EVSTK -= k; if (E) return v
         if (isN(v) != isN(r)) { raise(13); return v }
         if (isN(v) && (vtype(v) == "D" || vtype(r) == "D")) { a = dcmp(substr(v, 3), substr(r, 3)); b = 0 }   # a double's 56 bits (p91)
         else if (isN(v)) { a = num(v); b = num(r) } else { a = vstr(v); b = vstr(r) }
         c = (and(f, 1) && a > b) || (and(f, 2) && a == b) || (and(f, 4) && a < b)
-        v = "NI" (c ? -1 : 0)
+        rs = !isN(v); v = "NI" (c ? -1 : 0)
+        # ROM bug 21 (trs-80.com's "Known ROM bugs": IF "hm"="h"+"m" is
+        # ?TM, the reverse order works).  In Farvour's listing the machine
+        # reads on from the pointer it saved at 40F3H after the last
+        # operand its operator loop read (2343H, 2346H; T2CP below), and
+        # the concatenation reads its right operand without saving it
+        # (298FH-2995H).  So when the right side
+        # of a STRING relation concatenates, the compare is made on the
+        # whole string and the reading then resumes from that stale
+        # pointer: just past the first operand, where "+" meets the number
+        # (?TM), or inside the last function's parentheses, where the
+        # expression ends at its ")" and the statement meets it (?SN).  An
+        # array element's ")" is saved (2703H), so A$+B$(1) reads on
+        # correctly.  Not modelled: a DEF FN body on another line (T2K),
+        # and the number formatter's own use of the cell (1296H).
+        if (rs && CATN != cn && T2K == CK && T2CP != CP) {
+            CP = T2CP; SEEDV = v; SEEDON = 1; v = e_add(); if (E) return v
+        }
     }
     return v
 }
@@ -120,7 +137,9 @@ function e_add(   v, r, op, x, c) {
     v = e_mul()
     while (!E && TY[CK, CP] == "o" && (TK[CK, CP] == "+" || TK[CK, CP] == "-")) {
         op = TK[CK, CP]; CP++
-        if (!evright(v)) return v; c = EVC; r = e_mul(); EVSTK -= c; if (E) return v
+        if (!evright(v)) return v; c = EVC
+        if (op == "+" && !isN(v)) { CATR = 1; CATN++ }   # 2374H-237AH: a string's + is CAT, which saves no pointer (bug 21, e_rel)
+        r = e_mul(); CATR = 0; EVSTK -= c; if (E) return v
         if (op == "+") {
             if (!isN(v) && !isN(r)) {
                 # ROM 299CH-29A5H adds the two lengths in a byte and takes
@@ -219,6 +238,7 @@ function e_mul(   v, r, op, x, d, t, c) {
 }
 
 function e_un(   v) {
+    if (SEEDON) return e_pow()                  # bug 21's resumption: the left operand is already in hand (e_rel)
     if (TY[CK, CP] == "o" && TK[CK, CP] == "-") {
         CP++
         EVSTK += 6; v = e_un(); EVSTK -= 6; if (E) return v
@@ -257,7 +277,22 @@ function e_powrhs(   v) {
     return e_prim()
 }
 
-function e_prim(   t, s, v, key, sx) {
+# The ROM's operator loop saves the text pointer after every operand it
+# reads (2343H), and a finished operator reads on from that saved pointer
+# (2346H).  T2CP/T2K are that cell: set here after each operand, and by
+# aref at an array's ")" (2703H), but not for the right operand of a
+# string's + (CATR, set by e_add), which the concatenation reads directly.
+# Only e_rel reads it back (ROM bug 21).  SEEDON hands e_rel's result in
+# as the first operand of a resumed reading.
+function e_prim(   cr, v) {
+    if (SEEDON) { SEEDON = 0; T2CP = CP; T2K = CK; return SEEDV }
+    cr = CATR; CATR = 0
+    v = e_prim0()
+    if (!cr) { T2CP = CP; T2K = CK }
+    return v
+}
+
+function e_prim0(   t, s, v, key, sx) {
     t = TY[CK, CP]
     # a lone "." in operand position enters the number reader (24B2H ->
     # 0E6CH), which takes the point and no digits as 0 -- a single, as a
@@ -399,7 +434,7 @@ function aref(name,   nd, i, v, idx, key, idxs, vz) {
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
         break
     }
-    if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
+    if (TY[CK, CP] == "o" && TK[CK, CP] == ")") { CP++; T2CP = CP; T2K = CK }   # 2701H-2703H: the pointer past ")" saved (bug 21, e_prim)
     else { raise(2); return "" }
     if (!(name in ADIM)) {
         # the auto-DIM creates through DIM's own code (275CH-2774H, shared by

@@ -771,6 +771,8 @@ IF cond THEN stmt|n [ELSE stmt|n]   run stmt (or jump to line n) when true
   IF A is a valid test meaning "A is not zero".  Comparisons return -1 for
   true and 0 for false, so they feed straight back into arithmetic.
   Strings compare too, character by character on ASCII code ("ABC"<"ABD").
+  Put a concatenation on the LEFT of the comparison, or in parentheses:
+  "HM"="H"+"M" is ?TM (a ROM bug, kept), while "H"+"M"="HM" works.
   The branch is the WHOLE REST OF THE LINE, not just the next statement:
     IF A THEN PRINT "X":PRINT "Y"      both are skipped when A is 0
   So a statement that must always run cannot sit after an IF on the same

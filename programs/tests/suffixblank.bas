@@ -54,5 +54,5 @@
 965 REM the cursor parked on the last row, so a FAIL message never lands in row 0
 970 R$="":FOR I=15360 TO 15360+LEN(E$):R$=R$+CHR$(PEEK(I)):NEXT
 975 PRINT @0,STRING$(64," ");:PRINT @960,"";
-980 IF R$<>E$+" " THEN PRINT "FAIL: ";L$;" [";R$;"]":F=1
+980 IF E$+" "<>R$ THEN PRINT "FAIL: ";L$;" [";R$;"]":F=1
 990 RETURN
