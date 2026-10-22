@@ -3,7 +3,7 @@
 # trs80basic.awk -- TRS-80 Model I LEVEL II BASIC interpreter in GNU awk
 #
 # Run:   gawk -f trs80basic.awk        (or ./trs80basic.awk if executable)
-# Exit:  BYE   (restores terminal; if killed abnormally, run: stty sane)
+# Exit:  BYE or EXIT   (restores terminal; if killed abnormally, run: stty sane)
 # BREAK: Ctrl-C  (stops a running program: "BREAK IN nnnn"; CONT resumes)
 #
 # Requires: GNU awk >= 5.0 run with -b (./basic does), a VT100/ANSI terminal

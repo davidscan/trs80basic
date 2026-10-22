@@ -727,8 +727,9 @@ BYE   leave the interpreter and return to the shell
   interpreter puts the keyboard into raw mode while running.
   If a session is killed abnormally instead and the terminal is left
   strange, run:  stty sane
-  The lower-case metacommands exit and bye do the same thing at the
-  READY prompt (see: man exit).
+  EXIT is the same statement (an extension: on the machine EXIT is
+  the variable EX).  The lower-case metacommands exit and bye do the
+  same thing at the READY prompt (see: man exit).
   Example: BYE
 
 :TRON
@@ -1827,8 +1828,9 @@ spaced            report the current state
 exit   leave the interpreter and return to the shell
   bye does the same thing (man BYE: the lookup takes either case).
   What BYE does, as a metacommand: the terminal is restored on the way
-  out.  Typed at the READY prompt only; in a program, EXIT and BYE are
-  what Level II makes of them (BYE is the statement; EXIT is ?SN).
+  out.  Typed at the READY prompt only, and with no argument.  In
+  upper case, EXIT and BYE are the statement, which also ends a
+  program and the interpreter with it (man BYE).
   Metacommand: lowercase only.
   Example: exit
 

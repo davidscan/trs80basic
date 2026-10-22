@@ -5,7 +5,7 @@
 # carries only what the program PRINTs.  No timeout guard is built in --
 # wrap the invocation in the shell's `timeout` if a program may not halt.
 #
-# Exit status:  0 clean halt (END, STOP, BYE, or falling off the end)
+# Exit status:  0 clean halt (END, STOP, BYE/EXIT, or falling off the end)
 #               1 uncaught BASIC error, or stdin exhausted at an INPUT
 #               2 bad arguments, unreadable file, or unloadable source
 

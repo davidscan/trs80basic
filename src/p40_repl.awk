@@ -42,8 +42,9 @@ function handle_line(line,   s, ln, rest) {
         return 1
     }
     # exit / bye: leave the interpreter, as BYE does (EXT, lowercase-only
-    # metacommands like the rest, so EXIT and BYE in a listing are untouched:
-    # the user, 2026-10-21; the Q-5 ruling of 2026-10-03 named both)
+    # metacommands like the rest, taking no argument: the user, 2026-10-21;
+    # the Q-5 ruling of 2026-10-03 named both).  Upper-case EXIT and BYE are
+    # the statement (p70), which works in a program too (2026-10-22)
     if (s ~ /^(exit|bye)[ \t]*$/) { QUITFLAG = 1; return 1 }
     if (s ~ /^man($|[ \t])/) {
         rest = substr(s, 4); sub(/^[ \t]+/, "", rest); sub(/[ \t]+$/, "", rest)

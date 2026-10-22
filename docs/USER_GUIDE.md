@@ -36,7 +36,7 @@ Level II never did. Everything else is intended to match the manuals.
 You get the authentic `MEM SIZE?` prompt (press ENTER — or answer with a
 number, which becomes HIMEM, the ceiling BASIC allocates below; memory above
 it stays present for a machine-language routine to load into, see Part III),
-the `R/S L2 BASIC` banner, and `READY`. Exit with `BYE`, which restores your terminal; if the interpreter
+the `R/S L2 BASIC` banner, and `READY`. Exit with `BYE` (or `EXIT`), which restores your terminal; if the interpreter
 is ever killed abnormally, `stty sane` recovers the tty.
 
 The top 16 rows of your terminal are the simulated 64x16 display. Everything
@@ -134,7 +134,7 @@ ever colliding with a period program.
 | `man <keyword>` | syntax + example for any BASIC word, case-insensitive (`man print`, `man MID$`) |
 | `help <text>` | search: exact name shows the page; otherwise every command whose name *or* man text matches, case-insensitive. `help meta`, `help keys` are special pages |
 | `ext on\|off` | the gated-extensions switch (see Part IV); bare `ext` shows state |
-| `exit` (or `bye`) | leave the interpreter, as `BYE` does; the terminal is restored |
+| `exit` (or `bye`) | leave the interpreter, as `BYE` (or `EXIT`) does; the terminal is restored |
 | `fullscreen on\|off` | stream output with the terminal's own scrollback instead of the captive 64x16 grid; graphics addressing is unchanged either way |
 | `speed <mhz>` | throttle execution to a period pace (`speed 1.77` ≈ a real Model I); `speed 0` = full host speed. A feel knob, not a cycle-accurate emulator |
 | `sound on\|off`, `sound wav <path>\|off` | machine-code sound: the cassette-port pulses a `USR` routine makes, played live through the core's player and/or written to a WAV file; bare `sound` shows the state. Needs the Z80 core; BASIC's own `OUT 255` stays silent |
@@ -1542,8 +1542,9 @@ BYE   leave the interpreter and return to the shell
   interpreter puts the keyboard into raw mode while running.
   If a session is killed abnormally instead and the terminal is left
   strange, run:  stty sane
-  The lower-case metacommands exit and bye do the same thing at the
-  READY prompt (see: man exit).
+  EXIT is the same statement (an extension: on the machine EXIT is
+  the variable EX).  The lower-case metacommands exit and bye do the
+  same thing at the READY prompt (see: man exit).
   Example: BYE
 ```
 
@@ -2845,8 +2846,9 @@ spaced            report the current state
 exit   leave the interpreter and return to the shell
   bye does the same thing (man BYE: the lookup takes either case).
   What BYE does, as a metacommand: the terminal is restored on the way
-  out.  Typed at the READY prompt only; in a program, EXIT and BYE are
-  what Level II makes of them (BYE is the statement; EXIT is ?SN).
+  out.  Typed at the READY prompt only, and with no argument.  In
+  upper case, EXIT and BYE are the statement, which also ends a
+  program and the interpreter with it (man BYE).
   Metacommand: lowercase only.
   Example: exit
 ```

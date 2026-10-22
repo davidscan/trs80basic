@@ -109,7 +109,7 @@ Everything else is optional, needed only for the feature named:
 ```bash
 gawk --version | head -1                        # needs GNU awk >= 5.0 (and python3 for the optional Z80 core)
 ./basic --seed 1 programs/examples/hilo.bas < programs/examples/hilo.in   # <1s — runs a program, prints its screen text
-./basic                                         # interactive READY prompt; type exit (or BYE) to leave
+./basic                                         # interactive READY prompt; type exit (or BYE, EXIT) to leave
 programs/examples/run_examples.sh               # ~5s — every example against its checked-in transcript, all "ok"
 ```
 

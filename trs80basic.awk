@@ -3,7 +3,7 @@
 # trs80basic.awk -- TRS-80 Model I LEVEL II BASIC interpreter in GNU awk
 #
 # Run:   gawk -f trs80basic.awk        (or ./trs80basic.awk if executable)
-# Exit:  BYE   (restores terminal; if killed abnormally, run: stty sane)
+# Exit:  BYE or EXIT   (restores terminal; if killed abnormally, run: stty sane)
 # BREAK: Ctrl-C  (stops a running program: "BREAK IN nnnn"; CONT resumes)
 #
 # Requires: GNU awk >= 5.0 run with -b (./basic does), a VT100/ANSI terminal
@@ -1875,8 +1875,9 @@ function handle_line(line,   s, ln, rest) {
         return 1
     }
     # exit / bye: leave the interpreter, as BYE does (EXT, lowercase-only
-    # metacommands like the rest, so EXIT and BYE in a listing are untouched:
-    # the user, 2026-10-21; the Q-5 ruling of 2026-10-03 named both)
+    # metacommands like the rest, taking no argument: the user, 2026-10-21;
+    # the Q-5 ruling of 2026-10-03 named both).  Upper-case EXIT and BYE are
+    # the statement (p70), which works in a program too (2026-10-22)
     if (s ~ /^(exit|bye)[ \t]*$/) { QUITFLAG = 1; return 1 }
     if (s ~ /^man($|[ \t])/) {
         rest = substr(s, 4); sub(/^[ \t]+/, "", rest); sub(/[ \t]+$/, "", rest)
@@ -3152,7 +3153,7 @@ function prog_load_tok(data, verify, keepfiles, merge,   n, pos, nxt, ln, z, bod
 # carries only what the program PRINTs.  No timeout guard is built in --
 # wrap the invocation in the shell's `timeout` if a program may not halt.
 #
-# Exit status:  0 clean halt (END, STOP, BYE, or falling off the end)
+# Exit status:  0 clean halt (END, STOP, BYE/EXIT, or falling off the end)
 #               1 uncaught BASIC error, or stdin exhausted at an INPUT
 #               2 bad arguments, unreadable file, or unloadable source
 
@@ -3710,12 +3711,12 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
 # text, and the image cruncher and tools/tok.py crunch that text, so the
 # full names stay in the program, as they do on the machine.  The ROM's
 # reserved words never reach it (kw_at takes them first, since 2026-09-25,
-# and a reserved word inside a name ends the name: TOTAL is TO TAL); BYE,
-# the one statement word that is no token, is kept.  FNABC is FN plus a
+# and a reserved word inside a name ends the name: TOTAL is TO TAL); BYE and
+# EXIT, the statement words that are no token, are kept.  FNABC is FN plus a
 # name, so FNAB.  The type suffix `$` is kept (AB$ and AB are two
 # variables); % ! # are already dropped (G% is G).
 function vn_cut(s,   d, b) {
-    if (s == "BYE") return s
+    if (s == "BYE" || s == "EXIT") return s
     d = (s ~ /\$$/) ? "$" : ""
     b = d ? substr(s, 1, length(s) - 1) : s
     if (b ~ /^FN./) return "FN" substr(b, 3, 2) d
@@ -4875,7 +4876,9 @@ function execstmt(   ty, tx) {
         if (tx == "RSET")    { CP++; st_lset(0); return }
         if (tx == "KILL")    { CP++; st_kill(); return }
         if (tx == "LINE")    { CP++; st_lineinput(); return }
-        if (tx == "BYE")     { CP++; QUITFLAG = 1; HALT = 1; return }
+        # EXIT: BYE's synonym (EXT, the user, 2026-10-22; on the machine it is
+        # the variable EX, and no corpus listing uses it outside a string)
+        if (tx == "BYE" || tx == "EXIT") { CP++; QUITFLAG = 1; HALT = 1; return }
         if (tx == "TRON")    { CP++; TRACE = 1; return }
         if (tx == "TROFF")   { CP++; TRACE = 0; return }
         if (tx == "RANDOM")  { CP++; rnd_setmid(int(rand() * 128)); return }   # LD A,R (01D3H): the refresh register is 7 bits, 0-127 (N-5)

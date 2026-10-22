@@ -4,8 +4,8 @@
 # table holds two characters of a name, so SUM and SU are one variable, and a
 # period listing may rely on it (gprixmc1.bas sets ADDR and reads AD; 14 of
 # 4,339 corpus listings differ, measured 2026-09-26).  The rule is applied in
-# the tokenizer (vn_cut, src/p50_token.awk): reserved words, USRn, BYE and
-# DEFUSR are never cut, FNABC is FNAB, `$` keeps a string apart, and LIST
+# the tokenizer (vn_cut, src/p50_token.awk): reserved words, USRn, BYE, EXIT
+# and DEFUSR are never cut, FNABC is FNAB, `$` keeps a string apart, and LIST
 # still shows the names as typed.  Switching the mode at the prompt or from
 # a REM META: mid-run re-reads every line's names when it is next reached.
 # TRS80_VARNAMES=2, the opt-in of 2026-09-23, is retired and ignored.

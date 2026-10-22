@@ -266,12 +266,12 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
 # text, and the image cruncher and tools/tok.py crunch that text, so the
 # full names stay in the program, as they do on the machine.  The ROM's
 # reserved words never reach it (kw_at takes them first, since 2026-09-25,
-# and a reserved word inside a name ends the name: TOTAL is TO TAL); BYE,
-# the one statement word that is no token, is kept.  FNABC is FN plus a
+# and a reserved word inside a name ends the name: TOTAL is TO TAL); BYE and
+# EXIT, the statement words that are no token, are kept.  FNABC is FN plus a
 # name, so FNAB.  The type suffix `$` is kept (AB$ and AB are two
 # variables); % ! # are already dropped (G% is G).
 function vn_cut(s,   d, b) {
-    if (s == "BYE") return s
+    if (s == "BYE" || s == "EXIT") return s
     d = (s ~ /\$$/) ? "$" : ""
     b = d ? substr(s, 1, length(s) - 1) : s
     if (b ~ /^FN./) return "FN" substr(b, 3, 2) d
