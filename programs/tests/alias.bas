@@ -34,7 +34,7 @@
 322 IF V2<>V THEN PRINT "FAIL VARPTR moved":F=1
 330 REM --- indirect form and an array element, onto system RAM (4010H)
 340 POKE 16400,65:POKE 16401,66:POKE 16402,67
-350 DIM B$(2):B$(1)="..."+"":W=VARPTR(B$(1))
+350 DIM B$(2):B$(1)="..."+"":W=VARPTR(B$(1)):O=PEEK(W+1)+256*PEEK(W+2):REM its own data, wherever it is
 360 L=16400-INT(16400/256)*256:H=INT(16400/256)
 370 POKE W+1,L:POKE W+2,H
 380 IF B$(1)<>"ABC" THEN PRINT "FAIL array element alias: ";B$(1):F=1
@@ -42,7 +42,7 @@
 400 LSET B$(1)="xyz"
 410 IF PEEK(16400)<>120 OR PEEK(16402)<>122 THEN PRINT "FAIL array element write-through":F=1
 420 REM --- poking the cells back to the own data clears the alias
-430 E=W-3:E=E-65536*(E<0):POKE W+1,E-INT(E/256)*256:POKE W+2,INT(E/256)
+430 POKE W+1,O-INT(O/256)*256:POKE W+2,INT(O/256)
 440 IF B$(1)<>"..." THEN PRINT "FAIL alias cleared by repoint: ";B$(1):F=1
 450 REM --- alias onto a packed string: contract rule 4 resolves it
 460 P$="PACKED":Q$="      ":PV=VARPTR(P$):QV=VARPTR(Q$)

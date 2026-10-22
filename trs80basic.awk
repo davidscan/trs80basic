@@ -6306,6 +6306,7 @@ function sp_materialize(tgt, isstr, nb,   len, need, base, j, dbase) {
         VPDESC[tgt] = base; VPNB[tgt] = need
         return base
     }
+    if (substr(tgt, 1, 1) == "A" && !(tgt in VPDESC)) { sp_strblock(tgt); if (E) return 0 }
     len = length(sp_gets(tgt))
     if (len > 255) len = 255                      # `memory host` (EXT): the map packs a long string's first 255 bytes
     if (tgt in VPDESC) {
@@ -6369,6 +6370,35 @@ function sp_arrblock(tgt,   key, name, i, nd, vz, n, base, e, r, k, t, a, j, w) 
         VPDESC[t] = a; VPNB[t] = vz
     }
     return VPDESC[tgt]
+}
+
+# A string array is the same: its 3-byte descriptors are one ascending
+# block, 3 apart (Farvour's array entry; VARPTR(A$(1)) is VARPTR(A$(0))+3),
+# mapped whole at the first touch.  Each element's bytes are where the
+# string model puts any string's: a literal's in its line (lit_bind),
+# others below in string space, an empty one nowhere (address 0).  Until
+# 2026-10-22 each descriptor was placed alone, downward (-3).
+function sp_strblock(tgt,   key, name, i, nd, n, base, e, r, k, t, d, w) {
+    key = substr(tgt, 2); i = index(key, SUBSEP); name = substr(key, 1, i - 1)
+    nd = ADIM[name]
+    n = 1; for (i = 1; i <= nd; i++) n *= ASZ[name, i] + 1
+    if (SSP - 3 * n < 17131) { raise(7); return }
+    base = SSP - 3 * n + 1; SSP -= 3 * n
+    for (e = 0; e < n; e++) {
+        k = name; r = e
+        for (i = 1; i <= nd; i++) { w = ASZ[name, i] + 1; k = k SUBSEP (r % w); r = int(r / w) }
+        t = "A" k; d = base + 3 * e; ARRK[e] = t
+        SPK[d] = t;     SPT[d] = "L"
+        SPK[d + 1] = t; SPT[d + 1] = "C"; SPV[d + 1] = 0
+        SPK[d + 2] = t; SPT[d + 2] = "C"; SPV[d + 2] = 0
+        VPDESC[t] = d; VPDATA[t] = 0; VPCAP[t] = 0
+    }
+    for (e = 0; e < n; e++) {                     # then each element's bytes
+        t = ARRK[e]
+        if (t in LITA) { lit_bind(t); if (t in LITV) continue; VPCAP[t] = -1 }
+        if (length(sp_gets(t)) > VPCAP[t]) { sp_materialize(t, 1); if (E) return }
+    }
+    delete ARRK
 }
 
 # An assignment gave a VARPTRed string a value longer than the cells mapped

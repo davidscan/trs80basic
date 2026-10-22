@@ -42,5 +42,9 @@
 321 IF LEN(H$)<>2 OR H$<>"AB" THEN PRINT "FAIL a POKE past the live length grew the string:";LEN(H$);H$:F=1
 322 IF PEEK(D+5)<>88 OR PEEK(D+4)<>32 THEN PRINT "FAIL the byte past the live length";PEEK(D+5);PEEK(D+4):F=1
 323 POKE V,6:IF H$<>"AB   X" THEN PRINT "FAIL the length byte grown over it: [";H$;"]":F=1
+324 REM a string array's descriptors are one block, 3 apart, ascending (R-8 step 3; was -3): a literal element points into its line, a built one into string space, an empty one is 0 0 0
+325 DIM SA$(3):SA$(1)="HI":SB$="X"+"YZ":SA$(3)=SB$:V=VARPTR(SA$(0)):IF VARPTR(SA$(1))-V<>3 OR VARPTR(SA$(3))-V<>9 THEN PRINT "FAIL string array stride";VARPTR(SA$(1))-V;VARPTR(SA$(3))-V:F=1
+326 D=PEEK(V+4)+256*PEEK(V+5):D=D+65536*(D>32767):E=PEEK(V+10)+256*PEEK(V+11):E=E+65536*(E>32767):IF PEEK(V+3)<>2 OR PEEK(D)<>72 OR D>32767 OR PEEK(V+9)<>3 OR PEEK(E+2)<>90 OR PEEK(V)+PEEK(V+1)+PEEK(V+2)<>0 THEN PRINT "FAIL string array descriptors":F=1
+327 SA$(2)="NEW"+"":D=PEEK(V+7)+256*PEEK(V+8):D=D+65536*(D>32767):POKE D,77:IF PEEK(V+6)<>3 OR SA$(2)<>"MEW" THEN PRINT "FAIL a later element through its descriptor";SA$(2):F=1
 328 IF F THEN PRINT "VARPTR FIXTURE FAILED":ERROR 5
 330 PRINT "VARPTR FIXTURE OK"
