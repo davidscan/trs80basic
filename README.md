@@ -55,7 +55,7 @@ Developed and tested on MacOS (iTerm2), untested but probably works fine under L
   to one of a list of words so a program can branch on it; named threads
   persist between runs.
 - **Metacommands**, lowercase so they never collide with BASIC: `dir`, `cat`,
-  `history`, `speed`, `sound`, `fullscreen`, `ext`, `man`, `help`.
+  `history`, `speed`, `sound`, `fullscreen`, `ext`, `man`, `help`, `exit`.
 - **Man pages.** `man PRINT` gives the syntax and an example for any BASIC
   keyword; `help <text>` searches them.
 - **Shell-style line editing.** Left/right arrows move through the line,
@@ -109,7 +109,7 @@ Everything else is optional, needed only for the feature named:
 ```bash
 gawk --version | head -1                        # needs GNU awk >= 5.0 (and python3 for the optional Z80 core)
 ./basic --seed 1 programs/examples/hilo.bas < programs/examples/hilo.in   # <1s — runs a program, prints its screen text
-./basic                                         # interactive READY prompt; type BYE to leave
+./basic                                         # interactive READY prompt; type exit (or BYE) to leave
 programs/examples/run_examples.sh               # ~5s — every example against its checked-in transcript, all "ok"
 ```
 
@@ -224,8 +224,12 @@ might loop forever — there is no built-in guard.
 **Work interactively.** `./basic` with no file gives the `READY` prompt. Type
 BASIC directly, `CLOAD "game.bas"` to load one (`LOAD` is the Disk BASIC
 spelling; `LOAD "f",R` also runs it and keeps file channels open), `RUN`,
-Ctrl-C to break, `CONT` to resume, `BYE` to leave. The screen is the real
-64x16 grid; long output pages with PgUp/PgDn.
+Ctrl-C to break, `CONT` to resume, `exit` (or `BYE`) to leave. The screen is
+the real 64x16 grid; long output pages with PgUp/PgDn. A letter you type
+reaches a running program's `INKEY$` and `INPUT` in the machine's case: an
+unshifted key is upper case and SHIFT+letter is lower, as the Model I
+keyboard sent them, so a period menu that tests `IF K$="Q"` answers the
+plain key. The READY prompt keeps what you type.
 
 **Run with the Z80 core.** A listing whose `USR` routines matter needs the
 companion core, `trs80_z80_core`, checked out beside this repo. The launcher
@@ -392,7 +396,7 @@ before `--update`.
   (or 175, 165); `POKE 16396,201` re-enables it. Press Ctrl-C three times in
   a row to break anyway.
 - **Ctrl-C is BREAK, not exit.** It stops the program and returns to `READY`;
-  `BYE` leaves.
+  `exit`, `bye` or `BYE` leaves.
 - **A named OLLAMA thread persists.** `OPEN "O",1,"OLLAMA:llama3.2:story"`
   writes `story.ollama` in the current directory and reloads it as
   conversation context next time; `KILL "story.ollama"` forgets it.

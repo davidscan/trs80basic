@@ -41,6 +41,10 @@ function handle_line(line,   s, ln, rest) {
         st_fullscreen(rest)
         return 1
     }
+    # exit / bye: leave the interpreter, as BYE does (EXT, lowercase-only
+    # metacommands like the rest, so EXIT and BYE in a listing are untouched:
+    # the user, 2026-10-21; the Q-5 ruling of 2026-10-03 named both)
+    if (s ~ /^(exit|bye)[ \t]*$/) { QUITFLAG = 1; return 1 }
     if (s ~ /^man($|[ \t])/) {
         rest = substr(s, 4); sub(/^[ \t]+/, "", rest); sub(/[ \t]+$/, "", rest)
         st_man(rest)
@@ -541,6 +545,7 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  dir [args]            shell 'ls -al' passthrough\n" \
               "  cat <file...>         show file contents (non-text bytes as .)\n" \
               "  ext on|off            gated extensions (bare: show state)\n" \
+              "  exit | bye            leave the interpreter (as BYE does)\n" \
               "  fullscreen on|off     stream vs 64x16 grid (bare: show state)\n" \
               "  history | h           list this session's typed commands\n" \
               "  man <KEYWORD>         syntax + example for a BASIC command\n" \

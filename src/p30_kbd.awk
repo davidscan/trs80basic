@@ -560,6 +560,23 @@ function kb_termkey(c) {
     return c
 }
 
+# A terminal's letter, as the Model I key it meant, in the machine's case:
+# an unshifted letter key is UPPER case and SHIFT + letter is lower (the
+# keyboard driver, Farvour 0410H-041AH), so a terminal's `a` -- the
+# unshifted key, which is what the matrix path above already latches it
+# as (km_init) -- reads as "A" through INKEY$ and INPUT, and `A` as "a".
+# Until 2026-10-21 one keystroke was an unshifted Z on the matrix and 122
+# through INKEY$: 2,791 corpus listings compare INKEY$ with an upper-case
+# literal, and a user typing lower case got no response (the 2026-09-30
+# audit, Q-4; ruled 2026-10-03).  The screen echoes what the program
+# received.  Terminal input only, and never at READY (lower case there is
+# the metacommands' look): a piped or batch byte stream stays byte-exact.
+function kb_case(c) {
+    if (c >= 97 && c <= 122) return c - 32
+    if (c >= 65 && c <= 90) return c + 32
+    return c
+}
+
 # consume at most one pending byte into the latch; age the latch when idle.
 # Under the release protocol (KBPROTO) every pending press byte goes into
 # the down-set instead, and nothing ages: a key is up when its release
@@ -688,8 +705,13 @@ function kb_matrix(sel,   out, r) {
 # only): up/down history, TAB filename completion, Ctrl-L = CLEAR key.
 # With repl=2 (SYSTEM's "*?", which takes a host file name): TAB completion
 # alone (EXT, as at ">"; the user, 2026-10-12).
-function rl_read(repl,   c, r, s, oldl, oldp) {
+# With repl=0 (a program's INPUT and LINE INPUT) at a terminal, a letter
+# is read in the machine's case (kb_case): unshifted upper, SHIFT lower.
+# Not at ">" or "*?" (a host file name keeps its case), and not under
+# AUTO, which enters program lines as ">" does.
+function rl_read(repl,   c, r, s, oldl, oldp, swap) {
     RLMODE = repl
+    swap = (TTYIN && !repl && !AUTOON)
     VCOL = 0                                # 0365H: the input routine zeroes 40A6H (p20)
     RLCANCEL = 0
     RLWAIT = 1                              # a waiting read shows the cursor
@@ -740,6 +762,7 @@ function rl_read(repl,   c, r, s, oldl, oldp) {
         if (c == 9 && repl) { rl_complete(); continue }                               # TAB
         if (c == 27) { rl_arrow(repl == 1); continue }
         if (c >= 32 && c < 127 && oldl < RLMAX) {
+            if (swap) c = kb_case(c)
             RLS = substr(RLS, 1, RLP) CHR[c] substr(RLS, RLP + 1)
             RLP++
             rl_draw(oldl, oldp, RLP - 1)

@@ -99,6 +99,7 @@ or unshifted.
 | up / down arrow keys | command history at the `>` prompt (`history` lists it; per-session) |
 | PgUp / PgDn | page long output below the grid (Ctrl-B / Ctrl-F also work) |
 | TAB | filename completion at the `>` prompt and at `SYSTEM`'s `*?` — longest common prefix, candidates listed below the grid when ambiguous |
+| a letter key | reaches a running program (`INKEY$`, `INPUT`, `LINE INPUT`) in the machine's case: unshifted is upper case, SHIFT+letter lower, as the Model I keyboard sent them, and the echo shows what the program got. The `>` prompt and `SYSTEM`'s `*?` keep what you type; piped input is byte for byte |
 
 The arrow-key line editor, history, and TAB completion are of course
 **EXT** — 1978 gave you SHIFT-left-arrow and resignation. One tuning knob:
@@ -133,6 +134,7 @@ ever colliding with a period program.
 | `man <keyword>` | syntax + example for any BASIC word, case-insensitive (`man print`, `man MID$`) |
 | `help <text>` | search: exact name shows the page; otherwise every command whose name *or* man text matches, case-insensitive. `help meta`, `help keys` are special pages |
 | `ext on\|off` | the gated-extensions switch (see Part IV); bare `ext` shows state |
+| `exit` (or `bye`) | leave the interpreter, as `BYE` does; the terminal is restored |
 | `fullscreen on\|off` | stream output with the terminal's own scrollback instead of the captive 64x16 grid; graphics addressing is unchanged either way |
 | `speed <mhz>` | throttle execution to a period pace (`speed 1.77` ≈ a real Model I); `speed 0` = full host speed. A feel knob, not a cycle-accurate emulator |
 | `sound on\|off`, `sound wav <path>\|off` | machine-code sound: the cassette-port pulses a `USR` routine makes, played live through the core's player and/or written to a WAV file; bare `sound` shows the state. Needs the Z80 core; BASIC's own `OUT 255` stays silent |
@@ -919,6 +921,9 @@ INPUT ["prompt";] var[,var...]   read values typed at the keyboard
   Waits for a line and ENTER.  The prompt is followed by ; and BASIC
   adds "? " behind it; a , there is ?SN, as on the machine (LINE INPUT
   takes only ; too).
+  At a terminal a letter is read in the machine's case -- an unshifted
+  key is upper case, SHIFT + letter lower -- and echoed so; piped input
+  is taken byte for byte.  LINE INPUT reads the same way.
   Several variables may be read at once, and the user separates the
   values with commas.  Too few values re-prompts with ?? ; a value of
   the wrong type gives ?REDO and asks again, from the first value --
@@ -1535,6 +1540,8 @@ BYE   leave the interpreter and return to the shell
   interpreter puts the keyboard into raw mode while running.
   If a session is killed abnormally instead and the terminal is left
   strange, run:  stty sane
+  The lower-case metacommands exit and bye do the same thing at the
+  READY prompt (see: man exit).
   Example: BYE
 ```
 
@@ -2658,6 +2665,11 @@ INKEY$   the key being pressed right now, or "" if none
   key produces 127.  Keys the TRS-80 does not have -- PgUp, the function
   keys -- return nothing.
     IF K$=CHR$(8) THEN X=X-1          ' left arrow
+  A letter arrives in the machine's case: an unshifted key is upper
+  case and SHIFT + letter is lower, as the Model I keyboard sends them,
+  so typing q at a terminal gives "Q" and period programs that test
+  IF K$="Q" answer to the plain key.  (INPUT reads the same way; a line
+  typed at the READY prompt keeps its case.)
   NEEDS THE INTERACTIVE MODE.  Batch mode (./basic prog.bas piped, or
   ./basic --batch prog.bas) turns the raw keyboard off, so INKEY$ there
   reads whole lines from stdin instead of single keypresses -- your keys
@@ -2820,6 +2832,18 @@ spaced            report the current state
   Metacommand: lowercase only.
   Example: spaced on
   Example: spaced            -> SPACED OFF (LIST shows each line as stored, ...)
+```
+
+#### exit
+
+```text
+exit   leave the interpreter and return to the shell
+  bye does the same thing (man BYE: the lookup takes either case).
+  What BYE does, as a metacommand: the terminal is restored on the way
+  out.  Typed at the READY prompt only; in a program, EXIT and BYE are
+  what Level II makes of them (BYE is the statement; EXIT is ?SN).
+  Metacommand: lowercase only.
+  Example: exit
 ```
 
 #### fullscreen

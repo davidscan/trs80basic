@@ -20,7 +20,10 @@ terminal emulator gives it, and checks:
   4. INPUT takes a line with a period in it through the line editor,
      and the editor refuses the 241st character, as the ROM's does;
   4d. BREAK at SYSTEM's *? is READY with no message, CONT state kept;
-  5. BYE exits;
+  4a. a letter typed at a terminal reaches INPUT, LINE INPUT and INKEY$ in
+     the machine's case (unshifted upper, SHIFT lower), echoed so, and a
+     line typed at READY keeps its case;
+  5. `exit` (the lower-case metacommand, as BYE) leaves;
   6. in a second session, the kitty keyboard protocol (TRS80_KBPROTO=1,
      the pty playing a terminal that answers the query): a key is down
      from its press byte until its release event, chords OR together,
@@ -220,16 +223,16 @@ def protocol(check):
     b.drain(0.3)
     b.send(b'a\x1b[97;1:2u\x1b[97;1:2u\x1b[97;1:2u\x1b[97;1:3u', 0.4)
     got = numbers(b.drain(0.2))
-    check(got == ['97'], 'INKEY$ gets one byte for a press with three repeats', ' '.join(got))
+    check(got == ['65'], 'INKEY$ gets one byte for a press with three repeats', ' '.join(got))
     # iTerm2 sends a plain key's repeats as the plain byte again, no event
     # (measured at a real terminal): they are dropped until the key's release
     b.send(b'aaaa', 0.3)
     b.send(b'aa', 0.3)
     got = numbers(b.drain(0.2))
-    check(got == ['97'], 'INKEY$ gets one byte for a press with plain repeat bytes', ' '.join(got))
+    check(got == ['65'], 'INKEY$ gets one byte for a press with plain repeat bytes', ' '.join(got))
     b.send(b'\x1b[97;1:3ua\x1b[97;1:3ua', 0.4)
     got = numbers(b.drain(0.2))
-    check(got == ['97', '97'], 'after its release the key types again', ' '.join(got))
+    check(got == ['65', '65'], 'after its release the key types again', ' '.join(got))
     b.send(b'b\x1b[98;1:3ub\x1b[98;1:3u', 0.4)
     b.drain(0.2)
     b.send(b'\r\r\t\t', 0.4)
@@ -238,7 +241,7 @@ def protocol(check):
     b.send(b'x', 3.3 if has_clock() else 4.3)     # no release follows; KP_STUCK is 2 (x SLOW)
     b.send(b'x', 0.3)
     got = numbers(b.drain(0.2))
-    check(got == ['120', '120'], 'a key whose release was lost types again once quiet for KP_STUCK', ' '.join(got))
+    check(got == ['88', '88'], 'a key whose release was lost types again once quiet for KP_STUCK', ' '.join(got))
     b.send(b'\x03', 0.5)
     log.append(b.drain())
     b.send('BYE\r', 0.5)
@@ -322,7 +325,7 @@ def split_event(check):
         b.send(b'a' + cut, 0.02)
         b.send(rest + b'b\x1b[98;1:3u', 0.35)             # b released too, or the next b is its repeat
         got = numbers(b.drain(0.2))
-        check(got == ['97', '98'], 'a release cut after %r is no key, and b arrives' % cut,
+        check(got == ['65', '66'], 'a release cut after %r is no key, and b arrives' % cut,
               ' '.join(got) or '(nothing)')
     b.send(b'\x1b', 0.4)                            # a lone ESC is still a key, only later
     # later by KP_CUTMS with gawk's clock, but 1-2 s by systime() without it
@@ -848,7 +851,7 @@ def inkey_and_matrix(check):
         b.send(b'\x03', 0.5)
         out += b.drain()
         got = flat(out.split('BREAK')[0]).split()
-        check([t for t in got if t.isdigit()] == [str(ord(k)) for k in 'abcdefgh'],
+        check([t for t in got if t.isdigit()] == [str(ord(k.upper())) for k in 'abcdefgh'],
               'INKEY$ beside a matrix PEEK gets every key once, in order (%s)'
               % ('release protocol' if answer else 'timed latch'), out)
         # the other way round: a key INKEY$ read is down on the matrix too,
@@ -864,7 +867,7 @@ def inkey_and_matrix(check):
             out += b.drain(0.1, 1)
         b.send(b'\x03', 0.5)
         out += b.drain()
-        check('K 91  8 ' in out and 'K 97  2 ' in out,
+        check('K 91  8 ' in out and 'K 65  2 ' in out,
               'a key INKEY$ read is down on the matrix for the next PEEK (%s)'
               % ('release protocol' if answer else 'timed latch'), out)
         b.send('BYE\r', 0.5)
@@ -894,7 +897,7 @@ def main():
         b.send(k, 0.15)
     b.send(b'\x03', 0.5)
     out = b.drain()
-    check('97 46 90 32 91 13 27 24 9 10 8 ' in flat(out) + ' ' and ' 53 ' not in flat(out)
+    check('65 46 122 32 91 13 27 24 9 10 8 ' in flat(out) + ' ' and ' 53 ' not in flat(out)
           and ' 126 ' not in flat(out) and ' 127 ' not in flat(out),
           'INKEY$ bytes in order (a . Z space up ENTER ESC PgUp shift-left right down Delete)', out)
     check('BREAK IN 10' in out, 'Ctrl-C breaks the INKEY$ loop', out)
@@ -1005,9 +1008,27 @@ def main():
     # 4. INPUT with a period, through the line editor
     b.send('NEW\r10 INPUT "NAME";A$:PRINT "["A$"]"\rRUN\r', 0.6)
     b.drain(0.3)
-    b.send('A.BX\x7f\r', 0.5)                          # ... and Delete still backspaces
+    b.send('a.bx\x7f\r', 0.5)                          # ... and Delete still backspaces
     out = b.drain()
     check('[A.B]' in out, 'INPUT returns a line with a period; Delete erased the X', out)
+
+    # 4a. a letter is read in the machine's case (Farvour 0410H-041AH; Q-4,
+    # ruled 2026-10-03): an unshifted key is upper case, SHIFT + letter lower,
+    # the echo shows what the program got, and INKEY$ (1 above) agrees.  Not
+    # at READY: a lower-case metacommand still works there (5 below).
+    b.send('RUN\r', 0.6)
+    b.drain(0.3)
+    b.send('hello World 7\r', 0.5)
+    out = b.drain()
+    check('[HELLO wORLD 7]' in out, 'INPUT reads an unshifted letter as upper case and a shifted one as lower', out)
+    b.send('NEW\r10 LINE INPUT "L";A$:PRINT "["A$"]"\rRUN\r', 0.6)
+    b.drain(0.3)
+    b.send('ok Then\r', 0.5)
+    out = b.drain()
+    check('[OK tHEN]' in out, 'LINE INPUT reads letters in the machine\'s case too', out)
+    b.send('NEW\rPRINT "abc"\r', 0.5)
+    out = b.drain()
+    check('\r\nabc\r\n' in out, 'a line typed at READY keeps its case', out)
 
     # 4c. the editor repaints from the key typed, not the whole line: the
     # echo of an answer edited with three backspaces is a few bytes a key.
@@ -1017,12 +1038,12 @@ def main():
     # backspace steps left, a character overwrites.
     b.send('NEW\r10 INPUT A$:PRINT "["A$"]"\rRUN\r', 0.6)
     b.drain(0.3)
-    b.send('ABCDEFGH' + '\x7f' * 3 + 'XYZ', 0.5)
+    b.send('abcdefgh' + '\x7f' * 3 + 'xyz', 0.5)
     echo = b.drain(0.3)
     b.send('\r', 0.5)
     out = b.drain()
     check('[ABCDEXYZ]' in out, 'the answer edited with backspaces', out)
-    check(played(echo) == 'ABCDEXYZ', 'the echo draws the edited line', echo)
+    check(played(echo) == 'ABCDEXYZ', 'the echo draws the edited line, in the case the program got', echo)
     check(len(echo) <= 40, 'the echo is a few bytes a key, not a repaint per key (%d bytes)' % len(echo), echo)
 
     # 4b. the line editor refuses the 241st character (the ROM's 0361H limit)
@@ -1054,10 +1075,19 @@ def main():
           and 'EIGHT' not in out and 'READY' in out,
           'SYSTEM X in a program prompts, and BREAK ends the program quietly', out)
 
-    # 5. BYE
-    b.send('BYE\r', 0.5)
+    # 5. exit: the lower-case metacommand leaves, as BYE does (the user,
+    # 2026-10-21); the case swap above never reaches READY
+    b.send('exit\r', 0.5)
     b.drain(0.3, 2)
-    b.close()
+    gone = False
+    for _ in range(40):
+        if os.waitpid(b.pid, os.WNOHANG)[0] == b.pid:
+            gone = True
+            break
+        time.sleep(0.1 * SLOW)
+    check(gone, '`exit` at READY leaves the interpreter', 'still running')
+    if not gone:
+        b.close()
 
     # 6. the release protocol
     protocol(check)

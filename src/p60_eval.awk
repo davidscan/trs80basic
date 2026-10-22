@@ -892,15 +892,16 @@ function usr_stub_notice(   i, s) {
 
 function fn_inkey(   c, raw) {
     if (CK == "I" && !TTYIN) return "S"
-    if (TTYIN && (c = km_unread()) >= 0) { BRKFORCE = 0; return "S" CHR[c] }   # the matrix took it (p30)
+    if (TTYIN && (c = km_unread()) >= 0) { BRKFORCE = 0; return "S" CHR[kb_case(c)] }   # the matrix took it (p30)
     c = kb_poll1()
     if (c == 3) { if (brk_take()) PENDBRK = 1; return "S" }   # the BREAK vector (p30)
     if (c < 0) return "S"
     BRKFORCE = 0
-    # at a terminal an arrow key is the Model I's one byte, not ESC [ A, and
-    # Delete is the left arrow (p30 kb_termkey); piped input is a byte
-    # stream and stays as sent
-    if (TTYIN) { raw = c; c = kb_termkey(c); if (c < 0) return "S"; km_inkey_down(c, raw) }
+    # at a terminal an arrow key is the Model I's one byte, not ESC [ A,
+    # Delete is the left arrow (p30 kb_termkey), and a letter is in the
+    # machine's case (kb_case: unshifted upper, SHIFT lower); piped input
+    # is a byte stream and stays as sent
+    if (TTYIN) { raw = c; c = kb_termkey(c); if (c < 0) return "S"; km_inkey_down(c, raw); c = kb_case(c) }
     return "S" CHR[c]
 }
 
