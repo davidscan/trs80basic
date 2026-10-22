@@ -64,9 +64,10 @@ def _paren_splice(body, i):
     compares correctly, so a spliced literal is wrapped when it starts an
     expression: after a keyword or operator token, one of ( , ; :, or at the
     start of the line.  Not after INPUT, whose prompt must be a literal
-    (neither form is one; the plain splice is what this interpreter
-    accepts), and not where it stands next to a PRINT item (A$"..." or
-    X)"..."), where the parenthesis would subscript the item before it.
+    (neither form is one, so the listing does not run as the original
+    did: keep such a program as its tokenized image), and not where it
+    stands next to a PRINT item (A$"..." or X)"..."), where the
+    parenthesis would subscript the item before it.
     """
     j = i + 1
     while j < len(body) and body[j] != QUOTE:
