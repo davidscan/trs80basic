@@ -5956,25 +5956,30 @@ function runtext(ln) { return (ln in ESC) ? pm_detok(ESC[ln], 1) : prog[ln] }
 # the same tokens since keywords cut names, 2026-09-25; the space is for
 # the reader and for tools/detok.py's identical rendering).  A CR or LF -- legal in a
 # stored body, impossible in a text line -- becomes a space, or inside a
-# non-DATA string the equivalent "+CHR$(n)+" splice.  Those rewrites touch
+# non-DATA string the "+CHR$(n)+" splice, the literal in parentheses where
+# it starts an expression (spl_paren).  Those rewrites touch
 # only this text; the image is built from the escrowed bytes.  With raw set
 # the byte stays in its string: that is the text a loaded line RUNS from
 # (runtext), so the literal is ONE literal, as the ROM's LET sees it -- its
 # descriptor then points into the line (lit_bind), where the splice would
 # have built a joined string at the top of memory (Isolate's M$, 2026-09-23).
-function pm_detok(body, raw,   out, i, n, b, c, ins, ind, lit, kw, nxt) {
+function pm_detok(body, raw,   out, i, n, b, c, ins, ind, lit, kw, nxt, par) {
     if (!TOKIDX) pm_init_index()
-    out = ""; i = 1; n = length(body); ins = 0; ind = 0; lit = 0
+    out = ""; i = 1; n = length(body); ins = 0; ind = 0; lit = 0; par = 0
     while (i <= n) {
         c = substr(body, i, 1); b = ORD[c]
         if (lit) { out = out ((b == 10 || b == 13) ? " " : c); i++; continue }
         if (ins) {
             if (!raw && (b == 10 || b == 13)) { out = out (ind ? " " : "\"+CHR$(" b ")+\""); i++; continue }
             out = out c
-            if (b == 34) ins = 0
+            if (b == 34) { ins = 0; if (par) { out = out ")"; par = 0 } }
             i++; continue
         }
-        if (b == 34) { ins = 1; out = out c; i++; continue }
+        if (b == 34) {
+            ins = 1
+            if (!raw && !ind && spl_paren(body, i)) { out = out "("; par = 1 }
+            out = out c; i++; continue
+        }
         if (ind) {
             if (b == 10 || b == 13) { out = out (raw ? c : " "); i++; continue }
             if (b == 58) ind = 0
@@ -6001,7 +6006,33 @@ function pm_detok(body, raw,   out, i, n, b, c, ins, ind, lit, kw, nxt) {
         }
         out = out c; i++
     }
+    if (par) out = out "\")"
     return out
+}
+
+# a string holding a CR or LF is written as a concatenation, "a"+CHR$(13)+"b",
+# and a concatenation on a string comparison's right side is bug 21 (e_rel,
+# p60): X$=""+CHR$(13)+"" is ?SN when true.  In parentheses it is a whole
+# operand, read to its ")" before the comparison resumes (Farvour 2343H),
+# and compares right.  So the literal opening at body[i] is wrapped when it
+# starts an expression: after a token (not INPUT, whose prompt must be a
+# literal, nor ERL ERR TIME$ MEM INKEY$, which a PRINT item can stand next
+# to), after ( , ; : or at the line's start; never after a name, a number
+# or ), where "(" would subscript the item before it.  tools/detok.py's
+# _paren_splice is the same rule.
+function spl_paren(body, i,   j, n, c, p) {
+    n = length(body)
+    for (j = i + 1; j <= n; j++) {
+        c = ORD[substr(body, j, 1)]
+        if (c == 34) return 0
+        if (c == 10 || c == 13) break
+    }
+    if (j > n) return 0
+    for (j = i - 1; j >= 1 && substr(body, j, 1) == " "; j--) ;
+    if (j < 1) return 1
+    p = ORD[substr(body, j, 1)]
+    if (p >= 128) return p != 137 && p != 194 && p != 195 && p != 199 && p != 200 && p != 201
+    return index("(,;:", substr(body, j, 1)) > 0
 }
 
 # the text LIST, LLIST, SAVE and CSAVE show for line ln: its stored bytes
@@ -6025,16 +6056,18 @@ function pm_detok(body, raw,   out, i, n, b, c, ins, ind, lit, kw, nxt) {
 # a letter or digit follows, as pm_detok spaces, outside strings and REM
 # text.  Mode "f" is SAVE's text: a CR or
 # LF byte (only an image line can hold one) cannot stand in a text line,
-# so inside a string it becomes the "+CHR$(n)+" splice and elsewhere a
+# so inside a string it becomes the "+CHR$(n)+" splice (the literal in
+# parentheses where spl_paren allows them) and elsewhere a
 # blank, as pm_detok renders it, and an empty body (an image can hold one;
 # LIST shows "3 ") is written as REM, since a bare number loads back as a
 # deletion.  Those are the only places SAVE + reLOAD cannot give back the
 # stored bytes.  The quote tracking serves those two
 # modes only; the expansion itself stays the ROM's.
-function pm_list(ln, mode,   out, j, b, ins, ind, lit, kw, nb) {
+function pm_list(ln, mode,   out, j, b, ins, ind, lit, kw, nb, par, bs) {
     if (!TOKIDX) pm_init_index()
     pm_body(ln)
-    out = ""; ins = 0; ind = 0; lit = 0
+    out = ""; ins = 0; ind = 0; lit = 0; par = 0
+    if (mode == "f") { bs = ""; for (j = 1; j <= PMBN; j++) bs = bs CHR[PMB[j]] }
     for (j = 1; j <= PMBN; j++) {
         b = PMB[j]
         if (b < 128 || !(b in TOKW)) {
@@ -6042,7 +6075,11 @@ function pm_list(ln, mode,   out, j, b, ins, ind, lit, kw, nb) {
                 out = out ((ins && !ind && !lit) ? "\"+CHR$(" b ")+\"" : " ")
                 continue
             }
-            if (b == 34 && !lit) ins = !ins
+            if (b == 34 && !lit) {
+                ins = !ins
+                if (ins && mode == "f" && !ind && spl_paren(bs, j)) { out = out "("; par = 1 }
+                else if (!ins && par) { out = out CHR[b] ")"; par = 0; continue }
+            }
             else if (b == 58 && !ins && !lit) ind = 0
             out = out CHR[b]; continue
         }
@@ -6060,6 +6097,7 @@ function pm_list(ln, mode,   out, j, b, ins, ind, lit, kw, nb) {
             else if (b == 136) ind = 1
         }
     }
+    if (par) out = out "\")"    # the line ended inside the wrapped string
     if (mode == "f") return (out == "") ? "REM" : out    # "3 " would load back as a deletion
     return substr(out, 1, 255)
 }

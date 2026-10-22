@@ -13,7 +13,8 @@
 #   3. CSAVE writes each line as the ROM's LIST shows it (no blank added,
 #      ELSE without its colon, ' without :REM: audit BL-13), with the two
 #      rewrites a text file needs: a CR in a string is the CHR$(13) splice,
-#      an empty body is REM; LIST shows the empty body as "3 "; the EXT
+#      in parentheses where it starts an expression, so a comparison against
+#      it still compares (bug 21; line 266), an empty body is REM; LIST shows the empty body as "3 "; the EXT
 #      `spaced` switch spaces LIST and LLIST only; SAVE + reLOAD of a
 #      compressed image gives back its bytes;
 #   4. CLOAD? verifies the loaded program against the same image;
@@ -54,6 +55,8 @@ lines = [
     #     DATA token, 136) and N+16 its CR (13) -- the byte detok cannot keep
     (264, b'N\xd5\xe5(16548)\xcd256\xcf\xe5(16549):\xb2"PAY";\xe5(N\xcd9\xcd4);\xe5(N\xcd9\xcd4\xcd3)'),
     (265, b'\xb2"DONE"'),
+    # 266 A$=CHR$(13):IFA$<>"<CR>"THENPRINT"NE":ELSEPRINT"EQ"
+    (266, b'A$\xd5\xf7(13):\x8fA$\xd6\xd4"\x0d"\xca\xb2"NE":\x95\xb2"EQ"'),
 ]
 base = 0x42E9
 addr = base
@@ -79,7 +82,8 @@ A
 B
  1 
 PAY 136  13 
-DONE'
+DONE
+EQ'
 [ "$rc" = "0" ] || fail "batch run rc=$rc" "$out
 $err"
 [ "$out" = "$want" ] || fail "batch run output" "$(printf '%s' "$out" | od -c | head -20)"
@@ -109,14 +113,18 @@ want='1 GOTO259
 3 REM
 259 FORI=1TO3:A=A+I:NEXT
 260 IFA=6THENPRINT"SUM OK"ELSEPRINT"SUM BAD"
-261 PRINT"A"+CHR$(13)+"B":REM LF HERE
+261 PRINT("A"+CHR$(13)+"B"):REM LF HERE
 262 PRINTLEN("X"):'"'"' TICK
 263 DATA 1, 2
 264 N=PEEK(16548)+256*PEEK(16549):PRINT"PAY";PEEK(N+9+4);PEEK(N+9+4+3)
-265 PRINT"DONE"'
+265 PRINT"DONE"
+266 A$=CHR$(13):IFA$<>(""+CHR$(13)+"")THENPRINT"NE"ELSEPRINT"EQ"'
 got=$(grep -v '^2 ' "$tmp/text.bas")
 [ "$got" = "$want" ] || fail "detokenized text" "$got"
 grep -q '^2 ' "$tmp/text.bas" || fail "payload line missing from the text"
+# the text runs the comparison as the image does (unwrapped it was ?SN)
+got=$(TRS80_DUMB=1 "$here/basic" "$tmp/text.bas" 2>&1 </dev/null | tail -1)
+[ "$got" = "EQ" ] || fail "the CSAVEd text's comparison" "$got"
 
 # --- 3b: LIST shows the stored text as the ROM's LIST does (audit BL-13):
 # no blank added, the empty body as "3 "; the EXT `spaced on` (metacommand,
@@ -179,7 +187,7 @@ check_changed 'NEW' empty                    # NEW clears it
 # --- 6: a desync stops the walk with a ?FD line, LOADBAD makes batch exit 2
 out=$(TRS80_DUMB=1 "$here/basic" "$tmp/trunc.bas" 2>&1 </dev/null); rc=$?
 [ "$rc" = "2" ] || fail "truncated image rc=$rc" "$out"
-printf '%s' "$out" | grep -q 'FD ERROR - FILE LINE 10 (UNTERMINATED LINE)' || fail "truncated image message" "$out"
+printf '%s' "$out" | grep -q 'FD ERROR - FILE LINE 11 (UNTERMINATED LINE)' || fail "truncated image message" "$out"
 
 # --- 7: a one-byte-short 00 00 end marker is a COMPLETE program.  A tail of
 # NUL is a harmless truncation of the marker itself; tools/detok.py has

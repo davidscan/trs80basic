@@ -81,11 +81,23 @@ eq(expand(b'\x88 "a:b",\xb2', TBL), b'DATA "a:b",\xb2', "a colon inside a quoted
 
 # --- documented rewrites --------------------------------------------------
 
-eq(expand(b'\xb2"a\rb"', TBL), b'PRINT"a"+CHR$(13)+"b"', "newline in a string becomes a CHR$ splice")
+eq(expand(b'\xb2"a\rb"', TBL), b'PRINT("a"+CHR$(13)+"b")', "newline in a string becomes a CHR$ splice, in parentheses")
+# The parentheses keep a comparison against the splice right: a concatenation
+# on a string comparison's right side is Level II's bug 21 (?SN when true).
+eq(expand(b'\x8fX$\xd5"\n"\xca10', TBL), b'IFX$=(""+CHR$(10)+"")THEN10', "a compared splice is wrapped")
+eq(expand(b'\x8fX$\xd6\xd4"\r":\x95\xb2', TBL), b'IFX$<>(""+CHR$(13)+"")ELSEPRINT', "after <> too")
+eq(expand(b'\xb2 ,"a\nb"', TBL), b'PRINT ,("a"+CHR$(10)+"b")', "after a comma, past a blank")
+# ...but not where the parenthesis would change the parse
+eq(expand(b'\x89"a\nb";N', TBL), b'INPUT"a"+CHR$(10)+"b";N', "an INPUT prompt keeps the plain splice")
+eq(expand(b'\xb2A$"a\nb"', TBL), b'PRINTA$"a"+CHR$(10)+"b"', "next to a name: A$( would be an array")
+eq(expand(b'\xb2\xc9"a\nb"', TBL), b'PRINTINKEY$"a"+CHR$(10)+"b"', "next to INKEY$")
+eq(expand(b'\xb2X)"a\nb"', TBL), b'PRINTX)"a"+CHR$(10)+"b"', "next to a closing parenthesis")
+eq(expand(b'\xb2"ab"', TBL), b'PRINT"ab"', "a string with no newline is untouched")
+eq(expand(b'\xb2"a\rb', TBL), b'PRINT("a"+CHR$(13)+"b")', "a string left open at the line's end is closed")
 # ...but never inside a DATA item: READ takes the text literally, so a splice
 # there lands as visible characters and breaks the item parse (?OD).
 eq(expand(b'\x88"a\rb",7', TBL), b'DATA"a b",7', "newline in a quoted DATA item becomes a space, not a splice")
-eq(expand(b'\x88"a\rb":\xb2"c\rd"', TBL), b'DATA"a b":PRINT"c"+CHR$(13)+"d"',
+eq(expand(b'\x88"a\rb":\xb2"c\rd"', TBL), b'DATA"a b":PRINT("c"+CHR$(13)+"d")',
    "a colon ends the DATA region and restores the splice")
 eq(expand(b'\x88"a\rb"', TBL, raw_newlines=True), b'DATA"a\rb"', "--raw-newlines wins in DATA strings too")
 eq(expand(b"\x8d100\n\x93x", TBL), b"GOTO100 REMx", "newline in statement position becomes a space")

@@ -29,7 +29,12 @@ TOK_DATA = 0x88
 TOK_REM = 0x93
 TOK_ELSE = 0x95
 TOK_APOS = 0xFB
+TOK_INPUT = 0x89
 NEWLINES = (0x0A, 0x0D)
+# ERL ERR TIME$ MEM INKEY$: a value with no argument list, so a quote after
+# one is a PRINT item standing next to it, not the start of an expression
+NOARG_FUNCS = (0xC2, 0xC3, 0xC7, 0xC8, 0xC9)
+EXPR_OPENERS = b"(,;:"
 MAX_LINE = 65529
 
 
@@ -46,6 +51,39 @@ def _alnum(byte):
 def _joins(byte):
     """True if `byte` would glue onto an adjacent alphanumeric keyword."""
     return _alnum(byte) or byte in (0x24, 0x2E, 0x23)  # $ . #
+
+
+def _paren_splice(body, i):
+    """True if the string opening at body[i] should be written in parentheses.
+
+    A CR/LF inside a string is spliced as "+CHR$(n)+", which makes the
+    literal a concatenation, and Level II's evaluator mishandles one on a
+    string comparison's right side ("X"=""+CHR$(13)+"" stops with ?SN when
+    true: the concatenation never updates the text pointer the comparison
+    resumes from).  A parenthesised concatenation is evaluated whole and
+    compares correctly, so a spliced literal is wrapped when it starts an
+    expression: after a keyword or operator token, one of ( , ; :, or at the
+    start of the line.  Not after INPUT, whose prompt must be a literal
+    (neither form is one; the plain splice is what this interpreter
+    accepts), and not where it stands next to a PRINT item (A$"..." or
+    X)"..."), where the parenthesis would subscript the item before it.
+    """
+    j = i + 1
+    while j < len(body) and body[j] != QUOTE:
+        if body[j] in NEWLINES:
+            break
+        j += 1
+    else:
+        return False
+    k = i - 1
+    while k >= 0 and body[k] == 0x20:
+        k -= 1
+    if k < 0:
+        return True
+    p = body[k]
+    if p >= 0x80:
+        return p != TOK_INPUT and p not in NOARG_FUNCS
+    return p in EXPR_OPENERS
 
 
 class DetokError(Exception):
@@ -81,6 +119,7 @@ def expand(body, table, unknown=None, stats=None, raw_newlines=False,
     in_string = False
     in_data = False
     literal_to_eol = False
+    paren = False
 
     while i < n:
         b = body[i]
@@ -101,7 +140,9 @@ def expand(body, table, unknown=None, stats=None, raw_newlines=False,
         if in_string:
             # Same problem inside a string literal, but here the byte is real
             # data, so splice it out as a concatenated CHR$() instead of
-            # dropping it -- "a"+CHR$(13)+"b" is exactly equivalent and loads.
+            # dropping it -- ("a"+CHR$(13)+"b") gives the same string and
+            # loads; the parentheses, where _paren_splice allows them, keep a
+            # comparison against it right.
             # UNLESS the string is a DATA item: READ never evaluates, so the
             # splice would land as literal text and break the item parse
             # ("AAA"+CHR$(10)+"BBB",7 -> ?OD).  A space is the only
@@ -121,11 +162,17 @@ def expand(body, table, unknown=None, stats=None, raw_newlines=False,
             out.append(b)
             if b == QUOTE:
                 in_string = False
+                if paren:
+                    out.append(0x29)
+                    paren = False
             i += 1
             continue
 
         if b == QUOTE:
             in_string = True
+            if not in_data and not raw_newlines and _paren_splice(body, i):
+                out.append(0x28)
+                paren = True
             out.append(b)
             i += 1
             continue
@@ -215,6 +262,10 @@ def expand(body, table, unknown=None, stats=None, raw_newlines=False,
         out.append(b)
         i += 1
 
+    if paren:
+        # the line ended inside the wrapped string (Level II lets a string
+        # run to the end of the line): close both
+        out += b'")'
     return bytes(out)
 
 
