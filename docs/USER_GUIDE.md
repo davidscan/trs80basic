@@ -953,8 +953,10 @@ INPUT ["prompt";] var[,var...]   read values typed at the keyboard
   prompts and waits for ENTER, as the ROM does; anything typed before
   ENTER is ?SN.  EXT (needs `ext on` / TRS80_EXT=1): typed text is
   discarded instead, and INPUT "PRESS ENTER" with no ";" is taken too.
-  EXT: the prompt may be a string expression (INPUT ""+CHR$(10)+"X";A);
-  Level II takes only a quoted literal there.
+  The prompt is a quoted literal; anything else behind the quote, as in
+  INPUT "A"+B$;X, is ?SN before the prompt shows, as on Level II.
+  EXT (needs `ext on` / TRS80_EXT=1): the prompt may be a string
+  expression, INPUT "AGE"+STR$(1);A, as later BASICs allow.
   EXT (needs `ext on` / TRS80_EXT=1): INPUT "prompt",var -- the later
   Microsoft BASICs' form -- is taken and drops the "? ", for a prompt
   that ends in its own punctuation.  Level II has no such form.

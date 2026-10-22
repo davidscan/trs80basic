@@ -105,4 +105,31 @@ out=$(printf '\n10 INPUT A;B\nRUN\n5,6\nPRINT A\n' | TRS80_DUMB=1 TRS80_Z80= gaw
 case $out in *EXTRA*) fail "INPUT A;B printed ?EXTRA" "$out" ;; esac
 case $out in *"?SN ERROR IN 10"*" 5 "*) ;; *) fail "INPUT A;B stores A then ?SN" "$out" ;; esac
 
+# a prompt is a bare literal: anything else behind the quote is ?SN at
+# 21D3H, before the prompt shows -- INPUT "A"+CHR$(10)+"B";X too.  EXT
+# (gated, audit R-4 re-ruled 2026-10-22): under ext on, a prompt
+# expression is taken, by INPUT and LINE INPUT alike.
+tmp=$(mktemp) || exit 2
+cat > "$tmp" <<'BAS'
+10 INPUT "AB"+CHR$(10)+"CD";X:PRINT "X=";X
+20 LINE INPUT "L"+STR$(5)+": ";C$:PRINT "C$=";C$
+BAS
+out=$(printf '7\nTEXT\n' | TRS80_Z80= "$here/basic" "$tmp" 2>&1)
+[ "$out" = "?SN ERROR IN 10" ] || fail "a prompt expression is ?SN" "$out"
+printf '20 LINE INPUT "L"+STR$(5)+": ";C$:PRINT "C$=";C$\n' > "$tmp"
+out=$(printf 'TEXT\n' | TRS80_Z80= "$here/basic" "$tmp" 2>&1)
+[ "$out" = "?SN ERROR IN 20" ] || fail "a LINE INPUT prompt expression is ?SN" "$out"
+cat > "$tmp" <<'BAS'
+10 INPUT "AB"+CHR$(10)+"CD";X:PRINT "X=";X
+20 LINE INPUT "L"+STR$(5)+": ";C$:PRINT "C$=";C$
+BAS
+out=$(printf '7\nTEXT\n' | TRS80_EXT=1 TRS80_Z80= "$here/basic" "$tmp" 2>&1)
+want="AB
+CD? 7
+X= 7 
+L 5: TEXT
+C\$=TEXT"
+[ "$out" = "$want" ] || fail "ext on takes a prompt expression" "$out"
+rm -f "$tmp"
+
 echo "INPUT OK"

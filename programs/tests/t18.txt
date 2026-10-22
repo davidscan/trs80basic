@@ -1,4 +1,5 @@
-REM t18: INPUT/LINE INPUT prompt expressions + DEFSTR
+REM t18: INPUT/LINE INPUT prompt expressions (EXT, ext on) + DEFSTR
+ext on
 10 INPUT ""+CHR$(62)+"NAME";A$
 20 PRINT "GOT ";A$
 30 INPUT "AGE"+STR$(1);B
@@ -10,6 +11,7 @@ BOB
 41
 some line text
 NEW
+ext off
 5 CLEAR 100
 10 DEFSTR A,S-U
 20 A="HELLO":S="WORLD":PRINT A;" ";S

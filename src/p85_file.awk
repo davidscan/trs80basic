@@ -360,7 +360,8 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         if (TY[CK, CP + 1] == "o" && TK[CK, CP + 1] == ";") {
             prompt = TK[CK, CP]; CP++
         } else {
-            # prompt expression, same as st_input
+            # prompt expression, same as st_input: ?SN unless ext on (EXT)
+            if (!EXTON) { raise(2); return }
             x = e_or(); if (E) return
             if (substr(x, 1, 1) != "S") { raise(13); return }
             prompt = substr(x, 2)
