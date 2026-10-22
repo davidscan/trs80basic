@@ -13,6 +13,11 @@ fail() { echo "Z80 CORE FIXTURE FAILED: $1"; [ -n "$2" ] && printf '%s\n' "$2"; 
 
 cat > "$tmp" <<'EOF2'
 10 F=0
+11 REM --- an integer array is one block, ascending, 2 bytes an element (R-8 step 3): LD HL,A%(0) / LD B,4 / LD DE,0 / add each LSB,MSB / DJNZ / EX DE,HL / JP 0A9AH
+12 DIM A%(3):A%(0)=1000:A%(1)=-1:A%(2)=300:A%(3)=7:P=VARPTR(A%(0)):P=P-65536*(P<0)
+13 FOR I=0 TO 21:READ B:POKE 31400+I,B:NEXT:POKE 31401,P-256*INT(P/256):POKE 31402,INT(P/256)
+14 DATA 33,0,0,6,4,17,0,0,126,131,95,35,126,138,87,35,16,246,235,195,154,10
+15 DEFUSR9=31400:X=USR9(0):IF X<>1306 THEN PRINT "FAIL integer array through VARPTR";X:F=1
 20 REM --- a DATA/POKE loader: CALL 0A7FH / ADD HL,HL / JP 0A9AH at 32000
 30 FOR I=0 TO 6:READ B:POKE 32000+I,B:NEXT
 40 DATA 205,127,10,41,195,154,10

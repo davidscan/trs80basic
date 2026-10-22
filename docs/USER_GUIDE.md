@@ -1808,6 +1808,8 @@ VARPTR(var)   address of a variable's storage
   Numeric: address of the value's bytes as the machine holds them, also
   live: an integer's 2 (low byte first), a single's 4, a double's 8
   (Microsoft binary format, exponent last), by the name's type.
+  A numeric array is one block, ascending, the first subscript fastest:
+  VARPTR(A%(1)) is VARPTR(A%(0))+2, so machine code can walk the array.
   The address is the ROM's 16-bit integer, so above 32767 it is NEGATIVE
   (65533 is -3), as on the machine; PEEK, POKE and USR all need it that
   way (their argument must be -32768..32767, else ?OV).

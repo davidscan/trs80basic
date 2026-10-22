@@ -6298,6 +6298,7 @@ function sp_materialize(tgt, isstr, nb,   len, need, base, j, dbase) {
     if (SSP == 0) SSP = HIMEM                     # first use this run
     if (!isstr) {
         if (tgt in VPDESC) return VPDESC[tgt]
+        if (substr(tgt, 1, 1) == "A") return sp_arrblock(tgt)
         need = (nb != "") ? nb : sp_nsize(tgt)
         if (SSP - need < 17131) { raise(7); return 0 }
         base = SSP - need + 1; SSP -= need
@@ -6340,6 +6341,34 @@ function sp_materialize(tgt, isstr, nb,   len, need, base, j, dbase) {
     SPK[dbase + 2] = tgt; SPT[dbase + 2] = "C"; SPV[dbase + 2] = int(base / 256)
     VPDESC[tgt] = dbase
     return dbase
+}
+
+# A numeric array is ONE block, its elements ascending, the first subscript
+# varying fastest, each element its type's size (2, 4 or 8), as the ROM
+# lays an array out when DIM or the first reference makes it (275CH-2780H
+# allocates and zeroes the whole array; Farvour's array entry: the header,
+# then the elements in order).  So VARPTR(A%(1)) is VARPTR(A%(0))+2 and
+# machine code can walk the array from VARPTR(A%(0)).  The first touch of
+# any element maps every element (R-8 Q1, ruled 2026-09-29); the block
+# stays where it is for the run (Q2: VARPTR stays stable; the ROM's
+# array region moves when a new simple variable is made, which is not
+# modelled).  Until 2026-10-22 each element was mapped alone as it was
+# first touched, descending: VARPTR(A%(1))-VARPTR(A%(0)) was -2 (the
+# 2026-09-26 audit, R-8 step 3).
+function sp_arrblock(tgt,   key, name, i, nd, vz, n, base, e, r, k, t, a, j, w) {
+    key = substr(tgt, 2); i = index(key, SUBSEP); name = substr(key, 1, i - 1)
+    nd = ADIM[name]; vz = (name in AVZ) ? AVZ[name] : vt_size(name, "")
+    n = 1; for (i = 1; i <= nd; i++) n *= ASZ[name, i] + 1
+    if (SSP - n * vz < 17131) { raise(7); return 0 }
+    base = SSP - n * vz + 1; SSP -= n * vz
+    for (e = 0; e < n; e++) {
+        k = name; r = e
+        for (i = 1; i <= nd; i++) { w = ASZ[name, i] + 1; k = k SUBSEP (r % w); r = int(r / w) }
+        t = "A" k; a = base + e * vz
+        for (j = 0; j < vz; j++) { SPK[a + j] = t; SPT[a + j] = "N" j }
+        VPDESC[t] = a; VPNB[t] = vz
+    }
+    return VPDESC[tgt]
 }
 
 # An assignment gave a VARPTRed string a value longer than the cells mapped
