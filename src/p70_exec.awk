@@ -828,6 +828,7 @@ function st_run(   n, f, keep, given) {
             else { raise(2); return }
         }
         if (!host_found(f)) return            # 54, File not found (p40)
+        if (!load_files(f, keep)) return      # closed first, or AO with R (p40)
         if (!prog_load(f, 0, keep)) { raise(22); return }
         run_start(0, keep)
         return

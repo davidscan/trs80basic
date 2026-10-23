@@ -2545,6 +2545,7 @@ function st_csave(   f) {
 }
 
 function save_prog(f,   i, ln) {
+    if (fio_busy(f)) { raise(70); return }      # an open file is not written over (BL-25, p85)
     if ((!WINNATIVE && f ~ /'/) || !host_writable(f)) { raise(22); return }
     printf "" > f
     for (i = 1; i <= NL; i++) { ln = LNS[i]; print ln " " pm_list(ln, "f") > f }
@@ -2748,9 +2749,22 @@ function st_load(   f, keep) {
         else { raise(2); return }
     }
     if (!host_found(f)) return
+    if (!load_files(f, keep)) return
     if (!prog_load(f, 0, keep)) { raise(22); return }
     if (keep) run_start(0, 1)
     else to_ready()
+}
+
+# The open files before a program is read in (Disk manual, LOAD and RUN):
+# without R they are all closed FIRST, so a file the program just wrote is
+# read whole; with R (and for MERGE) they stay open, and the file being read
+# must not be one of them -- it would be read short -- so that is AO, as
+# OPEN of an open file is.  SAVE and CSAVE refuse an open file the same
+# way (save_prog).  Until 2026-10-23 none of them looked (BL-25).
+function load_files(f, keep) {
+    if (!keep) { fio_closeall(); return 1 }
+    if (fio_busy(f)) { raise(70); return 0 }
+    return 1
 }
 
 # A file that is not there is Disk BASIC's 54, "File not found" (ERR=106),
@@ -2782,6 +2796,7 @@ function st_merge(   f) {
     f = parse_fname(); if (E) return
     if (f == "") { raise(21); return }
     if (!host_found(f)) return
+    if (!load_files(f, 1)) return
     if (!prog_load(f, 0, 0, 1)) { raise(22); return }
     HALT = 1
 }
@@ -5521,6 +5536,7 @@ function st_run(   n, f, keep, given) {
             else { raise(2); return }
         }
         if (!host_found(f)) return            # 54, File not found (p40)
+        if (!load_files(f, keep)) return      # closed first, or AO with R (p40)
         if (!prog_load(f, 0, keep)) { raise(22); return }
         run_start(0, keep)
         return
