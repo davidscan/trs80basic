@@ -70,8 +70,12 @@ done
 # with a terminal that does not echo.  So with a terminal on stdin the
 # launcher stays behind gawk and, on an exit status of 2 or more (gawk's
 # fatal is 2, a signal is 128+n), restores the modes it found, the cursor,
-# the main screen and the keyboard protocol.  Repeating that after a clean
-# exit 2 changes nothing.  Without a terminal on stdin it execs as before:
+# the main screen and the keyboard protocol -- but only when the modes are
+# not the ones it found: the interpreter's own exit path puts them back, and
+# the keyboard protocol and the grid come only with a raw tty, so after a
+# clean exit 2 (a usage error, a missing file) the pop and the screen switch
+# undid what was never done, a pop the shell's own push could pay for (the
+# 2026-09-30 audit, BL-23).  Without a terminal on stdin it execs as before:
 # a caller's timeout or alarm must land on gawk itself, not on a shell
 # that would die and leave gawk running.
 # The exact build, for --version and the `version` metacommand: git's
@@ -91,7 +95,7 @@ fi
 if [ -t 0 ] && tty0=$(stty -g 2>/dev/null) && [ -n "$tty0" ]; then
     gawk -b $tm -v "BUILDID=$bid" -f "$here/trs80basic.awk" -- "$@"
     rc=$?
-    if [ "$rc" -ge 2 ]; then
+    if [ "$rc" -ge 2 ] && [ "$(stty -g 2>/dev/null)" != "$tty0" ]; then
         stty "$tty0" 2>/dev/null || stty sane 2>/dev/null
         # "0" is off, as the interpreter reads it (p10 DUMB)
         if { [ -z "$TRS80_DUMB" ] || [ "$TRS80_DUMB" = 0 ]; } && [ -t 1 ]; then

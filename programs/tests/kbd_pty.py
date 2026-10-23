@@ -69,7 +69,8 @@ terminal emulator gives it, and checks:
      grid with no MEM SIZE?, INPUT from the live keyboard, and at END the
      grid stays up until a key, then exit 0;
      an error exits 1 with its message after the grid; --batch keeps a
-     terminal run a batch run; a missing file is batch's exit 2, no grid.
+     terminal run a batch run; a missing file is batch's exit 2, no grid,
+     and the launcher sends no restore it never needed (BL-23).
  18. a POKE into video memory draws its character and puts the terminal's
      cursor back where BASIC's is, at once, while the program runs on
      (s_touch; the 2026-09-30 audit's mutant B09 dropped it and no suite
@@ -843,6 +844,10 @@ def played_bas(check):
         out, st = run(d, ['nosuch.bas'])
         check(st == 2 and b'\x1b[?1049h' not in out and b'cannot read' in out,
               'a missing listing is exit 2 with no grid', repr(out[-300:]))
+        # the launcher's restore after a status of 2 is for a gawk that died
+        # mid-session; this exit was clean, nothing was pushed (BL-23)
+        check(b'\x1b[<u' not in out and b'\x1b[?1049l' not in out,
+              'a clean exit 2 pops no keyboard protocol and leaves no alt screen', repr(out[-300:]))
 
 
 def inkey_and_matrix(check):
