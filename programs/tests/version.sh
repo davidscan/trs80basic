@@ -28,6 +28,14 @@ if command -v git >/dev/null 2>&1 && d=$(git -C "$here" describe --tags --always
     if [ "$d" = "$v" ]; then [ "$out" = "$rel" ] || fail "at the tag, the release alone" "$out"
     else [ "$out" = "$rel (build $d)" ] || fail "past the tag, the build" "$out"; fi
 fi
+# the same checkout reached through a symlink names the same build: git
+# gives the top level's physical path, and the launcher compared it to the
+# logical one and dropped the build (BL-15)
+if command -v git >/dev/null 2>&1 && lk=$(mktemp -d) && ln -s "$here" "$lk/link"; then
+    out2=$(TRS80_Z80= "$lk/link/basic" --version 2>&1)
+    rm -f "$lk/link"; rmdir "$lk"
+    [ "$out2" = "$out" ] || fail "through a symlinked path, the same build" "$out2 / $out"
+fi
 # --version with anything else: still the version, exit 0
 out=$(TRS80_Z80= "$here/basic" --seed 1 --version 2>&1); [ "$out" = "$rel" ] || [ "${out%% (build*}" = "$rel" ] || fail "--version behind another option" "$out"
 # the metacommand, at the prompt, from a pipe

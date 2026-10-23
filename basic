@@ -79,7 +79,10 @@ done
 # with edits); outside one the interpreter names its release alone.
 # only when $here is ITSELF a checkout: from an unpacked release inside
 # some other repository, git would walk up and describe THAT repository
-if [ "$(git -C "$here" rev-parse --show-toplevel 2>/dev/null)" = "$here" ]; then
+# git names the top level by its PHYSICAL path, so $here is compared as one
+# too: reached through a symlink (macOS /tmp is /private/tmp) the two
+# spellings differed and the build id was lost (the 2026-09-30 audit, BL-15)
+if [ "$(git -C "$here" rev-parse --show-toplevel 2>/dev/null)" = "$(cd "$here" && pwd -P)" ]; then
     bid=$(git -C "$here" describe --tags --always --dirty 2>/dev/null)
 else
     bid=
