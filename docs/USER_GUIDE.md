@@ -386,7 +386,9 @@ Simulation notes, honestly labeled:
 - The cassette form `PRINT#-1` is not supported; channels are 1..15.
 - A fielded variable detaches from its buffer if you plainly assign to it —
   the same footgun as real hardware; the next GET re-attaches it.
-- Errors 24–31 (table above) all work with `ON ERROR GOTO`.
+- The file errors (51-70, the Disk BASIC numbers in Part II's error
+  list) are trapped by `ON ERROR GOTO` like any other: a missing file is
+  `ERR=106`, code 54.
 
 ### The OLLAMA channel (EXT)
 
@@ -516,8 +518,10 @@ because period programs poke at it:
   printer attached. The ROM driver vectors are honoured: `POKE 16414,141:
   POKE 16415,5` sends `PRINT` to the printer, `POKE 16422,88:POKE 16423,4`
   sends `LPRINT` to the screen, `POKE 16422,103:POKE 16423,0` silences it.
-- **`OUT` is an accepted no-op** (both expressions evaluate, the port write
-  does nothing); **`INP(255)`** reads the live video-mode port (127 in
+- **`OUT 255,v` sets the 32/64-column latch** (bit 3; `OUT 255,8` is 32
+  columns, `OUT 255,0` 64), as on the hardware; a write to any other port,
+  and bits 0-2 of port 255 (the cassette and its sound), does nothing.
+  **`INP(255)`** reads the live video-mode port (127 in
   64-character mode, 63 after `CHR$(23)`), every other port the open bus,
   255. **`USR`** has three states: with the companion Z80 core (checked
   out beside the interpreter as `../trs80_z80_core`, which the launcher

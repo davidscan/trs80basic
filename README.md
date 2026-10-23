@@ -100,6 +100,7 @@ Everything else is optional, needed only for the feature named:
 | dependency | needed for | without it |
 |---|---|---|
 | `python3` (standard library only) | the Z80 core and the scripts in `tools/` | no `USR` execution; no tools |
+| `timeout` (GNU coreutils; `brew install coreutils` on macOS) | `programs/examples/run_examples.sh`, and the `timeout 30` tip under Workflow | every example reports FAIL |
 | a checkout of [`trs80_z80_core`](https://github.com/davidscan/trs80_z80_core) beside this repo | running `USR` machine code | `USR` returns its argument, and the run ends with a stderr line naming the routines that did not execute |
 | a sound player: **ffplay** (part of FFmpeg), else `ffmpeg` on macOS, `aplay` or `pw-play` | hearing machine-code sound live (`sound on`) | no live sound; `sound wav out.wav` still records it |
 | `curl` and a running [Ollama](https://ollama.com) server with a model pulled | the `OLLAMA` channel | reading a reply raises `?FD` |
@@ -271,8 +272,9 @@ READY, `002BH` keyboard scan, `0049H` wait for a key, `0060H` delay,
 a character on the screen as `PRINT` puts it, `2B05H` WRA1 to DE, and
 `RST 08H` and `RST 18H` through their vectors at 4000H and 4006H); a call
 anywhere else in ROM space is a `?FC` with the address on stderr, since
-no ROM is shipped. Without the variable nothing changes: `USR` is the
-argument-returning stub described under "Not supported".
+no ROM is shipped. With no core (none beside the checkout, or `TRS80_Z80=`
+set empty) `USR` is the argument-returning stub described under "Not
+supported".
 
 **Load an archived program.** Most TRS-80 programs found online are
 tokenized images (binary, first byte `0xFF`). Since 2026-09-12 `CLOAD`,
@@ -401,8 +403,8 @@ before `--update`.
 - **Metacommands are lowercase.** `dir`, `man`, `help`, `fullscreen` are
   metacommands; `DIR` or `MAN` reach BASIC and give `?SN ERROR`. This keeps
   the two namespaces apart.
-- **`LOF` is for random files only.** On a sequential channel it raises `?BM`;
-  use `LOC(n)` for lines read or written.
+- **`LOF` counts 256-byte records**, on a sequential file as on a random
+  one (a 440-byte file is 2): `man LOF`.
 - **`ERR` is not the error code.** As on the real machine, `ERR/2+1` is the
   code (1 = NF, 2 = SN, 11 = /0, 54 = FF: the file errors carry Disk
   BASIC's own numbers, 51-70). `man ERR` lists them.
