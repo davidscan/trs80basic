@@ -70,6 +70,10 @@ terminal emulator gives it, and checks:
      grid stays up until a key, then exit 0;
      an error exits 1 with its message after the grid; --batch keeps a
      terminal run a batch run; a missing file is batch's exit 2, no grid.
+ 18. a POKE into video memory draws its character and puts the terminal's
+     cursor back where BASIC's is, at once, while the program runs on
+     (s_touch; the 2026-09-30 audit's mutant B09 dropped it and no suite
+     saw: the cursor stayed behind the poked character).
 
 Standard library only; run by run_all.sh when python3 is present (so CI
 exercises the tty reader on Linux, where it was not measured by hand).
@@ -620,6 +624,23 @@ def termsafe(check):
     check(not c1 and '\ufffd' not in s, 'screen mode passes no C1 control', repr(c1))
 
 
+def screen_poke(check):
+    """Scenario 18: a video POKE is drawn and the cursor goes back home."""
+    b = Basic(env={'TRS80_DUMB': '0'})
+    b.drain()
+    b.send('\r')                                       # MEMORY SIZE?
+    b.drain()
+    b.send('10 CLS:POKE 15360+64*8+10,65\r20 GOTO 20\rRUN\r', 1.0)
+    out = b.drain(1.0).split('RUN', 1)[-1]
+    b.send(b'\x03', 0.5)
+    b.drain()
+    b.close()
+    drawn = out.find('\x1b[9;11HA')
+    check(drawn >= 0, 'a POKE to 3C00H+8*64+10 draws A at row 9, column 11', out)
+    moves = re.findall(r'\x1b\[(\d+);(\d+)H', out[drawn:]) if drawn >= 0 else []
+    check(moves[-1:] == [('1', '1')], 'after it the cursor is back at BASIC\'s (home, after CLS)', out)
+
+
 def rows_of(raw):
     """Replay a capture's cursor moves and clears into 24 rows of text."""
     rows = [[' '] * 80 for _ in range(24)]
@@ -1124,6 +1145,9 @@ def main():
 
     # 17. basic game.bas at a terminal
     played_bas(check)
+
+    # 18. a video POKE puts the terminal's cursor back
+    screen_poke(check)
 
     if fails:
         print('kbd_pty.py: %d check(s) failed' % len(fails))

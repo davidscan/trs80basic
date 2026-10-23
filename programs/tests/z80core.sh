@@ -143,5 +143,27 @@ err=$(cat "$tmp.err")
 last=$(printf '%s\n' "$out" | tail -n 1)
 [ "$rc" = "0" ] && [ "$last" = "OK" ] && [ -z "$err" ] || fail "0033H/033AH against PRINT: rc=$rc" "$out
 $err"
+
+# the type a USR routine finds in A (40AFH; the call 27FE-2818, Farvour):
+# 32767 is an INTEGER as a constant and as an integer sum or difference,
+# 32768, 32767! and -32768 (the negation of the single 32768) are single.
+# The routine stores A at 7B00H (LD (7B00H),A / RET).  Nothing else
+# shows the type of 32767: the mutants that made it single at the
+# constant (tk_number) and at an integer result (tresult) passed every
+# suite (the 2026-09-30 audit, N-5's B92 and B73).
+cat > "$tmp" <<'EOF2'
+10 FOR I=0 TO 3:READ B:POKE 31400+I,B:NEXT:DEFUSR=31400
+20 DATA 50,0,123,201
+30 X=USR(32767):PRINT PEEK(31488);
+40 X=USR(32766+1):PRINT PEEK(31488);
+50 X=USR(32768):PRINT PEEK(31488);
+60 X=USR(16383+16384):PRINT PEEK(31488);
+70 X=USR(-32768):PRINT PEEK(31488);
+80 X=USR(32767!):PRINT PEEK(31488);
+90 A%=32766:X=USR(A%+1):PRINT PEEK(31488);
+100 X=USR(-32767-1):PRINT PEEK(31488)
+EOF2
+out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null)
+[ "$out" = " 2  2  4  2  4  4  2  2 " ] || fail "the type byte USR finds for 32767 and its neighbours" "$out"
 rm -f "$tmp" "$tmp.err"
 echo "Z80 CORE FIXTURE OK"
