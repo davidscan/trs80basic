@@ -1208,6 +1208,7 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
 # where a FIFO is read once and works (special.sh).
 function slurp_bytes(f,   save, r) {
     if (host_special(f)) { SLURPED = ""; return -1 }   # a socket or a descriptor, not a file (p90)
+    if (f == "") { SLURPED = ""; return -1 }           # `getline < ""` is a gawk fatal (BL-18)
     save = RS; RS = "^$"
     r = (getline SLURPED < f)
     RS = save

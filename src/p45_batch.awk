@@ -84,7 +84,10 @@ function parse_args(   i, a, nofl, host) {
         if (!nofl && (a == "-h" || a == "--help")) { OPT_HELP = 1; return 1 }
         if (!nofl && a == "--version") { OPT_VERSION = 1; return 1 }
         if (!nofl && a ~ /^-./) { ARGMSG = "unknown option " a; return 0 }
-        if (BATCHFILE != "") { ARGMSG = "only one program file may be given"; return 0 }
+        if (BATCH) { ARGMSG = "only one program file may be given"; return 0 }
+        # an empty name is a usage error: it reached `getline <` as a gawk
+        # fatal (the 2026-09-30 audit, BL-18)
+        if (a == "") { ARGMSG = "the program file name is empty"; return 0 }
         BATCHFILE = a; BATCH = 1
     }
     # the mode as p10 will set it: --memory, else TRS80_MEMORY (BL-29: the

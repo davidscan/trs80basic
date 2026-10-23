@@ -3041,6 +3041,7 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
 # where a FIFO is read once and works (special.sh).
 function slurp_bytes(f,   save, r) {
     if (host_special(f)) { SLURPED = ""; return -1 }   # a socket or a descriptor, not a file (p90)
+    if (f == "") { SLURPED = ""; return -1 }           # `getline < ""` is a gawk fatal (BL-18)
     save = RS; RS = "^$"
     r = (getline SLURPED < f)
     RS = save
@@ -3251,7 +3252,10 @@ function parse_args(   i, a, nofl, host) {
         if (!nofl && (a == "-h" || a == "--help")) { OPT_HELP = 1; return 1 }
         if (!nofl && a == "--version") { OPT_VERSION = 1; return 1 }
         if (!nofl && a ~ /^-./) { ARGMSG = "unknown option " a; return 0 }
-        if (BATCHFILE != "") { ARGMSG = "only one program file may be given"; return 0 }
+        if (BATCH) { ARGMSG = "only one program file may be given"; return 0 }
+        # an empty name is a usage error: it reached `getline <` as a gawk
+        # fatal (the 2026-09-30 audit, BL-18)
+        if (a == "") { ARGMSG = "the program file name is empty"; return 0 }
         BATCHFILE = a; BATCH = 1
     }
     # the mode as p10 will set it: --memory, else TRS80_MEMORY (BL-29: the
