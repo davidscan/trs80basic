@@ -29,9 +29,16 @@ fail=0
 log=$(mktemp) || exit 2
 trap 'rm -f "$log"' EXIT
 skipped=0
+notrun=0
 bad() { echo "FAIL: $*"; fail=$((fail+1)); }
-# a suite that printed SKIPPED passed without measuring what it is for
+# a suite that printed SKIPPED passed without measuring what it is for; one
+# that printed NOT RUN HERE left out a case this host cannot pose (root, a
+# case-sensitive disk), named here but never a failure (the 2026-09-30
+# audit, BL-36: such gates used to pass in silence)
 skip_check() {
+    if grep -q "NOT RUN HERE" "$log"; then
+        notrun=$((notrun+1)); echo "not run here: $1 ($(grep -m1 "NOT RUN HERE" "$log"))"
+    fi
     grep -q "SKIPPED" "$log" || return 0
     skipped=$((skipped+1))
     if [ -n "$TRS80_REQUIRE_CORE" ]; then bad "$1 (SKIPPED with TRS80_REQUIRE_CORE set)"; show "$1"
@@ -86,7 +93,8 @@ fixture() {
         bad "$b.bas (printed FIXTURE FAILED but exited 0)"; show "$b.bas"
     fi
 }
-for b in varptr intvarptr rawbytes alias literal inp out255 ifcomma intconv defint forstack pokerange mbfpoke round errcode cursor dataitem power using apostrophe controlflow functions types sngl trig intround bytearg bytedbl litexp nextelse rdscale prscale dblscale dbl56 romfn srange dataerr suffixblank cmdtr; do
+fixtures="varptr intvarptr rawbytes alias literal inp out255 ifcomma intconv defint forstack pokerange mbfpoke round errcode cursor dataitem power using apostrophe controlflow functions types sngl trig intround bytearg bytedbl litexp nextelse rdscale prscale dblscale dbl56 romfn srange dataerr suffixblank cmdtr"
+for b in $fixtures; do
     fixture env TRS80_Z80= ./basic "programs/tests/$b.bas"
 done
 lp=$(mktemp) || exit 2
@@ -96,7 +104,8 @@ rm -f "$lp"
 
 # 4. the shell suites (each pins its own core or stub; z80core, sound and
 # system skip their core parts without one, and skip_check counts that)
-for s in break devvec usr pmtrunc protocol z80 z80core sound tokload system tips_probe hostwrite termsafe special linelen clear memsize clearopt hints print input ready inputnum printcomma onerror ollama randfile using lof crunch auto notty corepath errline goto imgpoke lineedit numov numread inputitem freshline linecut dotline fname notfound inputcomma varptrsign varnames cont lineno name keyword tokens stmttail mem speed lineorder hostmem version lfrecord listform memexpr dosname metaexit strrel fileopen; do
+suites="break devvec usr pmtrunc protocol z80 z80core sound tokload system tips_probe hostwrite termsafe special linelen clear memsize clearopt hints print input ready inputnum printcomma onerror ollama randfile using lof crunch auto notty corepath errline goto imgpoke lineedit numov numread inputitem freshline linecut dotline fname notfound inputcomma varptrsign varnames cont lineno name keyword tokens stmttail mem speed lineorder hostmem version lfrecord listform memexpr dosname metaexit strrel fileopen"
+for s in $suites; do
     if bounded 300 sh "programs/tests/$s.sh" >"$log" 2>&1; then skip_check "$s.sh"; else bad "$s.sh"; show "$s.sh"; fi
 done
 # the protocol suite against the real core, whenever one is checked out beside
@@ -126,5 +135,17 @@ else
     echo "SKIPPED: tools/test_*.py and kbd_pty.py (no python3)" >"$log"; skip_check "python3 suites"
 fi
 
-if [ $fail -eq 0 ]; then echo "run_all: all passed, $skipped skipped"; exit 0; fi
-echo "run_all: $fail failed, $skipped skipped"; exit 1
+# every fixture and suite in programs/tests is one the lists above run: a
+# file added but never listed passed by never running (BL-36).  The rest
+# are named here: run_all itself, the transcript runner (part 2) and the
+# stubs and helpers the suites call.
+for f in programs/tests/*.bas programs/tests/*.sh programs/tests/*.py programs/tests/*.pl; do
+    n=${f##*/}; n=${n%.*}
+    case " $fixtures sysvar $suites run_all transcripts kbd_pty z80_stub ollama_stub bound " in
+        *" $n "*) ;;
+        *) bad "$f is never run (add it to run_all's lists, or to the helpers there)" ;;
+    esac
+done
+
+if [ $fail -eq 0 ]; then echo "run_all: all passed, $skipped skipped, $notrun not run here"; exit 0; fi
+echo "run_all: $fail failed, $skipped skipped, $notrun not run here"; exit 1

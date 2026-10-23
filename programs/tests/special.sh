@@ -31,6 +31,10 @@ PY
     [ -s "$d/port" ] && port=$(cat "$d/port")
 fi
 net="/inet/tcp/0/127.0.0.1/$port"
+# with no listener, "the listener saw no connection" (below) proves nothing
+if [ "$port" = 9 ]; then
+    echo "SPECIAL: the no-connection check SKIPPED (no listener: python3 missing or it did not start)"
+fi
 
 # every statement that takes a name, against the socket name: ?FD (22), trapped
 cat > t.bas <<BAS

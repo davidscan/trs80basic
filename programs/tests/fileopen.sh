@@ -36,6 +36,8 @@ if [ -e "$dir/caseprobe" ]; then
     sed 's|"./DATA"|"data"|' "$dir/t.bas" > "$dir/t2.bas" && mv "$dir/t2.bas" "$dir/t.bas"
     out=$(run)
     [ "$out" = "$want" ] || fail "KILL and OPEN of data while DATA is open (case-blind disk)" "$out"
+else
+    echo "NOT RUN HERE: the case-variant check (this disk is case-sensitive)"
 fi
 
 # a different file is still free

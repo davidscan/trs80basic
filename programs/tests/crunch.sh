@@ -57,6 +57,8 @@ if command -v python3 >/dev/null 2>&1; then
     want=$(python3 -c 'import sys; d=open(sys.argv[1],"rb").read()[1:]; print(" ".join(str(b) for b in d))' "$dir/out/l.bas")
     [ "$got" = "$want" ] || fail "tok.py and the interpreter's image differ" "interp: $got
 tok.py: $want"
+else
+    echo "CRUNCH: the tok.py half SKIPPED (no python3)"
 fi
 # 3. &H digits end where a keyword begins: the cruncher has made ELSE a
 # token before &H is read (1BC0-1C8F), so "&HFFELSE" -- how LIST shows

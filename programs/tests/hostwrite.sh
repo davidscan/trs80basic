@@ -37,6 +37,11 @@ check 'OPEN "R",1,"adir"'           'OPEN "R" onto a directory'
 check 'OPEN "O",1,"nodir/x.dat"'    'OPEN "O" into a missing directory'
 check 'OPEN "O",1,"OLLAMA:m:adir"'  'an OLLAMA thread whose transcript is a directory'
 # a read-only file: root may write it regardless, so only as an ordinary user
+# (and said, so a root run does not pass as though it had checked them:
+# the 2026-09-30 audit, BL-36)
+if [ "$(id -u)" = 0 ]; then
+    echo "NOT RUN HERE: the read-only file and refused-KILL cases (running as root)"
+fi
 if [ "$(id -u)" != 0 ]; then
     check 'SAVE "ro.bas"'           'SAVE onto a read-only file'
     check 'OPEN "E",1,"ro.bas"'     'OPEN "E" onto a read-only file'
