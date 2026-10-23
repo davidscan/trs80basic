@@ -2488,17 +2488,23 @@ function st_dir(args) {
 # an inner `sh -c`, so the scrub and the 2>&1 take every command in it: a
 # line of two (`cat a; echo b`) used to scrub only the last, and the first
 # one's bytes and errors reached the terminal raw (the 2026-09-30 audit,
-# BL-17).  No cap: the grid's below-grid region pages long output
-# (PgUp/PgDn / Ctrl-B/F).
-function pass_run(line,   cmd, outline, out) {
+# BL-17).  The output is cut at PASSCAP bytes: `cat /dev/zero` grew the
+# session's memory without end (BL-16).  The grid's below-grid region
+# pages what comes back (PgUp/PgDn / Ctrl-B/F).  A source that BLOCKS (a
+# FIFO, `cat -`) still holds the prompt until it ends: a pipe read gives
+# BREAK no way in.
+function pass_run(line,   cmd, outline, out, nb) {
+    PASSCAP = 1048576
     if (WINNATIVE) cmd = line " 2>&1"
-    else cmd = "sh -c " shq(line) " 2>&1 | LC_ALL=C tr -c '\\11\\12\\40-\\176' '.'"
-    out = ""
+    else cmd = "sh -c " shq(line) " 2>&1 | head -c " PASSCAP " | LC_ALL=C tr -c '\\11\\12\\40-\\176' '.'"
+    out = ""; nb = 0
     while ((cmd | getline outline) > 0) {
         if (WINNATIVE) gsub(/[^\t -~]/, ".", outline)   # best effort natively
         out = out (out != "" ? "\n" : "") outline
+        nb += length(outline) + 1
     }
     close(cmd)
+    if (!WINNATIVE && nb >= PASSCAP) out = out "\n(output cut at " PASSCAP " bytes)"
     t_man(out == "" ? "(no output)" : out)
 }
 

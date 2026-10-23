@@ -1,7 +1,8 @@
 #!/bin/sh
 # passthru.sh -- the dir and cat metacommands, keyboard-only shell
 # passthroughs (ruled 2026-08-12): what comes back is scrubbed to
-# printable ASCII, every command of the typed line included.  Self-checking: exits 1 on any mismatch.
+# printable ASCII, every command of the typed line included, and an
+# endless source is cut.  Self-checking: exits 1 on any mismatch.
 # Run from the repo root:  sh programs/tests/passthru.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
 dir=$(mktemp -d) || exit 2
@@ -26,5 +27,9 @@ case $out in *"nosuch.txt"*DONE*) ;; *) fail "the first command's error, in the 
 out=$(run "\ncat 'a b.txt'\ndir -d esc.txt\n")
 case $out in *"two words"*"esc.txt"*) ;; *) fail "a quoted name and an option" "$out" ;; esac
 
+# an endless source is cut, not read until memory runs out (BL-16)
+out=$(run '\ncat /dev/zero\nPRINT "BACK"\n'); rc=$?
+case $out in *"(output cut at 1048576 bytes)"*BACK*) ;; *) fail "cat /dev/zero is cut (rc=$rc)" "$(printf '%s' "$out" | tail -c 300)" ;; esac
+
 rm -rf "$dir"
-echo "OK -- dir and cat: scrubbed, every command"
+echo "OK -- dir and cat: scrubbed, every command, endless sources cut"
