@@ -297,14 +297,13 @@ function st_midset(   name, key, n, m, v, s, r, cnt) {
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    n = bfloor(num(v))
+    n = lenconv(num(v)); if (E) return     # as MID$()'s start: a byte (?OV outside the integers), any under `memory host`
     m = -1
     if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
         CP++
         v = e_or(); if (E) return
         if (!isN(v)) { raise(13); return }
-        m = bfloor(num(v))
-        if (m < 0 || (!HOSTMEM && m > 255)) { raise_host(5); return }   # any count under `memory host` (EXT)
+        m = lenconv(num(v)); if (E) return  # a byte, or any count under `memory host` (EXT)
     }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
     CP++
@@ -314,7 +313,6 @@ function st_midset(   name, key, n, m, v, s, r, cnt) {
     if (isN(v)) { raise(13); return }
     r = vstr(v)
     s = al_cur(name, key); if (E) return
-    if (!HOSTMEM && n > 255) { raise_host(5); return }     # any start under `memory host` (EXT), as MID$() (BM-10)
     if (n < 1 || n > length(s)) { raise(5); return }
     cnt = length(r)
     if (m >= 0 && m < cnt) cnt = m

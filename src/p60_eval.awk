@@ -659,11 +659,12 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc) {
         if (na == 2) { x = 1; s = a1; r = a2 }
         else if (na == 3) {
             if (!isN(a1)) { raise(13); return "NI0" }
-            x = bfloor(num(a1)); s = a2; r = a3
+            x = lenconv(num(a1)); if (E) return "NI0"   # a byte, as MID$()'s start (any under `memory host`)
+            s = a2; r = a3
         } else { raise(2); return "NI0" }
         if (isN(s) || isN(r)) { raise(13); return "NI0" }
         s = vstr(s); r = vstr(r)
-        if (x < 1 || (!HOSTMEM && x > 255)) { raise_host(5); return "NI0" }   # any start under `memory host` (EXT)
+        if (x < 1) { raise(5); return "NI0" }
         if (x > length(s)) return "NI0"
         if (r == "") return "NI" x
         i = index(substr(s, x), r)
