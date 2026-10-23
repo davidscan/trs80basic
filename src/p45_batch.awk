@@ -81,8 +81,11 @@ function parse_args(   i, a, nofl, host) {
         }
         if (!nofl && a == "--screen") { OPT_SCREEN = 1; continue }
         if (!nofl && a == "--batch") { OPT_BATCH = 1; continue }
-        if (!nofl && (a == "-h" || a == "--help")) { OPT_HELP = 1; return 1 }
-        if (!nofl && a == "--version") { OPT_VERSION = 1; return 1 }
+        # -h and --version are taken where they stand but the parse goes on:
+        # a usage error anywhere is one, whatever its order (`--bogus -h`
+        # errored and `-h --bogus` helped: the 2026-09-30 audit, N-4)
+        if (!nofl && (a == "-h" || a == "--help")) { OPT_HELP = 1; continue }
+        if (!nofl && a == "--version") { OPT_VERSION = 1; continue }
         if (!nofl && a ~ /^-./) { ARGMSG = "unknown option " a; return 0 }
         if (BATCH) { ARGMSG = "only one program file may be given"; return 0 }
         # an empty name is a usage error: it reached `getline <` as a gawk
@@ -98,7 +101,7 @@ function parse_args(   i, a, nofl, host) {
     return 1
 }
 
-# "trs80basic v1.4", with the build behind it when the launcher's git
+# "trs80basic v2.1.4", with the build behind it when the launcher's git
 # describe said more than the tag (p10 VERSION, BUILDID)
 function version_text() {
     return "trs80basic " VERSION ((BUILDID != "" && BUILDID != VERSION) ? " (build " BUILDID ")" : "")

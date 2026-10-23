@@ -16,4 +16,13 @@ case $out in *gawk*) fail "no gawk message for an empty file name" "$out" ;; esa
 out=$(TRS80_Z80= "$here/basic" "" "$here/programs/tests/types.bas" 2>&1 </dev/null); rc=$?
 [ "$rc" = "2" ] && case $out in "basic: the program file name is empty"*) true ;; *) false ;; esac || fail "an empty first name, then a file" "$out"
 
+# a usage error is one in any order: -h and --version no longer stop the
+# parse, so `-h --bogus` errors as `--bogus -h` did (N-4)
+for order in "-h --bogus" "--bogus -h" "--version --bogus"; do
+    out=$(TRS80_Z80= "$here/basic" $order 2>&1 </dev/null); rc=$?
+    [ "$rc" = "2" ] && case $out in "basic: unknown option --bogus"*) true ;; *) false ;; esac || fail "$order is a usage error (rc=$rc)" "$out"
+done
+out=$(TRS80_Z80= "$here/basic" --seed 1 -h 2>&1 </dev/null); rc=$?
+[ "$rc" = "0" ] && case $out in "Usage: basic "*) true ;; *) false ;; esac || fail "-h behind a good option still helps (rc=$rc)" "$out"
+
 echo "OK -- the command line"
