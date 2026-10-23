@@ -2749,7 +2749,8 @@ dir [args]   list files in the current directory
 cat <file...>   show the contents of one or more files
   Displays the files below the grid.  Bytes that are not printable text
   are shown as a full stop, so a tokenized or binary file can be
-  inspected without disturbing the terminal.
+  inspected without disturbing the terminal.  The whole typed line runs
+  in the shell and all of its output and errors are shown this way.
   Handy for checking a data file a program has just written without
   leaving the interpreter.
   The arguments go to the shell, so TAB completion on a cat or dir line

@@ -646,12 +646,21 @@ function st_sound(arg,   rest) {
 # Its output is scrubbed as cat's is: a file NAME can hold an escape
 # sequence, which printed raw could redraw or erase part of the screen
 # (the 2026-09-23 audit, L-9).
-function st_dir(args,   cmd, outline, out, n) {
-    if (WINNATIVE) cmd = "dir" (args == "" ? "" : " " args) " 2>&1"
-    else           cmd = "ls -al" (args == "" ? "" : " " args) " 2>&1 | LC_ALL=C tr -c '\\11\\12\\40-\\176' '.'"
-    out = ""; n = 0
-    # no cap: fullscreen streams to a scrolling terminal, and the grid's
-    # below-grid region pages long output (PgUp/PgDn / Ctrl-B/F)
+function st_dir(args) {
+    if (WINNATIVE) pass_run("dir" (args == "" ? "" : " " args))
+    else           pass_run("ls -al" (args == "" ? "" : " " args))
+}
+
+# The one runner behind dir and cat.  The typed line runs as ONE word of
+# an inner `sh -c`, so the scrub and the 2>&1 take every command in it: a
+# line of two (`cat a; echo b`) used to scrub only the last, and the first
+# one's bytes and errors reached the terminal raw (the 2026-09-30 audit,
+# BL-17).  No cap: the grid's below-grid region pages long output
+# (PgUp/PgDn / Ctrl-B/F).
+function pass_run(line,   cmd, outline, out) {
+    if (WINNATIVE) cmd = line " 2>&1"
+    else cmd = "sh -c " shq(line) " 2>&1 | LC_ALL=C tr -c '\\11\\12\\40-\\176' '.'"
+    out = ""
     while ((cmd | getline outline) > 0) {
         if (WINNATIVE) gsub(/[^\t -~]/, ".", outline)   # best effort natively
         out = out (out != "" ? "\n" : "") outline
@@ -665,17 +674,9 @@ function st_dir(args,   cmd, outline, out, n) {
 # and raw escape bytes could corrupt the grid or exit the alt screen.  The
 # byte scrub happens in tr, NOT a gawk gsub: in a UTF-8 locale gawk regexes
 # work on characters, and invalid byte sequences slip through the class.
-function st_cat(args,   cmd, outline, out) {
+function st_cat(args) {
     if (args == "") { t_man("USAGE: cat <file...>   (shell passthrough, like dir)"); return }
-    if (WINNATIVE) cmd = "type " args " 2>&1"
-    else           cmd = "cat -- " args " 2>&1 | LC_ALL=C tr -c '\\11\\12\\40-\\176' '.'"
-    out = ""
-    while ((cmd | getline outline) > 0) {
-        if (WINNATIVE) gsub(/[^\t -~]/, ".", outline)   # best effort natively
-        out = out (out != "" ? "\n" : "") outline
-    }
-    close(cmd)
-    t_man(out == "" ? "(no output)" : out)
+    pass_run((WINNATIVE ? "type " : "cat -- ") args)
 }
 
 # --- cassette-as-text-file commands ----------------------------------------
