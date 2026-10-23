@@ -7218,7 +7218,19 @@ function z80_init() {
     # so a pid-less hung core held the session for ever -- the protocol's
     # own pid= arrives only with a completed handshake).  Not on native
     # Windows, where there is no $$ and no kill.
-    Z80CMD = (Z80NAMED == "") ? "" : (WINNATIVE ? "" : "echo $$; ") "exec " Z80NAMED
+    # `exec` takes a simple command only (the 2026-09-30 audit, BL-24): an
+    # assignment prefix (FOO=1 python3 core.py) is run through env, which
+    # execs in turn and keeps the pid; a compound command (cd /x && ...,
+    # a pipe, a subshell) runs without exec, so the pid is its shell's and
+    # a timeout's kill frees the session though the core may outlive it.
+    # A metacharacter that is only quoted costs nothing but the exec.
+    Z80CMD = ""
+    if (Z80NAMED != "") {
+        if (Z80NAMED ~ /[;&|<>()`\n]|\$\(/ || Z80NAMED ~ /^[ \t]*exec[ \t]/) Z80CMD = Z80NAMED
+        else if (Z80NAMED ~ /^[ \t]*[A-Za-z_][A-Za-z0-9_]*=/) Z80CMD = "exec env " Z80NAMED
+        else Z80CMD = "exec " Z80NAMED
+        if (!WINNATIVE) Z80CMD = "echo $$; " Z80CMD
+    }
     Z80TO = (ENVIRON["TRS80_Z80_TIMEOUT"] + 0 > 0) ? ENVIRON["TRS80_Z80_TIMEOUT"] + 0 : 5000
     Z80STATE = (Z80CMD == "") ? "none" : "cold"   # none | cold | up | dead
 }

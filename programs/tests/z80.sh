@@ -198,6 +198,14 @@ want='USR CORE: no reply within 500 ms; the core is dead for this session, USR i
 [ "$alive" = "1" ] || fail "pid= of another process: that process was killed"
 [ $((t1 - t0)) -lt 12 ] || fail "pid= of another process: took $((t1 - t0))s, the core itself was not killed"
 
+# --- TRS80_Z80 with an assignment prefix or as a compound command reaches
+# the core; `exec` alone took neither, and both fell back to the stub (BL-24)
+printf '10 DEFUSR=&H7003:PRINT USR(4)\n' > "$tmp"
+out=$(TRS80_Z80="FOO=1 $core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+[ "$rc" = "0" ] && [ "$out" = " 8 " ] || fail "assignment prefix: rc=$rc" "$out"
+out=$(TRS80_Z80="cd / && $core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+[ "$rc" = "0" ] && [ "$out" = " 8 " ] || fail "compound command: rc=$rc" "$out"
+
 # --- an undefined entry is ?FC on this side, never sent
 printf '10 X=USR6(0)\n' > "$tmp"
 out=$(TRS80_Z80="$core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
