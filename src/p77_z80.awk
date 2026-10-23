@@ -66,10 +66,14 @@ function z80_notice(msg) { diag_err("USR CORE: " msg) }
 
 # one line from the core into Z80LINE; 0 on timeout or EOF.  Z80EOF tells
 # the two apart: getline is 0 at end of file (the core has exited) and -1
-# when READ_TIMEOUT ran out (it is there and silent).
+# when READ_TIMEOUT ran out (it is there and silent) -- but 0 too, with
+# ERRNO set, when it ran out on a PARTIAL line, so ERRNO decides (the
+# 2026-09-30 audit, BL-21: a live core that went silent mid-line was
+# reported as exited).
 function z80_recv(   r) {
+    ERRNO = ""
     r = (Z80CMD |& getline Z80LINE)
-    Z80EOF = (r == 0)
+    Z80EOF = (r == 0 && ERRNO == "")
     if (r <= 0) { Z80LINE = ""; return 0 }
     sub(/\r$/, "", Z80LINE)
     return 1
@@ -181,9 +185,9 @@ function z80_bye(   r, n) {
     z80_send("BYE")
     close(Z80CMD, "to")
     PROCINFO[Z80CMD, "READ_TIMEOUT"] = (Z80TO > 5000) ? Z80TO : 5000
-    n = 0
+    n = 0; ERRNO = ""
     while ((r = (Z80CMD |& getline Z80LINE)) > 0 && ++n < 1000) ;
-    if (r != 0) { z80_close(); return }
+    if (r != 0 || ERRNO != "") { z80_close(); return }   # ERRNO: timed out on a partial line (z80_recv)
     close(Z80CMD)
 }
 

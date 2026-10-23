@@ -143,6 +143,38 @@ want='USR CORE: the frame was not read within 500 ms; the core is dead for this 
 [ "$rc" = "1" ] && [ "$out" = "$want" ] || fail "frame not read: rc=$rc" "$out"
 [ $((t1 - t0)) -lt 12 ] || fail "frame not read: took $((t1 - t0))s, not bounded"
 
+# --- a live core that goes silent MID-LINE is a timeout, not an exit:
+# getline gives 0 there too, with ERRNO set (BL-21).  And the same at
+# BYE: a partial line, then a hang, still meets the bounded kill.
+cat > "$tmp.core" <<'EOF'
+while read l; do
+  case "$l" in
+    HELLO*) echo "Z80 proto=3";;
+    GO) printf 'RET hl=0'; exec sleep 20;;
+  esac
+done
+EOF
+printf '10 DEFUSR=&H7003:X=USR(4):PRINT "OK"\n' > "$tmp"
+out=$(TRS80_Z80="sh $tmp.core" TRS80_Z80_TIMEOUT=500 perl "$bound" 40 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+want='USR CORE: no reply within 500 ms; the core is dead for this session, USR is the stub
+?FC ERROR IN 10'
+[ "$rc" = "1" ] && [ "$out" = "$want" ] || fail "partial line: rc=$rc" "$out"
+cat > "$tmp.core" <<'EOF'
+while read l; do
+  case "$l" in
+    HELLO*) echo "Z80 proto=3";;
+    GO) echo "RET hl=0 result=0 writes=0";;
+    BYE) printf 'bye'; exec sleep 20;;
+  esac
+done
+EOF
+t0=$(date +%s)
+out=$(TRS80_Z80="sh $tmp.core" TRS80_Z80_TIMEOUT=300 perl "$bound" 40 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+t1=$(date +%s)
+rm -f "$tmp.core"
+[ "$rc" = "0" ] && [ "$out" = "OK" ] || fail "partial line at BYE: rc=$rc" "$out"
+[ $((t1 - t0)) -lt 12 ] || fail "partial line at BYE: the session end took $((t1 - t0))s, not bounded"
+
 # --- an undefined entry is ?FC on this side, never sent
 printf '10 X=USR6(0)\n' > "$tmp"
 out=$(TRS80_Z80="$core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
