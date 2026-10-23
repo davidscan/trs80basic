@@ -2683,6 +2683,7 @@ function sys_load_cas(data, i,   n, c, cnt, a, sum, j, b, got, first) {
     while (i <= n) {
         c = ORD[substr(data, i, 1)]
         if (c == 60) {                            # 3CH: a data block
+            if (i + 1 > n) return "C"             # a lone 3CH at the end: no count byte to read (a bare ORD[""] would create the key: N-6)
             cnt = ORD[substr(data, i + 1, 1)]; if (cnt == 0) cnt = 256
             if (i + 4 + cnt > n) return "C"
             a = ORD[substr(data, i + 2, 1)] + 256 * ORD[substr(data, i + 3, 1)]
@@ -6559,8 +6560,8 @@ function sp_peek(a,   t, tgt, v) {
     t = SPT[a]; tgt = SPK[a]
     if (t == "C") return SPV[a]
     if (substr(t, 1, 1) == "N") {
-        v = sp_nbytes(tgt)
-        return ORD[substr(v, substr(t, 2) + 1, 1)]
+        v = sp_nbytes(tgt); t = substr(t, 2) + 1
+        return (t <= length(v)) ? ORD[substr(v, t, 1)] : 0   # never a bare ORD[""] (N-6)
     }
     # the live value: fetched once per string while a frame is built, since
     # the frame walks a string's cells in order and an array element's

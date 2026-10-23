@@ -850,6 +850,7 @@ function sys_load_cas(data, i,   n, c, cnt, a, sum, j, b, got, first) {
     while (i <= n) {
         c = ORD[substr(data, i, 1)]
         if (c == 60) {                            # 3CH: a data block
+            if (i + 1 > n) return "C"             # a lone 3CH at the end: no count byte to read (a bare ORD[""] would create the key: N-6)
             cnt = ORD[substr(data, i + 1, 1)]; if (cnt == 0) cnt = 256
             if (i + 4 + cnt > n) return "C"
             a = ORD[substr(data, i + 2, 1)] + 256 * ORD[substr(data, i + 3, 1)]

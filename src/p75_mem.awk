@@ -847,8 +847,8 @@ function sp_peek(a,   t, tgt, v) {
     t = SPT[a]; tgt = SPK[a]
     if (t == "C") return SPV[a]
     if (substr(t, 1, 1) == "N") {
-        v = sp_nbytes(tgt)
-        return ORD[substr(v, substr(t, 2) + 1, 1)]
+        v = sp_nbytes(tgt); t = substr(t, 2) + 1
+        return (t <= length(v)) ? ORD[substr(v, t, 1)] : 0   # never a bare ORD[""] (N-6)
     }
     # the live value: fetched once per string while a frame is built, since
     # the frame walks a string's cells in order and an array element's
