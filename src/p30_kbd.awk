@@ -844,11 +844,17 @@ function rl_hist(dir, oldl, oldp) {
     rl_draw(oldl, oldp)
 }
 
-# Ctrl-L: the CLEAR key -- wipe the screen, redraw prompt + current line
+# Ctrl-L: the CLEAR key -- wipe the screen, redraw prompt + current line.
+# Fullscreen/DUMB sends the terminal no clear (no ANSI there: a fresh line
+# instead), but the 64x16 buffer a program PEEKs is wiped as on the grid:
+# it kept the old screen and took the new `>` wherever the cursor stood
+# (the 2026-09-30 audit, BL-19).
 function rl_clear_screen() {
     if (DUMB) {
         printf (TTYIN ? "\r\n" : "\n")
+        s_cls()
         s_putc(62)
+        RLSTART = CUR
         rl_draw(0, 0)
         return
     }

@@ -75,6 +75,10 @@ terminal emulator gives it, and checks:
      cursor back where BASIC's is, at once, while the program runs on
      (s_touch; the 2026-09-30 audit's mutant B09 dropped it and no suite
      saw: the cursor stayed behind the poked character).
+ 19. Ctrl-L, the CLEAR key, under fullscreen/DUMB wipes the 64x16 buffer
+     a program PEEKs and puts the prompt at its home, as on the grid (it
+     kept the old screen and took a second `>`: the 2026-09-30 audit,
+     BL-19).
 
 Standard library only; run by run_all.sh when python3 is present (so CI
 exercises the tty reader on Linux, where it was not measured by hand).
@@ -642,6 +646,24 @@ def screen_poke(check):
     check(moves[-1:] == [('1', '1')], 'after it the cursor is back at BASIC\'s (home, after CLS)', out)
 
 
+def ctrl_l(check):
+    """Scenario 19: Ctrl-L (the CLEAR key) under DUMB clears the buffer."""
+    b = Basic()
+    b.drain()
+    b.send('\r')                                   # MEMORY SIZE?
+    b.drain()
+    b.send('PRINT "XYZ"\r')
+    b.drain()
+    b.send(b'\x0c', 0.4)
+    b.send('PRINT PEEK(15360);PEEK(15424);PEEK(15488)\r', 0.6)
+    out = flat(b.drain())
+    check(' 62 32 32 READY' in out,
+          'Ctrl-L under DUMB wipes the 64x16 buffer and puts > at its home', out)
+    b.send('BYE\r', 0.5)
+    b.drain(0.3, 2)
+    b.close()
+
+
 def rows_of(raw):
     """Replay a capture's cursor moves and clears into 24 rows of text."""
     rows = [[' '] * 80 for _ in range(24)]
@@ -1153,6 +1175,9 @@ def main():
 
     # 18. a video POKE puts the terminal's cursor back
     screen_poke(check)
+
+    # 19. Ctrl-L under fullscreen/DUMB wipes the screen a program PEEKs
+    ctrl_l(check)
 
     if fails:
         print('kbd_pty.py: %d check(s) failed' % len(fails))
