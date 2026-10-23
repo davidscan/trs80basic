@@ -635,6 +635,10 @@ function st_next(   name, looped) {
         if (!at_stmt_end()) {
             if (!at_name()) { raise(2); return }
             name = TK[CK, CP]; CP++
+            # 22B9H reads the name with subscripts allowed (260DH): an
+            # element's address is no FOR frame's, so NEXT I(1) is ?NF
+            # once the subscript is read (?BS first if it is out of range)
+            if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { aref(name); if (!E) raise(1); return }
         }
         looped = do_next(name)
         if (E || looped) return
