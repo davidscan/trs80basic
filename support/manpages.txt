@@ -779,6 +779,7 @@ ERROR n   raise error number n as though it had really happened
   raises ?UE instead (ERROR 32 reports ?UE ERROR) -- and so do the file
   codes 51-70: the Disk manual says disk errors cannot be simulated via
   ERROR, so a handler is tested for ?FF with a missing file, not ERROR 54.
+  As on the machine, 129-151 wrap round to 1-23 (ERROR 129 is ?NF).
   Example: ERROR 6                (raises ?OV, overflow)
 
 :RESUME
