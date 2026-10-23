@@ -4552,6 +4552,8 @@ function bytearg2(a, na) {                # a string count or position (LEFT$, R
 # (USR(A$(I)+B$)) from the saved position, so a subscript expression is
 # evaluated twice there; BASIC subscripts have no side effects.
 function fn_usr(name,   a1, x, r, tgt, cp0, nm, key) {
+    # VERBATIM, the next line: ../trs80_z80_core/phasea/oracle.py patches it
+    # by exact text (PATCHES); change it and move the anchor
     if (name ~ /^USR[0-9]?$/) {
         CP++
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
@@ -4798,11 +4800,13 @@ function execloop(   ty, tx) {
         # IF to its first ":" -- for the ELSE part's first statement that is
         # the colon in front of ELSE, so the rest of the line is skipped
         # (19BAH-19BDH, 1FCFH-1FE7H; audit L-6).  No BREAK poll either.
-        # (The two lines below stay verbatim: the core's oracle patches
-        # them by text; the IF's point is put back behind them instead.)
+        # The IF's point is saved here and put back after execstmt(), not
+        # between the two lines that follow STK/STP (see there).
         IFK = IFKEEP; IFKEEP = 0
         if (IFK) { IFK_K = SK; IFK_LI = SLI; IFK_P = SCP }
         STK = CK; STP = CP                  # the statement itself, whatever IF left in SK/SCP (batch_hint, p45)
+        # VERBATIM, these two lines: ../trs80_z80_core/phasea/oracle.py
+        # patches them by exact text (PATCHES); change them and move the anchor
         SK = CK; SLI = CLI; SCP = CP
         execstmt()
         if (IFK) { SK = IFK_K; SLI = IFK_LI; SCP = IFK_P }
@@ -8536,6 +8540,8 @@ function st_poke(   v, a, b) {
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
+    # VERBATIM, the next line: ../trs80_z80_core/phasea/oracle.py patches it
+    # by exact text (PATCHES); change it and move the anchor
     b = byteconv(num(v)); if (E) return
     skipblank()
     poke_byte(a, b)

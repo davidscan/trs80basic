@@ -83,11 +83,13 @@ function execloop(   ty, tx) {
         # IF to its first ":" -- for the ELSE part's first statement that is
         # the colon in front of ELSE, so the rest of the line is skipped
         # (19BAH-19BDH, 1FCFH-1FE7H; audit L-6).  No BREAK poll either.
-        # (The two lines below stay verbatim: the core's oracle patches
-        # them by text; the IF's point is put back behind them instead.)
+        # The IF's point is saved here and put back after execstmt(), not
+        # between the two lines that follow STK/STP (see there).
         IFK = IFKEEP; IFKEEP = 0
         if (IFK) { IFK_K = SK; IFK_LI = SLI; IFK_P = SCP }
         STK = CK; STP = CP                  # the statement itself, whatever IF left in SK/SCP (batch_hint, p45)
+        # VERBATIM, these two lines: ../trs80_z80_core/phasea/oracle.py
+        # patches them by exact text (PATCHES); change them and move the anchor
         SK = CK; SLI = CLI; SCP = CP
         execstmt()
         if (IFK) { SK = IFK_K; SLI = IFK_LI; SCP = IFK_P }

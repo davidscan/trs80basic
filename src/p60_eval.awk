@@ -781,6 +781,8 @@ function bytearg2(a, na) {                # a string count or position (LEFT$, R
 # (USR(A$(I)+B$)) from the saved position, so a subscript expression is
 # evaluated twice there; BASIC subscripts have no side effects.
 function fn_usr(name,   a1, x, r, tgt, cp0, nm, key) {
+    # VERBATIM, the next line: ../trs80_z80_core/phasea/oracle.py patches it
+    # by exact text (PATCHES); change it and move the anchor
     if (name ~ /^USR[0-9]?$/) {
         CP++
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }

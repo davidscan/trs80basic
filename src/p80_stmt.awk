@@ -1035,6 +1035,8 @@ function st_poke(   v, a, b) {
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
+    # VERBATIM, the next line: ../trs80_z80_core/phasea/oracle.py patches it
+    # by exact text (PATCHES); change it and move the anchor
     b = byteconv(num(v)); if (E) return
     skipblank()
     poke_byte(a, b)
