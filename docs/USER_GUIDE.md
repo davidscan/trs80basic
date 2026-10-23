@@ -299,7 +299,7 @@ Things worth knowing even if you know Level II:
   not found" as on the machine. `ERROR n` raises one of the first 23 on
   purpose; past 23 it is `?UE` (disk errors cannot be simulated).
 - `INPUT` is not allowed in immediate mode (`?ID`), like the ROM.
-- `AUTO` shows `*` for existing lines; ENTER alone deletes that line and goes on; only BREAK exits.
+- `AUTO` shows `*` for existing lines; ENTER alone deletes that line and goes on. BREAK exits, and so do the end of piped input and the 65529 limit.
 - `EDIT` does not exist here (by design — you have a real editor and
   `CSAVE`d text files).
 
@@ -1360,6 +1360,18 @@ CONT   resume a program stopped by STOP, BREAK, END or an error
   Example: CONT
 ```
 
+#### EDIT
+
+```text
+EDIT n   the ROM's line editor: NOT HERE, by design (?SN)
+  Level II's EDIT walks a line with the space bar and the letter
+  commands (I, X, H, D, C, S, K, L, A and the rest).  Here a line is edited by
+  typing it again under its number, by the editor keys at the >
+  prompt (the arrows, Ctrl-A/E, history: help keys), or in a real
+  editor on a SAVEd text file loaded back with LOAD.
+  Example: 10 PRINT "HELO"   then retype   10 PRINT "HELLO"
+```
+
 #### AUTO
 
 ```text
@@ -1371,7 +1383,8 @@ AUTO [n[,i]]   number lines automatically as you type them
   the last AUTO used instead of going back to 10.
   A step of 0 is ?FC.  Neither number may pass 65529, the highest line
   there is; beyond that it is ?SN, where the number is read.
-  Stop it with BREAK; nothing else ends it.  An offered number that
+  BREAK stops it; so does the end of piped input, and the 65529 limit
+  below.  An offered number that
   already exists is marked with * (100*): what you type replaces that
   line, and ENTER alone DELETES it (an empty entry, as at the > prompt)
   before AUTO goes on.  AUTO .,10 starts at the current line and
@@ -1827,37 +1840,6 @@ VARPTR(var)   address of a variable's storage
   way (their argument must be -32768..32767, else ?OV).
   The period idiom for a data address: IF D>32767 THEN D=D-65536.
   Example: D=VARPTR(A$):M=PEEK(D+1)+256*PEEK(D+2):POKE M,191
-
-PEEK(addr)   read a memory byte (unset = 255)
-  addr is an integer, -32768..32767, else ?OV: the top 32K is addressed
-  by its negative number (PEEK(-1) is 65535; the period idiom is IF
-  D>32767 THEN D=D-65536), as on the machine.
-  System variables are LIVE (and POKE moves them): 16416/16417 the cursor
-  position (15360 + cell), 16418 the cursor character (POKE 16418,0
-  hides the cursor), 16424 printer lines per page + 1, 16425 lines
-  printed on this page, 16539 the printer column, 16449-16454 the clock
-  (SS MN HH YY DD MM; a POKEd cell keeps its byte from then on, as on a
-  cassette machine, where nothing updates them), 16546/16547 the line
-  number executing,
-  16609-16613 AUTO's flag, line and increment (POKE 16609,1 starts AUTO
-  at the next READY), 16641-16666 the DEF-type table, one byte per
-  letter A-Z (2 integer, 3 string, 4 single, 8 double; RUN and CLEAR set
-  4; POKE 16641,2 is DEFINT A), 16667 the TRON flag (175 on; POKE
-  switches it).
-  The driver vectors re-route output: POKE 16414,141:POKE 16415,5 sends
-  PRINT to the printer, POKE 16422,88:POKE 16423,4 sends LPRINT to the
-  screen, POKE 16422,103:POKE 16423,0 silences the printer; restore with
-  POKE 16414,88:POKE 16415,4 and POKE 16422,141:POKE 16423,5.
-  16445 (403DH) is the ROM's image of the port-255 bits: bit 3 is its
-  32-column print flag, set by CHR$(23), cleared by CLS, and POKEable, as
-  Barden's OUT 255,8 with POKE 16445,8 recipe does (see OUT).
-  Display memory 15360-16383 reads the screen.  14336-14591 reads the
-  live KEYBOARD MATRIX (row r at 14336+2^r; 14400 = arrows/space/ENTER
-  row; 14464 = SHIFT; composite addresses OR rows) synthesized from the
-  terminal -- a tapped key reads pressed for a few polls, a held key
-  rides auto-repeat.  14312 reads printer status 63 (attached, ready).
-  Example: PRINT PEEK(15360)
-  Example: IF PEEK(14400) AND 32 THEN X=X-1   ' left arrow held
 ```
 
 #### USR DEFUSR
@@ -1887,6 +1869,17 @@ USR(x) / USRn(x)   machine-language call.  With TRS80_Z80 naming the
 DEF USR[n] = addr / DEFUSRn = addr   accepted: the address expression
   evaluates (?TM if string) and is stored as slot n's entry address.
   Example: DEFUSR=&H7D00 : X=USR(0)
+```
+
+#### DEF
+
+```text
+DEF is the first word of three definitions; each has its own page:
+  DEF FN name(p,...)=expr  a user function      (man FN)
+  DEFUSR[n]=addr           a machine-code entry  (man USR)
+  DEFINT, DEFSNG, DEFDBL, DEFSTR letters   the type of a name by its
+                           first letter          (man DEFINT)
+  Example: DEF FNA(X)=X*X:PRINT FNA(3)
 ```
 
 #### FN DEFFN
@@ -2182,6 +2175,24 @@ OPEN m$,n,"OLLAMA[:model[:thread]]"   chat with a local LLM
     @KEEPALIVE 30m  sticky: keep the model loaded between calls
     @@text          a literal line starting with "@"
   Example: OPEN "O",1,"OLLAMA:llama3.2:story"
+```
+
+### Operators
+
+#### AND OR NOT
+
+```text
+a AND b   a OR b   NOT a   bitwise logic on 16-bit integers
+  Each operand is made an integer first, rounding DOWN (1.7 is 1, -1.5
+  is -2, NOT 2.9 is -3); outside -32768..32767 it is ?OV, and a string
+  is ?TM.  The bits combine as the two's-complement 16-bit integer, so
+  5 AND 3 is 1, 5 OR 3 is 7 and NOT x is -x-1.
+  A relation (=, <>, <, >, <=, >=) gives -1 for true and 0 for false,
+  so AND and OR join conditions: IF A>0 AND B>0 THEN ...  A relation
+  binds tighter than NOT, NOT than AND, AND than OR: NOT 1=2 is -1,
+  and 3 OR 4 AND 1 is 3.
+  Example: PRINT 5 AND 3;5 OR 3;NOT 5          ->  1  7 -6
+  Example: IF PEEK(14400) AND 32 THEN X=X-1   ' a key bit is set
 ```
 
 ### Numeric functions
@@ -2602,6 +2613,41 @@ TIME$   the current date and time as one 17-character string
   with MID$ rather than parsed.
   Example: PRINT TIME$
   Example: PRINT "TIME ";MID$(TIME$,10,8)      (just HH:MM:SS)
+```
+
+#### PEEK
+
+```text
+PEEK(addr)   read a memory byte (unset = 255)
+  addr is an integer, -32768..32767, else ?OV: the top 32K is addressed
+  by its negative number (PEEK(-1) is 65535; the period idiom is IF
+  D>32767 THEN D=D-65536), as on the machine.
+  System variables are LIVE (and POKE moves them): 16416/16417 the cursor
+  position (15360 + cell), 16418 the cursor character (POKE 16418,0
+  hides the cursor), 16424 printer lines per page + 1, 16425 lines
+  printed on this page, 16539 the printer column, 16449-16454 the clock
+  (SS MN HH YY DD MM; a POKEd cell keeps its byte from then on, as on a
+  cassette machine, where nothing updates them), 16546/16547 the line
+  number executing,
+  16609-16613 AUTO's flag, line and increment (POKE 16609,1 starts AUTO
+  at the next READY), 16641-16666 the DEF-type table, one byte per
+  letter A-Z (2 integer, 3 string, 4 single, 8 double; RUN and CLEAR set
+  4; POKE 16641,2 is DEFINT A), 16667 the TRON flag (175 on; POKE
+  switches it).
+  The driver vectors re-route output: POKE 16414,141:POKE 16415,5 sends
+  PRINT to the printer, POKE 16422,88:POKE 16423,4 sends LPRINT to the
+  screen, POKE 16422,103:POKE 16423,0 silences the printer; restore with
+  POKE 16414,88:POKE 16415,4 and POKE 16422,141:POKE 16423,5.
+  16445 (403DH) is the ROM's image of the port-255 bits: bit 3 is its
+  32-column print flag, set by CHR$(23), cleared by CLS, and POKEable, as
+  Barden's OUT 255,8 with POKE 16445,8 recipe does (see OUT).
+  Display memory 15360-16383 reads the screen.  14336-14591 reads the
+  live KEYBOARD MATRIX (row r at 14336+2^r; 14400 = arrows/space/ENTER
+  row; 14464 = SHIFT; composite addresses OR rows) synthesized from the
+  terminal -- a tapped key reads pressed for a few polls, a held key
+  rides auto-repeat.  14312 reads printer status 63 (attached, ready).
+  Example: PRINT PEEK(15360)
+  Example: IF PEEK(14400) AND 32 THEN X=X-1   ' left arrow held
 ```
 
 #### POS

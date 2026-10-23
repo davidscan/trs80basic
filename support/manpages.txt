@@ -542,6 +542,15 @@ CONT   resume a program stopped by STOP, BREAK, END or an error
   forward.  Look at the variables BEFORE fixing the line.
   Example: CONT
 
+:EDIT
+EDIT n   the ROM's line editor: NOT HERE, by design (?SN)
+  Level II's EDIT walks a line with the space bar and the letter
+  commands (I, X, H, D, C, S, K, L, A and the rest).  Here a line is edited by
+  typing it again under its number, by the editor keys at the >
+  prompt (the arrows, Ctrl-A/E, history: help keys), or in a real
+  editor on a SAVEd text file loaded back with LOAD.
+  Example: 10 PRINT "HELO"   then retype   10 PRINT "HELLO"
+
 :AUTO
 AUTO [n[,i]]   number lines automatically as you type them
   Prompts with the next line number so a program can be entered without
@@ -551,7 +560,8 @@ AUTO [n[,i]]   number lines automatically as you type them
   the last AUTO used instead of going back to 10.
   A step of 0 is ?FC.  Neither number may pass 65529, the highest line
   there is; beyond that it is ?SN, where the number is read.
-  Stop it with BREAK; nothing else ends it.  An offered number that
+  BREAK stops it; so does the end of piped input, and the 65529 limit
+  below.  An offered number that
   already exists is marked with * (100*): what you type replaces that
   line, and ENTER alone DELETES it (an empty entry, as at the > prompt)
   before AUTO goes on.  AUTO .,10 starts at the current line and
@@ -999,6 +1009,19 @@ LSET v$=x$   store left-justified  /  RSET v$=x$   store right-justified
   Example: RSET N$="X"          -> "         X"
   Example: LSET I$=MKI$(42)
 
+:AND OR NOT
+a AND b   a OR b   NOT a   bitwise logic on 16-bit integers
+  Each operand is made an integer first, rounding DOWN (1.7 is 1, -1.5
+  is -2, NOT 2.9 is -3); outside -32768..32767 it is ?OV, and a string
+  is ?TM.  The bits combine as the two's-complement 16-bit integer, so
+  5 AND 3 is 1, 5 OR 3 is 7 and NOT x is -x-1.
+  A relation (=, <>, <, >, <=, >=) gives -1 for true and 0 for false,
+  so AND and OR join conditions: IF A>0 AND B>0 THEN ...  A relation
+  binds tighter than NOT, NOT than AND, AND than OR: NOT 1=2 is -1,
+  and 3 OR 4 AND 1 is 3.
+  Example: PRINT 5 AND 3;5 OR 3;NOT 5          ->  1  7 -6
+  Example: IF PEEK(14400) AND 32 THEN X=X-1   ' a key bit is set
+
 :ABS
 ABS(x)   the absolute value of x -- its size without the sign
   ABS(-5) and ABS(5) are both 5; ABS(0) is 0.
@@ -1221,6 +1244,7 @@ VARPTR(var)   address of a variable's storage
   The period idiom for a data address: IF D>32767 THEN D=D-65536.
   Example: D=VARPTR(A$):M=PEEK(D+1)+256*PEEK(D+2):POKE M,191
 
+:PEEK
 PEEK(addr)   read a memory byte (unset = 255)
   addr is an integer, -32768..32767, else ?OV: the top 32K is addressed
   by its negative number (PEEK(-1) is 65535; the period idiom is IF
@@ -1533,6 +1557,14 @@ USR(x) / USRn(x)   machine-language call.  With TRS80_Z80 naming the
 DEF USR[n] = addr / DEFUSRn = addr   accepted: the address expression
   evaluates (?TM if string) and is stored as slot n's entry address.
   Example: DEFUSR=&H7D00 : X=USR(0)
+
+:DEF
+DEF is the first word of three definitions; each has its own page:
+  DEF FN name(p,...)=expr  a user function      (man FN)
+  DEFUSR[n]=addr           a machine-code entry  (man USR)
+  DEFINT, DEFSNG, DEFDBL, DEFSTR letters   the type of a name by its
+                           first letter          (man DEFINT)
+  Example: DEF FNA(X)=X*X:PRINT FNA(3)
 
 :FN DEFFN
 DEF FN name(p,...) = expr   define a user function (Disk BASIC tier).

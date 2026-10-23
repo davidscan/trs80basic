@@ -37,13 +37,13 @@ CATEGORIES = [
     ]),
     ("Command level", [
         "RUN", "LIST", "NEW", "CONT", "AUTO", "DELETE", "CLOAD", "CSAVE",
-        "LOAD", "SAVE", "MERGE", "NAME", "SYSTEM", "CMD", "BYE", "TRON", "TROFF", "BREAK",
+        "EDIT", "LOAD", "SAVE", "MERGE", "NAME", "SYSTEM", "CMD", "BYE", "TRON", "TROFF", "BREAK",
         "RANDOM",
     ]),
     ("Graphics", ["SET", "RESET", "POINT"]),
     ("Error handling", ["ERROR", "RESUME", "ERR", "ERL", "OS"]),
     ("Types and definitions", [
-        "DEFINT", "DEFSNG", "DEFDBL", "DEFSTR", "FN", "DEFFN", "USR",
+        "DEF", "DEFINT", "DEFSNG", "DEFDBL", "DEFSTR", "FN", "DEFFN", "USR",
         "DEFUSR", "VARPTR",
     ]),
     ("Files", [
@@ -52,6 +52,7 @@ CATEGORIES = [
         "MKI$", "MKS$", "MKD$", "CVI", "CVS", "CVD",
     ]),
     ("The OLLAMA channel", ["OLLAMA"]),
+    ("Operators", ["AND", "OR", "NOT"]),
     ("Numeric functions", [
         "ABS", "INT", "FIX", "SGN", "SQR", "SIN", "COS", "TAN", "ATN",
         "LOG", "EXP", "RND", "CINT", "CSNG", "CDBL", "&H", "&O",
@@ -61,7 +62,7 @@ CATEGORIES = [
         "MID$", "INSTR",
     ]),
     ("System and screen", [
-        "INKEY$", "POS", "FRE", "MEM", "TIME$",
+        "INKEY$", "PEEK", "POS", "FRE", "MEM", "TIME$",
     ]),
     # Not Level II BASIC -- host-side conveniences this interpreter adds.
     # Listed last so the reference reads as the language first.
