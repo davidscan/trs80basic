@@ -527,6 +527,10 @@ function st_man(arg,   k) {
     k = toupper(arg)
     if (k == "") { t_man("USAGE: man <KEYWORD>   (e.g. man PRINT)"); return }
     if (k in MANTXT) t_man(MANTXT[k])
+    # a statement of more than one word (LINE INPUT, ON ERROR GOTO) is on
+    # its first word's page: the pages are keyed by single words, so it was
+    # NO MANUAL ENTRY (the 2026-09-30 audit, N-4)
+    else if (k ~ / / && (substr(k, 1, index(k, " ") - 1) in MANTXT)) t_man(MANTXT[substr(k, 1, index(k, " ") - 1)])
     else t_man("NO MANUAL ENTRY FOR " k)
 }
 
