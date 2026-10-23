@@ -112,7 +112,7 @@ function z80_field(key,   s) {
 
 # Give up on the core.  close() of a two-way pipe WAITS for the child, so a
 # core that is hung (the timeout case) is killed first: the pid is the
-# `echo $$` line z80_start read (or the handshake's own pid=), gawk's
+# `echo $$` line z80_start read (else the handshake's own pid=), gawk's
 # PROCINFO[cmd, "pid"] being empty on the gawk this was built with.  The
 # kill is BOUNDED (M-1): TERM, up to half a second for it to land, then
 # KILL -- a core that traps TERM (or a plain `sleep`) no longer holds the
@@ -150,7 +150,7 @@ function z80_start(   w) {
     }
     # the first line is the wrapper shell's `echo $$` -- the core's own pid,
     # since exec keeps it -- so even a core that never answers can be killed
-    # (M-1).  The handshake's optional pid= still overrides below.
+    # (M-1).  The handshake's optional pid= is used only without it.
     if (Z80LINE ~ /^[0-9]+$/) {
         Z80PID = Z80LINE + 0
         if (!z80_recv()) {
@@ -163,7 +163,11 @@ function z80_start(   w) {
                    ", this interpreter speaks " Z80PROTO "; USR is the stub for this session")
         z80_close(); return
     }
-    if (z80_field("pid") != "") Z80PID = z80_field("pid") + 0
+    # The pid this side started outranks the one the core reports: a core
+    # naming another process got THAT killed on a timeout, and kept its own
+    # hold on close() (the 2026-09-30 audit, BL-22).  pid= is the fallback
+    # for a start with no `echo $$` line.
+    if (Z80PID == 0 && z80_field("pid") != "") Z80PID = z80_field("pid") + 0
     Z80STATE = "up"
     Z80WAVGOING = w
     fr_reset()                                    # the first frame is full

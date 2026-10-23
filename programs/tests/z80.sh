@@ -175,6 +175,29 @@ rm -f "$tmp.core"
 [ "$rc" = "0" ] && [ "$out" = "OK" ] || fail "partial line at BYE: rc=$rc" "$out"
 [ $((t1 - t0)) -lt 12 ] || fail "partial line at BYE: the session end took $((t1 - t0))s, not bounded"
 
+# --- a core whose pid= names another process: the timeout kills the core
+# this side started, never the named one (BL-22)
+sleep 60 </dev/null >/dev/null 2>&1 & victim=$!
+cat > "$tmp.core" <<EOF
+while read l; do
+  case "\$l" in
+    HELLO*) echo "Z80 proto=3 pid=$victim";;
+    GO) exec sleep 20;;
+  esac
+done
+EOF
+printf '10 DEFUSR=&H7003:X=USR(4)\n' > "$tmp"
+t0=$(date +%s)
+out=$(TRS80_Z80="sh $tmp.core" TRS80_Z80_TIMEOUT=500 perl "$bound" 40 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+t1=$(date +%s)
+rm -f "$tmp.core"
+alive=0; kill -0 "$victim" 2>/dev/null && alive=1; kill "$victim" 2>/dev/null; wait "$victim" 2>/dev/null
+want='USR CORE: no reply within 500 ms; the core is dead for this session, USR is the stub
+?FC ERROR IN 10'
+[ "$rc" = "1" ] && [ "$out" = "$want" ] || fail "pid= of another process: rc=$rc" "$out"
+[ "$alive" = "1" ] || fail "pid= of another process: that process was killed"
+[ $((t1 - t0)) -lt 12 ] || fail "pid= of another process: took $((t1 - t0))s, the core itself was not killed"
+
 # --- an undefined entry is ?FC on this side, never sent
 printf '10 X=USR6(0)\n' > "$tmp"
 out=$(TRS80_Z80="$core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?

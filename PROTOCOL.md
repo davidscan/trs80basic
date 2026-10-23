@@ -87,8 +87,10 @@ interpreter -> core   BYE
     interpreter's constant.  On a mismatch the interpreter prints one
     stderr notice, closes the core, and uses the stub for the session.
     `pid=<n>` (optional, recommended) is the core's process id: when a
-    call times out the interpreter kills that process before closing the
-    pipe, because closing a coprocess waits for it to exit.
+    call times out the interpreter kills the core before closing the
+    pipe, because closing a coprocess waits for it to exit.  It kills
+    the process it started, whose pid it knows on POSIX hosts; `pid=` is
+    used only when it knows none.
 *   `BYE` ends the session; the core exits.  The interpreter closes its
     end of the pipe after it, so a core must exit on EOF on stdin too, and
     waits at least 5 seconds (`TRS80_Z80_TIMEOUT` if longer) for the core
