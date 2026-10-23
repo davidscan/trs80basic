@@ -1998,11 +1998,12 @@ function hist_add(line,   i) {
     HIST[++HN] = line
 }
 
-function st_history(   i, from, out) {
+# every line of the session, as the man page says: the below-grid region
+# pages it (PgUp/PgDn), and it showed only the last 28 (N-4)
+function st_history(   i, out) {
     if (HN == 0) { t_man("HISTORY: (empty)"); return }
-    from = (HN > 28) ? HN - 27 : 1
     out = "HISTORY:"
-    for (i = from; i <= HN; i++) out = out "\n" sprintf("%4d  %s", i, HIST[i])
+    for (i = 1; i <= HN; i++) out = out "\n" sprintf("%4d  %s", i, HIST[i])
     t_man(out)
 }
 

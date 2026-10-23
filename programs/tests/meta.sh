@@ -13,4 +13,11 @@ case $out in *">man ON ERROR GOTO
 ON "*) ;; *) fail "man ON ERROR GOTO is the ON page" "$out" ;; esac
 case $out in *"NO MANUAL ENTRY FOR NOSUCH THING"*) ;; *) fail "an unknown phrase is still no entry" "$out" ;; esac
 
+# history lists the whole session, not its last 28 lines (N-4)
+lines=; i=1; while [ $i -le 40 ]; do lines="${lines}PRINT $i\\n"; i=$((i + 1)); done
+out=$(run "\n${lines}history\n")
+case $out in *"   1  PRINT 1
+"*"  40  PRINT 40
+  41  history"*) ;; *) fail "history from the first line" "$(printf '%s' "$out" | tail -5)" ;; esac
+
 echo "OK -- the metacommands' output"
