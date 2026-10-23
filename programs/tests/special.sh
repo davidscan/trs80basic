@@ -225,5 +225,14 @@ out=$(printf '\nLOAD "%s"\nRUN\n' "$d/abs.bas" | TRS80_DUMB=1 TRS80_Z80= \
     gawk -b -f "$here/trs80basic.awk" 2>&1 | grep '^ABS')
 [ "$out" = "ABS-OK" ] || fail "an absolute LOAD typed at READY" "$out"
 
+# a channel OPENed at READY keeps the user's name when a program closes it:
+# the "R" flush asked who was running at the close, and END lost the PUT
+# record to ?FD (the 2026-09-30 audit, BL-26)
+rm -f "$d/../r9typed.$$"
+out=$(printf '\n10 FIELD 1,10 AS A$:LSET A$="TYPED":PUT 1,1:END\nOPEN "R",1,"%s",10\nGOTO 10\n' "$d/../r9typed.$$" \
+    | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep 'ERROR')
+got=$(head -c 5 "$d/../r9typed.$$" 2>/dev/null); rm -f "$d/../r9typed.$$"
+[ -z "$out" ] && [ "$got" = "TYPED" ] || fail "an R file OPENed at READY by an absolute path, closed by END" "$out / $got"
+
 cleanup
 echo "SPECIAL OK"

@@ -8925,6 +8925,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     }
     FH_NAME[n] = f
     FH_MODE[n] = mode
+    FH_FREE[n] = host_typed()               # who chose the name (host_escape, p90)
 }
 
 function st_close(   n, ty, tx) {
@@ -8969,6 +8970,7 @@ function fio_close1(n,   f, r) {
     delete FH_RAW[n]; delete FH_RAWHAS[n]
     delete FH_OPEND[n]; delete FH_OPENDHAS[n]
     delete FH_RLEN[n]; delete FH_BUF[n]; delete FH_NREC[n]; delete FH_DIRTY[n]
+    delete FH_FREE[n]
 }
 
 function fio_flushR(n,   f, r) {
@@ -8978,7 +8980,8 @@ function fio_flushR(n,   f, r) {
     # its place) would make the redirect a gawk fatal, killing the session.
     # Probe again at flush time; the failure is ?FD, as at OPEN (the
     # 2026-09-26 audit, M-16).
-    if (!host_writable(f)) { raise(22); return }
+    HOSTFREE = FH_FREE[n]; r = host_writable(f); HOSTFREE = 0
+    if (!r) { raise(22); return }
     printf "" > f
     for (r = 1; r <= FH_NREC[n]; r++) print fio_esc(FH_REC[n, r]) >> f
     close(f)
@@ -9609,6 +9612,7 @@ function ai_open(n, f,   np, parts, model, thread, i, tf, l, role) {
     }
     FH_NAME[n] = f
     FH_MODE[n] = "A"
+    FH_FREE[n] = host_typed()               # who chose the thread's name (host_escape, p90)
 }
 
 function ai_close(n,   i) {
@@ -9703,7 +9707,7 @@ function ai_fill(n,   p) {
     return 1
 }
 
-function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok, rep) {
+function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok, rep, ok) {
     if (FH_OPENDHAS[n]) {                   # trailing-; partial completes the prompt
         AI_PROMPT[n] = AI_PROMPT[n] FH_OPEND[n] "\n"
         FH_OPEND[n] = ""; FH_OPENDHAS[n] = 0
@@ -9766,7 +9770,10 @@ function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok,
     # redirect is fatal: the OPEN probe does not cover a file that became a
     # directory or read-only since.  Probe again, and fail the exchange as a
     # failed send does (the 2026-09-30 audit, BM-7).
-    if (AI_TFILE[n] != "" && !host_writable(AI_TFILE[n])) { ai_unsend(n); raise(22); return }
+    if (AI_TFILE[n] != "") {
+        HOSTFREE = FH_FREE[n]; ok = host_writable(AI_TFILE[n]); HOSTFREE = 0
+        if (!ok) { ai_unsend(n); raise(22); return }
+    }
     ai_log(n, "u", AI_MSG[n, AI_NMSG[n]])   # transcript only records completed exchanges
     AI_NMSG[n]++
     AI_ROLE[n, AI_NMSG[n]] = "a"
@@ -10683,8 +10690,15 @@ function host_special(f) {
 # RESOLVES (host_outside): a symbolic link already in the directory, to a
 # file, a directory or nothing yet, cannot carry the write or the KILL out
 # (the 2026-09-30 audit, BL-37).  Native Windows checks the spelling only.
+# WHO chose the name is asked when it was chosen: a channel OPENed at READY
+# keeps FH_FREE[n] = host_typed(), and the probes made later for it under
+# a program (the "R" flush, the OLLAMA transcript) set HOSTFREE from it.
+# They asked who was running then, so a file OPENed at READY by an
+# absolute path and closed by a program's END lost its PUT records to ?FD
+# (the 2026-09-30 audit, BL-26).
+function host_typed() { return CK == "" || CK == "I" }
 function host_escape(f) {
-    if (CK == "" || CK == "I") return 0
+    if (HOSTFREE || host_typed()) return 0
     if (f ~ /^[\/\\]/ || f ~ /^[A-Za-z]:[\/\\]/) return 1
     if (f ~ /(^|[\/\\])\.\.([\/\\]|$)/) return 1
     return WINNATIVE ? 0 : host_outside(f)

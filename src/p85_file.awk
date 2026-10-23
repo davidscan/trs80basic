@@ -127,6 +127,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     }
     FH_NAME[n] = f
     FH_MODE[n] = mode
+    FH_FREE[n] = host_typed()               # who chose the name (host_escape, p90)
 }
 
 function st_close(   n, ty, tx) {
@@ -171,6 +172,7 @@ function fio_close1(n,   f, r) {
     delete FH_RAW[n]; delete FH_RAWHAS[n]
     delete FH_OPEND[n]; delete FH_OPENDHAS[n]
     delete FH_RLEN[n]; delete FH_BUF[n]; delete FH_NREC[n]; delete FH_DIRTY[n]
+    delete FH_FREE[n]
 }
 
 function fio_flushR(n,   f, r) {
@@ -180,7 +182,8 @@ function fio_flushR(n,   f, r) {
     # its place) would make the redirect a gawk fatal, killing the session.
     # Probe again at flush time; the failure is ?FD, as at OPEN (the
     # 2026-09-26 audit, M-16).
-    if (!host_writable(f)) { raise(22); return }
+    HOSTFREE = FH_FREE[n]; r = host_writable(f); HOSTFREE = 0
+    if (!r) { raise(22); return }
     printf "" > f
     for (r = 1; r <= FH_NREC[n]; r++) print fio_esc(FH_REC[n, r]) >> f
     close(f)

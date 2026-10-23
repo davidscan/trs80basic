@@ -90,6 +90,7 @@ function ai_open(n, f,   np, parts, model, thread, i, tf, l, role) {
     }
     FH_NAME[n] = f
     FH_MODE[n] = "A"
+    FH_FREE[n] = host_typed()               # who chose the thread's name (host_escape, p90)
 }
 
 function ai_close(n,   i) {
@@ -184,7 +185,7 @@ function ai_fill(n,   p) {
     return 1
 }
 
-function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok, rep) {
+function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok, rep, ok) {
     if (FH_OPENDHAS[n]) {                   # trailing-; partial completes the prompt
         AI_PROMPT[n] = AI_PROMPT[n] FH_OPEND[n] "\n"
         FH_OPEND[n] = ""; FH_OPENDHAS[n] = 0
@@ -247,7 +248,10 @@ function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok,
     # redirect is fatal: the OPEN probe does not cover a file that became a
     # directory or read-only since.  Probe again, and fail the exchange as a
     # failed send does (the 2026-09-30 audit, BM-7).
-    if (AI_TFILE[n] != "" && !host_writable(AI_TFILE[n])) { ai_unsend(n); raise(22); return }
+    if (AI_TFILE[n] != "") {
+        HOSTFREE = FH_FREE[n]; ok = host_writable(AI_TFILE[n]); HOSTFREE = 0
+        if (!ok) { ai_unsend(n); raise(22); return }
+    }
     ai_log(n, "u", AI_MSG[n, AI_NMSG[n]])   # transcript only records completed exchanges
     AI_NMSG[n]++
     AI_ROLE[n, AI_NMSG[n]] = "a"

@@ -826,8 +826,15 @@ function host_special(f) {
 # RESOLVES (host_outside): a symbolic link already in the directory, to a
 # file, a directory or nothing yet, cannot carry the write or the KILL out
 # (the 2026-09-30 audit, BL-37).  Native Windows checks the spelling only.
+# WHO chose the name is asked when it was chosen: a channel OPENed at READY
+# keeps FH_FREE[n] = host_typed(), and the probes made later for it under
+# a program (the "R" flush, the OLLAMA transcript) set HOSTFREE from it.
+# They asked who was running then, so a file OPENed at READY by an
+# absolute path and closed by a program's END lost its PUT records to ?FD
+# (the 2026-09-30 audit, BL-26).
+function host_typed() { return CK == "" || CK == "I" }
 function host_escape(f) {
-    if (CK == "" || CK == "I") return 0
+    if (HOSTFREE || host_typed()) return 0
     if (f ~ /^[\/\\]/ || f ~ /^[A-Za-z]:[\/\\]/) return 1
     if (f ~ /(^|[\/\\])\.\.([\/\\]|$)/) return 1
     return WINNATIVE ? 0 : host_outside(f)

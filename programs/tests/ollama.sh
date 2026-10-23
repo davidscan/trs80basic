@@ -105,5 +105,13 @@ out=$(cd "$dir" && TRS80_Z80= TRS80_OLLAMA_CURL="sh $dir/esc.sh" \
 want='65,8,66,12,67,124,195,169,124,240,159,152,128,124,237,160,189,124,92,124,47,124,34,113,34,'
 [ "$out" = "$want" ] || fail "the JSON escapes b, f and a surrogate pair" "$out"
 
+# a thread OPENed at READY by an absolute path, sent on by a program: the
+# transcript's re-probe asked who was running then, ?FD (BL-26)
+mkdir "$dir/th"
+out=$(cd "$dir" && printf '\n10 PRINT#1,"Q":LINE INPUT#1,A$:PRINT "GOT ";A$:CLOSE 1\nOPEN "O",1,"OLLAMA:stub:%s/th/abs"\nGOTO 10\n' "$dir" \
+      | TRS80_DUMB=1 TRS80_Z80= TRS80_OLLAMA_CURL="sh $here/programs/tests/ollama_stub.sh" \
+        gawk -b -f "$here/trs80basic.awk" 2>&1 | grep '^GOT \|ERROR')
+[ "$out" = "GOT Msgs=1 T=- K=-, hello" ] && [ -s "$dir/th/abs.ollama" ] || fail "a thread OPENed at READY by an absolute path" "$out"
+
 rm -rf "$dir"
 echo "OLLAMA OK"
