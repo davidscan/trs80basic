@@ -82,6 +82,7 @@ None of these is needed to run programs. Arguments are documented under
 | `tools/make_userguide.py` | regenerates the keyword reference in `docs/USER_GUIDE.md` from `support/manpages.txt`, so the guide matches `man` |
 | `programs/examples/run_examples.sh` | runs every example program and compares its output with the checked-in transcript |
 | `programs/tests/run_all.sh` | runs the whole test suite with one exit status, as CI does on every push |
+| `programs/tests/transcripts.sh` | runs the READY-prompt transcripts `programs/tests/t*.txt` and compares each with its checked-in `.out` (part of `run_all.sh`) |
 | `programs/tests/ollama_stub.sh` | returns canned Ollama replies, so OLLAMA programs run without a server (via `TRS80_OLLAMA_CURL`) |
 | `programs/tests/z80_stub.py` | a minimal stand-in for the Z80 core that the `USR` protocol tests run against |
 
@@ -204,6 +205,19 @@ scratch directory, against the OLLAMA stub, and diffs against the checked-in
 | argument | default | what it does | when you'd use it |
 |---|---|---|---|
 | `--update` | off | regenerate the transcripts instead of checking them | after a deliberate change to an example or to output formatting — read the diff first |
+
+### `programs/tests/transcripts.sh [--update]`
+
+Pipes each `programs/tests/tN.txt` into the READY prompt from the repo root,
+with `--seed 1`, plain output and the OLLAMA and Z80 stubs, and diffs what it
+printed (its exit status last) against `tN.out`; the `ls -l` line that `dir`
+prints is cut to the file name. Every `t1` to `tN` must exist. **Writes:**
+the files the transcripts themselves create and remove, and nothing else,
+unless `--update`, which rewrites the `.out` files.
+
+| argument | default | what it does | when you'd use it |
+|---|---|---|---|
+| `--update` | off | regenerate the `.out` files instead of checking them | after a deliberate change to a transcript or to output — read the diff first |
 
 ## User manual
 
