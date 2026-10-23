@@ -55,5 +55,14 @@ out=$(run "$tmp/tok/$f"); [ "$out" = "$want" ] || fail "tok.py image of the CR f
 f=$(ls "$tmp/tok" | grep -i '^inlf\.' | head -1)
 out=$(run "$tmp/tok/$f"); [ "$out" = " 3  10 " ] || fail "tok.py image, in-line LF ($f)" "$out"
 
+# blank is what RST 10H skips: a line of blanks and an in-line LF is
+# skipped; a line of FF has no number (?FD), as tools/tok.py says (BL-30)
+printf '10 PRINT "ONE"\r \n\r20 A=3\r30 PRINT "TWO";A\r' > "$tmp/blanklf.bas"
+out=$(run "$tmp/blanklf.bas"); [ "$out" = "$want" ] || fail "a line holding only an in-line LF is blank" "$out"
+printf '10 PRINT "ONE"\n\f\n20 PRINT "TWO"\n' > "$tmp/ff.bas"
+out=$(run "$tmp/ff.bas"); rc=$?
+case $rc,$out in 2,*"FILE LINE 2 (NO LINE NUMBER)"*) ;; *) fail "a line of FF has no number (rc=$rc)" "$out" ;; esac
+mkdir "$tmp/tff"; python3 "$here/tools/tok.py" -o "$tmp/tff" "$tmp/ff.bas" >/dev/null 2>&1 && fail "tok.py took a line of FF for a blank line" ""
+
 rm -rf "$tmp"
 echo "LINECUT OK"

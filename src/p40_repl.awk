@@ -1153,7 +1153,10 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
     ok = 1; nseen = 0
     for (pln = 1; pln <= nfl; pln++) {
         l = fl[pln]
-        sub(/^[ \t]+/, "", l)
+        # blank is what RST 10H skips (1D78H): a blank, a TAB, an LF (the
+        # in-line line feed of a CR file); FF, VT and a stray CR are not, so
+        # such a line has no number.  tools/tok.py agrees (BL-30).
+        sub(/^[ \t\n]+/, "", l)
         if (l != "") {
             if (l ~ /^[0-9]+/) {
                 ln = cut_lineno(l); rest = LNBODY     # 1 5 PRINT is line 15 (L-14)

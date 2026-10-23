@@ -194,13 +194,17 @@ def split_lines(data):
     else:
         raws = [r[:-1] if r.endswith(b"\r") else r for r in data.split(b"\n")]
     for raw in raws:
-        if not raw.strip():
+        # Blank is what RST 10H skips (1D78H-1D88H): a blank, a TAB or an
+        # LF.  A line of FF, VT or a stray CR is not blank: it has no line
+        # number, as prog_load says too (audit BL-30; bytes.strip() took
+        # those for blanks).
+        if not raw.strip(b" \t\n"):
             continue
         # The number as the ROM reads it (1A81H-1A95H): leading blanks are
         # skipped, and so are blanks BETWEEN digits (1E5AH reads through
         # RST 10H), so "1 5 CLS" is line 15; the number ends at its last
         # digit.  prog_load (the interpreter) cuts the same way.
-        raw = raw.lstrip(b" \t")
+        raw = raw.lstrip(b" \t\n")
         j = 0
         digits = bytearray()
         while j < len(raw):
