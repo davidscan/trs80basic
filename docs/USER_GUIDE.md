@@ -229,7 +229,7 @@ printf '5\n10\n' | ./basic prog.bas   # stdin answers the INPUTs
 ./basic --clear 1000 prog.bas  # CLEAR 1000 typed before RUN, as on the machine
 ./basic --memsize 32767 prog.bas   # a 16K machine, for a listing that needs one
 ./basic --memory host prog.bas     # new code: no 64K, string space, 255-byte or 32767 limits (man memory)
-./basic --version              # the release (v1.4) and, in a checkout, the exact build
+./basic --version              # the release (e.g. v2.1.4) and, in a checkout, the exact build
 ```
 
 Exit status: **0** clean, **1** uncaught BASIC error (also on stderr in the
