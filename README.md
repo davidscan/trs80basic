@@ -148,7 +148,9 @@ own. Whatever the BASIC program `OPEN`s, `CSAVE`s or `SAVE`s lands relative to
 | `--version` | | prints the release, `trs80basic v2.1.4`, and in a git checkout the exact build behind it (`v2.1.4-3-gabcdef0`, `-dirty` with edits) | pinning which interpreter a program or a test baseline was built against; the `version` metacommand says the same at the prompt |
 
 Exit status: **0** clean run, **1** uncaught BASIC error (also printed to
-stderr as `?SN ERROR IN 40`), **2** bad invocation or unreadable file.
+stderr as `?SN ERROR IN 40`), **2** bad invocation, an unreadable file, or
+a source line the loader skipped (`?FD ERROR - FILE LINE n`): the program
+does not run.
 Behind two of those errors batch mode adds one `basic:` line on stderr:
 `?OS` with string space never `CLEAR`ed names `--clear`, and `?OV` at a
 `CLEAR MEM-n` on the 64K map names `--memsize 32767`; and behind a limit

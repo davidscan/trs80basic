@@ -7,7 +7,8 @@
 #
 # Exit status:  0 clean halt (END, STOP, BYE/EXIT, or falling off the end)
 #               1 uncaught BASIC error, or stdin exhausted at an INPUT
-#               2 bad arguments, unreadable file, or unloadable source
+#               2 bad arguments, unreadable file, or a source line the
+#                 loader skipped (?FD ERROR - FILE LINE n): it does not run
 
 # parse ARGV; returns 0 on a usage error.  Sets BATCH/BATCHFILE, OPT_BATCH, OPT_SCREEN,
 # SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_CLEAR, OPT_MEMORY, OPT_HELP, OPT_VERSION.  gawk never reads the operands itself: the whole
@@ -133,7 +134,8 @@ function usage(dest,   t) {
         "  --version    print the release (and the exact build in a checkout)\n" \
         "  --           end of options\n" \
         "\n" \
-        "Exit status: 0 clean run, 1 BASIC runtime error, 2 bad invocation.\n" \
+        "Exit status: 0 clean run, 1 BASIC runtime error, 2 bad invocation,\n" \
+        "an unreadable file, or a source line the loader skipped (?FD).\n" \
         "stdin feeds the program's own INPUT statements; BASIC errors go to\n" \
         "stderr as \"?SN ERROR IN 40\".  Use the shell's `timeout` to bound a\n" \
         "program that may not halt."
