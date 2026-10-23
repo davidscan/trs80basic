@@ -1,6 +1,6 @@
 10 REM A DOUBLE IS A SINGLE FIRST on its way to 16 bits: CINT (0A7FH) calls CSNG's tail for a
 20 REM double (0A87H -> 0AB9H), which rounds the fourth mantissa byte half up (0796H), and only
-30 REM then converts; the integer store (2819H), AND/OR/NOT, MKI$, FOR's start, INT and FIX
+30 REM then converts; the integer store (2819H), AND/OR/NOT, FOR's start, INT and FIX
 40 REM below 32768 (0B5FH JP C,0A7FH) all go that way.  So INT(2.9999999#) is 3 -- ROM bug 5a's
 50 REM mechanism -- and 32767.9999999# rounds to 32768: ?OV (0AA3H -> 07B2H).  From 32768 up INT
 60 REM takes the integer part exactly in the value's own type (0B40H, 0B78H); below it the result

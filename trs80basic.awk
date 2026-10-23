@@ -1076,7 +1076,7 @@ function kp_event(body, fin,   a, m, code, mods, ev, r, b, k) {
             kp_release(k[1] + 0, k[2] + 0)
             return
         }
-        if (code == 127) code = 8                             # Delete: the left arrow, as its press byte is
+        if (code == 127) code = 8                             # Delete: the left arrow, as kb_termkey reads its byte (a key code, not a byte: 27 here is Esc, not a sequence)
         if (and(mods - 1, 4) && code == 99) { r = 6; b = 4 }  # Ctrl-C: the BREAK key
         else if (code in KMR_) { r = KMR_[code]; b = KMB_[code] }
         else return
@@ -1683,8 +1683,9 @@ function rl_draw(oldl, oldp, from,   i, nn, pre, top) {
     sync_cursor()
 }
 
-# ESC sequence: arrows edit/recall; anything else is swallowed
-function rl_arrow(repl,   c, c2, i, oldl, oldp) {
+# ESC sequence: arrows edit; up/down recall history when hist (the >
+# prompt only: rl_read's repl == 1); anything else is swallowed
+function rl_arrow(hist,   c, c2, i, oldl, oldp) {
     c = kb_poll_wait(30)
     if (c != 91 && c != 79) { kb_mode("line"); return }
     c2 = kb_poll_wait(30)
@@ -1692,8 +1693,8 @@ function rl_arrow(repl,   c, c2, i, oldl, oldp) {
     oldl = length(RLS); oldp = RLP
     if (c2 == 68) { if (RLP > 0) { RLP--; rl_draw(oldl, oldp) } return }      # left
     if (c2 == 67) { if (RLP < oldl) { RLP++; rl_draw(oldl, oldp) } return }   # right
-    if (c2 == 65) { if (repl) rl_hist(1, oldl, oldp); return }                # up
-    if (c2 == 66) { if (repl) rl_hist(-1, oldl, oldp); return }               # down
+    if (c2 == 65) { if (hist) rl_hist(1, oldl, oldp); return }                # up
+    if (c2 == 66) { if (hist) rl_hist(-1, oldl, oldp); return }               # down
     if (c2 == 53 || c2 == 54) {                       # ESC[5~ / ESC[6~: PgUp/PgDn
         i = kb_poll_wait(30)
         kb_mode("line")
@@ -2286,7 +2287,8 @@ function st_fullscreen(arg) {
 # (10 REM META:fullscreen on), change the throttle part-way through
 # (500 REM META:speed 1.77) or declare that it needs the host's memory
 # (10 REM META:memory host, EXT 2026-09-26).  In a loop it re-fires every
-# pass; all three knobs are idempotent, which is why only they are allowed.
+# pass; all four knobs (speed, fullscreen, memory, spaced) are idempotent,
+# which is why only they are allowed.
 #
 # The whitelist is display/feel/capacity knobs ONLY -- never dir/cat (shell
 # passthroughs), never anything touching the filesystem.  Metacommands
@@ -3499,8 +3501,10 @@ function batch_ineof() {
 #              d DATA payload, r REM payload, e end sentinel.
 # TKW[key, k] is 1 on a keyword the table matched (kw_at, p75), unset on a
 # name: the parser needs it where the two spell alike (TAB( and the
-# variable TAB).  TSX[key, k] is a name's type suffix (! % #), or on a
-# number "%" and "%SN" (see tk_number).
+# variable TAB).  It is read bare and tested only for truth, never with
+# `in`: the empty entry a bare read creates is false, and inval_cache_key
+# deletes it with the line's other tokens.  TSX[key, k] is a name's type
+# suffix (! % #), or on a number "%" and "%SN" (see tk_number).
 #
 # The line is read as the ROM's cruncher reads it (1BC0-1C8F), so that the
 # tokens here are the tokens in the program image (pm_crunch, p75) and the
@@ -5038,11 +5042,11 @@ function st_let(   name, key, v, lp, src, j, n) {
 # The ROM keeps one type byte per letter at 4101H-411AH (2 integer, 3
 # string, 4 single, 8 double; RUN and CLEAR set all 26 to 4).  DEFT holds
 # those bytes (absent = 4) and PEEK/POKE reach them (sv_peek/sv_poke, p75);
-# DEFS and DEFI are the two the interpreter acts on -- a string name, and an
-# integer one whose stores round down (LET through 0A7FH).  Single and
-# double precision are the same here.
-# RUN/NEW/program load reset the table (clear_vars); CLEAR keeps it, so
-# DEFSTR A: CLEAR 500: A="X" stays typed.
+# DEFS and DEFI are quick tests for a string name and for an integer one
+# whose stores round down (LET through 0A7FH); DEFDBL's 8 is read from
+# DEFT itself, and a double is the 56-bit one (p91), not a single.
+# RUN, NEW, CLEAR and a program load reset the table (clear_vars), as the
+# ROM's CLEAR does: after DEFSTR A: CLEAR 500, A is a single again.
 function deftype(l, code) {
     DEFT[l] = code; DEFS[l] = (code == 3); DEFI[l] = (code == 2)
 }
@@ -7100,7 +7104,8 @@ function fr_dump(   i) {
 # cut image count too; until 2026-09-30 a 266K program counted as 48K); a
 # simple variable is 3 bytes of header (type, two name characters) and
 # its value (2 an integer, 3 a string's descriptor, 4 single, 8 double:
-# the DEF-type table decides, a name is single without it); an array is
+# the suffix decides, else the DEF-type table, else single, fixed when
+# the entry is made: vt_size below); an array is
 # a 6-byte header, 2 per dimension and the elements (DIM allocates them
 # all); a GOSUB frame is 5 bytes (1EB7H-1EC0H: PUSH HL, PUSH HL, PUSH
 # AF, INC SP; 1963H is only asked for 6; 6 until 2026-10-05, the
@@ -9509,8 +9514,9 @@ function fio_mkf(x, nb,   sgn, e, i, b, out) {
     # bit set -> 07A8H bumps the mantissa, the carry going up through the
     # bytes and, from FFFFFFH, into the exponent with ?OV at 07B2H), so .1
     # is CDH CCH CCH 7DH on the machine.  Cutting it off gave CCH, and
-    # INT(CVS(MKS$(.07))*100) was 6 (the 2026-09-19 audit, M-26).  Only a
-    # single has anything left here: a double's 53 bits fit the 56.
+    # INT(CVS(MKS$(.07))*100) was 6 (the 2026-09-19 audit, M-26).  Every
+    # caller is a single (MKS$, a single USR result); a double's 8 bytes
+    # come from dbytes (p91), never through here.
     if (x >= 0.5) {
         for (i = nb - 1; i >= 1 && ++FIO_MB[i] > 255; i--) FIO_MB[i] = 0
         if (i < 1) { FIO_MB[1] = 128; if (++e > 255) { raise(6); return "" } }
@@ -10608,8 +10614,10 @@ function toS(u) { return (u > 32767) ? u - 65536 : u }
 # (sngl).  All arithmetic is exact in doubles (products < 2^48).  Boot and
 # the RANDOM statement write ONLY the middle byte (the ROM takes it from the
 # Z80 R register; we take it from gawk rand(), so --seed stays repeatable).
-# Authentic quirks reproduced: RND(1) is always 1 (the corpus dialect trap),
-# and seed E20F02H yields mantissa FFFFFF, which PRINTs as 1.
+# Authentic quirks reproduced: RND(1) is 1 (the corpus dialect trap) on
+# every draw but one -- seed E20F02H yields mantissa FFFFFF, which PRINTs
+# as 1 from RND(0), and whose single add of 1 rounds up, so there RND(n)
+# is n+1 for a power of 2 (RND(1) is 2; audit B-2, p60's sadd).
 function rnd_next() {
     RNDSEED = (RNDSEED * 4253261 + 372837) % 16777216
     return RNDSEED / 16777216
@@ -10685,7 +10693,7 @@ function host_special(f) {
     return index(f, sprintf("%c", 0)) > 0 || f == "-" || f ~ /^\/inet[46]?\// || f ~ /^\/dev\//
 }
 
-# A file name a PROGRAM WRITES, KILLs or renames stays under the working
+# A file name a PROGRAM WRITES or KILLs stays under the working
 # directory: an absolute path, a drive-letter root or a `..` path
 # component is refused (?FD at the caller), so a listing cannot append to
 # a startup file or delete one outside the directory it was started in

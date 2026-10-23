@@ -699,8 +699,9 @@ function fio_mkf(x, nb,   sgn, e, i, b, out) {
     # bit set -> 07A8H bumps the mantissa, the carry going up through the
     # bytes and, from FFFFFFH, into the exponent with ?OV at 07B2H), so .1
     # is CDH CCH CCH 7DH on the machine.  Cutting it off gave CCH, and
-    # INT(CVS(MKS$(.07))*100) was 6 (the 2026-09-19 audit, M-26).  Only a
-    # single has anything left here: a double's 53 bits fit the 56.
+    # INT(CVS(MKS$(.07))*100) was 6 (the 2026-09-19 audit, M-26).  Every
+    # caller is a single (MKS$, a single USR result); a double's 8 bytes
+    # come from dbytes (p91), never through here.
     if (x >= 0.5) {
         for (i = nb - 1; i >= 1 && ++FIO_MB[i] > 255; i--) FIO_MB[i] = 0
         if (i < 1) { FIO_MB[1] = 128; if (++e > 255) { raise(6); return "" } }

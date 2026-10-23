@@ -732,8 +732,10 @@ function toS(u) { return (u > 32767) ? u - 65536 : u }
 # (sngl).  All arithmetic is exact in doubles (products < 2^48).  Boot and
 # the RANDOM statement write ONLY the middle byte (the ROM takes it from the
 # Z80 R register; we take it from gawk rand(), so --seed stays repeatable).
-# Authentic quirks reproduced: RND(1) is always 1 (the corpus dialect trap),
-# and seed E20F02H yields mantissa FFFFFF, which PRINTs as 1.
+# Authentic quirks reproduced: RND(1) is 1 (the corpus dialect trap) on
+# every draw but one -- seed E20F02H yields mantissa FFFFFF, which PRINTs
+# as 1 from RND(0), and whose single add of 1 rounds up, so there RND(n)
+# is n+1 for a power of 2 (RND(1) is 2; audit B-2, p60's sadd).
 function rnd_next() {
     RNDSEED = (RNDSEED * 4253261 + 372837) % 16777216
     return RNDSEED / 16777216
@@ -809,7 +811,7 @@ function host_special(f) {
     return index(f, sprintf("%c", 0)) > 0 || f == "-" || f ~ /^\/inet[46]?\// || f ~ /^\/dev\//
 }
 
-# A file name a PROGRAM WRITES, KILLs or renames stays under the working
+# A file name a PROGRAM WRITES or KILLs stays under the working
 # directory: an absolute path, a drive-letter root or a `..` path
 # component is refused (?FD at the caller), so a listing cannot append to
 # a startup file or delete one outside the directory it was started in

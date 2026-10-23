@@ -1358,7 +1358,8 @@ function fr_dump(   i) {
 # cut image count too; until 2026-09-30 a 266K program counted as 48K); a
 # simple variable is 3 bytes of header (type, two name characters) and
 # its value (2 an integer, 3 a string's descriptor, 4 single, 8 double:
-# the DEF-type table decides, a name is single without it); an array is
+# the suffix decides, else the DEF-type table, else single, fixed when
+# the entry is made: vt_size below); an array is
 # a 6-byte header, 2 per dimension and the elements (DIM allocates them
 # all); a GOSUB frame is 5 bytes (1EB7H-1EC0H: PUSH HL, PUSH HL, PUSH
 # AF, INC SP; 1963H is only asked for 6; 6 until 2026-10-05, the

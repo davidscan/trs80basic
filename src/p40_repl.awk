@@ -447,7 +447,8 @@ function st_fullscreen(arg) {
 # (10 REM META:fullscreen on), change the throttle part-way through
 # (500 REM META:speed 1.77) or declare that it needs the host's memory
 # (10 REM META:memory host, EXT 2026-09-26).  In a loop it re-fires every
-# pass; all three knobs are idempotent, which is why only they are allowed.
+# pass; all four knobs (speed, fullscreen, memory, spaced) are idempotent,
+# which is why only they are allowed.
 #
 # The whitelist is display/feel/capacity knobs ONLY -- never dir/cat (shell
 # passthroughs), never anything touching the filesystem.  Metacommands

@@ -3,8 +3,10 @@
 #              d DATA payload, r REM payload, e end sentinel.
 # TKW[key, k] is 1 on a keyword the table matched (kw_at, p75), unset on a
 # name: the parser needs it where the two spell alike (TAB( and the
-# variable TAB).  TSX[key, k] is a name's type suffix (! % #), or on a
-# number "%" and "%SN" (see tk_number).
+# variable TAB).  It is read bare and tested only for truth, never with
+# `in`: the empty entry a bare read creates is false, and inval_cache_key
+# deletes it with the line's other tokens.  TSX[key, k] is a name's type
+# suffix (! % #), or on a number "%" and "%SN" (see tk_number).
 #
 # The line is read as the ROM's cruncher reads it (1BC0-1C8F), so that the
 # tokens here are the tokens in the program image (pm_crunch, p75) and the

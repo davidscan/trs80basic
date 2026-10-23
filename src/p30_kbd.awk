@@ -195,7 +195,7 @@ function kp_event(body, fin,   a, m, code, mods, ev, r, b, k) {
             kp_release(k[1] + 0, k[2] + 0)
             return
         }
-        if (code == 127) code = 8                             # Delete: the left arrow, as its press byte is
+        if (code == 127) code = 8                             # Delete: the left arrow, as kb_termkey reads its byte (a key code, not a byte: 27 here is Esc, not a sequence)
         if (and(mods - 1, 4) && code == 99) { r = 6; b = 4 }  # Ctrl-C: the BREAK key
         else if (code in KMR_) { r = KMR_[code]; b = KMB_[code] }
         else return
@@ -802,8 +802,9 @@ function rl_draw(oldl, oldp, from,   i, nn, pre, top) {
     sync_cursor()
 }
 
-# ESC sequence: arrows edit/recall; anything else is swallowed
-function rl_arrow(repl,   c, c2, i, oldl, oldp) {
+# ESC sequence: arrows edit; up/down recall history when hist (the >
+# prompt only: rl_read's repl == 1); anything else is swallowed
+function rl_arrow(hist,   c, c2, i, oldl, oldp) {
     c = kb_poll_wait(30)
     if (c != 91 && c != 79) { kb_mode("line"); return }
     c2 = kb_poll_wait(30)
@@ -811,8 +812,8 @@ function rl_arrow(repl,   c, c2, i, oldl, oldp) {
     oldl = length(RLS); oldp = RLP
     if (c2 == 68) { if (RLP > 0) { RLP--; rl_draw(oldl, oldp) } return }      # left
     if (c2 == 67) { if (RLP < oldl) { RLP++; rl_draw(oldl, oldp) } return }   # right
-    if (c2 == 65) { if (repl) rl_hist(1, oldl, oldp); return }                # up
-    if (c2 == 66) { if (repl) rl_hist(-1, oldl, oldp); return }               # down
+    if (c2 == 65) { if (hist) rl_hist(1, oldl, oldp); return }                # up
+    if (c2 == 66) { if (hist) rl_hist(-1, oldl, oldp); return }               # down
     if (c2 == 53 || c2 == 54) {                       # ESC[5~ / ESC[6~: PgUp/PgDn
         i = kb_poll_wait(30)
         kb_mode("line")

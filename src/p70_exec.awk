@@ -291,11 +291,11 @@ function st_let(   name, key, v, lp, src, j, n) {
 # The ROM keeps one type byte per letter at 4101H-411AH (2 integer, 3
 # string, 4 single, 8 double; RUN and CLEAR set all 26 to 4).  DEFT holds
 # those bytes (absent = 4) and PEEK/POKE reach them (sv_peek/sv_poke, p75);
-# DEFS and DEFI are the two the interpreter acts on -- a string name, and an
-# integer one whose stores round down (LET through 0A7FH).  Single and
-# double precision are the same here.
-# RUN/NEW/program load reset the table (clear_vars); CLEAR keeps it, so
-# DEFSTR A: CLEAR 500: A="X" stays typed.
+# DEFS and DEFI are quick tests for a string name and for an integer one
+# whose stores round down (LET through 0A7FH); DEFDBL's 8 is read from
+# DEFT itself, and a double is the 56-bit one (p91), not a single.
+# RUN, NEW, CLEAR and a program load reset the table (clear_vars), as the
+# ROM's CLEAR does: after DEFSTR A: CLEAR 500, A is a single again.
 function deftype(l, code) {
     DEFT[l] = code; DEFS[l] = (code == 3); DEFI[l] = (code == 2)
 }
