@@ -130,7 +130,10 @@ want='[HELLO]
 
 # Disk manual, OPEN: "record-length is a numeric expression from 0 to 256
 # ...  0 is the same as 256."  Zero used to be ?FC.  A length past 256, and
-# a negative one, still are.
+# a negative one, still are.  A single FIELD of 256 is ?FC: a string's
+# length is one descriptor byte (e7a5334, whose message promised this pin;
+# it came with the 2026-09-30 audit's BL-32), while two fields may fill
+# the 256-byte record.
 printf 'AB\n' > "$dir/ZERO.TXT"
 cat > "$dir/z.bas" <<'BAS'
 10 ON ERROR GOTO 100
@@ -140,6 +143,10 @@ cat > "$dir/z.bas" <<'BAS'
 50 IF S<>2 THEN PRINT "257 WAS NOT ?FC"
 60 S=3:OPEN "R",2,"ZERO.TXT",-1
 70 IF S<>4 THEN PRINT "-1 WAS NOT ?FC"
+72 OPEN "R",3,"ZERO.TXT",0:S=5:FIELD 3,256 AS C$
+74 IF S<>6 THEN PRINT "FIELD 256 WAS NOT ?FC"
+76 S=7:FIELD 3,128 AS C$,128 AS D$:IF S<>7 THEN PRINT "128+128 RAISED"
+78 CLOSE
 80 END
 100 IF ERR/2+1=5 THEN S=S+1:RESUME NEXT
 110 PRINT "UNEXPECTED ERROR";ERR/2+1;"IN";ERL:RESUME NEXT
