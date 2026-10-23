@@ -12,7 +12,7 @@
 # parse ARGV; returns 0 on a usage error.  Sets BATCH/BATCHFILE, OPT_BATCH, OPT_SCREEN,
 # SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_CLEAR, OPT_MEMORY, OPT_HELP, OPT_VERSION.  gawk never reads the operands itself: the whole
 # interpreter lives in BEGIN and exits there.
-function parse_args(   i, a, nofl) {
+function parse_args(   i, a, nofl, host) {
     BATCH = 0; BATCHFILE = ""; OPT_BATCH = 0; OPT_SCREEN = 0; OPT_HELP = 0; OPT_VERSION = 0
     SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; OPT_MEMORY = ""; nofl = 0
     for (i = 1; i < ARGC; i++) {
@@ -57,15 +57,14 @@ function parse_args(   i, a, nofl) {
         # The option is that typed statement: in batch it runs after LOAD
         # and before RUN (CLOAD, CLEAR n, RUN); at the prompt it is entered
         # at the first READY, so no program can tell it from the keyboard.
-        # N is CLEAR's own operand (an integer, 0-32767); its ?OM against
-        # the program's size is CLEAR's, and stops the run.
+        # N is CLEAR's own operand (an integer, 0-32767, or any count under
+        # `memory host`, as CLEAR's own: checked below, once the mode is
+        # known); its ?OM against the program's size is CLEAR's, and stops
+        # the run.
         if (!nofl && (a == "--clear" || a ~ /^--clear=/)) {
             if (a == "--clear") a = (++i < ARGC) ? ARGV[i] : ""
             else a = substr(a, 9)
-            if (a !~ /^[0-9]+$/ || a + 0 > 32767) {
-                ARGMSG = "--clear needs a byte count from 0 to 32767"
-                return 0
-            }
+            if (a !~ /^[0-9]+$/) { ARGMSG = "--clear needs a byte count from 0 to 32767"; return 0 }
             OPT_CLEAR = a + 0
             continue
         }
@@ -88,7 +87,11 @@ function parse_args(   i, a, nofl) {
         if (BATCHFILE != "") { ARGMSG = "only one program file may be given"; return 0 }
         BATCHFILE = a; BATCH = 1
     }
-    if (OPT_MEMORY == "host" && OPT_MEMSIZE) { ARGMSG = "--memory host and --memsize cannot be combined"; return 0 }
+    # the mode as p10 will set it: --memory, else TRS80_MEMORY (BL-29: the
+    # environment's host was let past both checks below)
+    host = (OPT_MEMORY != "") ? (OPT_MEMORY == "host") : ("TRS80_MEMORY" in ENVIRON && ENVIRON["TRS80_MEMORY"] == "host")
+    if (host && OPT_MEMSIZE) { ARGMSG = "--memory host and --memsize cannot be combined"; return 0 }
+    if (!host && OPT_CLEAR > 32767) { ARGMSG = "--clear needs a byte count from 0 to 32767 (any count with --memory host)"; return 0 }
     return 1
 }
 

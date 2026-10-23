@@ -11,6 +11,7 @@ here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
 tmp=$(mktemp) || exit 2
 fail() { echo "CLEAROPT FAILED: $1"; printf '%s\n' "$2"; rm -f "$tmp"; exit 1; }
 run() { TRS80_Z80= "$here/basic" "$@" "$tmp" 2>&1 </dev/null; }
+unset TRS80_MEMORY
 
 # 200 bytes of strings and no CLEAR: ?OS without the option, runs with it
 printf '10 A$=STRING$(100,"A"):B$=STRING$(100,"B")\n20 PRINT "OK";LEN(A$+B$)\n' > "$tmp"
@@ -40,6 +41,19 @@ for v in -1 32768 abc ""; do
     out=$(run --clear "$v"); rc=$?
     [ $rc -eq 2 ] || fail "--clear '$v' was accepted (rc=$rc)" "$out"
 done
+
+# under memory host CLEAR takes any count, and so does --clear; the mode is
+# the one the run gets, from --memory or else TRS80_MEMORY, and --memsize
+# sizes the 64K map, which host mode does not have (BL-29)
+printf '10 PRINT "RAN"\n' > "$tmp"
+out=$(run --memory host --clear 100000); [ "$out" = "RAN" ] || fail "--clear 100000 with --memory host" "$out"
+out=$(TRS80_MEMORY=host run --clear 100000); [ "$out" = "RAN" ] || fail "--clear 100000 with TRS80_MEMORY=host" "$out"
+out=$(TRS80_MEMORY=host run --memory rom --clear 100000); rc=$?
+[ $rc -eq 2 ] || fail "--memory rom overrides TRS80_MEMORY=host for --clear (rc=$rc)" "$out"
+out=$(TRS80_MEMORY=host run --memsize 20000); rc=$?
+case $rc,$out in 2,*"cannot be combined"*) ;; *) fail "TRS80_MEMORY=host with --memsize (rc=$rc)" "$out" ;; esac
+out=$(TRS80_MEMORY=host run --memory rom --memsize 20000); rc=$?
+[ $rc -eq 0 ] || fail "--memory rom with --memsize under TRS80_MEMORY=host (rc=$rc)" "$out"
 
 # at the prompt the CLEAR is typed at the first READY, shown as typed
 out=$(printf '\nPRINT FRE("")\n' | TRS80_DUMB=1 TRS80_Z80= "$here/basic" --clear 500 2>&1)
