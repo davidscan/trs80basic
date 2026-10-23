@@ -314,7 +314,8 @@ function st_midset(   name, key, n, m, v, s, r, cnt) {
     if (isN(v)) { raise(13); return }
     r = vstr(v)
     s = al_cur(name, key); if (E) return
-    if (n < 1 || n > 255 || n > length(s)) { raise(5); return }
+    if (!HOSTMEM && n > 255) { raise_host(5); return }     # any start under `memory host` (EXT), as MID$() (BM-10)
+    if (n < 1 || n > length(s)) { raise(5); return }
     cnt = length(r)
     if (m >= 0 && m < cnt) cnt = m
     if (cnt > length(s) - n + 1) cnt = length(s) - n + 1

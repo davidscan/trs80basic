@@ -72,6 +72,12 @@ printf '10 DIM A(20000),B$(30000):PRINT MEM<2147483647-80000\n' > "$tmp"
 out=$(host); [ "$out" = "-1 " ] || fail "MEM still counts the arrays" "$out"
 printf '10 CLEAR 60\n20 A$=STRING$(255,"A"):B$=A$+A$+A$:PRINT LEN(B$);LEN(LEFT$(B$,600));LEN(MID$(B$,300));LEN(MID$(B$,2,700));LEN(RIGHT$(B$,500));LEN(STRING$(1000,"X"));INSTR(700,B$,"A")\n' > "$tmp"
 out=$(host); [ "$out" = " 765  600  466  700  500  1000  700 " ] || fail "long strings and counts" "$out"
+# MID$()= takes a start past 255 as the MID$() function does (BM-10)
+printf '10 CLEAR 1000\n20 A$=STRING$(300,"a"):MID$(A$,280,3)="XYZ":PRINT MID$(A$,278,7);LEN(A$)\n' > "$tmp"
+out=$(host); [ "$out" = "aaXYZaa 300 " ] || fail "MID\$()= at a start past 255" "$out"
+printf '10 CLEAR 1000:A$=STRING$(250,"a"):MID$(A$,256)="X"\n' > "$tmp"
+out=$(run); case $out in "?FC ERROR IN 10
+basic: "*"$HINT"*) ;; *) fail "MID\$()= past 255 is ?FC on the machine, with the note" "$out" ;; esac
 printf '10 ABCD=5:PRINT AB;ABCD\n' > "$tmp"
 out=$(host); [ "$out" = " 0  5 " ] || fail "every character of a name counts (varnames.sh has the rest)" "$out"
 out=$(run);  [ "$out" = " 5  5 " ] || fail "the machine keeps two characters of a name (unchanged)" "$out"
