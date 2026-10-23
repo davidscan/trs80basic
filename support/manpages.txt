@@ -1618,9 +1618,10 @@ ERR   the last error's code, held as (code-1)*2
     53 BN Bad file number       63 IE Input past end
        (out of range, or not open)
     54 FF File not found        64 BR Bad record number
-    70 AO File access (a busy channel re-opened, KILL of an open file)
+    70 AO File access (a busy channel re-opened; OPEN, KILL, SAVE or
+          MERGE of a file open on a channel, by any name for it)
   ERROR n cannot raise a file code: the Disk manual says disk errors
-  cannot be simulated, so ERROR 54 is ?UE like any code past 23.
+  cannot be simulated, so ERROR 54 is ?UE like any code from 24 to 128.
   Example: PRINT ERR/2+1
   Example: IF ERR/2+1=11 THEN PRINT "DIVIDE BY ZERO": RESUME NEXT
 
