@@ -78,5 +78,10 @@ t1=$(now)
 e=$(elapsed "$t0" "$t1")
 [ "$out" = "1" ] || fail "the speed 0 run" "$out"
 between "$e" 0 0.5 || fail "speed 0 after TRS80_MHZ=1.77 still paced: $e s" ""
+# the state line names the clock as typed, not in a double's 17 digits (N-4)
+out=$(printf '\nspeed 0.0000001\nspeed 1.774\n' | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep '^SPEED')
+want='SPEED 1e-07 MHZ
+SPEED 1.774 MHZ'
+[ "$out" = "$want" ] || fail "the speed state line" "$out"
 rm -rf "$tmp"
 echo "SPEED OK"

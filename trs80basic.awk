@@ -2452,8 +2452,10 @@ function st_speed(arg) {
     t_man(speed_msg())
 }
 
+# %.6g: concatenation goes through CONVFMT, which carries a double's 17
+# digits, so `speed 0.0000001` showed 9.9999999999999995e-08 (N-4)
 function speed_msg() {
-    return (THROTTLE_MHZ > 0) ? "SPEED " THROTTLE_MHZ " MHZ" : "SPEED: FULL (no throttle)"
+    return (THROTTLE_MHZ > 0) ? "SPEED " sprintf("%.6g", THROTTLE_MHZ) " MHZ" : "SPEED: FULL (no throttle)"
 }
 
 # --- sound metacommand (EXT): machine-code sound through the Z80 core -------
