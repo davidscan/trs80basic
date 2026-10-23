@@ -1,0 +1,69 @@
+MEM SIZE? 
+
+R/S L2 BASIC
+------------------------------
+TRS-80 LEVEL II BASIC emulator
+ Codeveloped with Claude, 2026
+------------------------------
+man pages available for all BASIC commands
+"help meta" to display supported metacommands
+READY
+>PRINT INSTR("HELLO WORLD","O")
+ 5 
+READY
+>PRINT INSTR(6,"HELLO WORLD","O")
+ 8 
+READY
+>PRINT INSTR("HELLO","Z")
+ 0 
+READY
+>PRINT INSTR(3,"ABCABC","")
+ 3 
+READY
+>PRINT INSTR(99,"ABC","A")
+ 0 
+READY
+>PRINT INSTR(0,"ABC","A")
+?FC ERROR
+READY
+>PRINT LEN(TIME$)
+ 17 
+READY
+>PRINT &HFF;&H7FFF;&H8000;&HFFFF;&hff
+ 255  32767 -32768 -1  255 
+READY
+>PRINT &O17;&O177777;&o7
+ 15 -1  7 
+READY
+>PRINT &H10000
+?OV ERROR
+READY
+>10 PRINT "T17";&H10
+>SAVE "t17tmp.bas"
+READY
+>NEW
+READY
+>LIST
+READY
+>LOAD "t17tmp.bas"
+READY
+>LIST
+10 PRINT "T17";&H10
+READY
+>RUN
+T17 16 
+READY
+>NEW
+READY
+>RUN "t17tmp.bas"
+T17 16 
+READY
+>NEW
+READY
+>LOAD "t17tmp.bas",R
+T17 16 
+READY
+>KILL "t17tmp.bas"
+READY
+>BYE
+exit=0

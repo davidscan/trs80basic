@@ -1,0 +1,55 @@
+MEM SIZE? 
+
+R/S L2 BASIC
+------------------------------
+TRS-80 LEVEL II BASIC emulator
+ Codeveloped with Claude, 2026
+------------------------------
+man pages available for all BASIC commands
+"help meta" to display supported metacommands
+READY
+>PRINT 2+2
+ 4 
+READY
+>PRINT "HELLO, WORLD"
+HELLO, WORLD
+READY
+>PRINT 1/3
+ .333333 
+READY
+>PRINT -2^2
+-4 
+READY
+>PRINT 10-3*2, 2^10
+ 4               1024 
+READY
+>PRINT "A"+"B"; LEN("HELLO"); LEFT$("TRS-80",3)
+AB 5 TRS
+READY
+>A=5
+READY
+>PRINT A*2
+ 10 
+READY
+>A$="FOO"
+READY
+>PRINT A$;"BAR"
+FOOBAR
+READY
+>PRINT 1=1; 1=2; 2>1; "A"<"B"; NOT 0; 3 AND 5; 3 OR 5
+-1  0 -1 -1 -1  1  7 
+READY
+>PRINT INT(-1.5); ABS(-7); SGN(-3); SQR(16); FIX(-1.5)
+-2  7 -1  4 -1 
+READY
+>PRINT MID$("ABCDEF",3,2); RIGHT$("ABCDEF",2); CHR$(65); ASC("A")
+CDEFA 65 
+READY
+>PRINT STR$(42); VAL("12.5AB"); STRING$(5,42)
+ 42 12.5 *****
+READY
+>PRINT .5; -.5; 1000000; 12345678
+ .5 -.5  1E+06  12345678 
+READY
+>BYE
+exit=0

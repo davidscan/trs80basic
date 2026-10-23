@@ -1,0 +1,57 @@
+MEM SIZE? 
+
+R/S L2 BASIC
+------------------------------
+TRS-80 LEVEL II BASIC emulator
+ Codeveloped with Claude, 2026
+------------------------------
+man pages available for all BASIC commands
+"help meta" to display supported metacommands
+READY
+>10 PRINT "SAVED PROG"
+>20 REM COLONS: DON'T SPLIT : PRINT "NO"
+>30 DATA "A:B, C",PLAIN
+>40 READ D$,E$: PRINT D$;"|";E$
+>CSAVE "programs/tests/TmpT6.bas"
+READY
+>NEW
+READY
+>CLOAD "programs/tests/TmpT6.bas"
+READY
+>LIST
+10 PRINT "SAVED PROG"
+20 REM COLONS: DON'T SPLIT : PRINT "NO"
+30 DATA "A:B, C",PLAIN
+40 READ D$,E$: PRINT D$;"|";E$
+READY
+>RUN
+SAVED PROG
+A:B, C|PLAIN
+READY
+>CLOAD? "programs/tests/TmpT6.bas"
+READY
+>AUTO 65508
+65508 PRINT "AUTOLINE1"
+65518 PRINT "AUTOLINE2"
+65528 
+READY
+>DELETE 65518
+READY
+>LIST 65508-
+65508 PRINT "AUTOLINE1"
+READY
+>PRINT .000001; 123456789; 1.5E3
+ 1E-06  123456789  1500 
+READY
+>PRINT 2^3^2
+ 64 
+READY
+>CLEAR
+READY
+>PRINT "CLEARED";X
+CLEARED 0 
+READY
+>KILL "programs/tests/TmpT6.bas"
+READY
+>BYE
+exit=0

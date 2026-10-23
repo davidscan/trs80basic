@@ -4,8 +4,9 @@
 #   sh programs/tests/run_all.sh          # from anywhere; exit 0 = everything passed
 #
 # Seven parts: (1) the committed
-# trs80basic.awk is exactly `cat src/p*.awk`; (2) transcripts t1-t33 exit 0
-# (t13/t29 through the OLLAMA stub, t32 through the Z80 stub); (3) the
+# trs80basic.awk is exactly `cat src/p*.awk`; (2) the transcripts t1-tN
+# against their tN.out (transcripts.sh: t13/t29 through the OLLAMA stub,
+# t32 through the Z80 stub); (3) the
 # self-checking .bas fixtures; (4) the .sh suites; (5) the examples against
 # their .out transcripts; (6) the Python tool tests; (7) the interactive
 # keyboard through a pseudo-terminal (kbd_pty.py).
@@ -70,15 +71,10 @@ if ! cat src/p*.awk | cmp -s - trs80basic.awk; then
     bad "trs80basic.awk is not cat src/p*.awk (rebuild and commit it)"
 fi
 
-# 2. the transcripts
-i=1
-while [ $i -le 33 ]; do
-    bounded 60 env TRS80_DUMB=1 TRS80_Z80="python3 programs/tests/z80_stub.py" \
-        TRS80_OLLAMA_CURL="sh programs/tests/ollama_stub.sh" \
-        gawk -b -f trs80basic.awk < "programs/tests/t$i.txt" >/dev/null 2>&1 \
-        || bad "t$i"
-    i=$((i+1))
-done
+# 2. the transcripts, each against its tN.out (transcripts.sh; until
+# 2026-10-23 only gawk's exit status was checked, the audit's BM-13)
+bounded 600 sh programs/tests/transcripts.sh >"$log" 2>&1 \
+    || { bad "transcripts (transcripts.sh)"; show "transcripts.sh"; }
 
 # 3. the batch fixtures (the stub: a core beside the checkout must not matter).
 # A fixture fails by its exit status, AND by printing "FIXTURE FAILED": a

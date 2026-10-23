@@ -1,0 +1,52 @@
+MEM SIZE? 
+
+R/S L2 BASIC
+------------------------------
+TRS-80 LEVEL II BASIC emulator
+ Codeveloped with Claude, 2026
+------------------------------
+man pages available for all BASIC commands
+"help meta" to display supported metacommands
+READY
+>10 ON ERROR GOTO 500
+>20 ERROR 11
+>30 PRINT "AFTER RESUME N"
+>40 ON ERROR GOTO 0
+>50 END
+>500 PRINT "H1;ERR/2+1=";ERR/2+1
+>510 RESUME 30
+>RUN
+H1;ERR/2+1= 11 
+AFTER RESUME N
+READY
+>NEW
+READY
+>0 PRINT "LINE ZERO"
+>1 ON 2 GOSUB 100,200
+>2 PRINT "MAIN DONE": END
+>100 PRINT "SUB100": RETURN
+>200 PRINT "SUB200": RETURN
+>RUN
+LINE ZERO
+SUB200
+MAIN DONE
+READY
+>NEW
+READY
+>10 A$="AB": B$="AC"
+>20 PRINT A$<B$; A$=A$; "Z">"A"; LEFT$("HI",99); VAL(""); VAL("  -3.5X")
+>RUN
+-1 -1 -1 HI 0  0 
+READY
+>NEW
+READY
+>10 DIM T$(2,2): T$(1,2)="MD": PRINT T$(1,2);T$(0,0);"END"
+>RUN
+MDEND
+READY
+>DELETE .
+READY
+>LIST
+READY
+>BYE
+exit=0

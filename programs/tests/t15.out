@@ -1,0 +1,63 @@
+MEM SIZE? 
+
+R/S L2 BASIC
+------------------------------
+TRS-80 LEVEL II BASIC emulator
+ Codeveloped with Claude, 2026
+------------------------------
+man pages available for all BASIC commands
+"help meta" to display supported metacommands
+READY
+>PRINT 1E3
+ 1000 
+READY
+>PRINT 1.5E-3
+ 1.5E-03 
+READY
+>PRINT 2D2
+ 200 
+READY
+>PRINT -3.1e2
+-310 
+READY
+>PRINT 1E3+1
+ 1001 
+READY
+>PRINT .5E1
+ 5 
+READY
+>PRINT VAL("2E4")
+ 20000 
+READY
+>PRINT VAL("2D4")
+ 20000 
+READY
+>PRINT VAL("  -1.5e2xyz")
+ 0 
+READY
+>PRINT VAL("junk")
+ 0 
+READY
+>10 DATA 5E2, 1.5D1, -2E-2
+>20 READ A,B,C: PRINT A;B;C
+>30 INPUT X: PRINT X*2
+>RUN
+ 500  15 -.02 
+? 4E1
+ 80 
+READY
+>LIST
+10 DATA 5E2, 1.5D1, -2E-2
+20 READ A,B,C: PRINT A;B;C
+30 INPUT X: PRINT X*2
+READY
+>PRINT 1E39
+?OV ERROR
+READY
+>PRINT 12E
+ 12 
+READY
+>NEW
+READY
+>BYE
+exit=0

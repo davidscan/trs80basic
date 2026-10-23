@@ -1,0 +1,19 @@
+MEM SIZE? 
+
+R/S L2 BASIC
+------------------------------
+TRS-80 LEVEL II BASIC emulator
+ Codeveloped with Claude, 2026
+------------------------------
+man pages available for all BASIC commands
+"help meta" to display supported metacommands
+READY
+>POKE 16612,5:POKE 16613,0:POKE 16610,100:POKE 16611,0:POKE 16609,1
+READY
+100 REM A
+105 REM B
+110 
+115 LIST
+120 PRINT PEEK(16609);PEEK(16610)+256*PEEK(16611)
+125 BYE
+130 exit=0

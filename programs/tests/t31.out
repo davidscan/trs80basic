@@ -1,0 +1,89 @@
+MEM SIZE? REM t31: REM META: directives -- ext gate, whitelist, silent ignore, both knobs
+
+R/S L2 BASIC
+------------------------------
+TRS-80 LEVEL II BASIC emulator
+ Codeveloped with Claude, 2026
+------------------------------
+man pages available for all BASIC commands
+"help meta" to display supported metacommands
+READY
+>10 REM META:speed 3
+>20 PRINT "RAN"
+>RUN
+RAN
+READY
+>speed
+SPEED: FULL (no throttle)
+READY
+>ext on
+READY
+>RUN
+RAN
+READY
+>speed
+SPEED 3 MHZ
+READY
+>30 REM META:speed 0
+>RUN
+RAN
+READY
+>speed
+SPEED: FULL (no throttle)
+READY
+>NEW
+READY
+>10 REM META:dir /
+>20 REM META:cat /etc/passwd
+>30 REM META:ext off
+>40 REM META:nosuch on
+>50 REM META:speed bogus
+>60 REM META:speed
+>70 REM ordinary comment, not a directive
+>80 REM METAL DETECTOR
+>90 PRINT "IGNORED ALL"
+>RUN
+IGNORED ALL
+READY
+>speed
+SPEED: FULL (no throttle)
+READY
+>ext
+EXT ON (gated: text at a no-variable INPUT, INPUT "prompt",var, REM META:)
+READY
+>100 ' meta:speed 2
+>RUN
+IGNORED ALL
+READY
+>speed
+SPEED 2 MHZ
+READY
+>110 REM META:speed 0
+>RUN
+IGNORED ALL
+READY
+>speed
+SPEED: FULL (no throttle)
+READY
+>NEW
+READY
+>10 REM META:fullscreen off
+>20 REM META:fullscreen on
+>30 PRINT "SCREEN TOGGLED"
+>RUN
+[?1049h[H[2J[17;1H[2m----------------------------------------------------------------[0m[1;1HREADY                                                           [2;1H>10 REM META:fullscreen off                                     [3;1H>20 REM META:fullscreen on                                      [4;1H>30 PRINT "SCREEN TOGGLED"                                      [5;1H>RUN                                                            [6;1H                                                                [7;1H                                                                [8;1H                                                                [9;1H                                                                [10;1H                                                                [11;1H                                                                [12;1H                                                                [13;1H                                                                [14;1H                                                                [15;1H                                                                [16;1H                                                                [6;1H[?25l[?25h[?1049l[0mSCREEN TOGGLED
+READY
+>fullscreen
+FULLSCREEN ON
+READY
+>ext off
+READY
+>120 REM META:speed 3
+>RUN
+SCREEN TOGGLED
+READY
+>speed
+SPEED: FULL (no throttle)
+READY
+>BYE
+exit=0

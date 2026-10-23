@@ -1,0 +1,21 @@
+MEM SIZE? 
+
+R/S L2 BASIC
+------------------------------
+TRS-80 LEVEL II BASIC emulator
+ Codeveloped with Claude, 2026
+------------------------------
+man pages available for all BASIC commands
+"help meta" to display supported metacommands
+READY
+>DEFUSR=&H7003:PRINT USR(21)
+ 42 
+READY
+>DEFUSR1=&H7000:X=USR1(0):PRINT PEEK(15360);PEEK(15361)
+ 72  73 
+READY
+>PRINT USR3(9)
+?FC ERROR
+READY
+>BYE
+exit=0

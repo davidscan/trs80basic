@@ -1,0 +1,132 @@
+MEM SIZE? 
+
+R/S L2 BASIC
+------------------------------
+TRS-80 LEVEL II BASIC emulator
+ Codeveloped with Claude, 2026
+------------------------------
+man pages available for all BASIC commands
+"help meta" to display supported metacommands
+READY
+>PRINT USING "##.##"; 2.359
+ 2.36
+READY
+>PRINT USING "##.##"; -2.35
+-2.35
+READY
+>PRINT USING "#"; 0.5
+1
+READY
+>PRINT USING "##"; 123
+%123
+READY
+>PRINT USING "#,###,###"; 1234567
+1,234,570
+READY
+>PRINT USING "**####"; 12
+****12
+READY
+>PRINT USING "$$###.##"; 45.5
+  $45.50
+READY
+>PRINT USING "**$###.##"; 8.5
+****$8.50
+READY
+>PRINT USING "$$#,###.##"; 1234.5
+ $1,234.50
+READY
+>PRINT USING "+###"; 42
+ +42
+READY
+>PRINT USING "+###"; -42
+ -42
+READY
+>PRINT USING "###-"; -42
+ 42-
+READY
+>PRINT USING "###-"; 42
+ 42 
+READY
+>PRINT USING "###+"; -42
+ 42-
+READY
+>PRINT USING "##.##^^^^"; 234.56
+ 2.35E+02
+READY
+>PRINT USING "##.##^^^^"; -0.00123
+-1.23E-03
+READY
+>PRINT USING ".##"; 0.567
+.57
+READY
+>PRINT USING "##."; 12.7
+13.
+READY
+>PRINT USING "!"; "ABCDEF"
+A
+READY
+>PRINT USING "%   %"; "ABCDEFG"
+ABCDE
+READY
+>PRINT USING "%   %"; "AB"
+AB   
+READY
+>PRINT USING "TOTAL: ###.# UNITS"; 45.67
+TOTAL:  45.7 UNITS
+READY
+>PRINT USING "## AND "; 1; 2; 3
+ 1 AND  2 AND  3 AND 
+READY
+>PRINT USING "##.##"; 0
+ 0.00
+READY
+>PRINT USING "A"+"##"; 7
+A 7
+READY
+>PRINT USING "###"; "OOPS"
+?TM ERROR
+READY
+>PRINT USING "!"; 5
+?TM ERROR
+READY
+>PRINT USING "NO FIELDS"; 1
+NO FIELDS
+?FC ERROR
+READY
+>PRINT TAB(18)USING"##";13
+                  13
+READY
+>PRINT "COST"; TAB(20) USING "###.##"; 12.5
+COST                 12.50
+READY
+>PRINT "A: ";TAB(10) USING "##.##"; 3.14159;: PRINT " DONE"
+A:         3.14 DONE
+READY
+>PRINT TAB(5);USING"##";9
+      9
+READY
+>PRINT "X","Y"; USING "###"; 7
+X               Y  7
+READY
+>LPRINT TAB(5) USING "##"; 7
+READY
+>10 OPEN "O",1,"t16_pu.txt"
+>20 PRINT #1, USING "$$#,###.##"; 1234.5
+>30 PRINT #1, USING "## "; 1; 2; 3
+>35 PRINT #1, "X"; TAB(8) USING "###"; 42
+>40 CLOSE 1
+>50 OPEN "I",1,"t16_pu.txt"
+>60 LINE INPUT #1, A$: PRINT A$
+>70 LINE INPUT #1, B$: PRINT B$
+>75 LINE INPUT #1, C$: PRINT C$
+>80 CLOSE 1
+>90 KILL "t16_pu.txt"
+>RUN
+ $1,234.50
+ 1  2  3 
+X        42
+READY
+>NEW
+READY
+>BYE
+exit=0

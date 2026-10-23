@@ -1,0 +1,109 @@
+MEM SIZE? 
+
+R/S L2 BASIC
+------------------------------
+TRS-80 LEVEL II BASIC emulator
+ Codeveloped with Claude, 2026
+------------------------------
+man pages available for all BASIC commands
+"help meta" to display supported metacommands
+READY
+>PRINT 2^3^2; 2^-2; -3^2; 16/4/2; 2*3^2
+ 64  .25 -9  2  18 
+READY
+>10 A$="X"
+>20 GOSUB 100
+>30 PRINT "BACK": END
+>100 PRINT "SUB": RETURN
+>RUN
+SUB
+BACK
+READY
+>GOSUB 100
+SUB
+READY
+>PRINT RND(6);RND(6);RND(6);RND(0)<1;RND(1)
+ 2  4  2 -1  1 
+READY
+>? "QMARK SHORTHAND"
+QMARK SHORTHAND
+READY
+>5 'APOSTROPHE COMMENT
+>LIST .
+5 'APOSTROPHE COMMENT
+READY
+>10 PRINT @ 2000, "X"
+>RUN
+?FC ERROR IN 10
+READY
+>10 SET(200,10)
+>RUN
+?FC ERROR IN 10
+READY
+>10 PRINT CHR$(300)
+>RUN
+?FC ERROR IN 10
+READY
+>10 X$=MID$("ABC",0)
+>RUN
+?FC ERROR IN 10
+READY
+>10 READ Z
+>20 DATA HELLO
+>RUN
+?SN ERROR IN 20
+READY
+>NEW
+READY
+>10 FOR I=1 TO 30: PRINT I: NEXT
+>RUN
+ 1 
+ 2 
+ 3 
+ 4 
+ 5 
+ 6 
+ 7 
+ 8 
+ 9 
+ 10 
+ 11 
+ 12 
+ 13 
+ 14 
+ 15 
+ 16 
+ 17 
+ 18 
+ 19 
+ 20 
+ 21 
+ 22 
+ 23 
+ 24 
+ 25 
+ 26 
+ 27 
+ 28 
+ 29 
+ 30 
+READY
+>@dump
+| 18                                                             |
+| 19                                                             |
+| 20                                                             |
+| 21                                                             |
+| 22                                                             |
+| 23                                                             |
+| 24                                                             |
+| 25                                                             |
+| 26                                                             |
+| 27                                                             |
+| 28                                                             |
+| 29                                                             |
+| 30                                                             |
+|READY                                                           |
+|>@dump                                                          |
+|                                                                |
+>BYE
+exit=0

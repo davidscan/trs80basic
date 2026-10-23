@@ -1,0 +1,69 @@
+MEM SIZE? 
+
+R/S L2 BASIC
+------------------------------
+TRS-80 LEVEL II BASIC emulator
+ Codeveloped with Claude, 2026
+------------------------------
+man pages available for all BASIC commands
+"help meta" to display supported metacommands
+READY
+>70000 PRINT "BAD"
+?SN ERROR
+READY
+>10 FOR I=5 TO 1: PRINT "ONCE";I: NEXT: PRINT "DONE";I
+>RUN
+ONCE 5 
+DONE 6 
+READY
+>NEW
+READY
+>10 IF 1 GOTO 40
+>20 PRINT "NO"
+>30 END
+>40 IF 0 GOTO 20
+>50 IF 1 PRINT "NOTHEN"
+>60 IF 1 THEN 80 ELSE 20
+>70 PRINT "NO70": END
+>80 IF 0 THEN 20 ELSE 90
+>90 PRINT "ELSE90"
+>RUN
+NOTHEN
+ELSE90
+READY
+>NEW
+READY
+>10 PRINT "A";: STOP: PRINT "B"
+>20 PRINT "C"
+>RUN
+A
+BREAK IN 10
+READY
+>CONT
+B
+C
+READY
+>NEW
+READY
+>10 INPUT X(2),Y$(1)
+>20 PRINT X(2);Y$(1)
+>RUN
+? 9,HEY
+ 9 HEY
+READY
+>NEW
+READY
+>10 PRINT "SPC:";CHR$(197);"|"
+>20 PRINT "AB";CHR$(8);"C"
+>RUN
+SPC:     |
+ABC
+READY
+>LIST -15
+10 PRINT "SPC:";CHR$(197);"|"
+READY
+>PRINT FRE(0);MEM;POS(0)
+ 48294  48294  14 
+READY
+>BYE
+exit=0

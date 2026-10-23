@@ -1,0 +1,50 @@
+MEM SIZE? 
+
+R/S L2 BASIC
+------------------------------
+TRS-80 LEVEL II BASIC emulator
+ Codeveloped with Claude, 2026
+------------------------------
+man pages available for all BASIC commands
+"help meta" to display supported metacommands
+READY
+>10 PRINT "MiXeD CaSe"
+>20 END
+>CSAVE programs/tests/TmpT14.bas
+READY
+>NEW
+READY
+>CLOAD programs/tests/TmpT14.bas
+READY
+>LIST
+10 PRINT "MiXeD CaSe"
+20 END
+READY
+>RUN
+MiXeD CaSe
+READY
+>CLOAD? programs/tests/TmpT14.bas
+READY
+>KILL "programs/tests/TmpT14.bas"
+READY
+>history
+HISTORY:
+   1  10 PRINT "MiXeD CaSe"
+   2  20 END
+   3  CSAVE programs/tests/TmpT14.bas
+   4  NEW
+   5  CLOAD programs/tests/TmpT14.bas
+   6  LIST
+   7  RUN
+   8  CLOAD? programs/tests/TmpT14.bas
+   9  KILL "programs/tests/TmpT14.bas"
+  10  history
+READY
+>speed
+SPEED: FULL (no throttle)
+READY
+>dir programs/tests/t14.txt
+[ls -l] programs/tests/t14.txt
+READY
+>BYE
+exit=0
