@@ -3557,7 +3557,9 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
             if (c == "!" || c == "%" || c == "#") { sx = c; i++ }
             # the ROM's variable table holds two characters of a name (SUM
             # is SU); under `memory host` (EXT, p10) every character counts
-            if (!HOSTMEM && length(s) > 2) s = vn_cut(s)
+            # BYE and EXIT (EXT) stay whole only as a statement of their own;
+            # anywhere else they are the variables BY and EX, as on the machine
+            if (!HOSTMEM && length(s) > 2 && !((s == "BYE" || s == "EXIT") && sx == "" && bye_alone(key, k, up, i))) s = vn_cut(s)
             k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0; TSX[key, k] = sx
             continue
         }
@@ -3712,15 +3714,27 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
 # full names stay in the program, as they do on the machine.  The ROM's
 # reserved words never reach it (kw_at takes them first, since 2026-09-25,
 # and a reserved word inside a name ends the name: TOTAL is TO TAL); BYE and
-# EXIT, the statement words that are no token, are kept.  FNABC is FN plus a
+# EXIT, the statement words that are no token, are kept by the caller when
+# they stand alone (bye_alone).  FNABC is FN plus a
 # name, so FNAB.  The type suffix `$` is kept (AB$ and AB are two
 # variables); % ! # are already dropped (G% is G).
 function vn_cut(s,   d, b) {
-    if (s == "BYE" || s == "EXIT") return s
     d = (s ~ /\$$/) ? "$" : ""
     b = d ? substr(s, 1, length(s) - 1) : s
     if (b ~ /^FN./) return "FN" substr(b, 3, 2) d
     return substr(b, 1, 2) d
+}
+
+# BYE or EXIT is the statement (EXT) only when it is a whole statement:
+# first in the statement (line start, after `:`, THEN or ELSE) and followed
+# by nothing but the statement's end.  `BYE=5` and `PRINT BYE` are the
+# variable BY on the ROM, and stay so here (the 2026-09-30 audit, BM-9).
+function bye_alone(key, k, up, i,   p) {
+    if (k > 0) {
+        p = TK[key, k]
+        if (!(TY[key, k] == "o" && p == ":") && !(TKW[key, k] && (p == "THEN" || p == "ELSE"))) return 0
+    }
+    return substr(up, i) ~ /^[ \t]*($|:|'|ELSE)/
 }
 
 # every cached line: the name rule changed with the memory mode (p40
@@ -4878,7 +4892,8 @@ function execstmt(   ty, tx) {
         if (tx == "LINE")    { CP++; st_lineinput(); return }
         # EXIT: BYE's synonym (EXT, the user, 2026-10-22; on the machine it is
         # the variable EX, and no corpus listing uses it outside a string)
-        if (tx == "BYE" || tx == "EXIT") { CP++; QUITFLAG = 1; HALT = 1; return }
+        # A whole statement only (bye_alone, p50): `BYE=5` assigns, as the ROM's BY
+        if ((tx == "BYE" || tx == "EXIT") && TSX[CK, CP] == "") { CP++; if (at_stmt_end()) { QUITFLAG = 1; HALT = 1; return }; CP-- }
         if (tx == "TRON")    { CP++; TRACE = 1; return }
         if (tx == "TROFF")   { CP++; TRACE = 0; return }
         if (tx == "RANDOM")  { CP++; rnd_setmid(int(rand() * 128)); return }   # LD A,R (01D3H): the refresh register is 7 bits, 0-127 (N-5)

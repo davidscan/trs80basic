@@ -1545,7 +1545,9 @@ BYE   leave the interpreter and return to the shell
   If a session is killed abnormally instead and the terminal is left
   strange, run:  stty sane
   EXIT is the same statement (an extension: on the machine EXIT is
-  the variable EX).  The lower-case metacommands exit and bye do the
+  the variable EX).  Either is the statement only standing alone;
+  BYE=5 or PRINT BYE is the variable BY, as on the machine.  The
+  lower-case metacommands exit and bye do the
   same thing at the READY prompt (see: man exit).
   Example: BYE
 ```

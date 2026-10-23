@@ -45,6 +45,17 @@ READY
 >bye'
 [ "$out" = "$want" ] || fail "EX stays a variable" "$out"
 
+# BYE and EXIT are the statement only as a whole statement; elsewhere they
+# are the ROM's variables BY and EX (BM-9): BYE=5 assigns BY, PRINT BYE reads it
+out=$(printf '\n10 BYE=5\n20 PRINT "AFTER";BY;BYE\n30 BY=7:PRINT BYE\n40 EXIT=3:PRINT EX;EXIT\n50 IF 1 THEN BYE=9:PRINT BY\n60 PRINT "A":BYE :PRINT "NO"\nRUN\n' | run | sed -n '/^>RUN/,$p')
+want='>RUN
+AFTER 5  5 
+ 7 
+ 3  3 
+ 9 
+A'
+[ "$out" = "$want" ] || fail "BYE=5 is the variable BY; a lone BYE still leaves" "$out"
+
 # piped INKEY$ and INPUT are byte-exact: lower case stays lower case
 out=$(printf '\n10 A$=INKEY$:INPUT B$:PRINT "["A$"]["B$"]"\nRUN\nq\nhello World\n' | run | sed -n '/^\[/p')
 [ "$out" = "[q][hello World]" ] || fail "piped INKEY\$ and INPUT keep the bytes sent" "$out"
