@@ -23,6 +23,23 @@ function fld_tgt(name, key) { return (key != "") ? "A" key : "V" name }
 
 function fio_isopen(n) { return FH_MODE[n] != "" }
 
+# is host file f open on some channel?  By the spelling first, then by what
+# the name RESOLVES to: `./DATA`, a case variant on a case-blind disk and a
+# link all name the open file, and a compare of spellings let KILL delete
+# it and two channels write it (the 2026-09-30 audit, BL-27).  Native
+# Windows has no -ef: its names compare case-blind, as its disks do.
+function fio_busy(f,   i) {
+    for (i = 1; i <= 15; i++) {
+        if (!fio_isopen(i)) continue
+        if (FH_NAME[i] == f) return 1
+        if (toupper(FH_NAME[i]) ~ /^OLLAMA(:|$)/ || host_special(f)) continue
+        if (WINNATIVE) { if (toupper(FH_NAME[i]) == toupper(f)) return 1; continue }
+        if (index(f, sprintf("%c", 0))) continue
+        if (system("test " shq(f) " -ef " shq(FH_NAME[i])) == 0) return 1
+    }
+    return 0
+}
+
 # parse [#] numexpr as a channel number; raise 24 (BN) outside 1..15
 function fio_chan(withhash,   v, n) {
     if (withhash && TY[CK, CP] == "o" && TK[CK, CP] == "#") CP++
@@ -72,8 +89,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
         if (rlen == 0) rlen = 256
     }
     if (fio_isopen(n)) { raise(70); return }
-    for (i = 1; i <= 15; i++)
-        if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
+    if (fio_busy(f)) { raise(70); return }
     if (toupper(f) ~ /^OLLAMA(:|$)/) { ai_open(n, f); return }   # EXT: the OLLAMA channel (p87)
     if (host_special(f)) { raise(22); return }    # /inet/..., /dev/..., "-": not for a program (p90)
     if (mode != "I" && host_escape(f)) { raise(22); return }   # a write stays under the cwd (R-9, p90)
@@ -179,8 +195,7 @@ function st_kill(   v, f, i) {
     if (isN(v)) { raise(13); return }
     f = dos_name(vstr(v))                   # NAME/EXT is the file NAME.EXT (p90)
     if (f == "") { raise(21); return }
-    for (i = 1; i <= 15; i++)
-        if (fio_isopen(i) && FH_NAME[i] == f) { raise(70); return }
+    if (fio_busy(f)) { raise(70); return }
     if (!WINNATIVE && f ~ /'/) { raise(22); return }
     if (host_escape(f)) { raise(22); return }     # a program's name stays under the cwd (R-9, p90): ?FD, not 54
     if (!host_exists(f)) { raise(54); return }
