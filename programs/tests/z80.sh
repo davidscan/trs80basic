@@ -110,6 +110,39 @@ USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argumen
 [ "$rc" = "0" ] && [ "$out" = "$want" ] || fail "hung core: rc=$rc" "$out"
 [ $((t1 - t0)) -lt 10 ] || fail "hung core: close took $((t1 - t0))s, not bounded"
 
+# --- a core that ignores BYE (and traps TERM) no longer holds the session's
+# end for its whole life: BYE, EOF, a bounded wait, then the bounded kill
+# (BM-8).  Before, close() waited the 20 s out.
+cat > "$tmp.core" <<'EOF'
+trap '' TERM
+while read l; do
+  case "$l" in
+    HELLO*) echo "Z80 proto=3";;
+    GO) echo "RET hl=0 result=0 writes=0";;
+  esac
+done
+exec sleep 20
+EOF
+printf '10 DEFUSR=&H7003:X=USR(4):PRINT "OK"\n' > "$tmp"
+t0=$(date +%s)
+out=$(TRS80_Z80="sh $tmp.core" TRS80_Z80_TIMEOUT=300 perl "$bound" 40 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+t1=$(date +%s)
+[ "$rc" = "0" ] && [ "$out" = "OK" ] || fail "BYE ignored: rc=$rc" "$out"
+[ $((t1 - t0)) -lt 12 ] || fail "BYE ignored: the session end took $((t1 - t0))s, not bounded"
+
+# --- a core that stops reading: a frame larger than a pipe used to block
+# gawk in write() until the core died, TRS80_Z80_TIMEOUT ignored (BM-8)
+printf 'read l; echo "Z80 proto=3"; exec sleep 20\n' > "$tmp.core"
+printf '10 FOR I=0 TO 30000:POKE -30000+I,I AND 255:NEXT\n20 DEFUSR=&H7003:X=USR(4):PRINT "OK"\n' > "$tmp"
+t0=$(date +%s)
+out=$(TRS80_Z80="sh $tmp.core" TRS80_Z80_TIMEOUT=500 perl "$bound" 40 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+t1=$(date +%s)
+rm -f "$tmp.core"
+want='USR CORE: the frame was not read within 500 ms; the core is dead for this session, USR is the stub
+?FC ERROR IN 20'
+[ "$rc" = "1" ] && [ "$out" = "$want" ] || fail "frame not read: rc=$rc" "$out"
+[ $((t1 - t0)) -lt 12 ] || fail "frame not read: took $((t1 - t0))s, not bounded"
+
 # --- an undefined entry is ?FC on this side, never sent
 printf '10 X=USR6(0)\n' > "$tmp"
 out=$(TRS80_Z80="$core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?

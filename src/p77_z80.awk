@@ -166,8 +166,25 @@ function z80_start(   w) {
 }
 
 function z80_stop() {
-    if (Z80STATE == "up") { z80_send("BYE"); close(Z80CMD) }
+    if (Z80STATE == "up") z80_bye()
     Z80STATE = "dead"; Z80PID = 0
+}
+
+# BYE, then a BOUNDED wait for the core to go (the 2026-09-30 audit, BM-8:
+# close() waits for the child, so a core that ignored BYE held the session's
+# end, and a recycle, for its whole life).  The write end closes too, so the
+# core sees EOF; its output is read to EOF, at least 5 s -- the shipped
+# core's own way out joins its sound thread and waits for the player, up
+# to 3 s (its z80/sound.py) -- or TRS80_Z80_TIMEOUT if that is longer.  A
+# core still there after it gets z80_close's bounded kill.
+function z80_bye(   r, n) {
+    z80_send("BYE")
+    close(Z80CMD, "to")
+    PROCINFO[Z80CMD, "READ_TIMEOUT"] = (Z80TO > 5000) ? Z80TO : 5000
+    n = 0
+    while ((r = (Z80CMD |& getline Z80LINE)) > 0 && ++n < 1000) ;
+    if (r != 0) { z80_close(); return }
+    close(Z80CMD)
 }
 
 # apply one run "addr:b,b,b": video straight to the screen, else poke_byte
@@ -205,6 +222,11 @@ function z80_usr(x,   full, res) {
         fr_build(full)
         if (USR_TRACE >= 2) fr_dump()             # the frame as sent
         z80_sendframe()
+        if (Z80WTO) {
+            close(Z80CMD, "to")                   # as z80_gone: the unwritten rest goes first
+            z80_notice("the frame was not read within " Z80TO " ms; the core is dead for this session, USR is the stub")
+            z80_close(); raise(5); return 0
+        }
         if (Z80WERR) { z80_gone(); return 0 }
         res = z80_run(x)
         if (Z80STATE == "need") {                 # the core lost its RAM: once more, full
@@ -226,7 +248,21 @@ function z80_usr(x,   full, res) {
     }
 }
 
-function z80_sendframe(   i) {
+# A frame larger than a pipe holds blocks gawk in write() until the core
+# reads it, and gawk has no write timeout: a core that stopped reading held
+# the session for ever, TRS80_Z80_TIMEOUT or not (BM-8).  So such a frame
+# is written under a watchdog: a shell whose timer kills the core after
+# TRS80_Z80_TIMEOUT unless the write ends first.  The killed core fails the
+# write (NONFATAL), and the watchdog's exit status says the timer fired
+# (`kill $!` fails once the timer's subshell is gone).  4096 bytes is the
+# smallest pipe POSIX hosts give; a smaller frame cannot block.
+function z80_sendframe(   i, nb, wd) {
+    nb = 0; for (i = 1; i <= FRN; i++) nb += length(FRRUN[i]) + 3
+    wd = ""; Z80WTO = 0
+    if (nb > 4096 && Z80PID > 0 && !WINNATIVE) {
+        wd = "(sleep " (Z80TO / 1000) "; kill -9 " Z80PID ") </dev/null >/dev/null 2>&1 & read x; kill $! 2>/dev/null"
+        printf "" | wd
+    }
     ERRNO = ""
     print "CALL gen=" FRGEN " full=" FRFULL " slot=" USR_SLOT " entry=" USR_ENTRY \
           " arg=" USR_ARG " argtype=" USR_TYPE " mbf=" USR_MBF \
@@ -234,6 +270,7 @@ function z80_sendframe(   i) {
     for (i = 1; i <= FRN; i++) print "M " FRRUN[i] |& Z80CMD
     if (ERRNO != "") Z80WERR = 1
     z80_send("GO")
+    if (wd != "") { print "" | wd; if (close(wd) != 0) Z80WTO = 1 }
 }
 
 # the message loop for one call
@@ -308,7 +345,7 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
 # back through poke_byte.  A core that died stays dead for the session.
 function z80_recycle() {
     if (Z80STATE != "up") return
-    z80_send("BYE"); close(Z80CMD)
+    z80_bye()
     Z80STATE = "cold"; Z80PID = 0
 }
 

@@ -29,7 +29,9 @@ when there is no core.
     may parse them by key.  Byte runs are `addr:b,b,b` -- a decimal start
     address and decimal bytes 0-255 at consecutive addresses.
 *   The interpreter waits at most `TRS80_Z80_TIMEOUT` milliseconds (default
-    5000) for each line from the core.  A timeout marks the core dead for
+    5000) for each line from the core, and as long for the core to read
+    a frame larger than a pipe holds (a core that has stopped reading is
+    killed, since a write cannot time out).  A timeout marks the core dead for
     the rest of the session, raises `?FC` at the `USR` call, and later
     calls use the stub.  A core that runs a long routine keeps the
     interpreter alive with `T` ticks.
@@ -87,8 +89,10 @@ interpreter -> core   BYE
     `pid=<n>` (optional, recommended) is the core's process id: when a
     call times out the interpreter kills that process before closing the
     pipe, because closing a coprocess waits for it to exit.
-*   `BYE` ends the session; the core exits.  The interpreter also closes
-    the pipe on exit, so a core must exit on EOF on stdin too.
+*   `BYE` ends the session; the core exits.  The interpreter closes its
+    end of the pipe after it, so a core must exit on EOF on stdin too, and
+    waits at least 5 seconds (`TRS80_Z80_TIMEOUT` if longer) for the core
+    to exit before it kills it.
 
 ## A call
 
