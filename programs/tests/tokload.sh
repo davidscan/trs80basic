@@ -217,5 +217,23 @@ printf '%s' "$out" | grep -q 'TRUNCATED HEADER' \
     || fail "a non-NUL tail should still be cut short" "$out"
 [ "$rc" = 2 ] || fail "junkmark.bin exit status" "$rc"
 
+# a lower-case letter outside a string can come only from an image, and the
+# machine takes it for no letter: LIST shows it, RUN is ?SN (N-3)
+python3 - "$tmp" <<'LCEOF' || fail "could not build the lower-case image"
+import sys
+body = b"a=5:\xb2 A"                      # a=5:PRINT A
+line = (0x42E9 + 4 + len(body) + 1).to_bytes(2, "little") + (10).to_bytes(2, "little") + body + b"\0"
+open(sys.argv[1] + "/lower.bas", "wb").write(b"\xff" + line + b"\0\0")
+LCEOF
+out=$(cd "$tmp" && printf '\nCLOAD "lower.bas"\nLIST\nRUN\n' | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | sed -n '/^>LIST/,$p')
+want='>LIST
+10 a=5:PRINT A
+READY
+>RUN
+?SN ERROR IN 10
+READY
+>'
+[ "$out" = "$want" ] || fail "a lower-case image byte lists as itself and is ?SN" "$out"
+
 rm -rf "$tmp"
 echo "TOKLOAD FIXTURE OK"

@@ -342,6 +342,13 @@ function pm_detok(body, raw,   out, i, n, b, c, ins, ind, lit, kw, nxt, par) {
             else if (b == 136) ind = 1
             i++; continue
         }
+        # a lower-case letter outside a string is a byte no cruncher stores
+        # (1BC0H upper-cases), so an image is its only way in, and on the
+        # machine it is no letter: the name reader and the dispatch refuse
+        # it, ?SN at run time.  tokline upper-cases what it reads, so the run
+        # rendering hands it the CR of L-16 above in its place; LIST shows
+        # the letter, as the ROM's does (the 2026-09-30 audit, N-3).
+        if (raw && b >= 97 && b <= 122) { out = out "\r"; i++; continue }
         out = out c; i++
     }
     if (par) out = out "\")"
