@@ -177,4 +177,22 @@ READY
 >'
 [ "$out" = "$want" ] || fail "TRON: CONT onto a line's first statement" "$out"
 
+# CONT does not clear the CONT point (1DE4-1DF6 leave 40F7H alone): a CONT
+# the program executes later goes back to it again (it was ?CN, N-3)
+out=$(run '\n10 PRINT "A";N:N=N+1:STOP\n20 PRINT "B";N:N=N+1:IF N<4 THEN CONT\n30 PRINT "END"\nRUN\nCONT\nCONT\n')
+want='>RUN
+A 0 
+BREAK IN 10
+READY
+>CONT
+B 1 
+B 2 
+B 3 
+END
+READY
+>CONT
+READY
+>'
+[ "$out" = "$want" ] || fail "a program's CONT after a typed CONT" "$out"
+
 echo "CONT OK"

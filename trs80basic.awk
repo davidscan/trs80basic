@@ -5524,7 +5524,8 @@ function st_stop() {
 
 function st_cont() {
     if (!CONTOK) { raise(17); return }
-    CONTOK = 0
+    # 1DE4-1DF6 never clear 40F7H: the point stays, so a CONT the program
+    # itself executes later goes back to it again (it was ?CN here)
     CK = CONT_K; CLI = CONT_LI; CP = CONT_P
     CLN = (CK == "I") ? DIRECTLN : CK + 0
     if (CK != "I" && !(CK in TOKD)) tokline(CK, runtext(CLN))
