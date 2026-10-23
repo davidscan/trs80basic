@@ -69,6 +69,7 @@ II):
 | `TRS80_MANFILE` | `support/manpages.txt` | where `man` reads its text |
 | `TRS80_KMHOLD` | `100` ms at a terminal, `4` polls in batch | how long one keypress holds its key on the keyboard matrix |
 | `TRS80_USR` | unset | `strict` makes a `USR` call raise `?FC` instead of returning its argument |
+| `TRS80_USR_TRACE` | unset | `1` prints one stderr line per `USR` call (slot, entry, argument); `2` adds the memory frame sent to the core |
 | `TRS80_Z80` | a core beside the checkout, else none | command that runs the companion Z80 core; `USR` routines then execute (`PROTOCOL.md`). Unset, the launcher uses `../trs80_z80_core/core.py` when it exists; empty means no core |
 | `TRS80_Z80_TIMEOUT` | `5000` | milliseconds to wait for each reply from the core |
 | `TRS80_SOUND` | unset | player command for the machine-code sound a `USR` routine makes (raw 16-bit mono PCM on stdin); `auto` picks an installed ffplay (ffmpeg on macOS without it); `sound on` does the same |
@@ -139,12 +140,16 @@ ever colliding with a period program.
 | `speed <mhz>` | throttle execution to a period pace (`speed 1.77` ≈ a real Model I); `speed 0` = full host speed. A feel knob, not a cycle-accurate emulator |
 | `sound on\|off`, `sound wav <path>\|off` | machine-code sound: the cassette-port pulses a `USR` routine makes, played live through the core's player and/or written to a WAV file; bare `sound` shows the state. Needs the Z80 core; BASIC's own `OUT 255` stays silent |
 | `history` (or `h`) | list this session's typed commands |
+| `memory host\|rom` | `host` lifts the machine's capacity limits (the 64K, string space, the 255-character string, 32767 subscripts, two-character names), `rom` keeps them; bare `memory` shows the state. The same as `--memory` (Part III) |
+| `spaced on\|off` | `LIST` and `LLIST` show a blank around each keyword (`FOR I=1 TO 3` for the stored `FORI=1TO3`); display only; bare `spaced` shows the state |
+| `version` | the interpreter's release and, in a git checkout, the build (as `--version`) |
 | `@dump` | print the 16-row screen buffer (debugging aid) |
 
 Metacommand output renders *below* the grid, never on the simulated screen.
 
-Two of them — `speed` and `fullscreen` — can also be fired by a program from
-one of its own remarks (`10 REM META:fullscreen on`) once `ext on` is set;
+Four of them — `speed`, `fullscreen`, `memory` and `spaced` — can also be
+fired by a program from one of its own remarks (`10 REM META:fullscreen on`)
+once `ext on` is set;
 see Part IV. Nothing else on this list is reachable from a file.
 
 The `man`/`help` text lives in `support/manpages.txt`, a plain file with a
@@ -281,7 +286,7 @@ demonstrates one area of this guide and doubles as a regression fixture
 This interpreter implements Level II as the manual describes it: the
 statement set, `PRINT` zones/`TAB`/`USING`, string functions, arrays,
 `DEF FN` (all three spellings), `DEFINT`/`DEFSNG`/`DEFDBL`/`DEFSTR`,
-`ON ERROR GOTO` with `ERR`/`ERL`/`RESUME`, `READ`/`DATA`/`RESTORE n` —
+`ON ERROR GOTO` with `ERR`/`ERL`/`RESUME`, `READ`/`DATA`/`RESTORE` (`RESTORE n` is EXT, Part IV) —
 plus the Disk BASIC additions (`INSTR`, `TIME$`, `&H`/`&O` literals, the
 `MID$` statement, `LOAD`/`SAVE`, and the file I/O of Part III). If
 you knew it in 1980, it is here; if you didn't, the
@@ -596,14 +601,18 @@ Honest list, stated as current behavior:
   skipped as the ROM's name reader skips them: `A B` is `AB`, `A 1` is
   `A1`. One guard: a name never joins onto `AS`, so `FIELD 1,4 AS A$`
   reads as Disk BASIC reads it.
-- **`ext on` (EXT gate).** Three things that valid Level II rejects, or
+- **`ext on` (EXT gate).** Four things that valid Level II rejects, or
   never does, are accepted only when switched on (`ext on` or
   `TRS80_EXT=1`): text typed at a no-variable `INPUT"PRESS ENTER";`
-  (discarded rather than `?SN`), `INPUT "prompt",var`, and `REM META:`
+  (discarded rather than `?SN`), `INPUT "prompt",var`, a prompt
+  expression (`INPUT "A"+B$;X`, and `LINE INPUT`'s), and `REM META:`
   directives (below). The pause idiom itself and `DIM` of a scalar are
   the ROM's and need no switch. Off by
   default so that damaged OCR listings still fail loudly — the interpreter
-  doubles as a strict `?SN` oracle.
+  doubles as a strict `?SN` oracle. One EXT stays on without the gate:
+  `RESTORE n` (Level II's `RESTORE` takes no line number and says `?SN`),
+  since a listing that used it stopped on the machine, so taking it
+  cannot change one that runs.
 - **`REM META:` directives** (EXT, gated as above). A remark that begins
   `META:` carries a metacommand, and it runs when execution *reaches* that
   line:
@@ -617,8 +626,8 @@ Honest list, stated as current behavior:
   So a program can state the display it wants instead of asking the user to
   type it first, and a game can slow the loop that needs period pacing
   without slowing its setup. In a loop the line re-fires every pass, which
-  is harmless: the knobs are idempotent, which is *why* only they (and
-  `memory`) are allowed. Anything else after `META:` — an unknown directive, a bad
+  is harmless: the knobs are idempotent, which is *why* only they
+  (`speed`, `fullscreen`, `memory`, `spaced`) are allowed. Anything else after `META:` — an unknown directive, a bad
   argument, an English sentence that happens to start that way — is ignored
   in silence. **`dir` and `cat` are deliberately unreachable**: they are
   shell passthroughs, and a file that could fire one would make any
@@ -688,6 +697,9 @@ PRINT [items]   display values on the screen
   Numbers carry their own spacing: a leading space for positive values
   (a '-' for negative) and always one trailing space.  So PRINT 1;2
   gives " 1  2 ", not "12".  A leading 0 is dropped: -0.5 prints as -.5.
+  Below .01 a number prints in E form (.0123 is .0123, .0099 is 9.9E-03,
+  .001 is 1E-03, a double's .001# is 1D-03), and so does one too long
+  for its digits (1E+06; man CSNG), as on the machine.
   A number is never split at the right edge: if it would not fit on the
   line it starts the next one (a string simply wraps).  Except in
   32-character mode: the ROM measures the column against a line size it

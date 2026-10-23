@@ -49,7 +49,7 @@ READY
 SPEED: FULL (no throttle)
 READY
 >ext
-EXT ON (gated: text at a no-variable INPUT, INPUT "prompt",var, REM META:)
+EXT ON (gated: text at a no-variable INPUT, INPUT "prompt",var, a prompt expression, REM META:)
 READY
 >100 ' meta:speed 2
 >RUN

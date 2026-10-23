@@ -32,6 +32,9 @@ PRINT [items]   display values on the screen
   Numbers carry their own spacing: a leading space for positive values
   (a '-' for negative) and always one trailing space.  So PRINT 1;2
   gives " 1  2 ", not "12".  A leading 0 is dropped: -0.5 prints as -.5.
+  Below .01 a number prints in E form (.0123 is .0123, .0099 is 9.9E-03,
+  .001 is 1E-03, a double's .001# is 1D-03), and so does one too long
+  for its digits (1E+06; man CSNG), as on the machine.
   A number is never split at the right edge: if it would not fit on the
   line it starts the next one (a string simply wraps).  Except in
   32-character mode: the ROM measures the column against a line size it

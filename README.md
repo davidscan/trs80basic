@@ -55,7 +55,8 @@ Developed and tested on MacOS (iTerm2), untested but probably works fine under L
   to one of a list of words so a program can branch on it; named threads
   persist between runs.
 - **Metacommands**, lowercase so they never collide with BASIC: `dir`, `cat`,
-  `history`, `speed`, `sound`, `fullscreen`, `ext`, `man`, `help`, `exit`.
+  `history`, `speed`, `sound`, `fullscreen`, `memory`, `spaced`, `ext`,
+  `man`, `help`, `version`, `exit`.
 - **Man pages.** `man PRINT` gives the syntax and an example for any BASIC
   keyword; `help <text>` searches them.
 - **Shell-style line editing.** Left/right arrows move through the line,
@@ -177,7 +178,7 @@ Environment variables the interpreter reads:
 | `TRS80_DUMB` | unset | `1` (or any value but `0`) forces plain streamed output even on a terminal | logging a session, or a terminal that can't do the 64x16 grid |
 | `TRS80_MHZ` | full speed | throttle execution to a period-correct feel (also `speed` metacommand) | games that are unplayable at modern speed |
 | `TRS80_PRINTER` | unset (discard) | file that `LPRINT`/`LLIST` append to; a path that cannot be written is `?FD` at the first one | you want the printer output |
-| `TRS80_EXT` | `0` | `1` (or any value but `0`, as for `TRS80_DUMB`) accepts a few forms real Level II rejects (`INPUT "prompt",var`, text typed at a no-variable `INPUT`) and lets a program's `REM META:speed`/`REM META:fullscreen` remarks fire; also `ext on` | running listings that use those idioms; leave off to keep strict `?SN` behavior |
+| `TRS80_EXT` | `0` | `1` (or any value but `0`, as for `TRS80_DUMB`) accepts a few forms real Level II rejects (`INPUT "prompt",var`, a prompt expression such as `INPUT "A"+B$;X`, text typed at a no-variable `INPUT`) and lets a program's `REM META:` remarks fire (`speed`, `fullscreen`, `memory`, `spaced`); also `ext on` | running listings that use those idioms; leave off to keep strict `?SN` behavior |
 | `TRS80_SPACED` | unset | `1` (or `on`) makes `LIST` and `LLIST` show a blank around each keyword, `FOR I=1 TO 3` where the machine lists the stored `FORI=1TO3`; display only, also the `spaced` metacommand | reading a compressed listing loaded from a tokenized image |
 | `TRS80_MANFILE` | `support/manpages.txt` next to `basic` | where `man` reads its text | only if you relocate the file |
 | `TRS80_OLLAMA_MODEL` | none | default model for `OPEN "OLLAMA"` when the name gives none | every OLLAMA program without a hard-coded model |
@@ -189,6 +190,7 @@ Environment variables the interpreter reads:
 | `TRS80_KPSTUCK` | `2` s | under the key-release protocol, how long with no keyboard event at all before every held key is let go (a release that never arrived: the window lost focus mid-hold) | the pty test stretches it on a slow CI runner; otherwise leave it |
 | `TRS80_KBPROTO` | on at a terminal | `0` turns off the key-release protocol. On a terminal that implements the kitty keyboard protocol (iTerm2, kitty, WezTerm, Ghostty, foot) the matrix gets real key-down and key-up: a key is held exactly as long as your finger, chords work, and there is no gap before auto-repeat. `1` keeps it on under `TRS80_DUMB` | a game misbehaves and you want the plain byte-stream keyboard back |
 | `TRS80_USR` | unset | `strict` makes every `USR` call raise `?FC` instead of returning its argument | a sweep that must fail visibly on machine code it cannot run |
+| `TRS80_USR_TRACE` | unset | `1` prints one stderr line per `USR` call (`USR slot=0 entry=28672 arg=42`); `2` adds the memory frame sent to the core (the whole map the first time, the changed bytes after) | finding out why a routine did not do what you expected |
 | `TRS80_Z80` | a core beside this checkout, else none | the command that runs the companion Z80 core; `USR` routines then execute (see `PROTOCOL.md`). Unset, the launcher uses `../trs80_z80_core/core.py` when it exists; empty (`TRS80_Z80=`) means no core. An assignment prefix (`FOO=1 python3 core.py`) or a compound command (`cd /x && ...`) works too; a hung core behind a compound command can outlive the session | running listings with embedded machine code, or keeping them off |
 | `TRS80_Z80_TIMEOUT` | `5000` | milliseconds to wait for each reply from the core before giving up on it | a slow machine, or debugging the core |
 | `TRS80_SOUND` | unset | player command for the machine-code sound a `USR` routine makes on port 255, fed raw 16-bit mono PCM by the core; `auto` picks the first installed player: ffplay, then ffmpeg on macOS, aplay, pw-play; also `sound on` | hearing a sound routine as the machine played it |
