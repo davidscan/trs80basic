@@ -198,7 +198,7 @@ function execstmt(   ty, tx) {
         if (tx == "KILL")    { CP++; st_kill(); return }
         if (tx == "LINE")    { CP++; st_lineinput(); return }
         # EXIT: BYE's synonym (EXT, the user, 2026-10-22; on the machine it is
-        # the variable EX, and no corpus listing uses it outside a string)
+        # the variable EX, and readlevl.bas assigns it: EXIT=0)
         # A whole statement only (bye_alone, p50): `BYE=5` assigns, as the ROM's BY
         if ((tx == "BYE" || tx == "EXIT") && TSX[CK, CP] == "") { CP++; if (at_stmt_end()) { QUITFLAG = 1; HALT = 1; return }; CP-- }
         if (tx == "TRON")    { CP++; TRACE = 1; return }
