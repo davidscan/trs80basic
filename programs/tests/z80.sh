@@ -173,6 +173,19 @@ out=$(TRS80_Z80="sh $tmp.core" TRS80_Z80_TIMEOUT=300 perl "$bound" 40 "$here/bas
 t1=$(date +%s)
 rm -f "$tmp.core"
 [ "$rc" = "0" ] && [ "$out" = "OK" ] || fail "partial line at BYE: rc=$rc" "$out"
+
+# --- the value of USR is WRA1 by 40AFH after a RET (XL-1), whatever the
+# peer sends: with no write-set at all, result=1 is 0A9AH's HL (the
+# interpreter makes that routine's stores itself) and result=0 is the
+# argument, value and type (the evaluator's own stores, made before the
+# call)
+for r in "hl=42 result=1: 42  42 " "hl=0 result=0: 2.5  7 "; do
+  printf 'while read l; do case "$l" in HELLO*) echo "Z80 proto=3";; GO) echo "RET %s writes=0";; esac; done\n' "${r%%:*}" > "$tmp.core"
+  printf '10 DEFUSR=&H7003:PRINT USR(2.5);USR(7)\n' > "$tmp"
+  out=$(TRS80_Z80="sh $tmp.core" perl "$bound" 40 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+  [ "$rc" = "0" ] && [ "$out" = "${r#*:}" ] || fail "no write-set, RET ${r%%:*}: rc=$rc" "$out"
+done
+rm -f "$tmp.core"
 [ $((t1 - t0)) -lt 12 ] || fail "partial line at BYE: the session end took $((t1 - t0))s, not bounded"
 
 # --- a core whose pid= names another process: the timeout kills the core

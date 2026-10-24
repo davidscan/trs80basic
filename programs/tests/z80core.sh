@@ -165,5 +165,31 @@ cat > "$tmp" <<'EOF2'
 EOF2
 out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null)
 [ "$out" = " 2  2  4  2  4  4  2  2 " ] || fail "the type byte USR finds for 32767 and its neighbours" "$out"
+# The value of USR is WRA1 as the type flag says when the routine returns
+# (27FE-2818H: the routine RETs through 0890H to the evaluator, Farvour),
+# not the argument or an HL reply (XL-1): CALL 0A7FH / RET is the integer,
+# 2.7 -> 2 and -2.5 -> -3; storing 1234 and type 2 there is 1234; storing
+# HL over a single's low bytes is that single, 9.50118.  The routine
+# enters with DE = 0890H for a number (2806H, 2814H's EX DE,HL) and A is
+# FFH after 0A7FH on an integer (0A83H's RET M after RST 20H), 2 after
+# a conversion (XL-2).  A plain RET still keeps the argument and its type.
+cat > "$tmp" <<'EOF2'
+10 FOR I=0 TO 35:READ B:POKE 32000+I,B:NEXT
+20 DATA 205,127,10,201
+30 DATA 33,210,4,34,33,65,62,2,50,175,64,201
+40 DATA 33,210,4,34,33,65,201
+50 DATA 237,83,128,127,201
+60 DATA 205,127,10,50,130,127,201
+70 DATA 201
+100 POKE 16526,0:POKE 16527,125:PRINT USR(2.7);USR(-2.5);USR(2.7#);USR(7);
+110 POKE 16526,4:PRINT USR(9.5);USR(9.5)/4;
+120 POKE 16526,16:PRINT USR(9.5);USR(9);
+130 POKE 16526,23:X=USR(1.5):PRINT PEEK(32640);PEEK(32641);
+140 POKE 16526,28:X=USR(5):PRINT PEEK(32642);:X=USR(2.5):PRINT PEEK(32642)
+150 POKE 16526,35:PRINT USR(2.7)+.25;USR(-5)
+EOF2
+out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null)
+[ "$out" = " 2 -3  2  7  1234  308.5  9.50118  1234  144  8  255  2 
+ 2.95 -5 " ] || fail "the USR value is WRA1 by its type flag; the entry and 0A7FH registers" "$out"
 rm -f "$tmp" "$tmp.err"
 echo "Z80 CORE FIXTURE OK"

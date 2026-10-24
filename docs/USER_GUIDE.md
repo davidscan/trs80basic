@@ -1859,13 +1859,16 @@ VARPTR(var)   address of a variable's storage
 ```text
 USR(x) / USRn(x)   machine-language call.  With TRS80_Z80 naming the
   companion Z80 core the routine at slot n's entry runs against the
-  simulated memory; a routine that hands a result over (JP 0A9AH) makes
-  the USR value that HL, a signed integer, and one that returns plainly
-  leaves the argument unchanged -- value and type (PROTOCOL.md).
+  simulated memory, and the USR value is what the routine leaves in
+  WRA1 (4121H) by the type flag at 40AFH, as on the machine: HL, a
+  signed integer, when it hands a result over (JP 0A9AH); the integer
+  after CALL 0A7FH and RET; the argument unchanged -- value and type --
+  when it touches neither (PROTOCOL.md).
   x may be ANY type, as on the machine (ROM 27FE-2818): the routine
-  enters with A = the type, the value in WRA1 (4121H), and for a string
-  DE = the descriptor address, so X$=USR(Z$) print-driver routines that
-  rewrite the string's bytes rewrite Z$ in place.  A routine that takes
+  enters with A = the type, the value in WRA1 (4121H), and DE = 0890H
+  for a number or the descriptor address for a string, so X$=USR(Z$)
+  print-driver routines that rewrite the string's bytes rewrite Z$ in
+  place.  A routine that takes
   a numeric x through the ROM's 0A7FH gets it floored to an integer (a
   double rounded to single precision first, so 2.9999999# is 3);
   outside -32768..32767 that is ?OV, and a string there is ?TM, as on

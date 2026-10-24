@@ -68,6 +68,10 @@ tested with.
     arrive in the write-set; 0A7FH on a string is `ERR tm`; the CLS trap
     zeroes 40A6H; 40A6H joins the always-sent window cells (21 now).
     A v2 core would misread a string's `arg` as a number: the bump.
+    Corrected within 3 (2026-10-23, no message changed meaning): the
+    value of `USR` is WRA1 by 40AFH after the write-set (The return);
+    DE enters as 0890H for a number; 0A7FH on an integer leaves A = FFH
+    and stores nothing.  Either side's older release still pairs.
     First shipped by interpreter v2.1 and core v2.1.
 
 ## Session
@@ -148,7 +152,9 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     through 0AB9H), then floored to an integer, into HL, `ERR ov` when it is outside
     -32768..32767, and `ERR tm` for a string (see Errors); on success
     0A7FH leaves A = 2 and stores HL at 4121H and 2 at 40AFH, ordinary
-    stores that come back in the write-set.  Once the routine, or a
+    stores that come back in the write-set.  An integer is only read
+    (0A83H's `RET M`): HL = (4121H), nothing stored, and A = FFH with
+    RST 20H's flags (25D9H: sign and carry set).  Once the routine, or a
     served entry such as 14C9H (RND), has stored into WRA1 (411DH-4124H)
     or 40AFH, 0A7FH converts WRA1 as it then stands, by the type flag,
     with the same errors: what the ROM's routine reads.
@@ -158,8 +164,9 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     in 4121-4124H (Microsoft binary format), a double filling all eight,
     a string's descriptor address in 4121/4122H; the rest zero.  The
     routine ENTERS with HL = `entry`, A = `argtype`, DE = the descriptor
-    address for a string (0 otherwise), the other registers zero (ROM
-    27FE-2818); the core stores `argtype` at 40AFH and `mbf` at 411DH
+    address for a string and 0890H for a number (what HL held at 2814H's
+    `EX DE,HL`: 2806H's continuation address, or 29DAH's descriptor),
+    the other registers zero (ROM 27FE-2818); the core stores `argtype` at 40AFH and `mbf` at 411DH
     first, and those stores return in the write-set, so `PEEK` agrees
     with what the routine saw.
 *   `sp` is the initial stack pointer: the interpreter's `SSP`, the bottom
@@ -211,17 +218,26 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
 
 ### The return
 
-*   `result=1` means the routine went through 0A9AH (HL to result): `hl`
-    is the HL it handed over there, 0-65535 (the last one, if it did so
-    more than once), and the value of the `USR` expression is that, as a
-    signed 16-bit integer.  0A9AH returns to its caller, as the ROM
-    routine does: the usual `JP 0A9AH` ends the call because the return
-    pops the sentinel, and a routine that `CALL`s it runs on.  A core
-    that executes the routine also makes the ROM routine's own stores
-    (HL to 4121H, the integer type flag 2 to 40AFH; A comes back 2), and
-    they arrive in the write-set like any other store.
-    `result=0` means the value is the argument unchanged, as on hardware;
-    `hl` is then HL at the sentinel.
+*   The value of the `USR` expression is WRA1 as the type flag at 40AFH
+    says once the write-set is applied, as on hardware: the ROM's USR
+    returns through 0890H to the evaluator (2806H), which takes whatever
+    the routine left there.  That is the argument when the routine
+    touched neither (the interpreter stores the argument image, 40AFH
+    and 411D-4124H, before the call, as 252CH leaves it), the integer
+    after `CALL 0A7FH` / `RET`, and any value the routine stored itself.
+*   `result=1` means the routine went through 0A9AH: `hl` is the HL it
+    handed over there, 0-65535 (the last one, if it did so more than
+    once).  0A9AH stores HL at 4121H and the integer type flag 2 at
+    40AFH, so the value is that HL as a signed 16-bit integer unless the
+    routine ran on and stored over it.  0A9AH returns to its caller, as
+    the ROM routine does: the usual `JP 0A9AH` ends the call because the
+    return pops the sentinel, and a routine that `CALL`s it runs on.  A
+    core that executes the routine makes those stores (A comes back 2)
+    and they arrive in the write-set like any other store; the
+    interpreter also makes them itself on `result=1`, ahead of the
+    write-set, so the value does not depend on the peer sending them.
+    `result=0` means the routine never went through 0A9AH; `hl` is then
+    HL at the sentinel.
 *   `cycles` is the total T-states for the call (diagnostic).
 *   `break=1` means the call was cut short by BREAK; the interpreter
     reports `BREAK` at the current line after applying the write-set.

@@ -232,7 +232,7 @@ function z80_apply(run, isvideo,   p, a, n, bs, j, b) {
 # USR(x) with the core: returns the value of the expression, or raises.
 # Called from the USR branch of fncall (p60) after usr_resolve().
 function z80_usr(x,   full, res) {
-    Z80RES = 0        # 1 when the reply carried HL; 0 = argument unchanged, value AND type (M-13)
+    Z80RET = 0        # 1 when the core RETurned: the value is WRA1 (p60 usr_wra1)
     z80_start()
     if (Z80STATE != "up") {                       # the shipped stub
         if (USR_TRACE >= 2) { fr_build(0); fr_dump() }   # the frame it would send (p75 fr_*)
@@ -327,6 +327,12 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
             brk = z80_field("break") + 0; k = z80_field("writes") + 0
             rdy = z80_field("ready") + 0         # read now: the W lines replace Z80LINE
             hl = ((hl % 65536) + 65536) % 65536  # a reply outside 16 bits is garbage: wrapped, as the register would (N-8)
+            # result=1: the routine went through 0A9AH, whose stores are HL
+            # to 4121H and 2 to 40AFH.  Made here too, ahead of the
+            # write-set (which wins where it has them: a CALL 0A9AH the
+            # routine ran on from), so the value usr_wra1 reads (p60)
+            # does not depend on a peer sending them (XL-1).
+            if (res) { poke_byte(16673, hl % 256); poke_byte(16674, int(hl / 256)); poke_byte(16559, 2) }
             for (i = 1; i <= k; i++) {
                 if (!z80_recv() || Z80LINE !~ /^W /) {
                     z80_notice("write-set cut short; the core is dead for this session, USR is the stub")
@@ -343,7 +349,8 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
             # closes no files, and there is nothing to CONT.
             if (rdy) { HALT = 1; CONTOK = 0 }
             if (hl > 32767) hl -= 65536           # HL to result: signed 16-bit
-            if (res) { Z80RES = 1; return hl }
+            Z80RET = 1                            # the value is WRA1 now (XL-1)
+            if (res) return hl
             return x
         }
         # `ERR ov`: the routine took its argument through 0A7FH (the ROM's

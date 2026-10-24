@@ -812,13 +812,18 @@ function fn_usr(name,   a1, x, r, tgt, cp0, nm, key) {
         }
         if (E) return "NI0"
         usr_resolve(name, USR_ARG)
+        usr_seed()                                 # 40AFH and WRA1, as 252CH left them
         r = z80_usr(x); if (E) return "NI0"        # the core (p77), or the stub
-        # result=0 and the stub mean the argument UNCHANGED -- its value and
-        # its type (PROTOCOL.md "The return"); only an HL reply is the
-        # 16-bit integer (M-13: NI on every path was a 6fe3814 regression).
-        # A rewritten string variable is re-read: the routine's write-set
-        # went through the descriptor's cells into the variable itself.
-        if (Z80RES) return "NI" r
+        # After a RET the value is WRA1 as the type flag says (usr_wra1):
+        # the ROM's USR returns through 0890H to the evaluator, which takes
+        # whatever the routine left there -- the argument when it touched
+        # nothing, the integer when it went through 0A7FH or 0A9AH, any
+        # value it stored itself (XL-1).  The stub returns the argument
+        # UNCHANGED, value and type (M-13: NI on every path was a 6fe3814
+        # regression).  A rewritten string variable is re-read: the
+        # routine's write-set went through the descriptor's cells into the
+        # variable itself.
+        if (Z80RET) return usr_wra1(a1, tgt)
         if (isN(a1)) return a1
         return "S" ((ALN && (tgt in ALIAS)) ? al_read(tgt) : sp_gets(tgt))
     }
@@ -852,6 +857,43 @@ function usr_setnum(t, v,   i, s, off, w) {
 function usr_setstr(dbase) {
     USR_TYPE = 3; USR_ARG = dbase
     USR_MBF = "0,0,0,0," (dbase % 256) "," (int(dbase / 256) % 256) ",0,0"
+}
+# The evaluator's own stores, made before the jump: the type flag at
+# 40AFH and the eight bytes at 411DH, through poke_byte like any store,
+# so the frame carries them and usr_wra1 reads the argument back when the
+# routine changed neither (a core that sends no write-set included).
+function usr_seed(   n, b, i) {
+    poke_byte(16559, USR_TYPE)
+    n = split(USR_MBF, b, ",")
+    for (i = 1; i <= n; i++) poke_byte(16668 + i, b[i] + 0)
+}
+# The value of USR after a core's RET: WRA1 (411DH-4124H) by the type
+# flag at 40AFH, in RST 20H's classes (25D9H: below 3 an integer, 3 a
+# string, 8 and up a double, the rest single).  Only 2, 3, 4 and 8 are
+# flags BASIC makes; for any other the ROM's consumers disagree among
+# themselves (LET converts by the flag AND 07H through 18A1H's table,
+# 281AH), so that case is not modelled beyond these classes.  A string whose descriptor
+# is still the argument's is re-read through the variable, alias-aware;
+# any other descriptor is read from memory as PEEK sees it.
+function usr_wra1(a1, tgt,   t, v, d, n, p, s, i) {
+    t = dopeek(16559)
+    if (t < 3) {
+        v = dopeek(16673) + 256 * dopeek(16674)
+        return "NI" ((v > 32767) ? v - 65536 : v)
+    }
+    if (t == 3) {
+        d = dopeek(16673) + 256 * dopeek(16674)
+        if (!isN(a1) && d == USR_ARG)
+            return "S" ((ALN && (tgt in ALIAS)) ? al_read(tgt) : sp_gets(tgt))
+        n = dopeek(d); p = dopeek((d + 1) % 65536) + 256 * dopeek((d + 2) % 65536)
+        s = ""
+        for (i = 0; i < n; i++) s = s CHR[dopeek((p + i) % 65536)]
+        return "S" s
+    }
+    s = ""
+    for (i = (t >= 8) ? 16669 : 16673; i <= 16676; i++) s = s CHR[dopeek(i)]
+    if (t >= 8) return "ND" dfrombytes(s)
+    return "NS" fio_cvf(s, 4)
 }
 # a string temporary's home: a hidden variable no listing can name (the
 # tokenizer upper-cases every name, so a lower-case key never collides).
