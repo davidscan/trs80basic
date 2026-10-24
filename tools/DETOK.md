@@ -103,8 +103,10 @@ than no listing.
 
 **Glued keywords --- use `-s`.** Level II stores what you typed and `LIST`
 expands tokens tight, so listings come back as `FORX=1TOR`. The interpreter
-re-lexes text and reads `FORX` as one identifier. Without
-`-s`, **62% of the corpus hits `?SN ERROR` on the first line or two.**
+re-lexed text and read `FORX` as one identifier until 2026-09-23. Then,
+without `-s`, **62% of the corpus hit `?SN ERROR` on the first line or two.**
+Since then it crunches as the ROM does (a keyword matches at every letter),
+and `FORX=1TO3` runs as typed; `-s` still makes a listing readable.
 
 `-s` separates them. It needs no heuristic: a keyword *is* a token byte, so
 `\x81 X \xd5 1 \xbd 4` marks every boundary exactly and becomes `FOR X=1 TO 4`.
