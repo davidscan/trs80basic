@@ -7276,10 +7276,14 @@ function z80_notice(msg) { diag_err("USR CORE: " msg) }
 # when READ_TIMEOUT ran out (it is there and silent) -- but 0 too, with
 # ERRNO set, when it ran out on a PARTIAL line, so ERRNO decides (the
 # 2026-09-30 audit, BL-21: a live core that went silent mid-line was
-# reported as exited).
+# reported as exited).  gawk 5.2 says neither there: it returns the
+# partial line's length and leaves Z80LINE as the LAST line it read, so
+# the previous reply was taken for this one (CI's Ubuntu gawk 5.2.1:
+# `unexpected 'Z80 proto=3'`).  ERRNO is the one signal every version gives.
 function z80_recv(   r) {
     ERRNO = ""
     r = (Z80CMD |& getline Z80LINE)
+    if (ERRNO != "") r = 0                  # a timeout, whatever getline returned
     Z80EOF = (r == 0 && ERRNO == "")
     if (r <= 0) { Z80LINE = ""; return 0 }
     sub(/\r$/, "", Z80LINE)
@@ -7397,7 +7401,7 @@ function z80_bye(   r, n) {
     close(Z80CMD, "to")
     PROCINFO[Z80CMD, "READ_TIMEOUT"] = (Z80TO > 5000) ? Z80TO : 5000
     n = 0; ERRNO = ""
-    while ((r = (Z80CMD |& getline Z80LINE)) > 0 && ++n < 1000) ;
+    while ((r = (Z80CMD |& getline Z80LINE)) > 0 && ERRNO == "" && ++n < 1000) ;   # gawk 5.2: r > 0 on a partial-line timeout (z80_recv)
     if (r != 0 || ERRNO != "") { z80_close(); return }   # ERRNO: timed out on a partial line (z80_recv)
     close(Z80CMD)
 }
