@@ -5,7 +5,7 @@
 # do.  Self-checking: exits 1 on any mismatch, 0 if the core is not present.
 # Run from the repo root:  sh programs/tests/z80core.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
-core=${TRS80_Z80:-"python3 $here/../trs80_z80_core/core.py"}
+core=${TRS80_Z80-"python3 $here/../trs80_z80_core/core.py"}
 set -- $core
 [ -f "$2" ] || { echo "Z80 CORE FIXTURE SKIPPED: no core at $2"; exit 0; }
 tmp=$(mktemp) || exit 2

@@ -36,4 +36,17 @@ for name in "sp ace" "quo'te"; do
     [ "$out" = "R= 7 " ] || fail "the run under '$name' printed something else" "$out"
 done
 
+# TRS80_Z80 set but empty means NO core (the 2026-09-14 rule) in the suites
+# that find the core themselves, as in the launcher and run_all: with
+# ${TRS80_Z80:-...} they ran the sibling core anyway (the 2026-09-30
+# audit, XL-16).  Each must skip its core part.  The output is kept, not
+# printed: run_all counts a printed SKIPPED as a skip.
+for s in z80core sound system; do
+    out=$(cd "$here" && TRS80_Z80= sh "programs/tests/$s.sh" 2>&1)
+    case $out in
+        *SKIPPED*) ;;
+        *) fail "$s.sh ran a core with TRS80_Z80 empty" "$out" ;;
+    esac
+done
+
 echo "COREPATH OK"

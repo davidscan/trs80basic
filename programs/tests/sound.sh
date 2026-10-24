@@ -9,7 +9,7 @@
 # D = 100, so one cycle costs 26*100 + 38 = 2,638 T-states and the pitch is
 # 1,774,080 / 2,638 = 672.5 Hz at the Model I clock, 568.6 Hz at 1.5 MHz.
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
-core=${TRS80_Z80:-"python3 $here/../trs80_z80_core/core.py"}
+core=${TRS80_Z80-"python3 $here/../trs80_z80_core/core.py"}
 set -- $core
 [ -f "$2" ] || { echo "SOUND FIXTURE SKIPPED: no core at $2"; exit 0; }
 tmp=$(mktemp) || exit 2

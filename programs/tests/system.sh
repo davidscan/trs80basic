@@ -236,7 +236,7 @@ bat "" "$ne.cmd"; st=$?
 [ "$st" = 2 ] && grep -q "is not a /CMD load module" "$tmp.err" || fail "a .cmd that is not a load module: exit $st" "$(cat "$tmp.err")"
 
 # ---- part 2: the runs, with the real core ----------------------------------
-core=${TRS80_Z80:-"python3 $here/../trs80_z80_core/core.py"}
+core=${TRS80_Z80-"python3 $here/../trs80_z80_core/core.py"}
 set -- $core
 if [ ! -f "$2" ]; then echo "SYSTEM: loads OK; runs SKIPPED (no core at $2)"; exit 0; fi
 run "$core" <<EOF
