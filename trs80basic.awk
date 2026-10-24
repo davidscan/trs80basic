@@ -324,7 +324,7 @@ function init_tables(   i, c, m, n) {
     # Answering 255 (absent RAM) sent every such listing down its DISK
     # branch and straight into CMD, which is not implemented here: 88
     # rescued listings use the probe, and 29 sit in blocked/cmd/ for no
-    # other reason (measured -- Z80 sub-project FINDING 16).  Seeded into
+    # other reason (measured on the corpus by the Z80 core project, 2026-09).  Seeded into
     # MEM rather than special-cased in dopeek so POKE 16396 still works.
     MEM[16396] = 201
     # 401E/401FH and 4026/4027H: the video and printer DRIVER VECTORS, seeded
@@ -1112,7 +1112,7 @@ function kp_release_all(   r) {
 #   RS = "^$" never matches (as slurp_bytes), so one getline returns every
 #   waiting byte as one record with RT empty; close() clears the EOF for
 #   the next poll.  No process at all: 0.007 ms a poll against 2.6-2.9 ms
-#   for the pipeline it replaced on 2026-09-16 (the core's FINDING 27,
+#   for the pipeline it replaced on 2026-09-16 (measured by the core's
 #   tools/kbd_probe.py; every INKEY$/PEEK loop at a terminal ran 40-60x
 #   slower a pass, and a paced routine fell behind real time past ~200
 #   keyboard reads a second).  RS = "." (the recipe first measured there)
@@ -4158,7 +4158,7 @@ function e_prim0(   t, s, v, key, sx) {
         # tokenizes past the space, so X=USR 0(n) is legal.  This is the
         # CALL-site twin of the DEF USR 0= fix (c61fdae5): that one
         # covered the definition only, and 134 rescued listings use the
-        # spaced call form (Z80 sub-project FINDING 17).  The digit is
+        # spaced call form (measured by the Z80 core project).  The digit is
         # CARRIED into the name (USR 1( dispatches as USR1) so the slot
         # reaches usr_resolve -- until 2026-09-10 it was dropped here.
         if (s ~ /^USR[0-9]?$/) {
@@ -5147,7 +5147,7 @@ function st_def(tx,   v) {
 function st_defusr_tail(baredigit, slot,   v, a) {
     # when the spelling carried no slot digit, one may follow as its own
     # token -- real Level II tokenizes past the space, so DEF USR 0=addr
-    # is legal (measured on morsmstr/quest_2; Z80 sub-project FINDING 8)
+    # is legal (measured on morsmstr/quest_2 by the Z80 core project)
     if (baredigit && TY[CK, CP] == "n" && TK[CK, CP] ~ /^[0-9]$/) { slot = TK[CK, CP]; CP++ }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
@@ -5818,7 +5818,7 @@ function st_resume(   p, ty, tx) {
 #               how a listing makes room for a machine-language routine, so
 #               that region MUST accept POKEs; treating it as absent broke
 #               the classic reserve-then-load idiom (fixed 2026-09-08,
-#               reported by ../trs80_z80_core as its FINDING 22).
+#               reported by ../trs80_z80_core).
 #     PEEK(16561/16562) reports HIMEM.  ENTER keeps HIMEM at 65535 so batch
 #     mode and loaders see all of RAM.
 #
@@ -5971,7 +5971,7 @@ function st_resume(   p, ty, tx) {
 #     said on the write side, having been stated only on the read side.
 # The tokenized program image, a >= 17129 && a < PMEND, was the fourth
 # until 2026-09-12: rule 6 stores MEM[a] and read rule 5 reads it back
-# (writable, superseding FINDING 23's read-only shadow: the Dancing Demon
+# (writable, superseding the read-only shadow first built: the Dancing Demon
 # keeps its score buffer inside its own image at 6B9BH and needs the
 # write to stick).  No image-specific write branch is needed.
 #

@@ -324,7 +324,7 @@ function init_tables(   i, c, m, n) {
     # Answering 255 (absent RAM) sent every such listing down its DISK
     # branch and straight into CMD, which is not implemented here: 88
     # rescued listings use the probe, and 29 sit in blocked/cmd/ for no
-    # other reason (measured -- Z80 sub-project FINDING 16).  Seeded into
+    # other reason (measured on the corpus by the Z80 core project, 2026-09).  Seeded into
     # MEM rather than special-cased in dopeek so POKE 16396 still works.
     MEM[16396] = 201
     # 401E/401FH and 4026/4027H: the video and printer DRIVER VECTORS, seeded

@@ -353,7 +353,7 @@ function e_prim0(   t, s, v, key, sx) {
         # tokenizes past the space, so X=USR 0(n) is legal.  This is the
         # CALL-site twin of the DEF USR 0= fix (c61fdae5): that one
         # covered the definition only, and 134 rescued listings use the
-        # spaced call form (Z80 sub-project FINDING 17).  The digit is
+        # spaced call form (measured by the Z80 core project).  The digit is
         # CARRIED into the name (USR 1( dispatches as USR1) so the slot
         # reaches usr_resolve -- until 2026-09-10 it was dropped here.
         if (s ~ /^USR[0-9]?$/) {

@@ -30,7 +30,7 @@
 #               how a listing makes room for a machine-language routine, so
 #               that region MUST accept POKEs; treating it as absent broke
 #               the classic reserve-then-load idiom (fixed 2026-09-08,
-#               reported by ../trs80_z80_core as its FINDING 22).
+#               reported by ../trs80_z80_core).
 #     PEEK(16561/16562) reports HIMEM.  ENTER keeps HIMEM at 65535 so batch
 #     mode and loaders see all of RAM.
 #
@@ -183,7 +183,7 @@
 #     said on the write side, having been stated only on the read side.
 # The tokenized program image, a >= 17129 && a < PMEND, was the fourth
 # until 2026-09-12: rule 6 stores MEM[a] and read rule 5 reads it back
-# (writable, superseding FINDING 23's read-only shadow: the Dancing Demon
+# (writable, superseding the read-only shadow first built: the Dancing Demon
 # keeps its score buffer inside its own image at 6B9BH and needs the
 # write to stick).  No image-specific write branch is needed.
 #

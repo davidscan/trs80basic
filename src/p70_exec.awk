@@ -354,7 +354,7 @@ function st_def(tx,   v) {
 function st_defusr_tail(baredigit, slot,   v, a) {
     # when the spelling carried no slot digit, one may follow as its own
     # token -- real Level II tokenizes past the space, so DEF USR 0=addr
-    # is legal (measured on morsmstr/quest_2; Z80 sub-project FINDING 8)
+    # is legal (measured on morsmstr/quest_2 by the Z80 core project)
     if (baredigit && TY[CK, CP] == "n" && TK[CK, CP] ~ /^[0-9]$/) { slot = TK[CK, CP]; CP++ }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++

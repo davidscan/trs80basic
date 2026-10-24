@@ -231,7 +231,7 @@ function kp_release_all(   r) {
 #   RS = "^$" never matches (as slurp_bytes), so one getline returns every
 #   waiting byte as one record with RT empty; close() clears the EOF for
 #   the next poll.  No process at all: 0.007 ms a poll against 2.6-2.9 ms
-#   for the pipeline it replaced on 2026-09-16 (the core's FINDING 27,
+#   for the pipeline it replaced on 2026-09-16 (measured by the core's
 #   tools/kbd_probe.py; every INKEY$/PEEK loop at a terminal ran 40-60x
 #   slower a pass, and a paced routine fell behind real time past ~200
 #   keyboard reads a second).  RS = "." (the recipe first measured there)
