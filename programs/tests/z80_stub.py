@@ -35,7 +35,10 @@ Every call first makes the ROM dispatch's own stores -- the type flag at
 CALL header's argtype= and mbf= -- and sends them back in the write-set
 (ahead of an ERR when the call fails), as PROTOCOL.md requires since
 proto 3.  The 0A7FH entries also store the converted HL at 4121H and 2
-at 40AFH, the trap's exit effects.
+at 40AFH, the trap's exit effects, and every result=1 reply makes
+0A9AH's (HL at 4121H, 2 at 40AFH) last.  The write-set is the
+protocol's: last write wins per address, ascending, coalesced.  A CALL
+header it cannot read is `ERR bad CALL header`, as the core answers.
 
 Z80_STUB_PROTO=<n> makes the stub claim another protocol version.
 Z80_STUB_DIE_AFTER=<n> makes it exit right after its n-th RET: a core that
@@ -109,8 +112,32 @@ def apply_run(run):
 seed = []      # the entry-time stores (40AFH, WRA1) of the current call
 
 
+def writeset(writes, extra=()):
+    """The write-set as PROTOCOL.md has it: the entry-time stores, the
+    routine's, then any trap's, LAST WRITE WINS per address, ascending,
+    one coalesced run per contiguous stretch (as the core's runs())."""
+    d = {}
+    for w in list(seed) + list(writes) + list(extra):
+        addr, bs = w.split(":", 1)
+        for i, b in enumerate(bs.split(",")):
+            d[(int(addr) + i) & 0xFFFF] = int(b)
+    out, cur = [], None
+    for a in sorted(d):
+        if cur is not None and a == cur[0] + len(cur[1]):
+            cur[1].append(d[a])
+        else:
+            cur = [a, [d[a]]]
+            out.append(cur)
+    return ["%d:%s" % (a, ",".join(str(b) for b in bs)) for a, bs in out]
+
+
 def ret(hl=0, result=0, cycles=100, brk=0, writes=()):
-    ws = list(seed) + list(writes)
+    # result=1 is the 0A9AH path, whose own stores are HL at 4121H and
+    # the integer type at 40AFH; they come last, as the trap runs last
+    extra = ["16673:%d,%d" % (hl & 0xFF, (hl >> 8) & 0xFF), "16559:2"] if result else []
+    for w in extra:
+        apply_run(w)
+    ws = writeset(writes, extra)
     send("RET hl=%d result=%d cycles=%d break=%d writes=%d%s"
          % (hl & 0xFFFF, result, cycles, brk, len(ws),
             " ready=1" if READY else ""))
@@ -122,10 +149,10 @@ def ret(hl=0, result=0, cycles=100, brk=0, writes=()):
         sys.exit(0)
 
 
-def err(msg):
+def err(msg, writes=()):
     # a failed call's stores still travel, AHEAD of the ERR (PROTOCOL.md,
     # Errors) -- the entry-time seeding happened before the routine failed
-    for w in seed:
+    for w in writeset(writes):
         send("W " + w)
     send("ERR " + msg)
 
@@ -174,11 +201,22 @@ def main():
         gen = g
         for r in runs:
             apply_run(r)
-        entry = int(h["entry"])
-        arg = int(csng(float(h["arg"])) // 1)   # 0A7FH: a single first (0AB9H), then the floor
-        sp = int(h["sp"])
-        argtype = int(h.get("argtype", "4"))
-        mbf = h.get("mbf", "0,0,0,0,0,0,0,0")
+        # a header the core cannot read is `ERR bad CALL header`, and the
+        # core stays up (XL-3: this stub used to die with a traceback)
+        try:
+            entry = int(h["entry"])
+            argf = float(h["arg"])
+            sp = int(h["sp"])
+            argtype = int(h.get("argtype", "4"))
+            mbf = h.get("mbf", "0,0,0,0,0,0,0,0")
+            [int(b) for b in mbf.split(",")]
+        except (KeyError, ValueError) as e:
+            send("ERR bad CALL header: %s" % e)
+            continue
+        if not math.isfinite(argf):
+            send("ERR bad CALL header: arg=%s is not a number" % h["arg"])
+            continue
+        arg = int(csng(argf) // 1)               # 0A7FH: a single first (0AB9H), then the floor
         # the entry-time stores the ROM's USR dispatch made before the jump
         # (27FE: 252CH leaves the argument in WRA1, the type at 40AFH): into
         # this side's RAM now, and back to the interpreter with the RET (or
@@ -223,7 +261,7 @@ def main():
         elif entry == 0x7005:
             ret(hl=mem.get(arg & 0xFFFF, 255), result=1)
         elif entry == 0x7006:
-            send("ERR rom called 0000H, no ROM here")
+            err("rom called 0000H, no ROM here")
         elif entry == 0x7007:
             brk = 0
             for _ in range(20):
@@ -255,8 +293,7 @@ def main():
                         "16416:0,60", "16550:0"])
         elif entry == 0x700E:
             mem[arg & 0xFFFF] = 42    # the routine's store happened on this side
-            send("W %d:42" % (arg & 0xFFFF))
-            send("ERR rom called 0000H, no ROM here")
+            err("rom called 0000H, no ROM here", ["%d:42" % (arg & 0xFFFF)])
         elif entry == 0x700F:
             # a STRING argument (proto 3): DE = the descriptor's address =
             # arg; read length and data address from RAM, overwrite the
