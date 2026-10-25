@@ -265,13 +265,13 @@ function st_let(   name, key, v, lp, src, j, n) {
     # a target whose expression fails is still there.  Until 2026-09-27
     # the expression came first (the 2026-09-26 audit, M-8).  An array
     # element's array was made by aref, as the ROM's 260DH makes it.
-    mkvar(name, key, LVT, LVSX)
+    mkvar(name, key, LVT)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     # a string literal, or a plain string variable, alone on the right in a
     # program line: the ROM leaves the string where it is (1F46H-1F57H)
     lp = 0
-    if (CK != "I" && (TY[CK, CP] == "s" || TY[CK, CP] == "i") && strname(name, LVSX)) {
+    if (CK != "I" && (TY[CK, CP] == "s" || TY[CK, CP] == "i") && strname(name)) {
         CP++; if (at_stmt_end()) lp = CP - 1; CP--
     }
     v = e_or(); if (E) return
@@ -282,7 +282,7 @@ function st_let(   name, key, v, lp, src, j, n) {
         if (TY[CK, lp] == "s") {
             for (j = 1; j <= lp; j++) if (TY[CK, j] == "s") n++
             src = lit_spec(CK + 0, "s", n, 0)
-        } else src = lit_of("V" TK[CK, lp])
+        } else src = lit_of("V" vkey(TK[CK, lp], TSX[CK, lp]))   # the variable's key (vkey): DEFSTR B makes B B$
         if (src != "") lit_note((key != "") ? "A" key : "V" name, src)
     }
 }
@@ -298,6 +298,7 @@ function st_let(   name, key, v, lp, src, j, n) {
 # ROM's CLEAR does: after DEFSTR A: CLEAR 500, A is a single again.
 function deftype(l, code) {
     DEFT[l] = code; DEFS[l] = (code == 3); DEFI[l] = (code == 2)
+    delete VKC                              # a bare name's key may change (vkey)
 }
 
 function st_deftype(code,   a, b, c) {
@@ -381,7 +382,7 @@ function st_deffn(name,   n, i) {
         CP++
         for (;;) {
             if (!at_name()) { raise(2); return }
-            FNTMP[++n] = TK[CK, CP]; CP++
+            FNTMP[++n] = TK[CK, CP]; FNTSX[n] = TSX[CK, CP]; CP++
             if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
             break
         }
@@ -391,7 +392,7 @@ function st_deffn(name,   n, i) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     FNPAR[name] = n
-    for (i = 1; i <= n; i++) FNPARM[name, i] = FNTMP[i]
+    for (i = 1; i <= n; i++) { FNPARM[name, i] = FNTMP[i]; FNPSX[name, i] = FNTSX[i] }   # the suffix too: FNRD#(A1#) binds A1# (vkey at the call)
     FNKEY[name] = CK; FNPOS[name] = CP
     while (!at_stmt_end()) CP++             # skip the body, do not evaluate
 }
@@ -403,13 +404,40 @@ function st_deffn(name,   n, i) {
 # where the caller has it: a % ! # names the numeric variable of that
 # type whatever DEFSTR says of the letter (manual, section 1: "A$, A%,
 # A!, A# are distinct variable names"; 2026-10-05, the audit's OC-11),
-# as a $ under DEFINT names the string.  Since % ! # are not part of
-# the name here (G% is G, the 2026-08 ruling), the string G and the
-# number G% share the name and live in SV and NV; G%, G! and G# stay
-# one variable.  Until 2026-10-05 the DEFSTR letter won and G%=5 was ?TM.
+# as a $ under DEFINT names the string.  A storage key (vkey) carries
+# its type as its last character, so it answers alone.  Until 2026-10-05
+# the DEFSTR letter won and G%=5 was ?TM.
 function strname(name, sx) {
-    if (sx == "%" || sx == "!" || sx == "#") return 0
+    if (name in VKT) return VKT[name] == "$"   # a key (vkey)
+    if (sx == "%" || sx == "!" || sx == "#" || name ~ /[%!#]$/) return 0
     return name ~ /\$$/ || DEFS[substr(name, 1, 1)]
+}
+
+# The variable a reference names: its name and its TYPE, the type the
+# suffix gives or, without one, the DEF table's letter at the moment of
+# the reference (Farvour, 2675H-2682H: the lookup compares an entry's type
+# byte, then both name characters, and moves on at a mismatch).  So V,
+# V%, V! and V# are four variables (the manual, section 1: "A$, A%, A!,
+# A# are distinct variable names"), A() and A%() two arrays, and after
+# A=2.5:DEFINT A a bare A is A%, a new variable holding 0; under DEFSTR A
+# a bare A is A$.  The key is the name and the type's suffix: A! A% A#
+# A$, and every table (NV, SV, ADIM, VA, the VARPTR map) is keyed by it.
+# The tokenizer drops % ! # from the name (TSX keeps them), so a key is
+# made once, where a name is read from the line, and passed on; a key
+# passed back in is returned as it is.  VKC caches the answer per name
+# and suffix; deftype and CLEAR's reset of the table empty it.  VKT
+# holds each key's type (I S D, $ for a string), so strname, ntype and
+# intvar answer a key by one lookup.  Until
+# 2026-10-24 the key was the bare name and V, V%, V! and V# were one
+# variable (the 2026-08 ruling, replaced 2026-10-23).
+function vkey(name, sx,   c, c2, t) {
+    c = name SUBSEP sx
+    if (c in VKC) return VKC[c]
+    if (name ~ /[%!#]$/) return name
+    if (strname(name, sx)) { c2 = (name ~ /\$$/) ? name : name "$"; VKT[c2] = "$"; return VKC[c] = c2 }
+    t = ntype(name, sx); c2 = name ((t == "I") ? "%" : (t == "D") ? "#" : "!")
+    VKT[c2] = t
+    return VKC[c] = c2
 }
 
 # The name a store is about to write, read at CP (which moves past it).
@@ -418,19 +446,20 @@ function strname(name, sx) {
 # assignv reads LVI and clears it, so a store that did not come through
 # here is never rounded.
 function lvname(   s) {
-    s = TK[CK, CP]
-    LVI = intvar(s, TSX[CK, CP])
-    LVT = ntype(s, TSX[CK, CP])             # the store's type: S rounds to 24 bits (assignv)
-    LVSX = TSX[CK, CP]                      # the suffix itself, for strname (a % ! # under DEFSTR)
+    s = vkey(TK[CK, CP], TSX[CK, CP])      # the key carries the type (vkey)
+    LVI = intvar(s)
+    LVT = ntype(s)                          # the store's type: S rounds to 24 bits (assignv)
     CP++
     return s
 }
 
 # The type a NAME gives a value read or stored: the suffix at the
 # reference (% I, ! S, # D), else the DEF table's letter (2 I, 8 D), else
-# single -- as the ROM's variable lookup types it.  % ! # are not part of
-# the name here (G% is G, the 2026-08 ruling), so the reference decides.
+# single -- as the ROM's variable lookup types it.  A key's last
+# character is its suffix (vkey).
 function ntype(name, sx,   l, c) {
+    if (sx == "" && (name in VKT) && VKT[name] != "$") return VKT[name]   # a key (vkey)
+    if (sx == "" && name ~ /[%!#]$/) sx = substr(name, length(name))
     if (sx == "%") return "I"
     if (sx == "#") return "D"
     if (sx == "!") return "S"
@@ -440,6 +469,8 @@ function ntype(name, sx,   l, c) {
 }
 
 function intvar(name, sx) {
+    if (sx == "" && (name in VKT)) return VKT[name] == "I"   # a key (vkey)
+    if (sx == "" && name ~ /[%!#]$/) sx = substr(name, length(name))
     if (name ~ /\$$/ || sx == "!" || sx == "#") return 0
     return sx == "%" || DEFI[substr(name, 1, 1)]
 }
@@ -471,18 +502,17 @@ function bigint(x,   r) {
 # create mode: the 3-byte header and a zero value, 26A0H-26CCH), so MEM
 # and FRE count it from here on; an element's array already exists.
 # ty is the reference's type (I S D), which sizes the entry (vt_size, p75)
-function mkvar(name, key, ty, sx) {
+function mkvar(name, key, ty) {
     if (key != "") return
-    if (strname(name, sx)) { if (!(name in SV)) SV[name] = "" }
+    if (strname(name)) { if (!(name in SV)) SV[name] = "" }
     else if (!(name in NV)) { NV[name] = 0; NVZ[name] = ty_size(ty) }
 }
 
-function assignv(name, key, v,   isint, tgt, n, ty, sx) {
+function assignv(name, key, v,   isint, tgt, n, ty) {
     isint = LVI; LVI = 0
     ty = LVT; LVT = ""
-    sx = LVSX; LVSX = ""
     if (ty == "") ty = isint ? "I" : ntype(name, "")   # a store that did not come through lvname (READ, INPUT, FOR)
-    if (strname(name, sx)) {
+    if (strname(name)) {
         if (isN(v)) { raise(13); return }
         tgt = (key != "") ? "A" key : "V" name
         # the string area's count (p75, mem_*): the new value's bytes,
@@ -575,13 +605,13 @@ function st_return() {
 
 function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     if (!at_name()) { raise(2); return }
-    name = TK[CK, CP]
-    if (strname(name, TSX[CK, CP])) { raise(13); return }
-    isint = intvar(name, TSX[CK, CP])
-    sng = (ntype(name, TSX[CK, CP]) == "S")   # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
-    dbl = (ntype(name, TSX[CK, CP]) == "D")
+    name = vkey(TK[CK, CP], TSX[CK, CP])   # the key carries the type: FOR I and FOR I% are two loops
+    if (strname(name)) { raise(13); return }
+    isint = intvar(name)
+    sng = (ntype(name) == "S")              # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
+    dbl = (ntype(name) == "D")
     CP++
-    mkvar(name, "", dbl ? "D" : sng ? "S" : "I", TSX[CK, CP - 1])   # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
+    mkvar(name, "", dbl ? "D" : sng ? "S" : "I")   # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     EVSTK += 4                              # FOR's pushes and its LET's (OC-12, p60 e_or)
@@ -636,7 +666,7 @@ function st_next(   name, looped) {
         name = ""
         if (!at_stmt_end()) {
             if (!at_name()) { raise(2); return }
-            name = TK[CK, CP]; CP++
+            name = vkey(TK[CK, CP], TSX[CK, CP]); CP++   # FOR I% ... NEXT I is ?NF, as on the machine
             # 22B9H reads the name with subscripts allowed (260DH): an
             # element's address is no FOR frame's, so NEXT I(1) is ?NF
             # once the subscript is read (?BS first if it is out of range)

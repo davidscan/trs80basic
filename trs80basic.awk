@@ -2254,13 +2254,13 @@ function clear_vars(keepfiles) {
     delete NV; delete SV; delete VA; delete ADIM; delete ASZ; delete NVZ; delete AVZ
     # DEF FN definitions live in variable space (MS BASIC): RUN/NEW/CLEAR
     # all wipe them and the program re-executes its DEFs
-    delete FNPAR; delete FNPARM; delete FNKEY; delete FNPOS
+    delete FNPAR; delete FNPARM; delete FNPSX; delete FNKEY; delete FNPOS
     FNDEPTH = 0
     # the DEF-type table goes back to single precision on RUN, NEW, a
     # program load AND the CLEAR statement: the ROM's CLEAR joins RUN's
     # initializer (1E7A/1EA0 -> 1B61-1B6C), so DEFSTR A:CLEAR 500:A="X" is
     # ?TM on the machine -- period programs CLEAR first, then DEFSTR
-    delete DEFS; delete DEFI; delete DEFT
+    delete DEFS; delete DEFI; delete DEFT; delete VKC
     sp_reset()                      # VARPTR string space empties with the vars
     STRUSED = 0; delete STRCNT      # the string area's count (p75, mem_*)
     FSN = 0; GSN = 0
@@ -3604,9 +3604,9 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
                 i = tk_name(text, up, i); s = TKNAME
             }
             if (substr(text, i, 1) == "$") { s = s "$"; i++ }
-            # the type suffix is dropped from the name (G% is G) but kept
-            # beside the token in TSX: a store into a % name is an integer
-            # store.  Behind a keyword # is never a suffix now (PRINT#1,
+            # the type suffix % ! # is kept beside the name in TSX, and
+            # vkey (p70) puts it back into the variable's key where the
+            # name is read: G and G% are two variables.  Behind a keyword # is never a suffix now (PRINT#1,
             # CLOSE#1): the keyword's token ended before it.
             sx = ""; c = substr(text, i, 1)
             if (c == "!" || c == "%" || c == "#") { sx = c; i++ }
@@ -3772,7 +3772,7 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
 # EXIT, the statement words that are no token, are kept by the caller when
 # they stand alone (bye_alone).  FNABC is FN plus a
 # name, so FNAB.  The type suffix `$` is kept (AB$ and AB are two
-# variables); % ! # are already dropped (G% is G).
+# variables); % ! # are already in TSX (vkey, p70, makes the key).
 function vn_cut(s,   d, b) {
     d = (s ~ /\$$/) ? "$" : ""
     b = d ? substr(s, 1, length(s) - 1) : s
@@ -4187,12 +4187,12 @@ function e_prim0(   t, s, v, key, sx) {
         # before 2026-09-25 (the L-10 remainder).  ELSE, stored behind a
         # ":", is the statement's end: ?MO, as below (OC-13).
         if (TKW[CK, CP]) { raise(at_stmt_end() ? 21 : 2); return "NI0" }
-        sx = TSX[CK, CP]; CP++                    # the name's suffix types the value read (ntype, p70)
+        s = vkey(s, TSX[CK, CP]); CP++            # the name and its type (vkey, p70): V, V% and V# are three variables
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
             key = aref(s); if (E) return "NI0"
             if (ALN && (("A" key) in ALIAS)) return "S" al_read("A" key)   # finding 7 (p75)
-            if (strname(s, sx)) return (key in VA) ? VA[key] : "S"
-            return "N" ntype(s, sx) ((key in VA) ? VA[key] : 0)
+            if (strname(s)) return (key in VA) ? VA[key] : "S"
+            return "N" ntype(s) ((key in VA) ? VA[key] : 0)
         }
         # a variable read in an expression is NEVER created: the ROM's
         # lookup, called from the evaluator, answers a name it cannot find
@@ -4203,8 +4203,8 @@ function e_prim0(   t, s, v, key, sx) {
         # it) reaching the memory accounting (mem_varbytes counts the
         # entries): until 2026-09-27
         # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit, M-8).
-        if (strname(s, sx)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
-        t = ntype(s, sx)
+        if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
+        t = ntype(s)
         return "N" t ((s in NV) ? ((t == "D") ? NV[s] : NV[s] + 0) : 0)   # a double's payload as it is (p91)
     }
     # No operand: the statement's end where one is due (the line's end, a
@@ -4218,7 +4218,7 @@ function e_prim0(   t, s, v, key, sx) {
 
 # ---- array reference: at "(", returns storage key; auto-DIM 10 -------------
 function aref(name,   nd, i, v, idx, key, idxs, vz) {
-    vz = vt_size(name, TSX[CK, CP - 1])     # every caller stands on "(" just past the name
+    vz = vt_size(name)                      # name is a key (vkey, p70): it carries the type
     CP++                                    # past "("
     nd = 0
     for (;;) {
@@ -4268,7 +4268,7 @@ function aref(name,   nd, i, v, idx, key, idxs, vz) {
 # pointing CK/CP at the position st_deffn stored, then restoring them.
 # Runaway recursion raises ?OM at depth 50; a body error unwinds every
 # frame with bindings restored.
-function fn_user(name,   n, i, p, v, r, sk, sp, av, osn, osv) {
+function fn_user(name,   n, i, p, v, r, sk, sp, av, osn, osv, pk) {
     CP++
     n = FNPAR[name]
     if (n > 0) {
@@ -4286,10 +4286,10 @@ function fn_user(name,   n, i, p, v, r, sk, sp, av, osn, osv) {
         CP++
     }
     for (i = 1; i <= n; i++)                # type-check BEFORE binding, so
-        if (strname(FNPARM[name, i]) != !isN(av[i])) { raise(13); return "NI0" }
+        if (strname(FNPARM[name, i], FNPSX[name, i]) != !isN(av[i])) { raise(13); return "NI0" }
     if (++FNDEPTH > 50) { FNDEPTH--; raise(7); return "NI0" }
     for (i = 1; i <= n; i++) {
-        p = FNPARM[name, i]
+        p = pk[i] = vkey(FNPARM[name, i], FNPSX[name, i])   # the parameter's key, its suffix kept (FNRD#(A1#) binds A1#)
         if (strname(p)) { osv[i] = SV[p]; SV[p] = substr(av[i], 2) }
         else            { osn[i] = NV[p]; NV[p] = (vtype(av[i]) == "D") ? substr(av[i], 3) : num(av[i]) }
     }
@@ -4298,7 +4298,7 @@ function fn_user(name,   n, i, p, v, r, sk, sp, av, osn, osv) {
     r = e_or()
     CK = sk; CP = sp
     for (i = n; i >= 1; i--) {
-        p = FNPARM[name, i]
+        p = pk[i]
         if (strname(p)) SV[p] = osv[i]
         else            NV[p] = osn[i]
     }
@@ -4593,10 +4593,10 @@ function fn_usr(name,   a1, x, r, tgt, cp0, nm, key) {
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
         CP++
         tgt = ""
-        if (TY[CK, CP] == "i" && !TKW[CK, CP] && strname(TK[CK, CP]) &&
+        if (TY[CK, CP] == "i" && !TKW[CK, CP] && strname(TK[CK, CP], TSX[CK, CP]) &&
             !(TK[CK, CP] ~ /^FN./ && (substr(TK[CK, CP], 3) in FNPAR))) {
             cp0 = CP
-            nm = TK[CK, CP]; CP++
+            nm = vkey(TK[CK, CP], TSX[CK, CP]); CP++
             if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
                 key = aref(nm); if (E) return "NI0"
                 if (TY[CK, CP] == "o" && TK[CK, CP] == ")") tgt = "A" key
@@ -5058,13 +5058,13 @@ function st_let(   name, key, v, lp, src, j, n) {
     # a target whose expression fails is still there.  Until 2026-09-27
     # the expression came first (the 2026-09-26 audit, M-8).  An array
     # element's array was made by aref, as the ROM's 260DH makes it.
-    mkvar(name, key, LVT, LVSX)
+    mkvar(name, key, LVT)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     # a string literal, or a plain string variable, alone on the right in a
     # program line: the ROM leaves the string where it is (1F46H-1F57H)
     lp = 0
-    if (CK != "I" && (TY[CK, CP] == "s" || TY[CK, CP] == "i") && strname(name, LVSX)) {
+    if (CK != "I" && (TY[CK, CP] == "s" || TY[CK, CP] == "i") && strname(name)) {
         CP++; if (at_stmt_end()) lp = CP - 1; CP--
     }
     v = e_or(); if (E) return
@@ -5075,7 +5075,7 @@ function st_let(   name, key, v, lp, src, j, n) {
         if (TY[CK, lp] == "s") {
             for (j = 1; j <= lp; j++) if (TY[CK, j] == "s") n++
             src = lit_spec(CK + 0, "s", n, 0)
-        } else src = lit_of("V" TK[CK, lp])
+        } else src = lit_of("V" vkey(TK[CK, lp], TSX[CK, lp]))   # the variable's key (vkey): DEFSTR B makes B B$
         if (src != "") lit_note((key != "") ? "A" key : "V" name, src)
     }
 }
@@ -5091,6 +5091,7 @@ function st_let(   name, key, v, lp, src, j, n) {
 # ROM's CLEAR does: after DEFSTR A: CLEAR 500, A is a single again.
 function deftype(l, code) {
     DEFT[l] = code; DEFS[l] = (code == 3); DEFI[l] = (code == 2)
+    delete VKC                              # a bare name's key may change (vkey)
 }
 
 function st_deftype(code,   a, b, c) {
@@ -5174,7 +5175,7 @@ function st_deffn(name,   n, i) {
         CP++
         for (;;) {
             if (!at_name()) { raise(2); return }
-            FNTMP[++n] = TK[CK, CP]; CP++
+            FNTMP[++n] = TK[CK, CP]; FNTSX[n] = TSX[CK, CP]; CP++
             if (TY[CK, CP] == "o" && TK[CK, CP] == ",") { CP++; continue }
             break
         }
@@ -5184,7 +5185,7 @@ function st_deffn(name,   n, i) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     FNPAR[name] = n
-    for (i = 1; i <= n; i++) FNPARM[name, i] = FNTMP[i]
+    for (i = 1; i <= n; i++) { FNPARM[name, i] = FNTMP[i]; FNPSX[name, i] = FNTSX[i] }   # the suffix too: FNRD#(A1#) binds A1# (vkey at the call)
     FNKEY[name] = CK; FNPOS[name] = CP
     while (!at_stmt_end()) CP++             # skip the body, do not evaluate
 }
@@ -5196,13 +5197,40 @@ function st_deffn(name,   n, i) {
 # where the caller has it: a % ! # names the numeric variable of that
 # type whatever DEFSTR says of the letter (manual, section 1: "A$, A%,
 # A!, A# are distinct variable names"; 2026-10-05, the audit's OC-11),
-# as a $ under DEFINT names the string.  Since % ! # are not part of
-# the name here (G% is G, the 2026-08 ruling), the string G and the
-# number G% share the name and live in SV and NV; G%, G! and G# stay
-# one variable.  Until 2026-10-05 the DEFSTR letter won and G%=5 was ?TM.
+# as a $ under DEFINT names the string.  A storage key (vkey) carries
+# its type as its last character, so it answers alone.  Until 2026-10-05
+# the DEFSTR letter won and G%=5 was ?TM.
 function strname(name, sx) {
-    if (sx == "%" || sx == "!" || sx == "#") return 0
+    if (name in VKT) return VKT[name] == "$"   # a key (vkey)
+    if (sx == "%" || sx == "!" || sx == "#" || name ~ /[%!#]$/) return 0
     return name ~ /\$$/ || DEFS[substr(name, 1, 1)]
+}
+
+# The variable a reference names: its name and its TYPE, the type the
+# suffix gives or, without one, the DEF table's letter at the moment of
+# the reference (Farvour, 2675H-2682H: the lookup compares an entry's type
+# byte, then both name characters, and moves on at a mismatch).  So V,
+# V%, V! and V# are four variables (the manual, section 1: "A$, A%, A!,
+# A# are distinct variable names"), A() and A%() two arrays, and after
+# A=2.5:DEFINT A a bare A is A%, a new variable holding 0; under DEFSTR A
+# a bare A is A$.  The key is the name and the type's suffix: A! A% A#
+# A$, and every table (NV, SV, ADIM, VA, the VARPTR map) is keyed by it.
+# The tokenizer drops % ! # from the name (TSX keeps them), so a key is
+# made once, where a name is read from the line, and passed on; a key
+# passed back in is returned as it is.  VKC caches the answer per name
+# and suffix; deftype and CLEAR's reset of the table empty it.  VKT
+# holds each key's type (I S D, $ for a string), so strname, ntype and
+# intvar answer a key by one lookup.  Until
+# 2026-10-24 the key was the bare name and V, V%, V! and V# were one
+# variable (the 2026-08 ruling, replaced 2026-10-23).
+function vkey(name, sx,   c, c2, t) {
+    c = name SUBSEP sx
+    if (c in VKC) return VKC[c]
+    if (name ~ /[%!#]$/) return name
+    if (strname(name, sx)) { c2 = (name ~ /\$$/) ? name : name "$"; VKT[c2] = "$"; return VKC[c] = c2 }
+    t = ntype(name, sx); c2 = name ((t == "I") ? "%" : (t == "D") ? "#" : "!")
+    VKT[c2] = t
+    return VKC[c] = c2
 }
 
 # The name a store is about to write, read at CP (which moves past it).
@@ -5211,19 +5239,20 @@ function strname(name, sx) {
 # assignv reads LVI and clears it, so a store that did not come through
 # here is never rounded.
 function lvname(   s) {
-    s = TK[CK, CP]
-    LVI = intvar(s, TSX[CK, CP])
-    LVT = ntype(s, TSX[CK, CP])             # the store's type: S rounds to 24 bits (assignv)
-    LVSX = TSX[CK, CP]                      # the suffix itself, for strname (a % ! # under DEFSTR)
+    s = vkey(TK[CK, CP], TSX[CK, CP])      # the key carries the type (vkey)
+    LVI = intvar(s)
+    LVT = ntype(s)                          # the store's type: S rounds to 24 bits (assignv)
     CP++
     return s
 }
 
 # The type a NAME gives a value read or stored: the suffix at the
 # reference (% I, ! S, # D), else the DEF table's letter (2 I, 8 D), else
-# single -- as the ROM's variable lookup types it.  % ! # are not part of
-# the name here (G% is G, the 2026-08 ruling), so the reference decides.
+# single -- as the ROM's variable lookup types it.  A key's last
+# character is its suffix (vkey).
 function ntype(name, sx,   l, c) {
+    if (sx == "" && (name in VKT) && VKT[name] != "$") return VKT[name]   # a key (vkey)
+    if (sx == "" && name ~ /[%!#]$/) sx = substr(name, length(name))
     if (sx == "%") return "I"
     if (sx == "#") return "D"
     if (sx == "!") return "S"
@@ -5233,6 +5262,8 @@ function ntype(name, sx,   l, c) {
 }
 
 function intvar(name, sx) {
+    if (sx == "" && (name in VKT)) return VKT[name] == "I"   # a key (vkey)
+    if (sx == "" && name ~ /[%!#]$/) sx = substr(name, length(name))
     if (name ~ /\$$/ || sx == "!" || sx == "#") return 0
     return sx == "%" || DEFI[substr(name, 1, 1)]
 }
@@ -5264,18 +5295,17 @@ function bigint(x,   r) {
 # create mode: the 3-byte header and a zero value, 26A0H-26CCH), so MEM
 # and FRE count it from here on; an element's array already exists.
 # ty is the reference's type (I S D), which sizes the entry (vt_size, p75)
-function mkvar(name, key, ty, sx) {
+function mkvar(name, key, ty) {
     if (key != "") return
-    if (strname(name, sx)) { if (!(name in SV)) SV[name] = "" }
+    if (strname(name)) { if (!(name in SV)) SV[name] = "" }
     else if (!(name in NV)) { NV[name] = 0; NVZ[name] = ty_size(ty) }
 }
 
-function assignv(name, key, v,   isint, tgt, n, ty, sx) {
+function assignv(name, key, v,   isint, tgt, n, ty) {
     isint = LVI; LVI = 0
     ty = LVT; LVT = ""
-    sx = LVSX; LVSX = ""
     if (ty == "") ty = isint ? "I" : ntype(name, "")   # a store that did not come through lvname (READ, INPUT, FOR)
-    if (strname(name, sx)) {
+    if (strname(name)) {
         if (isN(v)) { raise(13); return }
         tgt = (key != "") ? "A" key : "V" name
         # the string area's count (p75, mem_*): the new value's bytes,
@@ -5368,13 +5398,13 @@ function st_return() {
 
 function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     if (!at_name()) { raise(2); return }
-    name = TK[CK, CP]
-    if (strname(name, TSX[CK, CP])) { raise(13); return }
-    isint = intvar(name, TSX[CK, CP])
-    sng = (ntype(name, TSX[CK, CP]) == "S")   # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
-    dbl = (ntype(name, TSX[CK, CP]) == "D")
+    name = vkey(TK[CK, CP], TSX[CK, CP])   # the key carries the type: FOR I and FOR I% are two loops
+    if (strname(name)) { raise(13); return }
+    isint = intvar(name)
+    sng = (ntype(name) == "S")              # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
+    dbl = (ntype(name) == "D")
     CP++
-    mkvar(name, "", dbl ? "D" : sng ? "S" : "I", TSX[CK, CP - 1])   # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
+    mkvar(name, "", dbl ? "D" : sng ? "S" : "I")   # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
     EVSTK += 4                              # FOR's pushes and its LET's (OC-12, p60 e_or)
@@ -5429,7 +5459,7 @@ function st_next(   name, looped) {
         name = ""
         if (!at_stmt_end()) {
             if (!at_name()) { raise(2); return }
-            name = TK[CK, CP]; CP++
+            name = vkey(TK[CK, CP], TSX[CK, CP]); CP++   # FOR I% ... NEXT I is ?NF, as on the machine
             # 22B9H reads the name with subscripts allowed (260DH): an
             # element's address is no FOR frame's, so NEXT I(1) is ?NF
             # once the subscript is read (?BS first if it is out of range)
@@ -6462,18 +6492,17 @@ function sp_enc(x, nb) { return (nb == 2) ? fio_mki(x) : (nb == 8) ? dbytes(x) :
 function sp_dec(s, nb) { return (nb == 2) ? fio_cvi(s) : (nb == 8) ? dfrombytes(s) : fio_cvf(s, nb) }
 
 # materialize var (locator tgt, string flag isstr) and return its VARPTR.
-# nb, when given, sizes a numeric with no entry yet (VARPTR's own suffix).
 # Idempotent: a second call returns the first call's address.  A string's
 # bytes are re-homed only when the live value is longer than the cells
 # mapped for it -- which the assignment that grew it does at once (sp_grown)
 # -- and shrinking never moves anything (sp_peek pads with 32 past the live
 # length).
-function sp_materialize(tgt, isstr, nb,   len, need, base, j, dbase) {
+function sp_materialize(tgt, isstr,   len, need, base, j, dbase) {
     if (SSP == 0) SSP = HIMEM                     # first use this run
     if (!isstr) {
         if (tgt in VPDESC) return VPDESC[tgt]
         if (substr(tgt, 1, 1) == "A") return sp_arrblock(tgt)
-        need = (nb != "") ? nb : sp_nsize(tgt)
+        need = sp_nsize(tgt)
         if (SSP - need < 17131) { raise(7); return 0 }
         base = SSP - need + 1; SSP -= need
         for (j = 0; j < need; j++) { SPK[base + j] = tgt; SPT[base + j] = "N" j }
@@ -6677,19 +6706,25 @@ function sp_poke(a, b,   t, tgt, v, j) {
 }
 
 # VARPTR(var) -- parse a variable REFERENCE (scalar or array element), not
-# an expression; called from e_prim
-function fn_varptr(   name, key, tgt, nb) {
+# an expression; called from e_prim.  A simple variable never stored is
+# ?FC: 260DH, called from the evaluator, answers address 0 for a name it
+# cannot find, and 24F5H-24F7H jumps to the ?FC exit on it (Farvour).
+# So after V%=1:DEFDBL V, VARPTR(V) is ?FC: V is V#, a variable not made
+# yet.  An element always has one: the reference makes its array (aref's
+# auto-DIM).  Until 2026-10-24 any name got an address here, sized by its
+# suffix (AUDIT BM-14, B108).
+function fn_varptr(   name, key, tgt) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
     CP++
     if (!at_name()) { raise(2); return "NI0" }
-    name = TK[CK, CP]; nb = vt_size(name, TSX[CK, CP]); CP++
+    name = vkey(TK[CK, CP], TSX[CK, CP]); CP++   # the key carries the type (vkey, p70)
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return "NI0" }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return "NI0" }
     CP++
+    if (key == "" && !((name in NV) || (name in SV))) { raise(5); return "NI0" }   # never stored: ?FC (24F7H)
     tgt = (key != "") ? "A" key : "V" name
-    if (key != "" || (name in NV)) nb = ""     # an entry's own record sizes it (sp_nsize)
-    key = sp_materialize(tgt, strname(name), nb); if (E) return "NI0"
+    key = sp_materialize(tgt, strname(name)); if (E) return "NI0"
     # the ROM hands the address to 0A9AH as an INTEGER (24FAH), so above
     # 32767 VARPTR is negative: 65533 is -3, and V=VARPTR(A$):IF V<0 THEN
     # V=V+65536 is the period idiom (280 corpus lines).  PEEK and POKE take
@@ -7172,8 +7207,8 @@ function mem_strsz() { return HIMEM - mem_strlo() }                # the string 
 # table, else single) 2, 4 or 8.  The ROM fixes an entry's type when it
 # creates it (260DH), and a later DEFDBL does not resize it, so the size
 # is recorded then -- NVZ[] for a simple variable, AVZ[] for an array --
-# and the accounting reads the record.  G% is still G here (the 2026-08
-# ruling), so the entry keeps the size of the store that made it.
+# and the accounting reads the record.  Since 2026-10-24 a key carries
+# its type (vkey, p70), so the record and the key's type agree.
 # Until 2026-09-29 the size came from the DEF table alone: Z% cost 7
 # bytes, Z# 7, DIM A%(9) 48 (the machine's 5, 11 and 28; the 2026-09-26
 # audit, R-8).
@@ -7939,7 +7974,7 @@ function st_midset(   name, key, n, m, v, s, r, cnt) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return }
     CP++
     if (!at_name()) { raise(2); return }
-    name = TK[CK, CP]; CP++
+    name = vkey(TK[CK, CP], TSX[CK, CP]); CP++
     if (!strname(name)) { raise(13); return }
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
@@ -8314,7 +8349,7 @@ function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad
             # Until 2026-10-08 nothing was stored (the 2026-09-30
             # audit, BL-7).
             bad = IBBAD[idx]
-            if (strname(name, LVSX)) assignv(name, key, "S" IB[idx])
+            if (strname(name)) assignv(name, key, "S" IB[idx])
             else {
                 # the ROM's reader takes what it can (valnum, p90);
                 # anything but blanks left over is ?REDO (225A-2260)
@@ -8509,7 +8544,7 @@ function st_read_items(   name, key, x, dbl, bad) {
         # DATA 1,2X read into A,B leaves B = 2 for an ON ERROR handler.
         # Until 2026-10-08 nothing was stored (the 2026-09-30 audit, BL-7).
         bad = DBAD[DP]
-        if (strname(name, LVSX)) {
+        if (strname(name)) {
             if (!HOSTMEM && length(DITEM[DP]) > 255) { raise_host(15); return }   # a DATA item past 255 is ?LS, as a literal is (p60; L-23)
             LITSTORE = 1                    # the item stays in its line: no string space (p75, mem_*)
             assignv(name, key, "S" DITEM[DP])
@@ -8544,7 +8579,7 @@ function st_read_items(   name, key, x, dbl, bad) {
 function st_dim(   name, nd, i, v, sz, vz) {
     for (;;) {
         if (!at_name()) { raise(2); return }
-        name = TK[CK, CP]; vz = vt_size(name, TSX[CK, CP]); CP++
+        name = vkey(TK[CK, CP], TSX[CK, CP]); vz = vt_size(name); CP++   # DIM A(2):DIM A%(2) makes two arrays (vkey, p70)
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) {
             # DIM of a scalar (DIM Z!,V!,L$ declaration lists, the period
             # habit for variable-lookup speed) is the ROM's: 2608H locates
@@ -9195,8 +9230,8 @@ function st_input_file(   n, nlv, name, key, i, x, dbl) {
         name = lvname(); dbl = (LVT == "D")  # a double enters the reader as VAL does (p90)
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
-        if (!fio_next_item(n, !strname(name, LVSX))) { raise(63); return }
-        if (strname(name, LVSX)) assignv(name, key, "S" FIO_IT)
+        if (!fio_next_item(n, !strname(name))) { raise(63); return }
+        if (strname(name)) assignv(name, key, "S" FIO_IT)
         else {
             # the item is evaluated "by a routine just like the BASIC VAL
             # function" (Disk manual, INPUT#): A12 is 0, 5X is 5, never ?TM
@@ -9221,7 +9256,7 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         if (!fio_isopen(n)) { raise(53); return }
         if (FH_MODE[n] != "I" && FH_MODE[n] != "A") { raise(55); return }
         if (!at_name()) { raise(2); return }
-        name = TK[CK, CP]; CP++
+        name = vkey(TK[CK, CP], TSX[CK, CP]); CP++
         if (!strname(name)) { raise(13); return }
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
@@ -9256,7 +9291,7 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         else { raise(2); return }
     }
     if (!at_name()) { raise(2); return }
-    name = TK[CK, CP]; CP++
+    name = vkey(TK[CK, CP], TSX[CK, CP]); CP++
     if (!strname(name)) { raise(13); return }
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
@@ -9367,7 +9402,7 @@ function st_field(   n, off, w, v, name, key, tgt, i, found) {
         if (!(TY[CK, CP] == "i" && TK[CK, CP] == "AS")) { raise(2); return }
         CP++
         if (!at_name()) { raise(2); return }
-        name = TK[CK, CP]; CP++
+        name = vkey(TK[CK, CP], TSX[CK, CP]); CP++
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
         if (!strname(name)) { raise(13); return }
@@ -9431,7 +9466,7 @@ function fio_just(s, w, left) {
 # on a non-fielded string var, justify within its current length
 function st_lset(left,   name, key, v, s, tgt, cur) {
     if (!at_name()) { raise(2); return }
-    name = TK[CK, CP]; CP++
+    name = vkey(TK[CK, CP], TSX[CK, CP]); CP++
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }

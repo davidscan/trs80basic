@@ -382,12 +382,12 @@ function e_prim0(   t, s, v, key, sx) {
         # before 2026-09-25 (the L-10 remainder).  ELSE, stored behind a
         # ":", is the statement's end: ?MO, as below (OC-13).
         if (TKW[CK, CP]) { raise(at_stmt_end() ? 21 : 2); return "NI0" }
-        sx = TSX[CK, CP]; CP++                    # the name's suffix types the value read (ntype, p70)
+        s = vkey(s, TSX[CK, CP]); CP++            # the name and its type (vkey, p70): V, V% and V# are three variables
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
             key = aref(s); if (E) return "NI0"
             if (ALN && (("A" key) in ALIAS)) return "S" al_read("A" key)   # finding 7 (p75)
-            if (strname(s, sx)) return (key in VA) ? VA[key] : "S"
-            return "N" ntype(s, sx) ((key in VA) ? VA[key] : 0)
+            if (strname(s)) return (key in VA) ? VA[key] : "S"
+            return "N" ntype(s) ((key in VA) ? VA[key] : 0)
         }
         # a variable read in an expression is NEVER created: the ROM's
         # lookup, called from the evaluator, answers a name it cannot find
@@ -398,8 +398,8 @@ function e_prim0(   t, s, v, key, sx) {
         # it) reaching the memory accounting (mem_varbytes counts the
         # entries): until 2026-09-27
         # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit, M-8).
-        if (strname(s, sx)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
-        t = ntype(s, sx)
+        if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
+        t = ntype(s)
         return "N" t ((s in NV) ? ((t == "D") ? NV[s] : NV[s] + 0) : 0)   # a double's payload as it is (p91)
     }
     # No operand: the statement's end where one is due (the line's end, a
@@ -413,7 +413,7 @@ function e_prim0(   t, s, v, key, sx) {
 
 # ---- array reference: at "(", returns storage key; auto-DIM 10 -------------
 function aref(name,   nd, i, v, idx, key, idxs, vz) {
-    vz = vt_size(name, TSX[CK, CP - 1])     # every caller stands on "(" just past the name
+    vz = vt_size(name)                      # name is a key (vkey, p70): it carries the type
     CP++                                    # past "("
     nd = 0
     for (;;) {
@@ -463,7 +463,7 @@ function aref(name,   nd, i, v, idx, key, idxs, vz) {
 # pointing CK/CP at the position st_deffn stored, then restoring them.
 # Runaway recursion raises ?OM at depth 50; a body error unwinds every
 # frame with bindings restored.
-function fn_user(name,   n, i, p, v, r, sk, sp, av, osn, osv) {
+function fn_user(name,   n, i, p, v, r, sk, sp, av, osn, osv, pk) {
     CP++
     n = FNPAR[name]
     if (n > 0) {
@@ -481,10 +481,10 @@ function fn_user(name,   n, i, p, v, r, sk, sp, av, osn, osv) {
         CP++
     }
     for (i = 1; i <= n; i++)                # type-check BEFORE binding, so
-        if (strname(FNPARM[name, i]) != !isN(av[i])) { raise(13); return "NI0" }
+        if (strname(FNPARM[name, i], FNPSX[name, i]) != !isN(av[i])) { raise(13); return "NI0" }
     if (++FNDEPTH > 50) { FNDEPTH--; raise(7); return "NI0" }
     for (i = 1; i <= n; i++) {
-        p = FNPARM[name, i]
+        p = pk[i] = vkey(FNPARM[name, i], FNPSX[name, i])   # the parameter's key, its suffix kept (FNRD#(A1#) binds A1#)
         if (strname(p)) { osv[i] = SV[p]; SV[p] = substr(av[i], 2) }
         else            { osn[i] = NV[p]; NV[p] = (vtype(av[i]) == "D") ? substr(av[i], 3) : num(av[i]) }
     }
@@ -493,7 +493,7 @@ function fn_user(name,   n, i, p, v, r, sk, sp, av, osn, osv) {
     r = e_or()
     CK = sk; CP = sp
     for (i = n; i >= 1; i--) {
-        p = FNPARM[name, i]
+        p = pk[i]
         if (strname(p)) SV[p] = osv[i]
         else            NV[p] = osn[i]
     }
@@ -788,10 +788,10 @@ function fn_usr(name,   a1, x, r, tgt, cp0, nm, key) {
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
         CP++
         tgt = ""
-        if (TY[CK, CP] == "i" && !TKW[CK, CP] && strname(TK[CK, CP]) &&
+        if (TY[CK, CP] == "i" && !TKW[CK, CP] && strname(TK[CK, CP], TSX[CK, CP]) &&
             !(TK[CK, CP] ~ /^FN./ && (substr(TK[CK, CP], 3) in FNPAR))) {
             cp0 = CP
-            nm = TK[CK, CP]; CP++
+            nm = vkey(TK[CK, CP], TSX[CK, CP]); CP++
             if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
                 key = aref(nm); if (E) return "NI0"
                 if (TY[CK, CP] == "o" && TK[CK, CP] == ")") tgt = "A" key

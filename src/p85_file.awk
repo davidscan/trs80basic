@@ -327,8 +327,8 @@ function st_input_file(   n, nlv, name, key, i, x, dbl) {
         name = lvname(); dbl = (LVT == "D")  # a double enters the reader as VAL does (p90)
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
-        if (!fio_next_item(n, !strname(name, LVSX))) { raise(63); return }
-        if (strname(name, LVSX)) assignv(name, key, "S" FIO_IT)
+        if (!fio_next_item(n, !strname(name))) { raise(63); return }
+        if (strname(name)) assignv(name, key, "S" FIO_IT)
         else {
             # the item is evaluated "by a routine just like the BASIC VAL
             # function" (Disk manual, INPUT#): A12 is 0, 5X is 5, never ?TM
@@ -353,7 +353,7 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         if (!fio_isopen(n)) { raise(53); return }
         if (FH_MODE[n] != "I" && FH_MODE[n] != "A") { raise(55); return }
         if (!at_name()) { raise(2); return }
-        name = TK[CK, CP]; CP++
+        name = vkey(TK[CK, CP], TSX[CK, CP]); CP++
         if (!strname(name)) { raise(13); return }
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
@@ -388,7 +388,7 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         else { raise(2); return }
     }
     if (!at_name()) { raise(2); return }
-    name = TK[CK, CP]; CP++
+    name = vkey(TK[CK, CP], TSX[CK, CP]); CP++
     if (!strname(name)) { raise(13); return }
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
@@ -499,7 +499,7 @@ function st_field(   n, off, w, v, name, key, tgt, i, found) {
         if (!(TY[CK, CP] == "i" && TK[CK, CP] == "AS")) { raise(2); return }
         CP++
         if (!at_name()) { raise(2); return }
-        name = TK[CK, CP]; CP++
+        name = vkey(TK[CK, CP], TSX[CK, CP]); CP++
         key = ""
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
         if (!strname(name)) { raise(13); return }
@@ -563,7 +563,7 @@ function fio_just(s, w, left) {
 # on a non-fielded string var, justify within its current length
 function st_lset(left,   name, key, v, s, tgt, cur) {
     if (!at_name()) { raise(2); return }
-    name = TK[CK, CP]; CP++
+    name = vkey(TK[CK, CP], TSX[CK, CP]); CP++
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }

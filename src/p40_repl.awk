@@ -414,13 +414,13 @@ function clear_vars(keepfiles) {
     delete NV; delete SV; delete VA; delete ADIM; delete ASZ; delete NVZ; delete AVZ
     # DEF FN definitions live in variable space (MS BASIC): RUN/NEW/CLEAR
     # all wipe them and the program re-executes its DEFs
-    delete FNPAR; delete FNPARM; delete FNKEY; delete FNPOS
+    delete FNPAR; delete FNPARM; delete FNPSX; delete FNKEY; delete FNPOS
     FNDEPTH = 0
     # the DEF-type table goes back to single precision on RUN, NEW, a
     # program load AND the CLEAR statement: the ROM's CLEAR joins RUN's
     # initializer (1E7A/1EA0 -> 1B61-1B6C), so DEFSTR A:CLEAR 500:A="X" is
     # ?TM on the machine -- period programs CLEAR first, then DEFSTR
-    delete DEFS; delete DEFI; delete DEFT
+    delete DEFS; delete DEFI; delete DEFT; delete VKC
     sp_reset()                      # VARPTR string space empties with the vars
     STRUSED = 0; delete STRCNT      # the string area's count (p75, mem_*)
     FSN = 0; GSN = 0

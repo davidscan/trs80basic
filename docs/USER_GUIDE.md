@@ -570,16 +570,6 @@ Honest list, stated as current behavior:
   read (`PRINT 0+MEM` is 10 less than `PRINT MEM`); a program
   that loops "until memory is low" ends where the machine's would to
   within a few bytes.
-- **A type suffix does not make a separate variable.** `G%`, `G!`, `G#`
-  and `G` name one variable here, where the machine keeps one for each
-  type ("A$, A%, A!, A# are distinct variable names", Level II manual,
-  section 1): `G%=1:G=2.5:PRINT G%` prints 2 here and 1 on the machine. The
-  name a value is stored or read through still sets its type, so the
-  numbers themselves follow the machine's three types (integer, single,
-  double; see "Numbers have the machine's three types" in the README).
-  Under DEFSTR the string and the numbers part ways, as on the machine:
-  `DEFSTR G:G="X":G%=5` keeps both, and `G%`, `G!`, `G#` are then one
-  numeric variable beside the string `G`.
 - **The bytes under a zero are zeros.** The ROM makes a number zero by
   clearing its exponent byte alone (Farvour, *Microsoft BASIC Decoded*,
   0778H); the mantissa bytes keep whatever the accumulator last held,
@@ -1809,17 +1799,18 @@ DEFSNG / DEFDBL / DEFSTR      integer / single / double / string
   at the NEXT that would step it past the range, so FOR I%=1 TO 32767
   stops at its last NEXT, as on the machine.  Arithmetic is no error:
   I%+1 past 32767 is silently a single, until it is stored.  A ! or
-  # suffix overrides DEFINT for that store.
+  # suffix names the single or double variable instead.
   DEFSNG and DEFDBL clear DEFINT and DEFSTR for their range.  A single
   holds 24 bits (about 7 digits, printed to 6) and a double the
   machine's 56 (printed to 16; man CDBL), and a value
   takes the type of the name it is read through: DEFDBL A: A=1/3 holds
   the SINGLE quotient, .3333333432674408, as on the machine; A=1#/3 is
-  double division.  The suffixes do not make separate variables: G%, G!
-  and G are the same variable, and the name as written at each store
-  or read decides its type.  Under DEFSTR a % ! # suffix names the
-  number beside the string, as on the machine: DEFSTR G: G="X": G%=5
-  keeps both (G%, G! and G# being one number).
+  double division.  Each type is its own variable, as on the machine:
+  G, G%, G! and G# are four variables, and A() and A%() two arrays.
+  A bare name takes its type from the table at each use, so after
+  G=2.5: DEFINT G, G is G% -- a new variable holding 0 -- while G!
+  still holds 2.5.  Under DEFSTR G a bare G is G$, and a % ! # suffix
+  still names a number: DEFSTR G: G="X": G%=5 keeps both.
   Example: DEFINT I-N
   Example: DEFSTR S: S="TEXT"          (S=1 would be ?TM)
 ```

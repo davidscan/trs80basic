@@ -17,7 +17,7 @@
 170 E$=" 2 B":L$="PRINT 2# then a string":PRINT @0,2# "B";:GOSUB 970
 180 E$=" 5.5  5  2.5  3 ":L$="no suffix, no break":PRINT @0,2.5 +3;2 +3;2.5# +3;:GOSUB 970
 190 E$=" 100001  100001 ":L$="an exponent is no suffix":PRINT @0,1D5 +1;1E5 +1;:GOSUB 970
-200 A=2:B=3:E$=" 5  5 ":L$="a name's suffix reads past blanks":PRINT @0,A! +B;A% +B;:GOSUB 970
+200 A=2:A%=4:B=3:E$=" 5  7 ":L$="a name's suffix reads past blanks":PRINT @0,A! +B;A% +B;:GOSUB 970
 210 E$=" 2 3":L$="PRINT USING 2# ;3":PRINT @0,USING "##";2# ;3;:GOSUB 970
 220 E$="   1 ":L$="TAB(2# )":PRINT @0,TAB(2# );1;:GOSUB 970
 230 E$="AAABBCBC":L$="the string counts":PRINT @0,STRING$(2# ,"A");LEFT$("ABC",2# );RIGHT$("ABC",2# );MID$("ABCDE",2# ,2# );:GOSUB 970

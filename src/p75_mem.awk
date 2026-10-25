@@ -674,18 +674,17 @@ function sp_enc(x, nb) { return (nb == 2) ? fio_mki(x) : (nb == 8) ? dbytes(x) :
 function sp_dec(s, nb) { return (nb == 2) ? fio_cvi(s) : (nb == 8) ? dfrombytes(s) : fio_cvf(s, nb) }
 
 # materialize var (locator tgt, string flag isstr) and return its VARPTR.
-# nb, when given, sizes a numeric with no entry yet (VARPTR's own suffix).
 # Idempotent: a second call returns the first call's address.  A string's
 # bytes are re-homed only when the live value is longer than the cells
 # mapped for it -- which the assignment that grew it does at once (sp_grown)
 # -- and shrinking never moves anything (sp_peek pads with 32 past the live
 # length).
-function sp_materialize(tgt, isstr, nb,   len, need, base, j, dbase) {
+function sp_materialize(tgt, isstr,   len, need, base, j, dbase) {
     if (SSP == 0) SSP = HIMEM                     # first use this run
     if (!isstr) {
         if (tgt in VPDESC) return VPDESC[tgt]
         if (substr(tgt, 1, 1) == "A") return sp_arrblock(tgt)
-        need = (nb != "") ? nb : sp_nsize(tgt)
+        need = sp_nsize(tgt)
         if (SSP - need < 17131) { raise(7); return 0 }
         base = SSP - need + 1; SSP -= need
         for (j = 0; j < need; j++) { SPK[base + j] = tgt; SPT[base + j] = "N" j }
@@ -889,19 +888,25 @@ function sp_poke(a, b,   t, tgt, v, j) {
 }
 
 # VARPTR(var) -- parse a variable REFERENCE (scalar or array element), not
-# an expression; called from e_prim
-function fn_varptr(   name, key, tgt, nb) {
+# an expression; called from e_prim.  A simple variable never stored is
+# ?FC: 260DH, called from the evaluator, answers address 0 for a name it
+# cannot find, and 24F5H-24F7H jumps to the ?FC exit on it (Farvour).
+# So after V%=1:DEFDBL V, VARPTR(V) is ?FC: V is V#, a variable not made
+# yet.  An element always has one: the reference makes its array (aref's
+# auto-DIM).  Until 2026-10-24 any name got an address here, sized by its
+# suffix (AUDIT BM-14, B108).
+function fn_varptr(   name, key, tgt) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
     CP++
     if (!at_name()) { raise(2); return "NI0" }
-    name = TK[CK, CP]; nb = vt_size(name, TSX[CK, CP]); CP++
+    name = vkey(TK[CK, CP], TSX[CK, CP]); CP++   # the key carries the type (vkey, p70)
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return "NI0" }
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return "NI0" }
     CP++
+    if (key == "" && !((name in NV) || (name in SV))) { raise(5); return "NI0" }   # never stored: ?FC (24F7H)
     tgt = (key != "") ? "A" key : "V" name
-    if (key != "" || (name in NV)) nb = ""     # an entry's own record sizes it (sp_nsize)
-    key = sp_materialize(tgt, strname(name), nb); if (E) return "NI0"
+    key = sp_materialize(tgt, strname(name)); if (E) return "NI0"
     # the ROM hands the address to 0A9AH as an INTEGER (24FAH), so above
     # 32767 VARPTR is negative: 65533 is -3, and V=VARPTR(A$):IF V<0 THEN
     # V=V+65536 is the period idiom (280 corpus lines).  PEEK and POKE take
@@ -1384,8 +1389,8 @@ function mem_strsz() { return HIMEM - mem_strlo() }                # the string 
 # table, else single) 2, 4 or 8.  The ROM fixes an entry's type when it
 # creates it (260DH), and a later DEFDBL does not resize it, so the size
 # is recorded then -- NVZ[] for a simple variable, AVZ[] for an array --
-# and the accounting reads the record.  G% is still G here (the 2026-08
-# ruling), so the entry keeps the size of the store that made it.
+# and the accounting reads the record.  Since 2026-10-24 a key carries
+# its type (vkey, p70), so the record and the key's type agree.
 # Until 2026-09-29 the size came from the DEF table alone: Z% cost 7
 # bytes, Z# 7, DIM A%(9) 48 (the machine's 5, 11 and 28; the 2026-09-26
 # audit, R-8).

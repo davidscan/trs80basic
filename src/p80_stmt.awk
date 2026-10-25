@@ -289,7 +289,7 @@ function st_midset(   name, key, n, m, v, s, r, cnt) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return }
     CP++
     if (!at_name()) { raise(2); return }
-    name = TK[CK, CP]; CP++
+    name = vkey(TK[CK, CP], TSX[CK, CP]); CP++
     if (!strname(name)) { raise(13); return }
     key = ""
     if (TY[CK, CP] == "o" && TK[CK, CP] == "(") { key = aref(name); if (E) return }
@@ -664,7 +664,7 @@ function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad
             # Until 2026-10-08 nothing was stored (the 2026-09-30
             # audit, BL-7).
             bad = IBBAD[idx]
-            if (strname(name, LVSX)) assignv(name, key, "S" IB[idx])
+            if (strname(name)) assignv(name, key, "S" IB[idx])
             else {
                 # the ROM's reader takes what it can (valnum, p90);
                 # anything but blanks left over is ?REDO (225A-2260)
@@ -859,7 +859,7 @@ function st_read_items(   name, key, x, dbl, bad) {
         # DATA 1,2X read into A,B leaves B = 2 for an ON ERROR handler.
         # Until 2026-10-08 nothing was stored (the 2026-09-30 audit, BL-7).
         bad = DBAD[DP]
-        if (strname(name, LVSX)) {
+        if (strname(name)) {
             if (!HOSTMEM && length(DITEM[DP]) > 255) { raise_host(15); return }   # a DATA item past 255 is ?LS, as a literal is (p60; L-23)
             LITSTORE = 1                    # the item stays in its line: no string space (p75, mem_*)
             assignv(name, key, "S" DITEM[DP])
@@ -894,7 +894,7 @@ function st_read_items(   name, key, x, dbl, bad) {
 function st_dim(   name, nd, i, v, sz, vz) {
     for (;;) {
         if (!at_name()) { raise(2); return }
-        name = TK[CK, CP]; vz = vt_size(name, TSX[CK, CP]); CP++
+        name = vkey(TK[CK, CP], TSX[CK, CP]); vz = vt_size(name); CP++   # DIM A(2):DIM A%(2) makes two arrays (vkey, p70)
         if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) {
             # DIM of a scalar (DIM Z!,V!,L$ declaration lists, the period
             # habit for variable-lookup speed) is the ROM's: 2608H locates

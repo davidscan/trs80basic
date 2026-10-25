@@ -23,8 +23,8 @@
 310 G!=.1:V=VARPTR(G!):IF PEEK(V)<>205 OR PEEK(V+3)<>125 THEN PRINT "FAIL: .1";PEEK(V);PEEK(V+3):F=1
 320 H%=1:J#=1:K=1:X=VARPTR(H%):Y=VARPTR(J#):Z=VARPTR(K)
 330 IF X-Y<>8 OR Y-Z<>4 THEN PRINT "FAIL: H% J# K SPACING";X-Y;Y-Z:F=1
-340 REM --- VARPTR of a name not yet stored is sized by its own suffix
-350 X=VARPTR(L%):Y=VARPTR(M#):IF X-Y<>8 THEN PRINT "FAIL: UNSTORED L% M#";X-Y:F=1
+340 REM --- each entry takes its type's size (VARPTR of a name never stored is ?FC: suffixid.bas)
+350 L%=0:M#=0:X=VARPTR(L%):Y=VARPTR(M#):IF X-Y<>8 THEN PRINT "FAIL: L% M# ENTRIES";X-Y:F=1
 360 L%=772:V=VARPTR(L%):IF PEEK(V)<>4 OR PEEK(V+1)<>3 THEN PRINT "FAIL: L% LATER STORED";PEEK(V);PEEK(V+1):F=1
 400 REM --- an array is ONE block, ascending, its type's size apart, the first
 410 REM subscript fastest, mapped whole at the first touch (R-8 step 3; until

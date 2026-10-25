@@ -106,9 +106,9 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
                 i = tk_name(text, up, i); s = TKNAME
             }
             if (substr(text, i, 1) == "$") { s = s "$"; i++ }
-            # the type suffix is dropped from the name (G% is G) but kept
-            # beside the token in TSX: a store into a % name is an integer
-            # store.  Behind a keyword # is never a suffix now (PRINT#1,
+            # the type suffix % ! # is kept beside the name in TSX, and
+            # vkey (p70) puts it back into the variable's key where the
+            # name is read: G and G% are two variables.  Behind a keyword # is never a suffix now (PRINT#1,
             # CLOSE#1): the keyword's token ended before it.
             sx = ""; c = substr(text, i, 1)
             if (c == "!" || c == "%" || c == "#") { sx = c; i++ }
@@ -274,7 +274,7 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
 # EXIT, the statement words that are no token, are kept by the caller when
 # they stand alone (bye_alone).  FNABC is FN plus a
 # name, so FNAB.  The type suffix `$` is kept (AB$ and AB are two
-# variables); % ! # are already dropped (G% is G).
+# variables); % ! # are already in TSX (vkey, p70, makes the key).
 function vn_cut(s,   d, b) {
     d = (s ~ /\$$/) ? "$" : ""
     b = d ? substr(s, 1, length(s) - 1) : s
