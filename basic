@@ -79,7 +79,7 @@ done
 # a caller's timeout or alarm must land on gawk itself, not on a shell
 # that would die and leave gawk running.
 # The exact build, for --version and the `version` metacommand: git's
-# describe in a checkout (the tag, or "v2.1.4-3-gabcdef0" past it, "-dirty"
+# describe in a checkout (the tag, or "v2.1.5-3-gabcdef0" past it, "-dirty"
 # with edits); outside one the interpreter names its release alone.
 # only when $here is ITSELF a checkout: from an unpacked release inside
 # some other repository, git would walk up and describe THAT repository
