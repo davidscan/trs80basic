@@ -44,9 +44,9 @@ BEGIN {
     # The release number, bumped in the commit that carries the tag (v1.4
     # was the first, 2026-09-26; v1.0-v1.3 name earlier states).  BUILDID is
     # what the launcher read from `git describe` in a checkout: the same
-    # string at a tag, "v2.1.5-3-gabcdef0" three commits past it, so
+    # string at a tag, "v2.2.0-3-gabcdef0" three commits past it, so
     # --version and the `version` metacommand name the exact build.
-    VERSION = "v2.1.5"
+    VERSION = "v2.2.0"
     if (!parse_args()) { usage("/dev/stderr"); exit 2 }
     if (OPT_HELP) { usage(""); exit 0 }
     if (OPT_VERSION) { printf "%s\n", version_text(); exit 0 }

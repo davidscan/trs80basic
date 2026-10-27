@@ -102,7 +102,7 @@ function parse_args(   i, a, nofl, host) {
     return 1
 }
 
-# "trs80basic v2.1.5", with the build behind it when the launcher's git
+# "trs80basic v2.2.0", with the build behind it when the launcher's git
 # describe said more than the tag (p10 VERSION, BUILDID)
 function version_text() {
     return "trs80basic " VERSION ((BUILDID != "" && BUILDID != VERSION) ? " (build " BUILDID ")" : "")
