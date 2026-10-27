@@ -201,4 +201,61 @@ READY
 >'
 [ "$out" = "$want" ] || fail "type sizes" "$out"
 
+# ?OS while an expression builds a string (2857H -> 28BFH, Farvour): every
+# string it makes (a concatenation 298FH, LEFT$/RIGHT$/MID$ 2A61H, CHR$
+# 2A1FH, STRING$ 2A2FH, STR$ 2836H) is allocated as it is made, and must
+# fit beside the variables' strings and the temporaries still held -- the
+# left operand of a + or a relation, LEFT$'s string argument (2A73H), but
+# not STRING$'s character (2A47H lets it go first).  LET copies a
+# variable's string from string space (1F5FH -> 2843H) and leaves one
+# that points into its line.  Each case on both sides of its limit.
+# Until 2026-10-27 only stores counted: LEN(A$+A$) at 17 was 34, CHR$
+# beside 50 bytes printed, B$=A$ took nothing.
+out=$(repl 32767 'CLEAR 50:A$=STRING$(16,"A"):PRINT LEN(A$+A$)\nCLEAR 50:A$=STRING$(17,"A"):PRINT LEN(A$+A$)\nCLEAR 50:A$=STRING$(8,"A"):PRINT LEN(A$+A$+A$)\nCLEAR 50:A$=STRING$(10,"A"):PRINT LEN(A$+A$+A$)\nCLEAR 50:A$=STRING$(49,"A"):PRINT CHR$(65)\nCLEAR 50:A$=STRING$(50,"A"):PRINT CHR$(65)\nCLEAR 50:A$=STRING$(45,"A"):PRINT STR$(1234)\nCLEAR 50:A$=STRING$(46,"A"):PRINT STR$(1234)\nCLEAR 50:A$=STRING$(19,"A"):PRINT LEN(LEFT$(A$+"B",10))\nCLEAR 50:A$=STRING$(20,"A"):PRINT LEN(LEFT$(A$+"B",10))\nCLEAR 50:A$=STRING$(10,"A"):PRINT LEN(STRING$(39,A$+"B"))\nCLEAR 50:A$=STRING$(15,"A"):IF A$+A$=A$+A$ THEN PRINT "EQ"\nCLEAR 50:A$=STRING$(20,"A"):PRINT FRE(A$+A$)\n10 A$=STRING$(10,"A"):B$=A$:C$="XY":D$=C$:PRINT FRE("")\nRUN\n')
+want='>CLEAR 50:A$=STRING$(16,"A"):PRINT LEN(A$+A$)
+ 32 
+READY
+>CLEAR 50:A$=STRING$(17,"A"):PRINT LEN(A$+A$)
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(8,"A"):PRINT LEN(A$+A$+A$)
+ 24 
+READY
+>CLEAR 50:A$=STRING$(10,"A"):PRINT LEN(A$+A$+A$)
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(49,"A"):PRINT CHR$(65)
+A
+READY
+>CLEAR 50:A$=STRING$(50,"A"):PRINT CHR$(65)
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(45,"A"):PRINT STR$(1234)
+ 1234
+READY
+>CLEAR 50:A$=STRING$(46,"A"):PRINT STR$(1234)
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(19,"A"):PRINT LEN(LEFT$(A$+"B",10))
+ 10 
+READY
+>CLEAR 50:A$=STRING$(20,"A"):PRINT LEN(LEFT$(A$+"B",10))
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(10,"A"):PRINT LEN(STRING$(39,A$+"B"))
+ 39 
+READY
+>CLEAR 50:A$=STRING$(15,"A"):IF A$+A$=A$+A$ THEN PRINT "EQ"
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(20,"A"):PRINT FRE(A$+A$)
+?OS ERROR
+READY
+>10 A$=STRING$(10,"A"):B$=A$:C$="XY":D$=C$:PRINT FRE("")
+>RUN
+ 30 
+READY
+>'
+[ "$out" = "$want" ] || fail "?OS while a string is built" "$out"
+
 echo "MEM OK"

@@ -154,6 +154,7 @@ function dobreak() {
 function execstmt(   ty, tx) {
     ty = TY[CK, CP]; tx = TK[CK, CP]
     EVSTK = 2                               # the statement's own stack (OC-12, p60 e_or)
+    STMP = 0                                # no string temporary held (p75 st_alloc)
     if (ty == "i") {
         if (tx == "PRINT")   { CP++; st_print(); return }
         if (tx == "LET")     { CP++; st_let(); return }
@@ -268,11 +269,14 @@ function st_let(   name, key, v, lp, src, j, n) {
     mkvar(name, key, LVT)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
-    # a string literal, or a plain string variable, alone on the right in a
-    # program line: the ROM leaves the string where it is (1F46H-1F57H)
+    # a string literal, or a plain string variable whose string is one, alone
+    # on the right in a program line: the ROM leaves the string where it is
+    # (1F46H-1F57H).  A variable's string in string space is copied
+    # (1F5FH -> 2843H): until 2026-10-27 B$=A$ took no string space here.
     lp = 0
     if (CK != "I" && (TY[CK, CP] == "s" || TY[CK, CP] == "i") && strname(name)) {
         CP++; if (at_stmt_end()) lp = CP - 1; CP--
+        if (lp && TY[CK, lp] == "i" && lit_of("V" vkey(TK[CK, lp], TSX[CK, lp])) == "") lp = 0
     }
     v = e_or(); if (E) return
     LITSTORE = (lp != 0)                    # takes no string space (p75, mem_*)

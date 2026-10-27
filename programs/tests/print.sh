@@ -43,7 +43,7 @@ out=$(run | tail -1 | sed "s/.*\[/[/")
 [ "$out" = "[SHORT               ]" ] || fail "a carriage return left stale text on the next line" "$out"
 
 # running off the end of a line is NOT a carriage return: row 1 keeps its tail
-printf '10 CLS:PRINT@74,"KEEPME";:PRINT@0,STRING$(70,"X");\n20 S$="":FOR I=15424 TO 15424+15:S$=S$+CHR$(PEEK(I)):NEXT:PRINT@192,"[";S$;"]"\n' > "$tmp"
+printf '10 CLEAR 100:CLS:PRINT@74,"KEEPME";:PRINT@0,STRING$(70,"X");\n20 S$="":FOR I=15424 TO 15424+15:S$=S$+CHR$(PEEK(I)):NEXT:PRINT@192,"[";S$;"]"\n' > "$tmp"
 out=$(run | tail -1 | sed "s/.*\[/[/")
 [ "$out" = "[XXXXXX    KEEPME]" ] || fail "a line wrap erased the next line" "$out"
 
@@ -126,7 +126,7 @@ case "$out" in *" 88  67  89  11 "*) ;; *) fail "the 32-character column (TAB, c
 # Until 2026-09-25 the display byte was measured, so that number moved
 # to a line of its own.  In 64-character mode " 123" after 60 characters
 # is the last that does not fit (60 + 4 = 64) and " 12" the first that does.
-printf '10 CLS:PRINT CHR$(23);STRING$(30,"X");123456;\n20 A=PEEK(15422):B=PEEK(15424):C=PEEK(15432)\n30 PRINT CHR$(28);:CLS:PRINT STRING$(60,"X");123;\n40 D=PEEK(15425):CLS:PRINT STRING$(60,"X");12;\n50 E=PEEK(15421):F=PEEK(15424):CLS:PRINT A;B;C;D;E;F\n' > "$tmp"
+printf '10 CLEAR 100:CLS:PRINT CHR$(23);STRING$(30,"X");123456;\n20 A=PEEK(15422):B=PEEK(15424):C=PEEK(15432)\n30 PRINT CHR$(28);:CLS:PRINT STRING$(60,"X");123;\n40 D=PEEK(15425):CLS:PRINT STRING$(60,"X");12;\n50 E=PEEK(15421):F=PEEK(15424):CLS:PRINT A;B;C;D;E;F\n' > "$tmp"
 out=$(run)
 case "$out" in *" 49  50  54  49  49  32 "*) ;; *) fail "the number fit is 40A6H against 409DH (64, never updated for 32 characters)" "$out" ;; esac
 

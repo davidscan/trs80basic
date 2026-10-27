@@ -1384,6 +1384,25 @@ function fr_dump(   i) {
 # the ROM, as a cluster).
 function mem_strlo() { return STRLO_SET ? STRLO : HIMEM - 50 }   # 40A0H
 function mem_strsz() { return HIMEM - mem_strlo() }                # the string area
+# A string an expression BUILDS is allocated in string space as it is made
+# (2857H -> 28BFH): a concatenation (298FH), LEFT$, RIGHT$ and MID$
+# (2A61H-2A9AH), CHR$ (2A1FH), STRING$ (2A2FH), STR$ (2836H) and INKEY$'s
+# key (01B1H).  Past the area's end the collection (28E6H) keeps only what
+# something still refers to, and then it is ?OS (28DDH): the variables'
+# strings (STRUSED), and the temporaries still in the literal-string pool
+# (40B5H-40B3H) -- the operands an operator or a function holds while the
+# rest of its expression is read (STMP), and the operands of the routine
+# building the string (live).  VTMP is the bytes of the value just built,
+# 0 for a literal or a variable.  LET keeps a temporary where it is
+# (1F4CH-1F62H), so its store allocates nothing more; assignv's count is
+# the same test.  Until 2026-10-27 only the stores were counted, and
+# PRINT LEN(A$+A$) with a 30-byte A$ printed 60 where the ROM is ?OS.
+# Not modelled: Disk BASIC's MKI$, MKS$, MKD$ and TIME$, PRINT USING's
+# format string held while its items are read, and a DEF FN's arguments.
+function st_alloc(n, live) {
+    if (!HOSTMEM && STRUSED + STMP + live + n > mem_strsz()) { raise(14); return 0 }   # never under `memory host` (EXT)
+    VTMP = n; return 1
+}
 # The bytes of one value as the name types it at a reference: 3 for a
 # string's descriptor, else by ntype (p70: the suffix, else the DEF
 # table, else single) 2, 4 or 8.  The ROM fixes an entry's type when it

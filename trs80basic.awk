@@ -3901,7 +3901,7 @@ function e_not(   v) {
 # true whatever the compare says) and only a REPEATED character (<<, ==,
 # >>, <=<) reaches ?SN at 1997H.  The tokenizer folds the common pairs
 # (<= =< >= => <> ><) into one token; any longer run is merged here.
-function e_rel(   v, r, op, a, b, c, f, nb, k, cn, rs) {
+function e_rel(   v, r, op, a, b, c, f, nb, k, cn, rs, vt) {
     v = e_add()
     while (!E && TY[CK, CP] == "o" && TK[CK, CP] ~ /^(=|<|>|<=|>=|<>)$/) {
         f = 0
@@ -3911,7 +3911,9 @@ function e_rel(   v, r, op, a, b, c, f, nb, k, cn, rs) {
             if (and(f, nb)) { raise(2); return v }
             f = or(f, nb); CP++
         }
-        if (!evright(v, "r")) return v; k = EVC; cn = CATN; r = e_add(); EVSTK -= k; if (E) return v
+        vt = isN(v) ? 0 : VTMP; STMP += vt          # the left string stays in the pool (p75 st_alloc)
+        if (!evright(v, "r")) return v; k = EVC; cn = CATN; r = e_add(); EVSTK -= k; STMP -= vt; if (E) return v
+        VTMP = 0
         if (isN(v) != isN(r)) { raise(13); return v }
         if (isN(v) && (vtype(v) == "D" || vtype(r) == "D")) { a = dcmp(substr(v, 3), substr(r, 3)); b = 0 }   # a double's 56 bits (p91)
         else if (isN(v)) { a = num(v); b = num(r) } else { a = vstr(v); b = vstr(r) }
@@ -3938,13 +3940,14 @@ function e_rel(   v, r, op, a, b, c, f, nb, k, cn, rs) {
     return v
 }
 
-function e_add(   v, r, op, x, c) {
+function e_add(   v, r, op, x, c, vt) {
     v = e_mul()
     while (!E && TY[CK, CP] == "o" && (TK[CK, CP] == "+" || TK[CK, CP] == "-")) {
         op = TK[CK, CP]; CP++
         if (!evright(v)) return v; c = EVC
         if (op == "+" && !isN(v)) { CATR = 1; CATN++ }   # 2374H-237AH: a string's + is CAT, which saves no pointer (bug 21, e_rel)
-        r = e_mul(); CATR = 0; EVSTK -= c; if (E) return v
+        vt = isN(v) ? 0 : VTMP; STMP += vt              # the left string stays in the pool (p75 st_alloc)
+        r = e_mul(); CATR = 0; EVSTK -= c; STMP -= vt; if (E) return v
         if (op == "+") {
             if (!isN(v) && !isN(r)) {
                 # ROM 299CH-29A5H adds the two lengths in a byte and takes
@@ -3953,6 +3956,8 @@ function e_add(   v, r, op, x, c) {
                 # without bound, so the VARPTR length byte held the length
                 # mod 256 and a handler written for ?LS never fired (H-2).
                 if (!HOSTMEM && length(v) + length(r) - 2 > 255) { raise_host(15); return v }   # unbounded under `memory host` (EXT)
+                # 29A8H: room for the sum while both operands are held
+                if (!st_alloc(length(v) + length(r) - 2, vt + VTMP)) return v
                 v = "S" vstr(v) vstr(r); continue
             }
             if (isN(v) != isN(r)) { raise(13); return v }
@@ -4099,6 +4104,7 @@ function e_prim(   cr, v) {
 
 function e_prim0(   t, s, v, key, sx) {
     t = TY[CK, CP]
+    VTMP = 0                                # until a string is built (p75 st_alloc)
     # a lone "." in operand position enters the number reader (24B2H ->
     # 0E6CH), which takes the point and no digits as 0 -- a single, as a
     # pointed literal is (the 2026-09-26 audit, N-5).  ".5" and "1." were
@@ -4152,7 +4158,7 @@ function e_prim0(   t, s, v, key, sx) {
         if (s == "ERL")    { CP++; return "NS" ERLV }     # 24DFH-24E2H: the line number through 0C66H, a SINGLE (it can be 65535)
         if (s == "MEM")    { CP++; return "NS" mem_free() }           # 27C9H -> 27F2H: through 0C66H, a SINGLE (p75)
         if (s == "TIME$")  { CP++; return "S" strftime("%m/%d/%y %H:%M:%S") }
-        if (s == "INKEY$") { CP++; return fn_inkey() }
+        if (s == "INKEY$") { CP++; v = fn_inkey(); if (v != "S" && !st_alloc(1, 0)) return "NI0"; return v }   # a key is a 1-byte string (01B1H)
         # USR: ML stub, never a variable.  When the spelling carries no
         # slot digit, one may follow as its own token -- real Level II
         # tokenizes past the space, so X=USR 0(n) is legal.  This is the
@@ -4309,7 +4315,7 @@ function fn_user(name,   n, i, p, v, r, sk, sp, av, osn, osv, pk) {
 }
 
 # ---- built-in functions ----------------------------------------------------
-function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc) {
+function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc, t1, th) {
     CP++
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
     CP++
@@ -4317,10 +4323,12 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc) {
     fc = (name ~ /^(LEFT|RIGHT|MID)\$$/) ? 8 : 10; EVSTK += fc   # the call's own stack while its arguments are read
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) {
         a1 = e_or(); if (E) return "NI0"
+        t1 = isN(a1) ? 0 : VTMP; th = t1; STMP += t1        # an argument stays in the pool while the rest are read (p75 st_alloc)
         if (name == "STRING$") skipblank()                      # the count is a byte (2B1CH): a "b" token is passed
         na = 1
         if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
             CP++; a2 = e_or(); if (E) return "NI0"
+            if (!isN(a2)) { th += VTMP; STMP += VTMP }
             if (name ~ /^(LEFT|RIGHT|MID)\$$/) skipblank()       # the counts of the string functions too
             na = 2
             if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
@@ -4329,7 +4337,9 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc) {
                 na = 3
             }
         }
+        STMP -= th
     }
+    VTMP = 0
     EVSTK -= fc
     if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
     else { raise(2); return "NI0" }
@@ -4412,12 +4422,14 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc) {
     if (name == "CHR$") {
         x = numarg(a1, na); if (E) return "NI0"
         x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
+        if (!st_alloc(1, 0)) return "NI0"       # 2A21H
         return "S" CHR[x]
     }
     if (name == "STR$") {
         x = numarg(a1, na); if (E) return "NI0"
         s = fmtnum(fnum(a1), vtype(a1))
         sub(/ $/, "", s)
+        if (!st_alloc(length(s), 0)) return "NI0"   # 2846H
         return "S" s
     }
     if (name == "STRING$") {
@@ -4433,6 +4445,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc) {
             if (s == "") { raise(5); return "NI0" }
             s = substr(s, 1, 1)
         }
+        if (!st_alloc(x, 0)) return "NI0"       # 2A4EH, the character's string already let go (2A47H)
         r = ""
         for (i = 0; i < x; i++) r = r s
         return "S" r
@@ -4443,11 +4456,13 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc) {
     # Until 2026-09-25 any count was taken, so LEFT$(A$,256) was A$.
     if (name == "LEFT$") {
         s = strarg2(a1, na); x = bytearg2(a2, na); if (E) return "NI0"
-        return "S" substr(s, 1, x)
+        s = substr(s, 1, x); if (!st_alloc(length(s), t1)) return "NI0"   # 2A73H, the argument still held
+        return "S" s
     }
     if (name == "RIGHT$") {
         s = strarg2(a1, na); x = bytearg2(a2, na); if (E) return "NI0"
         if (x > length(s)) x = length(s)
+        if (!st_alloc(x, t1)) return "NI0"      # LEFT$'s code (2A98H)
         return "S" (x == 0 ? "" : substr(s, length(s) - x + 1))
     }
     if (name == "MID$") {
@@ -4456,9 +4471,11 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc) {
         if (na >= 3) {
             if (!isN(a3)) { raise(13); return "NI0" }
             i = lenconv(num(a3)); if (E) return "NI0"   # a byte, or any count under `memory host` (p80)
-            return "S" substr(s, x, i)
+            s = substr(s, x, i); if (!st_alloc(length(s), t1)) return "NI0"   # LEFT$'s code
+            return "S" s
         }
-        return "S" substr(s, x)
+        s = substr(s, x); if (!st_alloc(length(s), t1)) return "NI0"
+        return "S" s
     }
     if (name == "INSTR") {          # INSTR([n,]a$,b$) -- Disk BASIC
         if (na == 2) { x = 1; s = a1; r = a2 }
@@ -4947,6 +4964,7 @@ function dobreak() {
 function execstmt(   ty, tx) {
     ty = TY[CK, CP]; tx = TK[CK, CP]
     EVSTK = 2                               # the statement's own stack (OC-12, p60 e_or)
+    STMP = 0                                # no string temporary held (p75 st_alloc)
     if (ty == "i") {
         if (tx == "PRINT")   { CP++; st_print(); return }
         if (tx == "LET")     { CP++; st_let(); return }
@@ -5061,11 +5079,14 @@ function st_let(   name, key, v, lp, src, j, n) {
     mkvar(name, key, LVT)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
-    # a string literal, or a plain string variable, alone on the right in a
-    # program line: the ROM leaves the string where it is (1F46H-1F57H)
+    # a string literal, or a plain string variable whose string is one, alone
+    # on the right in a program line: the ROM leaves the string where it is
+    # (1F46H-1F57H).  A variable's string in string space is copied
+    # (1F5FH -> 2843H): until 2026-10-27 B$=A$ took no string space here.
     lp = 0
     if (CK != "I" && (TY[CK, CP] == "s" || TY[CK, CP] == "i") && strname(name)) {
         CP++; if (at_stmt_end()) lp = CP - 1; CP--
+        if (lp && TY[CK, lp] == "i" && lit_of("V" vkey(TK[CK, lp], TSX[CK, lp])) == "") lp = 0
     }
     v = e_or(); if (E) return
     LITSTORE = (lp != 0)                    # takes no string space (p75, mem_*)
@@ -7202,6 +7223,25 @@ function fr_dump(   i) {
 # the ROM, as a cluster).
 function mem_strlo() { return STRLO_SET ? STRLO : HIMEM - 50 }   # 40A0H
 function mem_strsz() { return HIMEM - mem_strlo() }                # the string area
+# A string an expression BUILDS is allocated in string space as it is made
+# (2857H -> 28BFH): a concatenation (298FH), LEFT$, RIGHT$ and MID$
+# (2A61H-2A9AH), CHR$ (2A1FH), STRING$ (2A2FH), STR$ (2836H) and INKEY$'s
+# key (01B1H).  Past the area's end the collection (28E6H) keeps only what
+# something still refers to, and then it is ?OS (28DDH): the variables'
+# strings (STRUSED), and the temporaries still in the literal-string pool
+# (40B5H-40B3H) -- the operands an operator or a function holds while the
+# rest of its expression is read (STMP), and the operands of the routine
+# building the string (live).  VTMP is the bytes of the value just built,
+# 0 for a literal or a variable.  LET keeps a temporary where it is
+# (1F4CH-1F62H), so its store allocates nothing more; assignv's count is
+# the same test.  Until 2026-10-27 only the stores were counted, and
+# PRINT LEN(A$+A$) with a 30-byte A$ printed 60 where the ROM is ?OS.
+# Not modelled: Disk BASIC's MKI$, MKS$, MKD$ and TIME$, PRINT USING's
+# format string held while its items are read, and a DEF FN's arguments.
+function st_alloc(n, live) {
+    if (!HOSTMEM && STRUSED + STMP + live + n > mem_strsz()) { raise(14); return 0 }   # never under `memory host` (EXT)
+    VTMP = n; return 1
+}
 # The bytes of one value as the name types it at a reference: 3 for a
 # string's descriptor, else by ntype (p70: the suffix, else the DEF
 # table, else single) 2, 4 or 8.  The ROM fixes an entry's type when it

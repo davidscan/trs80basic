@@ -1117,8 +1117,10 @@ CLEAR [n]   reset all variables; optionally set string space to n bytes
   (CLEAR 1000) before running out: FRE("") reports what is left, and a
   string that no longer fits is ?OS (Out of String Space, code 14), as
   on the machine -- a literal in a program line takes none, a string an
-  expression built takes its length, and the old value of the variable
-  being assigned still counts while the new one is made.  As on the
+  expression builds takes its length as it is built (beside the strings
+  the expression is still using: A$+A$ needs A$ twice over), and the old
+  value of the variable being assigned still counts while the new one is
+  made.  As on the
   machine, n is an integer (?OV past 32767), a negative n is ?FC,
   and an n that would push the string space down onto the program is
   ?OM; those errors leave the variables as they were.
@@ -1707,11 +1709,15 @@ RESUME [0 | NEXT | n]   carry on after an ON ERROR handler
 ```text
 ?OS ERROR   Out of String Space (code 14): a string did not fit
   String space is 50 bytes at power-on; CLEAR n sets it, and nothing
-  else grows it.  A string built by an expression takes its length
-  there (a literal in a program line takes none), the old value of the
-  variable being assigned still counts while the new one is made, and
-  when the two do not fit, even after the machine's garbage collection,
-  the store is ?OS and nothing is stored.  FRE("") reports what is left.
+  else grows it.  Every string an expression builds (by +, LEFT$,
+  RIGHT$, MID$, CHR$, STRING$, STR$ or INKEY$) takes its length there as
+  it is built, beside the variables' strings and the strings the
+  expression is still using: with a 30-byte A$, PRINT LEN(A$+A$) is ?OS.
+  A literal in a program line takes none; B$=A$ copies A$'s string.  The
+  old value of the variable being assigned still counts while the new
+  one is made.  When a string does not fit, even after the machine's
+  garbage collection, it is ?OS and nothing is stored.  FRE("") reports
+  what is left.
   The Level II manual's rule, under CLEAR: the amount CLEARed must
   equal or exceed the most characters held in string variables during
   execution.  A listing that stops with ?OS and has no CLEAR n assumed

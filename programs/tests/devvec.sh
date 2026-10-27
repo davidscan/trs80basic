@@ -43,7 +43,7 @@ out=$(run)
 # the comma past column 112 skips to the next line (ROM 211B-212B), and
 # TAB is masked to 0-127 as PRINT's is (213AH, ROM 1.3): TAB(70) is
 # column 70, and TAB(134) is TAB(6)
-printf '10 LPRINT STRING$(113,"-"),"Z"\n20 LPRINT "AB";TAB(70);"C"\n30 LPRINT "AB";TAB(134);"C"\n' > "$tmp"
+printf '10 CLEAR 200:LPRINT STRING$(113,"-"),"Z"\n20 LPRINT "AB";TAB(70);"C"\n30 LPRINT "AB";TAB(134);"C"\n' > "$tmp"
 out=$(run); p=$(lpget)
 [ "$p" = "$(awk 'BEGIN { while (n++ < 113) printf "-"; print ""; print "Z"; printf "AB"; while (m++ < 68) printf " "; print "C"; print "AB    C" }')" ] || fail "LPRINT comma at 112 / TAB mask" "$out" "$p"
 # a custom machine-language driver address leaves the default route
