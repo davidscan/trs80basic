@@ -403,12 +403,12 @@ maintained outside this repository.
   range, and a number takes the type of the name it is stored through
   (integer, single or double, the machine's three types; `man DEFINT`).
   An explicit `%` `!` `#` suffix names the numeric variable of that
-  type under DEFSTR, as on the machine (`DEFSTR A:A%=5:PRINT A%+1` is
-  6; the string A and the number A% share the name here, see "A type
-  suffix does not make a separate variable" in the guide). Until
-  2026-10-05 the DEFSTR letter won and the store was `?TM`; eight
-  listings of the 4,339-program corpus stopped there (`DEFSTR A-H` with
-  `G%`, `DEFSTR X-Z` with `FOR ZZ%`) and run on now.
+  type under DEFSTR, as on the machine
+  (`DEFSTR A:A="X":A%=5:PRINT A;A%+1` prints `X 6`: the string A and
+  the number A% are separate variables). Until 2026-10-05 the DEFSTR
+  letter won and the store was `?TM`; eight listings of the corpus
+  (4,339 programs at the time) stopped there (`DEFSTR A-H` with `G%`,
+  `DEFSTR X-Z` with `FOR ZZ%`) and run on now.
 - PRINT USING honors the picture string: # . , ** $$ **$ fields, leading
   + / trailing + or - signs, ^^^^ exponent form, ! and %spaces% string
   fields, literal passthrough, picture reuse across the value list, and
@@ -433,8 +433,9 @@ maintained outside this repository.
   `FOR I=1% TO 3` and a parenthesis or function argument; `ON`, `POKE`'s
   value, `OUT`, `SET`/`RESET`, `TAB(` and the counts of `STRING$`,
   `LEFT$`, `RIGHT$` and `MID$` read on past it. One listing in the
-  4,339-program corpus has the shape (lngracda.bas 230, `RN-65535! :`),
-  on a branch a key press normally forestalls; no seeded output changed.
+  corpus (4,339 programs at the time) has the shape (lngracda.bas 230,
+  `RN-65535! :`), on a branch a key press normally forestalls; no
+  seeded output changed.
 - The bytes under a zero are zeros (v2.1.3, a documented departure).
   The ROM makes a number zero by clearing its exponent byte alone
   (Farvour, 0778H), so a zero's mantissa bytes keep whatever the
@@ -446,22 +447,23 @@ maintained outside this repository.
 - `MEM` and `FRE(0)` count an open GOSUB as 5 bytes, the machine's
   frame (Farvour 1EB7H-1EC0H; 6 until 2026-10-05), so `PRINT MEM` inside
   a subroutine is 1 higher per open GOSUB and a runaway recursion goes
-  deeper before ?OM. One listing of the 4,339-program corpus prints a
-  different number (elcvidwk.bas, `PRINT MEM` in a subroutine). The
-  temporaries of an expression are still not counted.
+  deeper before ?OM. One listing of the corpus (4,339 programs at the
+  time) prints a different number (elcvidwk.bas, `PRINT MEM` in a
+  subroutine).
 - INPUT reads the answer before it reads its variable list, as on the
   machine (Farvour 21DBH, then 21FDH for each variable in turn; until
   2026-10-08 the list was checked first). A malformed list
   (`INPUT "PRESS ENTER";;Z9`, `INPUT A,3`) now prompts: ENTER alone
   runs on past it, and an answer stores what it can before ?SN. Two
-  listings of the 4,339-program corpus have such a line and now stop at
-  the prompt with empty input instead of at ?SN (symscrfl.bas, UPLOAD.bas).
+  listings of the corpus (4,339 programs at the time) have such a line
+  and now stop at the prompt with empty input instead of at ?SN
+  (symscrfl.bas, UPLOAD.bas).
 - An operand missing at the statement's end is ?MO, missing operand, as
   on the machine (`X=1+`, `X=(`, `PRINT LEFT$(A$,`, `FOR I=1 TO`, and
   before a `:` or ELSE); any other byte where an operand is due is still
   ?SN (`X=*2`, `PRINT 1+;`). Until 2026-10-08 all of them were ?SN. One
-  listing of the 4,339-program corpus stops at such a line and now
-  reports ?MO (extnbasc.bas 65, a `GET` with no file number).
+  listing of the corpus (4,339 programs at the time) stops at such a
+  line and now reports ?MO (extnbasc.bas 65, a `GET` with no file number).
 - Variable names are the ROM's two characters: SUM and SU are the same
   variable (`memory host` lifts it for new code).
 - Strings are at most 255 characters, as on the machine (?LS past it;
