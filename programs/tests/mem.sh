@@ -258,4 +258,118 @@ READY
 >'
 [ "$out" = "$want" ] || fail "?OS while a string is built" "$out"
 
+# Each term of that rule exactly at its limit, where one byte of slack
+# shows: a concatenation's right operand is held too (A$+(B$+C$) needs
+# 2*LEN(A$)+3*(LEN(B$)+LEN(C$)) <= 50), a concatenation costs the sum of
+# its operands, STRING$ costs its count, RIGHT$/MID$ cost their result
+# (2A61H), holding a string argument it was given (each case with A$+"B"
+# fitting, so only the function's own result crosses the limit), and a
+# 0-length result costs nothing.  A temporary that nothing
+# points at any more is reclaimed: when the area is full the ROM keeps only
+# the strings the variables, the arrays and the string pointer table hold
+# (28E1H-2903H) and retries, so a string function abandoned by an error in
+# a later argument (here LEFT$ holding A$+A$ when 1/0 fails) costs nothing
+# past RESUME (p70's per-statement STMP reset is the model of that; a
+# leak would print LEAK).
+out=$(repl 32767 'CLEAR 50:A$=STRING$(10,"A"):B$=STRING$(5,"B"):C$=STRING$(5,"C"):PRINT LEN(A$+(B$+C$))\nCLEAR 50:A$=STRING$(11,"A"):B$=STRING$(5,"B"):C$=STRING$(5,"C"):PRINT LEN(A$+(B$+C$))\nCLEAR 50:A$=STRING$(20,"A"):B$=STRING$(5,"B"):PRINT LEN(A$+B$)\nCLEAR 50:A$=STRING$(20,"A"):B$=STRING$(6,"B"):PRINT LEN(A$+B$)\nCLEAR 50:A$=STRING$(11,"A"):PRINT LEN(STRING$(39,A$+"B"))\nCLEAR 50:A$=STRING$(11,"A"):PRINT LEN(STRING$(40,A$+"B"))\nCLEAR 50:A$=STRING$(30,"A"):PRINT LEN(RIGHT$(A$,20))\nCLEAR 50:A$=STRING$(30,"A"):PRINT LEN(RIGHT$(A$,21))\nCLEAR 50:A$=STRING$(30,"A"):PRINT LEN(MID$(A$,2,20))\nCLEAR 50:A$=STRING$(30,"A"):PRINT LEN(MID$(A$,2,21))\nCLEAR 50:A$=STRING$(30,"A"):PRINT LEN(MID$(A$,11))\nCLEAR 50:A$=STRING$(30,"A"):PRINT LEN(MID$(A$,10))\nCLEAR 50:A$=STRING$(24,"A"):PRINT LEN(RIGHT$(A$+"B",1))\nCLEAR 50:A$=STRING$(25,"A"):PRINT LEN(RIGHT$(A$+"B",1))\nCLEAR 50:A$=STRING$(20,"A"):PRINT LEN(RIGHT$(A$+"B",9))\nCLEAR 50:A$=STRING$(20,"A"):PRINT LEN(RIGHT$(A$+"B",10))\nCLEAR 50:A$=STRING$(20,"A"):PRINT LEN(MID$(A$+"B",13))\nCLEAR 50:A$=STRING$(20,"A"):PRINT LEN(MID$(A$+"B",12))\nCLEAR 50:A$=STRING$(20,"A"):PRINT LEN(MID$(A$+"B",2,9))\nCLEAR 50:A$=STRING$(20,"A"):PRINT LEN(MID$(A$+"B",2,10))\nCLEAR 50:A$=STRING$(20,"A"):PRINT LEN(LEFT$(A$+"B",9))\nCLEAR 50:A$=STRING$(20,"A"):PRINT LEN(LEFT$(A$+"B",10))\nCLEAR 50:A$=STRING$(30,"A"):PRINT LEN(RIGHT$(A$,0))\nCLEAR 50:A$=STRING$(50,"A"):PRINT LEN(MID$(A$,51))\n1 CLEAR 50:A$=STRING$(8,"A"):ON ERROR GOTO 100\n10 X$=LEFT$(A$+A$,1/0)\n20 PRINT LEN(A$+A$+A$):END\n100 IF R THEN PRINT "LEAK":END ELSE R=1:RESUME 20\nRUN\nPRINT "BACK"\n')
+want='>CLEAR 50:A$=STRING$(10,"A"):B$=STRING$(5,"B"):C$=STRING$(5,"C"):PRINT LEN(A$+(B$+C$))
+ 20 
+READY
+>CLEAR 50:A$=STRING$(11,"A"):B$=STRING$(5,"B"):C$=STRING$(5,"C"):PRINT LEN(A$+(B$+C$))
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(20,"A"):B$=STRING$(5,"B"):PRINT LEN(A$+B$)
+ 25 
+READY
+>CLEAR 50:A$=STRING$(20,"A"):B$=STRING$(6,"B"):PRINT LEN(A$+B$)
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(11,"A"):PRINT LEN(STRING$(39,A$+"B"))
+ 39 
+READY
+>CLEAR 50:A$=STRING$(11,"A"):PRINT LEN(STRING$(40,A$+"B"))
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(30,"A"):PRINT LEN(RIGHT$(A$,20))
+ 20 
+READY
+>CLEAR 50:A$=STRING$(30,"A"):PRINT LEN(RIGHT$(A$,21))
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(30,"A"):PRINT LEN(MID$(A$,2,20))
+ 20 
+READY
+>CLEAR 50:A$=STRING$(30,"A"):PRINT LEN(MID$(A$,2,21))
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(30,"A"):PRINT LEN(MID$(A$,11))
+ 20 
+READY
+>CLEAR 50:A$=STRING$(30,"A"):PRINT LEN(MID$(A$,10))
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(24,"A"):PRINT LEN(RIGHT$(A$+"B",1))
+ 1 
+READY
+>CLEAR 50:A$=STRING$(25,"A"):PRINT LEN(RIGHT$(A$+"B",1))
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(20,"A"):PRINT LEN(RIGHT$(A$+"B",9))
+ 9 
+READY
+>CLEAR 50:A$=STRING$(20,"A"):PRINT LEN(RIGHT$(A$+"B",10))
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(20,"A"):PRINT LEN(MID$(A$+"B",13))
+ 9 
+READY
+>CLEAR 50:A$=STRING$(20,"A"):PRINT LEN(MID$(A$+"B",12))
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(20,"A"):PRINT LEN(MID$(A$+"B",2,9))
+ 9 
+READY
+>CLEAR 50:A$=STRING$(20,"A"):PRINT LEN(MID$(A$+"B",2,10))
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(20,"A"):PRINT LEN(LEFT$(A$+"B",9))
+ 9 
+READY
+>CLEAR 50:A$=STRING$(20,"A"):PRINT LEN(LEFT$(A$+"B",10))
+?OS ERROR
+READY
+>CLEAR 50:A$=STRING$(30,"A"):PRINT LEN(RIGHT$(A$,0))
+ 0 
+READY
+>CLEAR 50:A$=STRING$(50,"A"):PRINT LEN(MID$(A$,51))
+ 0 
+READY
+>1 CLEAR 50:A$=STRING$(8,"A"):ON ERROR GOTO 100
+>10 X$=LEFT$(A$+A$,1/0)
+>20 PRINT LEN(A$+A$+A$):END
+>100 IF R THEN PRINT "LEAK":END ELSE R=1:RESUME 20
+>RUN
+ 24 
+READY
+>PRINT "BACK"
+BACK
+READY
+>'
+[ "$out" = "$want" ] || fail "?OS at each term's limit" "$out"
+
+# INKEY$ (019DH): a key is a 1-byte string and takes its byte as it is
+# made, beside a variable's 49 bytes but not its 50, whether it is kept or
+# only compared; no key is the null string and costs nothing.  Piped, the
+# key is the byte after RUN.  One case per run: INKEY$ reads stdin.
+for c in '49:K$=INKEY$:IF K$="" THEN NEXT\n20 PRINT LEN(K$): 1 ' \
+         '50:K$=INKEY$:IF K$="" THEN NEXT\n20 PRINT LEN(K$):?OS ERROR IN 10' \
+         '49:IF INKEY$="" THEN NEXT:PRINT "NONE":END\n20 PRINT "GOT":GOT' \
+         '50:IF INKEY$="" THEN NEXT:PRINT "NONE":END\n20 PRINT "GOT":?OS ERROR IN 10'; do
+    prog=${c%:*}; want=${c##*:}
+    out=$(repl 32767 "10 CLEAR 50:A\$=STRING\$(${prog%%:*},\"A\"):FOR I=1 TO 20:${prog#*:}\nRUN\nX" | sed -n '/^>RUN/{n;p;}')
+    [ "$out" = "$want" ] || fail "INKEY\$ beside ${prog%%:*} bytes" "$out"
+done
+out=$(repl 32767 '10 CLEAR 50:A$=STRING$(50,"A"):PRINT LEN(INKEY$)\nRUN\n' | sed -n '/^>RUN/{n;p;}')
+[ "$out" = " 0 " ] || fail "INKEY\$ with no key" "$out"
+
 echo "MEM OK"
