@@ -91,6 +91,11 @@ fixture() {
     if ! bounded 60 "$@" >"$log" 2>&1; then bad "$b.bas"; show "$b.bas"
     elif grep -q "FIXTURE FAILED" "$log"; then
         bad "$b.bas (printed FIXTURE FAILED but exited 0)"; show "$b.bas"
+    elif ! tail -n 1 "$log" | grep -q 'OK$'; then
+        # every fixture's last line is its OK line: a run that stopped
+        # early and quietly (a batch matrix PEEK at the end of stdin is a
+        # silent BREAK, rc 0) never printed it
+        bad "$b.bas (exited 0 without its OK line)"; show "$b.bas"
     fi
 }
 fixtures="varptr intvarptr rawbytes alias literal inp out255 ifcomma intconv defint forstack pokerange mbfpoke round errcode cursor dataitem power using apostrophe controlflow functions types sngl trig intround bytearg bytedbl litexp nextelse rdscale prscale dblscale dbl56 romfn srange dataerr suffixblank suffixid cmdtr"
