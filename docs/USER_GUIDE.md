@@ -2655,7 +2655,8 @@ PEEK(addr)   read a memory byte (unset = 255)
   Barden's OUT 255,8 with POKE 16445,8 recipe does (see OUT).
   Display memory 15360-16383 reads the screen.  14336-14591 reads the
   live KEYBOARD MATRIX (row r at 14336+2^r; 14400 = arrows/space/ENTER
-  row; 14464 = SHIFT; composite addresses OR rows) synthesized from the
+  row; 14464 = SHIFT; composite addresses OR rows; 14592-15359 repeat
+  it, so PEEK(15359) reads every row: the any-key test) synthesized from the
   terminal -- a tapped key reads pressed for a few polls, a held key
   rides auto-repeat.  14312 reads printer status 63 (attached, ready).
   Example: PRINT PEEK(15360)

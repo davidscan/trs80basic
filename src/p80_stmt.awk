@@ -997,7 +997,10 @@ function dopeek(x,   a) {
     a = addrconv(x)
     if (E) return 0
     if (a >= 15360 && a <= 16383) return SCR[a - 15360]
-    if (a >= 14336 && a <= 14591) return kb_matrix(a - 14336)
+    # the keyboard decodes 3800-3BFFH and only the low byte selects rows:
+    # 3900-3BFFH mirror 3800-38FFH (PEEK(15359), every row, is the period
+    # any-key test; The Alternate Source's and TAB's Level II memory maps)
+    if (a >= 14336 && a <= 15359) return kb_matrix((a - 14336) % 256)
     # 37E8H-37E9H printer status: 63 = attached and ready, matching the
     # always-ready LPRINT host stream (corpus idiom: IF PEEK(14312)<>63
     # waits; =255 means no printer; >127 means busy).  POKEs land in MEM

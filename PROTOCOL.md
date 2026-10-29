@@ -136,7 +136,7 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     byte is what a BASIC `PEEK` would return -- the address-resolution
     contract in `src/p75_mem.awk` -- so the core reproduces nothing; it
     just applies the runs.  Addresses NOT in any frame read 255.
-    The keyboard, 3800-38FFH, is never in a frame, even after a store
+    The keyboard, 3800-3BFFH, is never in a frame, even after a store
     there: reading it is the live matrix, which is what `K` is for.
 *   `slot` is the USR slot digit (0-9).  `entry` is the resolved routine
     address (DEF USRn wins; slot 0 falls back to the 408EH POKE vector).
@@ -191,9 +191,10 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     while the routine runs.  The core batches them: one `V` line per tick
     at most per contiguous run is plenty.  Video bytes need not be
     repeated in the write-set.
-*   `K <sel>` -- the routine read keyboard address 3800H+sel (sel 0-255,
-    the row-select bits).  The interpreter answers `K <value>` with the
-    live matrix byte.  This is the ONLY callback; every other read is
+*   `K <sel>` -- the routine read a keyboard address, 3800-3BFFH; sel is
+    its low byte (0-255, the row-select bits: 3900-3BFFH mirror
+    3800-38FFH).  The interpreter answers `K <value>` with the live
+    matrix byte.  This is the ONLY callback; every other read is
     served from the core's own RAM.
 *   `MODE <w>` -- the video width changed: `w=1` is 32-column mode, `w=0`
     is 64-column.  The core sends it when a routine's `OUT (FFH)` flips

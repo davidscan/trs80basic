@@ -1290,7 +1290,8 @@ function kb_poll_wait(tries,   i, c) {
     return -1
 }
 
-# ==== memory-mapped keyboard matrix (3800H-38FFH, dec 14336-14591) ==========
+# ==== memory-mapped keyboard matrix (3800H-3BFFH, dec 14336-15359) ==========
+# Only the low byte selects rows: 3900-3BFFH read as 3800-38FFH (dopeek).
 # PEEK(14336+sel) returns the OR of the row bytes whose select bits are set
 # in sel: row r reads at 14336+2^r, composite addresses OR rows together,
 # PEEK(14591) scans all eight.  Row layout (bit 1,2,4,...,128 within a row):
@@ -5920,7 +5921,8 @@ function st_resume(   p, ty, tx) {
 # step.  Highest precedence first:
 #
 #   1. 3C00-3FFFH (15360-16383) -> SCR[], the simulated screen
-#      3800-38FFH (14336-14591) -> kb_matrix(), the live keyboard matrix
+#      3800-3BFFH (14336-15359) -> kb_matrix() of the low byte, the live
+#      keyboard matrix (3900-3BFFH mirror 3800-38FFH)
 #   2. 37E8/37E9H (14312/14313) -> constant 63, printer ready.  READ-ONLY
 #      PROJECTION: POKEs land in MEM[] and are never read back.
 #   3. 40AA-40ACH (16554-16556) -> the ROM RND seed (rnd_peek, p90)
@@ -5963,7 +5965,7 @@ function st_resume(   p, ty, tx) {
 # read back" a class; rule 5 stopped being an instance of it on 2026-09-12,
 # when the image became writable, and the note was left behind (the
 # 2026-09-19 audit, L-51).  What is still read-only, with no write branch at
-# all, is listed under the write side below: 37E8/37E9H, 3800-38FFH,
+# all, is listed under the write side below: 37E8/37E9H, 3800-3BFFH,
 # 40A4/40A5H and 40F9/40FAH.
 #
 # 255 IS LIVE BEHAVIOUR, and it is reached by rule 6's fallthrough rather than
@@ -6015,7 +6017,7 @@ function st_resume(   p, ty, tx) {
 # THREE ASYMMETRIES AGAINST THE READ SIDE.  Each is a range the read side
 # projects from somewhere other than MEM[], so a write there lands in MEM[]
 # and NOTHING CAN EVER OBSERVE IT:
-#   * 3800-38FFH keyboard (read rule 1) -- no write branch.
+#   * 3800-3BFFH keyboard (read rule 1) -- no write branch.
 #   * 37E8/37E9H printer  (read rule 2) -- no write branch.
 #   * 40A4/40A5H and 40F9/40FAH (read rule 3) -- no write branch.  40B1/40B2H
 #     is the ONLY writable member; rule 3 above is where that finally gets
@@ -7118,12 +7120,12 @@ function fr_build(full,   a, e, n, run, last, lo, hi) {
     for (a in FRSET) {
         a = a + 0
         if (a > RAMTOP) continue
-        # never the keyboard: a POKE (or a routine's store) at 3800-38FFH
+        # never the keyboard: a POKE (or a routine's store) at 3800-3BFFH
         # sits in MEM[], but READING the address is the live matrix, which
         # takes a keystroke from the queue -- in batch a whole line of
         # stdin, and at its end a BREAK.  The core does not want the bytes
         # anyway: it asks for the matrix with K (PROTOCOL.md).
-        if (a >= 14336 && a <= 14591) continue
+        if (a >= 14336 && a <= 15359) continue
         if (a != last + 1) { if (run != "") FRRUN[++FRN] = run; run = a ":" dopeek(a) }
         else run = run "," dopeek(a)
         last = a; n++
@@ -8722,7 +8724,10 @@ function dopeek(x,   a) {
     a = addrconv(x)
     if (E) return 0
     if (a >= 15360 && a <= 16383) return SCR[a - 15360]
-    if (a >= 14336 && a <= 14591) return kb_matrix(a - 14336)
+    # the keyboard decodes 3800-3BFFH and only the low byte selects rows:
+    # 3900-3BFFH mirror 3800-38FFH (PEEK(15359), every row, is the period
+    # any-key test; The Alternate Source's and TAB's Level II memory maps)
+    if (a >= 14336 && a <= 15359) return kb_matrix((a - 14336) % 256)
     # 37E8H-37E9H printer status: 63 = attached and ready, matching the
     # always-ready LPRINT host stream (corpus idiom: IF PEEK(14312)<>63
     # waits; =255 means no printer; >127 means busy).  POKEs land in MEM

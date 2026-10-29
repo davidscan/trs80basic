@@ -409,7 +409,8 @@ function kb_poll_wait(tries,   i, c) {
     return -1
 }
 
-# ==== memory-mapped keyboard matrix (3800H-38FFH, dec 14336-14591) ==========
+# ==== memory-mapped keyboard matrix (3800H-3BFFH, dec 14336-15359) ==========
+# Only the low byte selects rows: 3900-3BFFH read as 3800-38FFH (dopeek).
 # PEEK(14336+sel) returns the OR of the row bytes whose select bits are set
 # in sel: row r reads at 14336+2^r, composite addresses OR rows together,
 # PEEK(14591) scans all eight.  Row layout (bit 1,2,4,...,128 within a row):

@@ -303,11 +303,11 @@ case $out in *"B= 66"*) ;; *) fail "ready=1: the write-set was not applied" "$ou
 out=$(TRS80_Z80="$stub" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null)
 case $out in *AFTER*) ;; *) fail "a plain RET: the program did not run on" "$out" ;; esac
 
-# --- building the frame never reads the keyboard: a byte POKEd at 3800-38FFH
+# --- building the frame never reads the keyboard: a byte POKEd at 3800-3BFFH
 # sits in MEM[], and reading that address back for the frame took a line of
 # stdin (at a terminal, a keystroke) away from the program.  The core asks
 # for the matrix with K; the frame does not carry it.
-printf '10 POKE 14400,1:DEFUSR=&H7003:X=USR(4):LINE INPUT A$:PRINT X;"GOT ";A$\n' > "$tmp"
+printf '10 POKE 14400,1:POKE 14593,1:POKE 15359,1:DEFUSR=&H7003:X=USR(4):LINE INPUT A$:PRINT X;"GOT ";A$\n' > "$tmp"
 out=$(printf 'HELLO\n' | TRS80_Z80="$stub" perl "$bound" 30 "$here/basic" "$tmp" 2>&1)
 want="HELLO
  8 GOT HELLO"
