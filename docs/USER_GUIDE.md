@@ -1713,8 +1713,10 @@ RESUME [0 | NEXT | n]   carry on after an ON ERROR handler
   RIGHT$, MID$, CHR$, STRING$, STR$ or INKEY$) takes its length there as
   it is built, beside the variables' strings and the strings the
   expression is still using: with a 30-byte A$, PRINT LEN(A$+A$) is ?OS.
-  A literal in a program line takes none; B$=A$ copies A$'s string.  The
-  old value of the variable being assigned still counts while the new
+  A literal in a program line takes none, nor does a DATA item READ
+  leaves in its line, nor B$=A$ or B$=A$(I) when A$'s string is one of
+  those; B$=A$ copies a string that is in string space.  The old value
+  of the variable being assigned still counts while the new
   one is made.  When a string does not fit, even after the machine's
   garbage collection, it is ?OS and nothing is stored.  FRE("") reports
   what is left.

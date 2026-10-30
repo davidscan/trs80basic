@@ -297,7 +297,7 @@ function e_prim(   cr, v) {
     return v
 }
 
-function e_prim0(   t, s, v, key, sx) {
+function e_prim0(   t, s, v, key, sx, c0) {
     t = TY[CK, CP]
     VTMP = 0                                # until a string is built (p75 st_alloc)
     # a lone "." in operand position enters the number reader (24B2H ->
@@ -328,10 +328,11 @@ function e_prim0(   t, s, v, key, sx) {
         v = "S" TK[CK, CP]; CP++; return v
     }
     if (t == "o" && TK[CK, CP] == "(") {
-        CP++
+        c0 = CP; CP++
         EVSTK += 6; v = e_or(); EVSTK -= 6; if (E) return v
         if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
         else raise(2)
+        if (SRCK == CK && SRCB == c0 + 1 && SRCF == CP - 1) { SRCB = c0; SRCF = CP }   # (A$) is still A$ alone (st_let, p70)
         return v
     }
     if (t == "i") {
@@ -388,9 +389,15 @@ function e_prim0(   t, s, v, key, sx) {
         # before 2026-09-25.  ELSE, stored behind a
         # ":", is the statement's end: ?MO, as below.
         if (TKW[CK, CP]) { raise(at_stmt_end() ? 21 : 2); return "NI0" }
+        c0 = CP
         s = vkey(s, TSX[CK, CP]); CP++            # the name and its type (vkey, p70): V, V% and V# are three variables
+        # a string variable's read leaves its locator and the tokens it
+        # spanned (SRCL, SRCK, SRCB, SRCF): LET asks whether its whole
+        # right side was this one reference, whose string may live in a
+        # line (st_let, p70)
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
             key = aref(s); if (E) return "NI0"
+            if (strname(s)) { SRCL = "A" key; SRCK = CK; SRCB = c0; SRCF = CP }
             if (ALN && (("A" key) in ALIAS)) return "S" al_read("A" key)   # finding 7 (p75)
             if (strname(s)) return (key in VA) ? VA[key] : "S"
             return "N" ntype(s) ((key in VA) ? VA[key] : 0)
@@ -404,6 +411,7 @@ function e_prim0(   t, s, v, key, sx) {
         # it) reaching the memory accounting (mem_varbytes counts the
         # entries): until 2026-09-27
         # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit).
+        if (strname(s)) { SRCL = "V" s; SRCK = CK; SRCB = c0; SRCF = CP }
         if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
         t = ntype(s)
         return "N" t ((s in NV) ? ((t == "D") ? NV[s] : NV[s] + 0) : 0)   # a double's payload as it is (p91)

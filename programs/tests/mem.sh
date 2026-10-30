@@ -257,6 +257,44 @@ READY
 >'
 [ "$out" = "$want" ] || fail "?OS while a string is built" "$out"
 
+# LET copies a string unless its bytes lie in the program (1F46H-1F57H):
+# a lone variable, array element or parenthesised one whose string is a
+# DATA item takes no string space, in a direct statement too; one in
+# string space, or a literal typed in a direct statement (the input buffer
+# is below the program), is copied.  A sort that swaps READ strings
+# through Z$ never runs out.  Until 2026-10-29 an element and a direct
+# statement were always copied: such a sort stopped ?OS.
+out=$(repl 32767 '10 DIM A$(3):READ A$(1):A$(2)=A$(1):A$(3)=(A$(2)):PRINT FRE("")\n20 DATA ABCDEFGHIJ\nRUN\nB$=A$(3):PRINT FRE("")\nNEW\n10 DIM A$(2):READ A$(1),A$(2)\n20 FOR I=1 TO 9:Z$=A$(1):A$(1)=A$(2):A$(2)=Z$:NEXT:PRINT FRE("");A$(1)\n30 DATA ABCDEFGHIJKLMNOPQRSTUVWXY,0123456789012345678901234\nRUN\nNEW\n10 DIM A$(2):A$(1)=STRING$(10,"X"):A$(2)=A$(1):PRINT FRE("")\nRUN\nNEW\nA$="ABCDEFGHIJ":B$=A$:PRINT FRE("")\n')
+want='>10 DIM A$(3):READ A$(1):A$(2)=A$(1):A$(3)=(A$(2)):PRINT FRE("")
+>20 DATA ABCDEFGHIJ
+>RUN
+ 50 
+READY
+>B$=A$(3):PRINT FRE("")
+ 50 
+READY
+>NEW
+READY
+>10 DIM A$(2):READ A$(1),A$(2)
+>20 FOR I=1 TO 9:Z$=A$(1):A$(1)=A$(2):A$(2)=Z$:NEXT:PRINT FRE("");A$(1)
+>30 DATA ABCDEFGHIJKLMNOPQRSTUVWXY,0123456789012345678901234
+>RUN
+ 50 0123456789012345678901234
+READY
+>NEW
+READY
+>10 DIM A$(2):A$(1)=STRING$(10,"X"):A$(2)=A$(1):PRINT FRE("")
+>RUN
+ 30 
+READY
+>NEW
+READY
+>A$="ABCDEFGHIJ":B$=A$:PRINT FRE("")
+ 30 
+READY
+>'
+[ "$out" = "$want" ] || fail "LET leaves a string that lies in the program" "$out"
+
 # Each term of that rule exactly at its limit, where one byte of slack
 # shows: a concatenation's right operand is held too (A$+(B$+C$) needs
 # 2*LEN(A$)+3*(LEN(B$)+LEN(C$)) <= 50), a concatenation costs the sum of

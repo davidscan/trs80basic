@@ -450,6 +450,14 @@ maintained outside this repository.
   deeper before ?OM. One listing of the corpus (4,339 programs at the
   time) prints a different number (elcvidwk.bas, `PRINT MEM` in a
   subroutine).
+- `B$=A$(I)`, `B$=(A$)` and a direct `B$=A$` take no string space when
+  A$'s string lies in the program (a literal, or a DATA item READ left
+  there), as on the machine (Farvour 1F46H-1F57H: LET copies only a
+  string outside the program text). Until 2026-10-29 only a lone simple
+  variable in a program line was left in place, so a sort that swaps
+  READ strings through a variable stopped ?OS. 36 listings of the corpus
+  (9,458 programs) that stopped ?OS now run on, and one (dissem.bas)
+  stops ?OS at a later line.
 - INPUT reads the answer before it reads its variable list, as on the
   machine (Farvour 21DBH, then 21FDH for each variable in turn; until
   2026-10-08 the list was checked first). A malformed list

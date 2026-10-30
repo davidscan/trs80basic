@@ -4103,7 +4103,7 @@ function e_prim(   cr, v) {
     return v
 }
 
-function e_prim0(   t, s, v, key, sx) {
+function e_prim0(   t, s, v, key, sx, c0) {
     t = TY[CK, CP]
     VTMP = 0                                # until a string is built (p75 st_alloc)
     # a lone "." in operand position enters the number reader (24B2H ->
@@ -4134,10 +4134,11 @@ function e_prim0(   t, s, v, key, sx) {
         v = "S" TK[CK, CP]; CP++; return v
     }
     if (t == "o" && TK[CK, CP] == "(") {
-        CP++
+        c0 = CP; CP++
         EVSTK += 6; v = e_or(); EVSTK -= 6; if (E) return v
         if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
         else raise(2)
+        if (SRCK == CK && SRCB == c0 + 1 && SRCF == CP - 1) { SRCB = c0; SRCF = CP }   # (A$) is still A$ alone (st_let, p70)
         return v
     }
     if (t == "i") {
@@ -4194,9 +4195,15 @@ function e_prim0(   t, s, v, key, sx) {
         # before 2026-09-25.  ELSE, stored behind a
         # ":", is the statement's end: ?MO, as below.
         if (TKW[CK, CP]) { raise(at_stmt_end() ? 21 : 2); return "NI0" }
+        c0 = CP
         s = vkey(s, TSX[CK, CP]); CP++            # the name and its type (vkey, p70): V, V% and V# are three variables
+        # a string variable's read leaves its locator and the tokens it
+        # spanned (SRCL, SRCK, SRCB, SRCF): LET asks whether its whole
+        # right side was this one reference, whose string may live in a
+        # line (st_let, p70)
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
             key = aref(s); if (E) return "NI0"
+            if (strname(s)) { SRCL = "A" key; SRCK = CK; SRCB = c0; SRCF = CP }
             if (ALN && (("A" key) in ALIAS)) return "S" al_read("A" key)   # finding 7 (p75)
             if (strname(s)) return (key in VA) ? VA[key] : "S"
             return "N" ntype(s) ((key in VA) ? VA[key] : 0)
@@ -4210,6 +4217,7 @@ function e_prim0(   t, s, v, key, sx) {
         # it) reaching the memory accounting (mem_varbytes counts the
         # entries): until 2026-09-27
         # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit).
+        if (strname(s)) { SRCL = "V" s; SRCK = CK; SRCB = c0; SRCF = CP }
         if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
         t = ntype(s)
         return "N" t ((s in NV) ? ((t == "D") ? NV[s] : NV[s] + 0) : 0)   # a double's payload as it is (p91)
@@ -5062,7 +5070,7 @@ function skipstmt(   ty, tx) {
 }
 
 # ---- assignment ------------------------------------------------------------
-function st_let(   name, key, v, lp, src, j, n) {
+function st_let(   name, key, v, lp, src, j, n, c0) {
     EVSTK += 2                              # LET's push (p60 e_or)
     if (!at_name()) { raise(2); return }
     name = lvname()
@@ -5080,26 +5088,30 @@ function st_let(   name, key, v, lp, src, j, n) {
     mkvar(name, key, LVT)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
-    # a string literal, or a plain string variable whose string is one, alone
-    # on the right in a program line: the ROM leaves the string where it is
-    # (1F46H-1F57H).  A variable's string in string space is copied
-    # (1F5FH -> 2843H): until 2026-10-27 B$=A$ took no string space here.
-    lp = 0
-    if (CK != "I" && (TY[CK, CP] == "s" || TY[CK, CP] == "i") && strname(name)) {
+    # the ROM leaves a string where it is when its bytes lie in the program
+    # (40A4H-40F9H, 1F46H-1F57H) and copies any other (1F5FH -> 2843H): so
+    # a literal alone on the right in a program line, or a variable or an
+    # array element, alone on the right, whose string is one or a DATA
+    # item, takes no string space -- in a direct statement too, where only
+    # the literal is in the input buffer below the program.  A variable's
+    # string in string space is copied: until 2026-10-27 B$=A$ took no
+    # string space here.  Until 2026-10-29 an element (Z$=A$(1,X)) and a
+    # direct statement were always copied, and a sort over READ strings
+    # ran out of string space where the machine finishes.
+    lp = 0; c0 = CP; SRCK = ""
+    if (CK != "I" && TY[CK, CP] == "s" && strname(name)) {
         CP++; if (at_stmt_end()) lp = CP - 1; CP--
-        if (lp && TY[CK, lp] == "i" && lit_of("V" vkey(TK[CK, lp], TSX[CK, lp])) == "") lp = 0
     }
     v = e_or(); if (E) return
-    LITSTORE = (lp != 0)                    # takes no string space (p75, mem_*)
+    src = ""
+    if (lp) {
+        for (j = 1; j <= lp; j++) if (TY[CK, j] == "s") n++
+        src = lit_spec(CK + 0, "s", n, 0)
+    } else if (strname(name) && SRCK == CK && SRCB == c0 && SRCF == CP) src = lit_of(SRCL)   # the lone reference (e_prim0, p60)
+    LITSTORE = (src != "")                  # takes no string space (p75, mem_*)
     assignv(name, key, v)
     LITSTORE = 0
-    if (lp && !E) {
-        if (TY[CK, lp] == "s") {
-            for (j = 1; j <= lp; j++) if (TY[CK, j] == "s") n++
-            src = lit_spec(CK + 0, "s", n, 0)
-        } else src = lit_of("V" vkey(TK[CK, lp], TSX[CK, lp]))   # the variable's key (vkey): DEFSTR B makes B B$
-        if (src != "") lit_note((key != "") ? "A" key : "V" name, src)
-    }
+    if (src != "" && !E) lit_note((key != "") ? "A" key : "V" name, src)
 }
 
 # DEFSTR/DEFINT/DEFSNG/DEFDBL letter[-letter][,...]: per-letter default type.
