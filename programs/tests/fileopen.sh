@@ -2,10 +2,9 @@
 # fileopen.sh -- a file open on a channel is found by what its name names,
 # not by its spelling: OPEN and KILL of `./DATA` (or `data` on a case-blind
 # disk) while DATA is open are AO (ERR=138), as the same spelling always
-# was (the 2026-09-30 audit, BL-27).  SAVE, CSAVE, MERGE and RUN/LOAD
+# was (the 2026-09-30 audit).  SAVE, CSAVE, MERGE and RUN/LOAD
 # with R refuse an open file the same way; LOAD and RUN without R close the
-# files first, as the Disk manual says, so a file just written is read whole
-# (BL-25).
+# files first, as the Disk manual says, so a file just written is read whole.
 # Self-checking: exits 1 on any mismatch.
 # Run from the repo root:  sh programs/tests/fileopen.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2

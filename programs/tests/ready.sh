@@ -4,10 +4,10 @@
 #    typed or met inside a program, as on the machine (ROM: LIST 2B2E-2B54,
 #    DELETE 2BD9, AUTO 2036, CLOAD 2C7A).  A program that ran one used to
 #    carry on at a stale index into a line table rebuilt under it (the
-#    2026-09-19 audit, H-8): lines were skipped silently.
+#    2026-09-19 audit): lines were skipped silently.
 #  * DELETE refuses, with ?FC and deleting NOTHING, unless the upper line
 #    exists (manual; ROM 2BC6-2BD6) -- so DELETE - cannot erase the program
-#    -- and parses its whole statement before it touches a line (H-9).
+#    -- and parses its whole statement before it touches a line.
 # Self-checking: exits 1 on any mismatch.  Run from the repo root:
 #   sh programs/tests/ready.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
@@ -50,7 +50,7 @@ case $out in *"X 65518 REM A 65528  READY AT THE PROMPT"*) ;; *) fail "AUTO in a
 # --- LIST and LLIST parse their whole statement (ROM 1B1BH-1B25H: after
 # the range only the end of the statement may follow) and read their
 # numbers as 1E5AH does (past 65529 is ?SN): LIST 10 X, LIST 10-20 X,
-# LIST X, LIST 70000 and LLIST 10 X all list nothing (audit L-13)
+# LIST X, LIST 70000 and LLIST 10 X all list nothing (the 2026-09-26 audit)
 out=$(printf '\n10 REM A\nLIST 10 X\nLIST 10-20 X\nLIST X\nLIST 70000\nLLIST 10 X\nLIST 10-70000\nPRINT "AFTER"\n' | repl | tr '\n' ' ')
 n=$(printf '%s' "$out" | grep -o '?SN ERROR' | wc -l | tr -d ' ')
 [ "$n" -eq 6 ] || fail "LIST with a tail or a number past 65529: $n of 6 were ?SN" "$out"
@@ -73,15 +73,15 @@ case $out in *"READY 10 REM 40 REM 50 REM READY READY 40 REM 50 REM READY READY 
 # tracing off (1B50, NEW calls 1DF8H) and zero the ON ERROR address (1B74,
 # through the 1B5DH reset).  Both outlived them here: a TRON survived, and an
 # error after a load jumped into the OLD program's handler line (the
-# 2026-09-19 audit, L-14).  MERGE keeps the program, so it keeps the handler.
+# 2026-09-19 audit).  MERGE keeps the program, so it keeps the handler.
 out=$(printf '\nTRON\n10 PRINT "A"\nNEW\n10 PRINT "B"\nRUN\n' | repl | tr '\n' ' ')
 case $out in *"<10>"*) fail "NEW left tracing on" "$out" ;; esac
 case $out in *"B READY"*) ;; *) fail "NEW then RUN" "$out" ;; esac
 
 # NEW tests the byte behind it BEFORE it erases anything (1B49H: RET NZ,
 # "syntax error if NEW XX"), so NEW X, NEWS and NEW 10 are ?SN and the
-# program stays; until 2026-09-27 each erased it (the 2026-09-26 audit,
-# M-4).  And a plain NEW clears the screen (1B4AH: CALL 01C9H): the ZZZ
+# program stays; until 2026-09-27 each erased it (the 2026-09-26 audit).
+# And a plain NEW clears the screen (1B4AH: CALL 01C9H): the ZZZ
 # put at 15860 is gone, where a typo's NEW left it.
 out=$(printf '\n10 PRINT "A"\nNEW X\nNEWS\nNEW 10\nLIST\nPRINT@500,"ZZZ"\nNEW X\nPRINT PEEK(15860)\nNEW\nPRINT PEEK(15860)\n' | repl | tr '\n' ' ')
 n=$(printf '%s' "$out" | grep -o '?SN ERROR' | wc -l | tr -d ' ')

@@ -50,7 +50,7 @@ PART TWO RAN'
 # An unquoted name is read from the raw source at the token's own position,
 # so every token needs its offset.  The string, REM, ' and DATA tokens had
 # none, and substr() starting at "" handed back the WHOLE line: `CSAVE DATA`
-# saved to a file called "CSAVE DATA" (the 2026-09-19 audit, L-15).
+# saved to a file called "CSAVE DATA" (the 2026-09-19 audit).
 printf '\n10 PRINT "X"\nCSAVE DATA\nCSAVE REM\nCSAVE DATA.BAS\nSAVE MY.BAS\n' \
     | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" >/dev/null 2>&1
 for n in DATA REM DATA.BAS MY.BAS; do

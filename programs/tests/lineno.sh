@@ -10,7 +10,7 @@
 # clearing the variables (1EA9H), so RUN 0 with no line 0 and RUN 10 in
 # an empty program are ?UL.  Until 2026-09-25 a bare GOTO was ?SN, GOTO
 # 70000 was ?UL, RUN 0 ran from the first line and RUN 10 in an empty
-# program was silent (the 2026-09-23 audit, L-5).
+# program was silent (the 2026-09-23 audit).
 # Self-checking: exits 1 on any mismatch.
 # Run from the repo root:  sh programs/tests/lineno.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
@@ -72,11 +72,11 @@ END'
 [ "$out" = "$want" ] || fail "GOTO, GOSUB, THEN and RUN line numbers" "$out"
 
 # only the DIGITS count: GOTO 30.5 is GOTO 30, GOTO 3E1 is GOTO 3, and
-# RUN X goes to the GOTO code as RUN 0 (1EA3H; audit L-3).  ON counts n
+# RUN X goes to the GOTO code as RUN 0 (1EA3H; the 2026-09-26 audit).  ON counts n
 # down and runs the GOTO from the item it lands on (1FA1H-1FADH), never
 # reading the items behind it: ON Q GOTO 30, is fine, an empty item is
 # line 0, ON n past the list falls through, and ON ERROR GOTO reads its
-# number the same way, bare = 0, 70000 = ?SN (audit M-14).
+# number the same way, bare = 0, 70000 = ?SN (the 2026-09-26 audit).
 out=$(repl <<'EOF'
 
 3 PRINT "L3":GOTO 30.5
@@ -114,7 +114,7 @@ ZERO
 
 # IF's GOTO is not special (204FH -> 1D5FH): no number behind it means the
 # GOTO statement runs with a bare target, GOTO 0 -- ?UL here, ZERO once
-# a line 0 exists (N-5)
+# a line 0 exists
 out=$(repl <<'EOF'
 
 10 IF 1 GOTO PRINT

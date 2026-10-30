@@ -7,10 +7,9 @@
 # 32767 and ?OM when it would reach the program.  The manual prints 15572
 # for PRINT MEM on a 16K machine with no program; ROM 1.3 says 15568 at
 # MEM SIZE 32767, which it stores as 32765 (00DEH, 00E7H), and inside the
-# PRINT the evaluator holds 2 more bytes (audit OC-12, p60 e_or).  Until
+# PRINT the evaluator holds 2 more bytes (the 2026-09-30 audit, p60 e_or).  Until
 # 2026-09-25 MEM and FRE were
-# the constant 15572 and CLEAR n was thrown away (the 2026-09-23 audit,
-# L-15, L-4).
+# the constant 15572 and CLEAR n was thrown away (the 2026-09-23 audit).
 # Self-checking: exits 1 on a mismatch.  Run from the repo root:
 #     sh programs/tests/mem.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
@@ -61,7 +60,7 @@ READY
 
 # in a program: a literal in its line takes no string space, a built string
 # its length; a single is 7 bytes, a string 6, DIM C(9) 48 (6 + 2 + 10 * 4);
-# a GOSUB frame is 5 (1EB7H-1EC0H; it was 6 until 2026-10-05, BL-2) and
+# a GOSUB frame is 5 (1EB7H-1EC0H; it was 6 until 2026-10-05) and
 # a FOR frame 17; CLEAR's errors keep the variables
 out=$(repl 32767 '10 A$="HELLO":PRINT FRE("");MEM\n20 B$="HEL"+"LO":PRINT FRE("");MEM\n30 DIM C(9):PRINT MEM\n40 X=MEM:GOSUB 100\n50 FOR I=1 TO 1:PRINT X-MEM:NEXT\n60 DEFINT J:J=1:PRINT X-MEM\n70 CLEAR 32000\n80 PRINT "NOT REACHED"\n100 PRINT X-MEM:RETURN\nRUN\nPRINT A$;B$;X\n')
 want='>10 A$="HELLO":PRINT FRE("");MEM
@@ -94,7 +93,7 @@ READY
 # 1F2EH): X=MEM counts X, PRINT Y;Z;Y$ costs nothing, and a target whose
 # expression fails is there afterwards; FOR's index is stored before the
 # frame is pushed, so the body sees the frame alone.  Until 2026-09-27 every read cost
-# 7 or 6 bytes and X=MEM missed X (the 2026-09-26 audit, M-8).
+# 7 or 6 bytes and X=MEM missed X (the 2026-09-26 audit).
 out=$(repl 32767 'PRINT Y;Z;Y$;MEM
 PRINT MEM
 X=MEM:PRINT X-MEM
@@ -185,7 +184,7 @@ READY
 # is 6 + 2 per dimension + its elements at that size.  The entry keeps the
 # type it was made with: a DEFDBL after V%=1 does not resize V.  Until
 # 2026-09-29 the size came from the DEF table alone, so Z% cost 7 and
-# DIM A%(9) 48 (the 2026-09-26 audit, R-8, its accounting half)
+# DIM A%(9) 48 (the 2026-09-26 audit, its accounting half)
 out=$(repl 32767 '10 M=MEM:Z%=1:Y#=1:X!=1:PRINT M-MEM\n20 M=MEM:READ R#:FOR I%=1 TO 1:NEXT:DIM Q%:PRINT M-MEM\n30 M=MEM:DIM A%(9),B#(9):C%(1)=1:PRINT M-MEM\n40 M=MEM:V%=1:DEFDBL V:W=1:PRINT M-MEM\n50 DATA 1\nRUN\n')
 want='>10 M=MEM:Z%=1:Y#=1:X!=1:PRINT M-MEM
 >20 M=MEM:READ R#:FOR I%=1 TO 1:NEXT:DIM Q%:PRINT M-MEM

@@ -1,6 +1,6 @@
 #!/bin/sh
 # keyword.sh -- the tokenizer reads a line as the ROM's cruncher and readers
-# do (the 2026-09-23 audit, M-2, and the keyword-crunching rule).
+# do (the 2026-09-23 audit, and the keyword-crunching rule).
 #
 # The cruncher (1BC0-1C8F) tries the keyword table at EVERY letter outside a
 # string, a REM and DATA, and stores what does not match as it stands; only
@@ -23,7 +23,7 @@ tmp=$(mktemp) || exit 2
 trap 'rm -f "$tmp"' EXIT
 fail() { echo "KEYWORD FAILED: $1"; printf '%s\n' "$2"; exit 1; }
 # run from the temp file's own directory: a program's file names are
-# confined to the cwd (R-9), so the FIELD case names ${tmp##*/}.r
+# confined to the cwd, so the FIELD case names ${tmp##*/}.r
 run() { printf '%s\n' "$1" > "$tmp"; (cd "${tmp%/*}" && TRS80_Z80= "$here/basic" "$tmp") 2>&1 </dev/null | tr '\n' '|'; }
 want() { out=$(run "$1"); [ "$out" = "$2" ] || fail "$3" "got:  $out
 want: $2"; }
@@ -73,7 +73,7 @@ rm -f "$tmp.r"
 want "10 OPEN \"R\",1,\"${tmp##*/}.r\":FIELD 1,4 AS A\$:LSET A\$=\"AB\":PRINT A\$:CLOSE" 'AB  |' 'FIELD 1,4 AS A$ keeps AS apart from A$'
 rm -f "$tmp.r"
 
-# M-2: a number is read through RST 10H
+# a number is read through RST 10H
 want '10 A=1 2:PRINT A' ' 12 |' 'A=1 2 is 12'
 want '10 PRINT 12 34' ' 1234 |' 'PRINT 12 34 is 1234'
 want '10 PRINT 1E' ' 1 |' 'a bare E is an exponent of 0'
@@ -89,7 +89,7 @@ out=$(run '10 PRINT 1END')     # the 1 is printed, then the END token is an oper
 case "$out" in *"?SN ERROR IN 10|") ;; *) fail "1END is 1 then the END token, ?SN as an operand" "$out" ;; esac
 want '10 X=END' '?SN ERROR IN 10|' 'a statement keyword as an operand is ?SN, never a variable'
 # where an operand is due, the statement's end -- the line's end, ":" or the
-# ELSE stored behind one -- is ?MO, missing operand (OC-13); any other byte
+# ELSE stored behind one -- is ?MO, missing operand; any other byte
 # stays ?SN (until 2026-10-08 all of these were ?SN)
 want '10 X=1+' '?MO ERROR IN 10|' 'X=1+ at the line end is ?MO'
 want '10 X=(:PRINT 2' '?MO ERROR IN 10|' 'X=( before a colon is ?MO'
@@ -113,7 +113,7 @@ case "$out" in
     *) fail "the image of TOTAL=5" "$out" ;;
 esac
 # a keyword cuts an FN name too (the cruncher knows no FN name): DEF FNTO
-# is DEF FN <TO>, ?SN; FNA and FN A stay a defined function (N-5)
+# is DEF FN <TO>, ?SN; FNA and FN A stay a defined function
 out=$(run '10 DEF FNTO(X)=X+1' | tr -d '\n')
 case "$out" in *"?SN ERROR IN 10"*) ;; *) fail "DEF FNTO is ?SN" "$out" ;; esac
 out=$(run '10 DEF FNA(X)=X+1

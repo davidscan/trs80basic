@@ -41,7 +41,7 @@ out=$(run "$tmp/inlf.bas"); [ "$out" = " 3  10 " ] || fail "in-line LF in a CR f
 
 # an LF OUTSIDE a string in a CR file stays in its line and is ?SN when
 # the statement runs (RST 10H skips 20H and 09H only, 1D78-1D88) -- from
-# the text and from the tokenized image alike (audit L-16)
+# the text and from the tokenized image alike (the 2026-09-26 audit)
 printf '5 REM X\r10 PRINT \n1+2\r' > "$tmp/lfsn.bas"
 out=$(run "$tmp/lfsn.bas"); [ "$out" = "?SN ERROR IN 10" ] || fail "LF outside a string, text load" "$out"
 python3 "$here/tools/tok.py" -o "$tmp/tsn" "$tmp/lfsn.bas" >/dev/null 2>&1 || fail "tok.py on the LF listing" "rc=$?"
@@ -56,7 +56,7 @@ f=$(ls "$tmp/tok" | grep -i '^inlf\.' | head -1)
 out=$(run "$tmp/tok/$f"); [ "$out" = " 3  10 " ] || fail "tok.py image, in-line LF ($f)" "$out"
 
 # blank is what RST 10H skips: a line of blanks and an in-line LF is
-# skipped; a line of FF has no number (?FD), as tools/tok.py says (BL-30)
+# skipped; a line of FF has no number (?FD), as tools/tok.py says
 printf '10 PRINT "ONE"\r \n\r20 A=3\r30 PRINT "TWO";A\r' > "$tmp/blanklf.bas"
 out=$(run "$tmp/blanklf.bas"); [ "$out" = "$want" ] || fail "a line holding only an in-line LF is blank" "$out"
 printf '10 PRINT "ONE"\n\f\n20 PRINT "TWO"\n' > "$tmp/ff.bas"

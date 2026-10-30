@@ -6,7 +6,7 @@
 # has to be one shell word.  `TRS80_Z80="python3 $here/../trs80_z80_core/
 # core.py"` was not: under "/My Code/" the shell split it in two, python3
 # failed to open the first half, and the session fell back to the argument-
-# returning stub (the 2026-09-19 audit, L-9).
+# returning stub (the 2026-09-19 audit).
 #
 # The check builds "<tmp>/sp ace/trs80basic" beside "<tmp>/sp ace/
 # trs80_z80_core/core.py", which is the layout the launcher looks for, and
@@ -39,7 +39,7 @@ done
 # TRS80_Z80 set but empty means NO core (the 2026-09-14 rule) in the suites
 # that find the core themselves, as in the launcher and run_all: with
 # ${TRS80_Z80:-...} they ran the sibling core anyway (the 2026-09-30
-# audit, XL-16).  Each must skip its core part.  The output is kept, not
+# audit).  Each must skip its core part.  The output is kept, not
 # printed: run_all counts a printed SKIPPED as a skip.
 for s in z80core sound system; do
     out=$(cd "$here" && TRS80_Z80= sh "programs/tests/$s.sh" 2>&1)

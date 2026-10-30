@@ -2,7 +2,7 @@
 # Values: "N<t><number>" or "S<string>", where t is the number's TYPE as
 # the ROM holds it: I integer (16 bits), S single (24-bit mantissa), D
 # double (56 bits, held as a payload: p91).    Since 2026-09-26
-# (the 2026-09-23 audit, M-15 and L-16: printing and arithmetic go by
+# (the 2026-09-23 audit: printing and arithmetic go by
 # type).  A literal is typed by the ROM's reader (tk_number, p50); a
 # variable by its NAME at the reference (ntype, p70: the suffix, else the
 # DEF table, else single); an operation by the wider operand, I < S < D
@@ -29,7 +29,7 @@ function isN(v) { return substr(v, 1, 1) == "N" }
 # list takes what follows as a new item.
 function skipblank() { if (TY[CK, CP] == "b") CP++ }
 
-# THE EVALUATOR'S STACK (audit OC-12, ruled 2026-10-08: follow the ROM).
+# THE EVALUATOR'S STACK (the 2026-09-30 audit, ruled 2026-10-08: follow the ROM).
 # MEM and FRE(n) are SP minus the top of the arrays (27D4H), and while an
 # expression is being evaluated SP is lower by what the evaluator holds,
 # so the machine's MEM depends on where it stands.  EVSTK is that count:
@@ -149,7 +149,7 @@ function e_add(   v, r, op, x, c, vt) {
                 # a carry to ?LS: a string is at most 255 characters, and
                 # the store never happens.  Until 2026-09-24 strings grew
                 # without bound, so the VARPTR length byte held the length
-                # mod 256 and a handler written for ?LS never fired (H-2).
+                # mod 256 and a handler written for ?LS never fired.
                 if (!HOSTMEM && length(v) + length(r) - 2 > 255) { raise_host(15); return v }   # unbounded under `memory host` (EXT)
                 # 29A8H: room for the sum while both operands are held
                 if (!st_alloc(length(v) + length(r) - 2, vt + VTMP)) return v
@@ -193,7 +193,7 @@ function tresult(t, x) {
 # ROM bug 5a's mechanism.  From 32768 up the integer part is taken in
 # the value's own type (0B40H's 24-bit conversion for a single, 0B78H
 # for a double), exactly.  Until 2026-09-27 INT floored the raw value
-# and kept its type (the 2026-09-26 audit, L-8).  FIX (0B26H) is INT of
+# and kept its type (the 2026-09-26 audit).  FIX (0B26H) is INT of
 # the magnitude, negated back (097BH: an integer -32768 overflows into
 # a single at 0C5BH).
 function fn_int(v,   t, x) {
@@ -302,7 +302,7 @@ function e_prim0(   t, s, v, key, sx) {
     VTMP = 0                                # until a string is built (p75 st_alloc)
     # a lone "." in operand position enters the number reader (24B2H ->
     # 0E6CH), which takes the point and no digits as 0 -- a single, as a
-    # pointed literal is (the 2026-09-26 audit, N-5).  ".5" and "1." were
+    # pointed literal is (the 2026-09-26 audit).  ".5" and "1." were
     # folded into number tokens by tk_number already; only the bare dot
     # reaches here.
     if (t == "o" && TK[CK, CP] == ".") { CP++; return "NS0" }
@@ -314,7 +314,7 @@ function e_prim0(   t, s, v, key, sx) {
         if (t == "I") return "NI" s
         if (t == "S") s = rdsng(TK[CK, CP - 1])  # scaled as the reader scales it: .29 is 29/10/10 (p90)
         if (t == "D") { s = dread(TK[CK, CP - 1]); if (E) return "NI0"; return "ND" s }   # the reader's 56-bit steps (p91)
-        s = frange(s, t); if (E) return "NI0"    # 1.70142E38, 1E39 ?OV (p10 FMAX; a double literal at DMAX, L-24); 1E-40 is 0
+        s = frange(s, t); if (E) return "NI0"    # 1.70142E38, 1E39 ?OV (p10 FMAX; a double literal at DMAX); 1E-40 is 0
         return "N" t s
     }
     if (t == "s") {
@@ -322,8 +322,8 @@ function e_prim0(   t, s, v, key, sx) {
         # (240) cannot hold one, so the ROM has no case; a LOADed text
         # line here can (linelen.sh), and the value is refused as ?LS,
         # the error every string past 255 gets (29A2H), never stored
-        # (the 2026-09-19 audit's H-2 named it; the 2026-09-26 audit,
-        # L-23).  Unbounded under `memory host` (EXT, p10).
+        # (the 2026-09-19 audit named it; the 2026-09-26 audit).
+        # Unbounded under `memory host` (EXT, p10).
         if (!HOSTMEM && length(TK[CK, CP]) > 255) { raise_host(15); return "NI0" }
         v = "S" TK[CK, CP]; CP++; return v
     }
@@ -345,9 +345,9 @@ function e_prim0(   t, s, v, key, sx) {
         # a REM token where an operand is expected is ?SN, as at 2337H:
         # PRINT A REM X used to print A and take the REM as the list's
         # end, and here REM would read as a variable (the 2026-09-23
-        # audit, L-10).  ' is :REM, so a remark after a colon is untouched.
+        # audit).  ' is :REM, so a remark after a colon is untouched.
         # The other statement keywords as operands are the keyword-
-        # crunching rule's business (M-2), not this line's.
+        # crunching rule's business, not this line's.
         if (s == "REM")    { raise(2); return "NI0" }
         if (s == "ERR")    { CP++; return "NI" ERRV }
         if (s == "ERL")    { CP++; return "NS" ERLV }     # 24DFH-24E2H: the line number through 0C66H, a SINGLE (it can be 65535)
@@ -385,8 +385,8 @@ function e_prim0(   t, s, v, key, sx) {
         # at 2337H (PRINT 1END, X=END): a variable is never spelled like a
         # keyword, since the tokenizer takes the keyword out of the name
         # (TOTAL is TO TAL, p50).  It read as a variable of that name
-        # before 2026-09-25 (the L-10 remainder).  ELSE, stored behind a
-        # ":", is the statement's end: ?MO, as below (OC-13).
+        # before 2026-09-25.  ELSE, stored behind a
+        # ":", is the statement's end: ?MO, as below.
         if (TKW[CK, CP]) { raise(at_stmt_end() ? 21 : 2); return "NI0" }
         s = vkey(s, TSX[CK, CP]); CP++            # the name and its type (vkey, p70): V, V% and V# are three variables
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
@@ -403,7 +403,7 @@ function e_prim0(   t, s, v, key, sx) {
         # NV[s] here is awk's bare-read trap (reading an element creates
         # it) reaching the memory accounting (mem_varbytes counts the
         # entries): until 2026-09-27
-        # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit, M-8).
+        # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit).
         if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
         t = ntype(s)
         return "N" t ((s in NV) ? ((t == "D") ? NV[s] : NV[s] + 0) : 0)   # a double's payload as it is (p91)
@@ -412,7 +412,7 @@ function e_prim0(   t, s, v, key, sx) {
     # ":", or the ELSE stored behind one) is ?MO, missing operand, as on
     # the machine (X=1+, X=(, PRINT B(, LEFT$(A$, , FOR I=1 TO); any other
     # byte is ?SN (X=*2, PRINT 1+;, IF X= THEN).  Until 2026-10-08 both
-    # were ?SN (the 2026-10-08 oracle finding OC-13).
+    # were ?SN (until 2026-10-08).
     raise(at_stmt_end() ? 21 : 2)
     return "NI0"
 }
@@ -446,7 +446,7 @@ function aref(name,   nd, i, v, idx, key, idxs, vz) {
         # the auto-DIM creates through DIM's own code (275CH-2774H, shared by
         # create and locate): past 64K it is ?BS before it is ?OM, so
         # A(1,1,1,1)=1 on a 48K machine is ?BS, as DIM A(10,10,10,10) is
-        # (until 2026-10-08 ?OM: audit BL-34, L-9's sibling)
+        # (until 2026-10-08 ?OM: the 2026-09-30 audit)
         if (mem_arrbs(6 + 2 * nd, 11 ^ nd * vz)) { raise_host(9); return "" }   # ?BS (p75)
         if (!mem_need(6 + 2 * nd + 11 ^ nd * vz)) return ""   # ?OM (p75)
         ADIM[name] = nd; AVZ[name] = vz
@@ -595,12 +595,12 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc, t1, th) {
     # twin: only port 255 bit 3 does anything there.
     if (name == "INP") {
         x = numarg(a1, na); if (E) return "NI0"
-        x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits (0A7FH), then ?FC outside 0-255 (L-7)
+        x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits (0A7FH), then ?FC outside 0-255
         return "NI" ((x == 255) ? (LATCH ? 63 : 127) : 255)
     }
     # 27F5H reads 40A6H and never looks at WRA1: the argument is a dummy of
     # ANY type -- the dispatch (2574H-257BH) type-checks only SQR-ATN, so
-    # POS("A") is legal on the ROM (the 2026-09-26 audit, N-5)
+    # POS("A") is legal on the ROM (the 2026-09-26 audit)
     if (name == "POS") { if (na != 1) { raise(2); return "NI0" }; return "NI" VCOL }
     if (name == "FRE") {                    # 27D4H: a number asks about free memory, a string about the string area (p75)
         if (na < 1) { raise(2); return "NI0" }
@@ -616,7 +616,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc, t1, th) {
     if (name == "VAL") { s = strarg(a1, na); if (E) return "NI0"; x = valnum(s, 1); if (E) return "NI0"; return "N" VALTYPE ((VALTYPE == "S") ? sround(x) : x) }   # a double comes back as its payload (valnum)
     if (name == "CHR$") {
         x = numarg(a1, na); if (E) return "NI0"
-        x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
+        x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits, ?FC outside 0-255
         if (!st_alloc(1, 0)) return "NI0"       # 2A21H
         return "S" CHR[x]
     }
@@ -630,7 +630,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc, t1, th) {
     if (name == "STRING$") {
         if (na < 2) { raise(2); return "NI0" }
         if (!isN(a1)) { raise(13); return "NI0" }
-        x = to16(num(a1)); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits first (L-7)
+        x = to16(num(a1)); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits first
         if (x < 0 || (!HOSTMEM && x > 255)) { raise_host(5); return "NI0" }   # any count under `memory host` (EXT)
         if (isN(a2)) {
             i = byteconv(num(a2)); if (E) return "NI0"
@@ -692,7 +692,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc, t1, th) {
         if (!isN(a1) || !isN(a2)) { raise(13); return "NI0" }
         # 0132H-014DH, shared with SET and RESET: each coordinate a byte
         # (2B1CH: ?OV, then ?FC), x tested against 128 before y is read,
-        # y against 48 (L-7)
+        # y against 48
         x = byteconv(num(a1)); if (E) return "NI0"
         if (x > 127) { raise(5); return "NI0" }
         i = byteconv(num(a2)); if (E) return "NI0"
@@ -778,7 +778,7 @@ function bytearg2(a, na) {                # a string count or position (LEFT$, R
 # TRS80_USR=strict raises ?FC on the call instead, for a sweep that
 # wants the run to fail visibly.
 #
-# THE CALL PARSE is the ROM's own (27FE-2818, M-17): RST 10H, then 252CH
+# THE CALL PARSE is the ROM's own (27FE-2818): RST 10H, then 252CH
 # evaluates ONE expression of ANY type -- so `USR(1,2)` is ?SN at the
 # comma, where the generic function parser used to read a second argument
 # and drop it, and a string argument is legal, where numarg made it ?TM.
@@ -835,8 +835,8 @@ function fn_usr(name,   a1, x, r, tgt, cp0, nm, key) {
         # the ROM's USR returns through 0890H to the evaluator, which takes
         # whatever the routine left there -- the argument when it touched
         # nothing, the integer when it went through 0A7FH or 0A9AH, any
-        # value it stored itself (XL-1).  The stub returns the argument
-        # UNCHANGED, value and type (M-13: NI on every path was a 6fe3814
+        # value it stored itself.  The stub returns the argument
+        # UNCHANGED, value and type (NI on every path was a 6fe3814
         # regression).  A rewritten string variable is re-read: the
         # routine's write-set went through the descriptor's cells into the
         # variable itself.
@@ -958,7 +958,7 @@ function usr_entry(slot,   lo, hi) {
 # name what will actually run.  sys_exec used to resolve first and assign
 # USR_ENTRY afterwards, so the line printed the 408EH vector's entry -- or
 # "undefined" -- for a call that went somewhere else entirely (the
-# 2026-09-19 audit, L-50).
+# 2026-09-19 audit).
 function usr_resolve(name, arg, entry) {
     USR_SLOT = usr_slot(name); USR_ARG = arg
     USR_ENTRY = (entry == "") ? usr_entry(USR_SLOT) : entry + 0

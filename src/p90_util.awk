@@ -3,7 +3,7 @@
 # DIRECTLN is the line number of a statement typed at the prompt.  The ROM
 # keeps ONE cell for the line it is executing, 40A2H, and marks the Input
 # Phase by putting FFFFH there (1A36), so a real line 0 and "no line" are
-# told apart -- which a plain 0 cannot do (the 2026-09-19 audit, L-4).  ERL
+# told apart -- which a plain 0 cannot do (the 2026-09-19 audit).  ERL
 # reads it through 40EAH (19A5), so ERL is 65535 after a direct-mode error.
 function inln(n) { return (n == DIRECTLN) ? "" : " IN " n }
 
@@ -18,7 +18,7 @@ function raise(c) {
     # with ERL, before it looks for an ON ERROR handler (19A5-19A8), so
     # LIST . and EDIT . go to the line that failed.  A statement typed at
     # READY moves it too, to FFFFH (19A8H copies 40A2H as it is), so LIST .
-    # then lists nothing and DELETE . is ?FC (audit L-12; until 2026-09-27
+    # then lists nothing and DELETE . is ?FC (the 2026-09-26 audit; until 2026-09-27
     # a typed error left "." alone)
     LASTLN = CLN
 }
@@ -29,7 +29,7 @@ function report_err(   c, msg) {
     # an UNTRAPPED syntax error clears the ERR cell on its way to READY:
     # 1A2BH reads 409AH, SUB 02H leaves 0 for ?SN, and 1A30H's CALL 2E53H
     # stores that 0 back -- so ERR reads 0 afterwards, not 2 (the
-    # 2026-09-26 audit, N-5; ERL keeps the line)
+    # 2026-09-26 audit; ERL keeps the line)
     if (c == 2) ERRV = 0
     # ROM 1A11-1A14 prints the line unless H AND L is FF, that is unless it
     # is 65535 -- so an error in line 0 reports " IN 0"
@@ -38,10 +38,10 @@ function report_err(   c, msg) {
     # (40F2H), so a handler that failed is over -- the trap stays armed
     # (40F0H is cleared only by RUN's initializer, 1B74H) and a RESUME typed
     # afterwards is ?RW.  Until 2026-09-24 the flag stayed set: later errors
-    # were not trapped, and a stray RESUME resumed the dead handler (M-5).
+    # were not trapped, and a stray RESUME resumed the dead handler.
     # The CONT point is NOT cleared: the error routine's exit (19B1H ->
     # 1B9AH, past the 1B77H clear) leaves 40F5H/40F7H as execloop set
-    # them, so CONT re-runs the statement that failed (H-1).
+    # them, so CONT re-runs the statement that failed.
     INHANDLER = 0
     # only UNCAUGHT errors reach here (ON ERROR GOTO is handled in execloop),
     # so this is the one place batch mode needs for its exit-1 status
@@ -57,7 +57,7 @@ function report_err(   c, msg) {
 function raise_host(c) { if (E) return; raise(c); HINTHOST = 1 }
 
 # LEVEL II-style number formatting: leading space or -, trailing space,
-# BY TYPE, since 2026-09-26 (L-16): an integer in full; a single to 6
+# BY TYPE, since 2026-09-26: an integer in full; a single to 6
 # significant digits, a double to 16 with D as its exponent letter (the
 # manual: "stored with 17 digits but printed out with only 16"; Barden
 # shows 1.23456789D+18).  Until then every exact integer below 1e15
@@ -75,7 +75,7 @@ function raise_host(c) { if (E) return; raise(c); HINTHOST = 1 }
 # for a double), so .01 and 999999 are fixed and .001 is 1E-03, 1000000
 # is 1E+06, as on the machine (Richcraft vol. 2 p.97: 7.8125E-03).
 # Until 2026-09-27 every value below .01 was fixed (.00195313; the
-# 2026-09-26 audit, M-10).  The exponent letter is E or D by type
+# 2026-09-26 audit).  The exponent letter is E or D by type
 # (1075H-1079H), the exponent two digits and signed; trailing zeros
 # and a bare point are dropped (1066H-106EH), so 1E-03, not 1.00000E-03.
 #
@@ -283,7 +283,7 @@ function d56_loadp(p,   i, k, x) {
 #     44H): VAL("1e5") is 1, and DATA 1e5 read into a number is ?SN as
 #     any letter behind a number is (the reader stops in front of it).
 #     Until 2026-09-27 a lower-case letter was taken too (the 2026-09-26
-#     audit, L-20); a program line is upper-cased by the cruncher, so
+#     audit); a program line is upper-cased by the cruncher, so
 #     only VAL, DATA and typed input ever see one.
 function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, expl, sig, sx) {
     i = 1; m = ""; ex = ""; isint = !dp; expd = 0; expl = 0; sx = ""
@@ -323,8 +323,8 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, expl, sig, s
     # digits and VAL(".1")=.1 is false, as on the machine.  Only an E
     # exponent or a "!" drops it to single (0EA4H/0EF6H reach 0EFBH with
     # Z, the convert-to-single call); "#" and a D exponent keep it.  Until
-    # 2026-09-27 VAL typed its number as a literal (the 2026-09-26 audit,
-    # M-11).  The 0E6CH entry (READ, INPUT) starts at integer and types by
+    # 2026-09-27 VAL typed its number as a literal (the 2026-09-26 audit).
+    # The 0E6CH entry (READ, INPUT) starts at integer and types by
     # tk_number's rule (p50): I while there is no point or exponent and
     # it fits 15 bits, D from the eighth significant digit or a D exponent,
     # S for an E exponent at any length.
@@ -333,7 +333,7 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, expl, sig, s
     # stores .1000000014901161 and 1.23456789E0 stores 1.234567880630493,
     # where a plain 0.1 stays .1.  Until 2026-10-04 the value kept every
     # digit and an E item of eight digits was double (the 2026-09-30
-    # audit, BM-3).  A single result is the reader's own (rdsng).
+    # audit).  A single result is the reader's own (rdsng).
     # READ and INPUT enter at 0E65H, as VAL does, when the variable is a
     # double (dp = 1 from their callers): .29 into A# is .29, and 12% is
     # ?SN there (0EEFH), where into A it is 12.
@@ -373,7 +373,7 @@ function numrest() {
 # Every caller checks E before it stores: nothing is assigned.  The
 # limit is the type's own (VALTYPE, set by valnum just before the call):
 # a D-exponent or # item overflows at the double's limit (p10 DMAX; the
-# 2026-09-26 audit, L-24).
+# 2026-09-26 audit).
 function numconv(s,   x, lim) {
     sub(/[Dd]/, "E", s)
     x = s + 0
@@ -411,7 +411,7 @@ function rdsng(t,   p, ex, fp, x, n, i) {
 # bumps the least significant bit -- half up on the magnitude, never to
 # even.  Here the IEEE double result is rounded to the same 24 bits, so a
 # sum of singles drifts as the machine's does: FOR X=0 TO 1 STEP .1 makes
-# 10 passes, not 11 (the 2026-09-23 audit, M-15).  Since 2026-09-26.
+# 10 passes, not 11 (the 2026-09-23 audit).  Since 2026-09-26.
 function sround(x,   ax, e, q, r) {
     if (x == 0) return 0
     ax = (x < 0) ? -x : x
@@ -461,7 +461,7 @@ function sexp(x,   e) {
 
 # CSNG (0AB1H -> 0AB9H -> 0796H): a number as a single, rounded on the 25th
 # bit; a double that rounds past the single's limit is ?OV (07B2H), so
-# CSNG(1.70141183D38) and SQR of it are ?OV (the 2026-09-30 audit, BL-33;
+# CSNG(1.70141183D38) and SQR of it are ?OV (the 2026-09-30 audit;
 # until 2026-10-05 only the store into a single variable tested it).
 function csng(x) {
     if (x < FMIN && x > -FMIN) return 0
@@ -477,7 +477,7 @@ function sfl(x) {
 }
 
 # SIN, COS and TAN as the ROM computes them (1541H-15BAH), step for step
-# in single precision.  Since 2026-09-27 (the 2026-09-26 audit, M-12);
+# in single precision.  Since 2026-09-27 (the 2026-09-26 audit);
 # until then they were the host's libm on the raw argument, which gave
 # COS(90*.01745329) = 1.94707E-07 where the machine gives 0, and TAN of
 # it 5.13592E+06 where the Model III manual (p.239) promises ?/0.
@@ -668,8 +668,8 @@ function rom_tan(x,   s, c) {
 # ?OV (0796H's overflow, 07B2H; the double normalizer carries the same
 # way); below 2^-128 the exponent byte runs out and the result is ZERO,
 # silently (0793H JR NC,0778H).  t is "D" for a double result (p10
-# DMAX; the 2026-09-26 audit, L-24), anything else is the single limit.
-# Returns the value, with E set for ?OV.  Since 2026-09-26 (M-10's
+# DMAX; the 2026-09-26 audit), anything else is the single limit.
+# Returns the value, with E set for ?OV.  Since 2026-09-26 (the
 # underflow half).
 function frange(x, t,   lim) {
     lim = (t == "D") ? DMAX : FMAX
@@ -697,7 +697,7 @@ function bfloor(x,   f) {
 # (0A87H CALL NC,0AB9H), which rounds the fourth mantissa byte half up
 # (0796H), and only then converts to 16 bits.  So CINT(2.9999999#) is
 # 3 and CINT(32767.9999999#) is ?OV, as on the machine (ROM bug 5a's
-# mechanism; the 2026-09-26 audit, L-8).  sround leaves a single or an
+# mechanism; the 2026-09-26 audit).  sround leaves a single or an
 # integer as it is.  Since 2026-09-27.
 function to16(x,   r) {
     r = bfloor(sround(x))
@@ -735,7 +735,7 @@ function toS(u) { return (u > 32767) ? u - 65536 : u }
 # Authentic quirks reproduced: RND(1) is 1 (the corpus dialect trap) on
 # every draw but one -- seed E20F02H yields mantissa FFFFFF, which PRINTs
 # as 1 from RND(0), and whose single add of 1 rounds up, so there RND(n)
-# is n+1 for a power of 2 (RND(1) is 2; audit B-2, p60's sadd).
+# is n+1 for a power of 2 (RND(1) is 2; the 2026-09-30 audit, p60's sadd).
 function rnd_next() {
     RNDSEED = (RNDSEED * 4253261 + 372837) % 16777216
     return RNDSEED / 16777216
@@ -780,7 +780,7 @@ function rnd_poke(i, b,   lo, mid, hi) {
 # failures are fatal in gawk (that is why this stays a shell-out).  touch
 # alone is not the probe: it succeeds on a directory, and on a read-only
 # file the owner may still set times -- both then killed gawk at the
-# redirect, losing the program in memory (the 2026-09-19 audit, C-1).  So: not a
+# redirect, losing the program in memory (the 2026-09-19 audit).  So: not a
 # directory, creatable, and writable once it exists.
 # gawk does not treat every name as a file.  /inet/tcp/0/host/80 (and
 # /inet4, /inet6) is a SOCKET, /dev/fd/N and "-" are the interpreter's own
@@ -788,13 +788,13 @@ function rnd_poke(i, b,   lo, mid, hi) {
 # slurp).  A BASIC program chooses its file names -- OPEN takes an
 # expression -- so without this gate a listing could open a network
 # connection, carry out a file it had read in the host part of the name,
-# or LOAD and RUN whatever a server sent (the 2026-09-19 audit, H-1).  gawk
+# or LOAD and RUN whatever a server sent (the 2026-09-19 audit).  gawk
 # matches these names as literal prefixes, so that is the test here.  It is
 # only half the gate: any OTHER spelling of a device -- //dev/zero,
 # /./dev/zero, /Dev/zero on a case-insensitive filesystem -- is not gawk's
 # name, so gawk hands it to the OS, which resolves it to the device: a
 # slurp that never ends, a write that lands raw on the terminal (the
-# 2026-09-23 audit, H-3).  The other half is host_kind below: a program
+# 2026-09-23 audit).  The other half is host_kind below: a program
 # READS a regular file and WRITES a regular file or a name that does not
 # exist yet; a device, a directory, a FIFO or a socket is ?FD however it
 # is spelled.  EVERY path that hands a BASIC-chosen name to getline or to
@@ -806,7 +806,7 @@ function rnd_poke(i, b,   lo, mid, hi) {
 # A CHR$(0) in a name is refused outright: gawk hands the name to open()
 # and to sh as a C string, so both see it cut at the NUL -- "-" CHR$(0) is
 # stdin, "//dev/zero" CHR$(0) the device -- while every test here sees the
-# whole name (the 2026-09-26 audit, H-1).
+# whole name (the 2026-09-26 audit).
 function host_special(f) {
     return index(f, sprintf("%c", 0)) > 0 || f == "-" || f ~ /^\/inet[46]?\// || f ~ /^\/dev\//
 }
@@ -815,7 +815,7 @@ function host_special(f) {
 # directory: an absolute path, a drive-letter root or a `..` path
 # component is refused (?FD at the caller), so a listing cannot append to
 # a startup file or delete one outside the directory it was started in
-# (the 2026-09-26 audit, R-9; measured 2026-09-28: no listing in the
+# (the 2026-09-26 audit; measured 2026-09-28: no listing in the
 # corpus names such a path -- the TRSDOS form NAME/EXT:d is an ordinary
 # relative path and stays allowed).  READS go anywhere (OPEN "I", LOAD,
 # RUN "f", MERGE, CLOAD, SYSTEM; ruled 2026-09-30): reading damages
@@ -827,13 +827,13 @@ function host_special(f) {
 # line (no statement context).  The name is then followed to where it
 # RESOLVES (host_outside): a symbolic link already in the directory, to a
 # file, a directory or nothing yet, cannot carry the write or the KILL out
-# (the 2026-09-30 audit, BL-37).  Native Windows checks the spelling only.
+# (the 2026-09-30 audit).  Native Windows checks the spelling only.
 # WHO chose the name is asked when it was chosen: a channel OPENed at READY
 # keeps FH_FREE[n] = host_typed(), and the probes made later for it under
 # a program (the "R" flush, the OLLAMA transcript) set HOSTFREE from it.
 # They asked who was running then, so a file OPENed at READY by an
 # absolute path and closed by a program's END lost its PUT records to ?FD
-# (the 2026-09-30 audit, BL-26).
+# (the 2026-09-30 audit).
 function host_typed() { return CK == "" || CK == "I" }
 function host_escape(f) {
     if (HOSTFREE || host_typed()) return 0
@@ -890,7 +890,7 @@ function host_isdir(d) {
 # else that is there (a directory, a device, a FIFO, a socket, a dangling
 # link), "" nothing.  One shell-out; cmd.exe knows only "is it there".
 # It fails closed: a probe that answers nothing is "x", never "nothing
-# there", and a name holding a NUL is "x" before any probe (H-1, 2026-09-26).
+# there", and a name holding a NUL is "x" before any probe (2026-09-26).
 function host_kind(f,   cmd, s, r) {
     if (index(f, sprintf("%c", 0))) return "x"
     if (WINNATIVE) {
@@ -909,8 +909,8 @@ function host_writable(f) {
     if (host_special(f) || host_escape(f)) return 0
     if (WINNATIVE)
         return f !~ /"/ && system("type nul >> \"" f "\" 2>nul") == 0
-    # a regular file or a new name (H-3), then: not a directory, creatable,
-    # and writable once it exists (C-1)
+    # a regular file or a new name, then: not a directory, creatable,
+    # and writable once it exists
     return system("{ test ! -e " shq(f) " || test -f " shq(f) "; } && test ! -d " shq(f) \
                   " && touch -- " shq(f) " 2>/dev/null && test -w " shq(f)) == 0
 }
@@ -932,8 +932,8 @@ function host_canwrite(f) {
 # shows the printout in a capture).  What is refused is exactly what makes
 # gawk's redirect fatal -- a directory, a name in a directory that is not
 # there or cannot be written, a file that cannot be written -- and a
-# socket name, which gawk would try to connect (the 2026-09-23 audit,
-# M-1, the C-1 class).  Asked once at start (p10, LPBAD); nothing is
+# socket name, which gawk would try to connect (the 2026-09-23 audit:
+# an unprobed redirect).  Asked once at start (p10, LPBAD); nothing is
 # created by asking, the redirect makes the file when something prints.
 function host_appendable(f) {
     if (f ~ /^\/inet[46]?\//) return 0
@@ -944,7 +944,7 @@ function host_appendable(f) {
 
 # s as one single-quoted sh word: each ' becomes '\'' (close the quote,
 # an escaped quote, reopen).  For names the shell must never parse, such
-# as file names read back from ls (p30 rl_complete, the 2026-09-19 audit, C-2).
+# as file names read back from ls (p30 rl_complete, the 2026-09-19 audit).
 function shq(s) {
     gsub(/'/, "'\\''", s)
     return "'" s "'"
@@ -954,7 +954,7 @@ function shq(s) {
 # pipe, not `getline < f`, on purpose: LOF can be asked while the channel's
 # own read of the same name is part way through the file, and gawk keys a
 # file redirection by its name -- closing it to measure the file would
-# restart the read from the top (the 2026-09-19 audit, L-34).
+# restart the read from the top (the 2026-09-19 audit).
 function host_size(f,   cmd, s, r) {
     if (host_special(f)) return -1
     if (WINNATIVE) {
@@ -978,7 +978,7 @@ function host_exists(f) {
 
 # 1 when f is gone afterwards.  rm's own complaint is swallowed: stderr is
 # the BASIC program's error channel, and a KILL that fails has an error code
-# of its own to report (the 2026-09-19 audit, L-5).  The OLLAMA request file
+# of its own to report (the 2026-09-19 audit).  The OLLAMA request file
 # is removed with the same helper and ignores the answer -- a temp file left
 # behind is not the program's business.
 function host_delete(f) {
@@ -998,7 +998,7 @@ function host_tmpdir() {
 # from the pid is predictable, and an awk redirect writes through whatever
 # is already there: on a shared /tmp another local user could plant a
 # symlink under that name and have our output land on any file we can
-# write (the 2026-09-19 audit, M-5).  mktemp picks the name and creates
+# write (the 2026-09-19 audit).  mktemp picks the name and creates
 # the file exclusively, mode 0600, so what the redirect then opens is ours;
 # a temp directory that cannot be written is "" here instead of a gawk
 # fatal at the redirect.  %TEMP% on Windows is per user and cmd.exe has no

@@ -3,7 +3,7 @@
 30 REM the five-term series at 1594H (149AH), COS = SIN(x+pi/2), TAN = SIN/COS through the
 40 REM divider at 08A2H whose zero test is ?/0.  A quarter turn within one unit of the ROM's
 50 REM pi/2 (1.5707963) reduces to exactly 0: COS is 0 and TAN is ?/0.  Until
-60 REM 2026-09-27 the host's libm answered on the raw argument (the 2026-09-26 audit, M-12).
+60 REM 2026-09-27 the host's libm answered on the raw argument (the 2026-09-26 audit).
 62 REM ATN is the ROM's routine too (15BDH-15E2H, since 2026-10-05): the series at 15E3H, for an
 64 REM argument of 1 or more on its reciprocal and taken from pi/2.  ATN(1) is .78539824, one
 66 REM unit above the nearest single to pi/4, so ATN(1)*2 is NOT the quarter turn: COS of it is

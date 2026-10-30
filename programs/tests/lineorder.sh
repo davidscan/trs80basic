@@ -3,7 +3,7 @@
 # last APPENDS to the index, a replaced line keeps its place, a line in
 # between re-sorts it (index_add, p40; until 2026-09-26 every stored line
 # re-sorted the whole index, and a pasted listing cost the square of its
-# length: the 2026-09-23 audit, L-14).  What must not change: LIST and
+# length: the 2026-09-23 audit).  What must not change: LIST and
 # RUN order, a GOTO into a line typed later, the deletion of a line, "."
 # as the number last typed (a deletion sets it too, ROM 1AB1H, so LIST .
 # after `10` lists nothing), and the program image growing by the

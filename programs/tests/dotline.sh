@@ -49,7 +49,7 @@ want='=A
 # a ?SN in a DATA item names the DATA line: the ROM makes it the current
 # line before the error routine (1991H-1994H -> 19A2H), so the message,
 # ERL and "." agree.  Until 2026-09-25 "." stayed on the READ line (the
-# 2026-09-23 audit, L-7).
+# 2026-09-23 audit).
 out=$(TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 <<'EOF2' | grep '^[0-9=?]'
 
 10 READ A
@@ -73,7 +73,7 @@ want='?SN ERROR IN 30
 30 DATA "AB"CD,5'
 [ "$out" = "$want" ] || fail "the current line after ?SN in a DATA item" "$out"
 
-# The three moves the 2026-09-26 audit found missing (L-12), and "." at
+# The three moves the 2026-09-26 audit found missing, and "." at
 # either end of a range (1E4FH reads each number, 1B17H and 1B22H):
 #  * an error in a statement typed at READY moves "." too, to FFFFH
 #    (19A8H copies the line cell as it is), so LIST . lists nothing and

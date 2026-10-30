@@ -84,17 +84,17 @@ function parse_args(   i, a, nofl, host) {
         if (!nofl && a == "--batch") { OPT_BATCH = 1; continue }
         # -h and --version are taken where they stand but the parse goes on:
         # a usage error anywhere is one, whatever its order (`--bogus -h`
-        # errored and `-h --bogus` helped: the 2026-09-30 audit, N-4)
+        # errored and `-h --bogus` helped: the 2026-09-30 audit)
         if (!nofl && (a == "-h" || a == "--help")) { OPT_HELP = 1; continue }
         if (!nofl && a == "--version") { OPT_VERSION = 1; continue }
         if (!nofl && a ~ /^-./) { ARGMSG = "unknown option " a; return 0 }
         if (BATCH) { ARGMSG = "only one program file may be given"; return 0 }
         # an empty name is a usage error: it reached `getline <` as a gawk
-        # fatal (the 2026-09-30 audit, BL-18)
+        # fatal (the 2026-09-30 audit)
         if (a == "") { ARGMSG = "the program file name is empty"; return 0 }
         BATCHFILE = a; BATCH = 1
     }
-    # the mode as p10 will set it: --memory, else TRS80_MEMORY (BL-29: the
+    # the mode as p10 will set it: --memory, else TRS80_MEMORY (until 2026-10-23 the
     # environment's host was let past both checks below)
     host = (OPT_MEMORY != "") ? (OPT_MEMORY == "host") : ("TRS80_MEMORY" in ENVIRON && ENVIRON["TRS80_MEMORY"] == "host")
     if (host && OPT_MEMSIZE) { ARGMSG = "--memory host and --memsize cannot be combined"; return 0 }
@@ -155,7 +155,7 @@ function batch_main() {
     if (!prog_load(BATCHFILE, 0)) {
         # /dev/stdin and the shell's <(...) (/dev/fd/N) are refused by name
         # (host_special, p90), and "cannot read" alone sent the user looking
-        # for a missing file (the 2026-09-19 audit, M-23)
+        # for a missing file (the 2026-09-19 audit)
         if (host_special(BATCHFILE))
             diag_err("basic: cannot read '" BATCHFILE "': a device, descriptor or socket name is not taken for a program; give a file (stdin feeds the program's INPUT)")
         else diag_err("basic: cannot read '" BATCHFILE "'")

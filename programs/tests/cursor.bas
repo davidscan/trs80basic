@@ -1,7 +1,7 @@
 10 REM The cursor codes 23-27 at the screen's edges, as the ROM's video
 20 REM driver has them (04DA-0505, and the fold into 3C00-3FFFH at 0480).
 30 REM The four arrows never leave the screen and never scroll it; left
-40 REM and right stay in their own line.  The 2026-09-19 audit, L-1.
+40 REM and right stay in their own line.  The 2026-09-19 audit.
 50 REM P is where the cursor is: the driver's DCB at 4020H, less 3C00H.
 60 DEF FNP(X)=PEEK(16416)+256*PEEK(16417)-15360
 70 F=0:CLS

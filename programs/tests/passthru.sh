@@ -16,7 +16,7 @@ printf 'two words\n' > 'a b.txt'
 
 # every command of the line goes through the scrub, and its errors too:
 # `cat a; echo b` scrubbed only the echo, and cat's ESC and its "No such
-# file" reached the terminal raw (the 2026-09-30 audit, BL-17)
+# file" reached the terminal raw (the 2026-09-30 audit)
 out=$(run '\ncat esc.txt; echo INJ\ncat nosuch.txt; echo DONE\n')
 case $out in *"$esc"*) fail "an ESC byte reached the terminal" "$out" ;; esac
 case $out in *"A.[31mB"*INJ*) ;; *) fail "the first command's output, scrubbed" "$out" ;; esac
@@ -27,7 +27,7 @@ case $out in *"nosuch.txt"*DONE*) ;; *) fail "the first command's error, in the 
 out=$(run "\ncat 'a b.txt'\ndir -d esc.txt\n")
 case $out in *"two words"*"esc.txt"*) ;; *) fail "a quoted name and an option" "$out" ;; esac
 
-# an endless source is cut, not read until memory runs out (BL-16)
+# an endless source is cut, not read until memory runs out
 out=$(run '\ncat /dev/zero\nPRINT "BACK"\n'); rc=$?
 case $out in *"(output cut at 1048576 bytes)"*BACK*) ;; *) fail "cat /dev/zero is cut (rc=$rc)" "$(printf '%s' "$out" | tail -c 300)" ;; esac
 

@@ -5,7 +5,7 @@
 #    default pushed at 200B is what 2012-2013 leaves in HL;
 #  * the start is read by 1E4FH: "." is the current line, and a bare comma
 #    is 0, so AUTO ,20 numbers from 0 (both went wrong here until
-#    2026-09-27, the 2026-09-26 audit's M-7);
+#    2026-09-27, the 2026-09-26 audit);
 #  * only a comma may follow the start (2016H, RST 08H): AUTO 10 X and
 #    AUTO X are ?SN;
 #  * a TRAILING COMMA with nothing after it keeps the increment already in
@@ -15,11 +15,11 @@
 #  * both numbers go through 1E5AH, which is ?SN as soon as the running
 #    total passes 6552 (1E62-1E66).  That is where the 65529 line limit
 #    comes from, and it makes AUTO 65530 an error, not the silent no-op it
-#    was here (the 2026-09-19 audit, L-18);
+#    was here (the 2026-09-19 audit);
 #  * in the loop, ENTER alone is an entry with no body: it DELETES the
 #    line if it is there (the "*" prompt) and is silent if not, and AUTO
 #    goes on.  Only BREAK ends AUTO -- in a pipe, the end of input (ruled
-#    R-6) -- and the ROM's own limit: the number is bumped before the
+#    2026-09-26) -- and the ROM's own limit: the number is bumped before the
 #    entry is stored (1A60-1A6C), and when the bumped number reaches
 #    65529 the entry just typed is DISCARDED and AUTO ends.  An empty
 #    line ended it here until 2026-09-27, and the 65529 entry was kept.

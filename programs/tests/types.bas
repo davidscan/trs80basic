@@ -1,4 +1,4 @@
-10 REM VALUE TYPES (the 2026-09-23 audit, L-16 with M-15): a number carries the ROM's type
+10 REM VALUE TYPES (the 2026-09-23 audit): a number carries the ROM's type
 20 REM and PRINT/STR$ format by it -- an integer in full, a single to 6 digits (12EAH),
 30 REM a double to 16 with D for its exponent.  A literal is typed as 0E6CH reads it:
 40 REM integer with no point or exponent up to 32767 (0F4BH), single up to 7 significant

@@ -5,7 +5,7 @@
 # within your program will be renumbered"), so an error trapped after a
 # NAME lands in the handler and not in whatever line now has the old
 # number (until 2026-09-25: ?UL, or a wrong line run as the handler; the
-# 2026-09-23 audit, L-6).  The FOR and GOSUB stacks are cleared, as every
+# 2026-09-23 audit).  The FOR and GOSUB stacks are cleared, as every
 # change to the program clears them (ROM 1B5DH): a typed NEXT is ?NF,
 # a typed RETURN ?RG, and CONT ?CN.
 # Self-checking: exits 1 on any mismatch.
@@ -57,7 +57,7 @@ END'
 [ "$out" = "$want" ] || fail "the FOR/GOSUB stacks and CONT after NAME" "$out"
 
 # a NAME issued INSIDE a handler drops the in-flight handler state with
-# the stacks (audit L-22): the next error is trapped by the moved handler
+# the stacks (the 2026-09-26 audit): the next error is trapped by the moved handler
 # (a stale INHANDLER blocked the entry), with ERL 65535 for a typed one
 out=$(repl <<'EOF'
 

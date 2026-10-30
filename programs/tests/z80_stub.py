@@ -48,11 +48,11 @@ without answering: the interpreter's write succeeds and its read meets the
 end of file (the order a Linux pipe usually gives the case above).
 Z80_STUB_READY=1 ends every call with `ready=1` on its RET line: the
 routine jumped to the ROM's READY entry (1A19H) instead of returning, and
-the BASIC program that called it is over (the 2026-09-19 audit, L-44).
+the BASIC program that called it is over (the 2026-09-19 audit).
 Z80_STUB_ALWAYS_NEED=1 answers EVERY frame with NEED full, a full one
 included.  That is a protocol violation -- NEED means "I did not see frame
 gen-1", and a full frame IS gen 1 -- and it used to spin the interpreter
-for ever (the 2026-09-19 audit, L-47).
+for ever (the 2026-09-19 audit).
 """
 import math
 import os
@@ -202,7 +202,7 @@ def main():
         for r in runs:
             apply_run(r)
         # a header the core cannot read is `ERR bad CALL header`, and the
-        # core stays up (XL-3: this stub used to die with a traceback)
+        # core stays up (this stub used to die with a traceback)
         try:
             entry = int(h["entry"])
             argf = float(h["arg"])
@@ -288,7 +288,7 @@ def main():
             send("MODE 1")            # 32-column, then CLS restores 64-column
             send("MODE 0")            # and clears bit 3 of the ROM's port image
             # CLS also homes the cursor (4020/4021H = 3C00H) and zeroes the
-            # cursor column at 40A6H (ROM 0342H, M-18)
+            # cursor column at 40A6H (ROM 0342H)
             ret(writes=["16445:%d" % (mem.get(16445, 0) & 0xF7),
                         "16416:0,60", "16550:0"])
         elif entry == 0x700E:

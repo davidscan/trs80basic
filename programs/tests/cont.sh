@@ -3,9 +3,9 @@
 # statement behind the STOP (ROM 1DE4H: 40F7H holds the address of the
 # statement to continue at), and a second CONT, once the program has run
 # off its end, ends again at READY: 197EH -> 1DC1H-1DD1H save the end as
-# the CONT point (it was ?CN here until 2026-09-26, audit R-5).  A CONT
+# the CONT point (it was ?CN here until 2026-09-26).  A CONT
 # that ran the STOP's line twice, or started the line over, passed the
-# suite until 2026-09-24 (M-13).
+# suite until 2026-09-24.
 # Self-checking: exits 1 on a mismatch.  Run from the repo root:
 #     sh programs/tests/cont.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
@@ -26,7 +26,7 @@ READY
 [ "$out" = "$want" ] || fail "CONT after a mid-line STOP, then CONT at the end" "$out"
 
 # an error handler that runs off the end of the program is ?NR (197EH-
-# 198CH: the 40F2H flag, code 22H), not a silent READY (audit M-2)
+# 198CH: the 40F2H flag, code 22H), not a silent READY (the 2026-09-26 audit)
 out=$(run '
 10 ON ERROR GOTO 30
 20 ERROR 5
@@ -43,7 +43,7 @@ READY
 # ?NR is an error like any other: 19C9H-19CDH save the END of the program
 # as the CONT point, so CONT after it is READY, every time; until
 # 2026-10-04 CONT re-ran the trapped statement into the handler and ?NR
-# again (the 2026-09-30 audit, BM-4)
+# again (the 2026-09-30 audit)
 out=$(run '
 10 ON ERROR GOTO 100
 20 X=1/0
@@ -114,7 +114,7 @@ READY
 # LIST and LLIST keep the CONT point too: LIST never writes 40F7H
 # (2B2E-2B73; its writers are 1B77H, 1DD1H and 19CDH), so BREAK, LIST,
 # CONT works.  Until 2026-09-27 a typed LIST made CONT ?CN (the
-# 2026-09-26 audit, M-5).  DELETE goes through 1B5DH, so it still clears it.
+# 2026-09-26 audit).  DELETE goes through 1B5DH, so it still clears it.
 out=$(run '\n10 PRINT "A":STOP:PRINT "B"\n20 PRINT "C"\nRUN\nLIST 20\nLLIST\nCONT\nRUN\nDELETE 20\nCONT\n')
 want='>RUN
 A
@@ -144,7 +144,7 @@ READY
 # statement print its <n> again: the saved pointer is the 00 ending the
 # line before, and the ROM re-enters through its next-line code (1D35H-
 # 1D59H).  RESUME NEXT, and a resume further along a line, print none
-# (the 2026-09-30 audit, BL-4)
+# (the 2026-09-30 audit)
 out=$(run '\n10 TRON:ON ERROR GOTO 100\n20 X=1/Y\n30 PRINT "E":TROFF:END\n100 Y=1:RESUME 0\nRUN\n100 Y=1:RESUME\nRUN\n100 Y=1:RESUME NEXT\nRUN\n20 A=2:X=1/Y\n100 Y=1:RESUME\nRUN\n')
 want='>RUN
 <20><100><20><30>E
@@ -178,7 +178,7 @@ READY
 [ "$out" = "$want" ] || fail "TRON: CONT onto a line's first statement" "$out"
 
 # CONT does not clear the CONT point (1DE4-1DF6 leave 40F7H alone): a CONT
-# the program executes later goes back to it again (it was ?CN, N-3)
+# the program executes later goes back to it again (it was ?CN)
 out=$(run '\n10 PRINT "A";N:N=N+1:STOP\n20 PRINT "B";N:N=N+1:IF N<4 THEN CONT\n30 PRINT "END"\nRUN\nCONT\nCONT\n')
 want='>RUN
 A 0 

@@ -4,7 +4,7 @@
 35 REM the values are joined (+) so they live in string space: a lone literal stays in its line (literal.bas)
 40 A$="ABCDEFGHIJ"+""
 50 IF VARPTR(A$)<>VARPTR(A$) THEN PRINT "FAIL idempotent":F=1
-60 V=VARPTR(A$):REM the ROM's integer, negative above 32767 (L-43); PEEK and POKE take only that form (M-11)
+60 V=VARPTR(A$):REM the ROM's integer, negative above 32767; PEEK and POKE take only that form
 62 IF PEEK(V)<>10 THEN PRINT "FAIL len byte":F=1
 65 REM a data address composed from two bytes is positive: the period idiom makes it the integer again
 70 D=PEEK(V+1)+256*PEEK(V+2):D=D+65536*(D>32767):IF D<>V-10 THEN PRINT "FAIL data just below descriptor":F=1
@@ -37,12 +37,12 @@
 315 G$="ABCDEFGHIJ":D=PEEK(V+1)+256*PEEK(V+2):D=D+65536*(D>32767)
 316 IF PEEK(V)<>10 OR PEEK(D)<>65 OR PEEK(D+9)<>74 THEN PRINT "FAIL grown string through a kept VARPTR";PEEK(V);PEEK(D);PEEK(D+9):F=1
 318 POKE D+9,90:V2=VARPTR(G$):IF G$<>"ABCDEFGHIZ" OR V2<>V THEN PRINT "FAIL POKE into the grown string: ";G$:F=1
-319 REM past the live length a byte is RAM, not string (L-48): it reads back, LEN and the value stay, a grown length byte takes it in
+319 REM past the live length a byte is RAM, not string: it reads back, LEN and the value stay, a grown length byte takes it in
 320 H$="ABCDEFGH"+"":V=VARPTR(H$):D=PEEK(V+1)+256*PEEK(V+2):D=D+65536*(D>32767):H$="AB"+"":POKE D+5,88
 321 IF LEN(H$)<>2 OR H$<>"AB" THEN PRINT "FAIL a POKE past the live length grew the string:";LEN(H$);H$:F=1
 322 IF PEEK(D+5)<>88 OR PEEK(D+4)<>32 THEN PRINT "FAIL the byte past the live length";PEEK(D+5);PEEK(D+4):F=1
 323 POKE V,6:IF H$<>"AB   X" THEN PRINT "FAIL the length byte grown over it: [";H$;"]":F=1
-324 REM a string array's descriptors are one block, 3 apart, ascending (R-8 step 3; was -3): a literal element points into its line, a built one into string space, an empty one is 0 0 0
+324 REM a string array's descriptors are one block, 3 apart, ascending (was -3): a literal element points into its line, a built one into string space, an empty one is 0 0 0
 325 DIM SA$(3):SA$(1)="HI":SB$="X"+"YZ":SA$(3)=SB$:V=VARPTR(SA$(0)):IF VARPTR(SA$(1))-V<>3 OR VARPTR(SA$(3))-V<>9 THEN PRINT "FAIL string array stride";VARPTR(SA$(1))-V;VARPTR(SA$(3))-V:F=1
 326 D=PEEK(V+4)+256*PEEK(V+5):D=D+65536*(D>32767):E=PEEK(V+10)+256*PEEK(V+11):E=E+65536*(E>32767):IF PEEK(V+3)<>2 OR PEEK(D)<>72 OR D>32767 OR PEEK(V+9)<>3 OR PEEK(E+2)<>90 OR PEEK(V)+PEEK(V+1)+PEEK(V+2)<>0 THEN PRINT "FAIL string array descriptors":F=1
 327 SA$(2)="NEW"+"":D=PEEK(V+7)+256*PEEK(V+8):D=D+65536*(D>32767):POKE D,77:IF PEEK(V+6)<>3 OR SA$(2)<>"MEW" THEN PRINT "FAIL a later element through its descriptor";SA$(2):F=1

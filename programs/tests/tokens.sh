@@ -1,8 +1,8 @@
 #!/bin/sh
 # tokens.sh -- the keyword table is kept twice, in pm_init_index (p75) for
 # the tokenizer and the program image, and in tools/level2_tokens.tsv for
-# tok.py and detok.py, and the two must be one table (the 2026-09-23 audit,
-# L-12): a byte that differs makes the interpreter and tok.py disagree on a
+# tok.py and detok.py, and the two must be one table (the 2026-09-23 audit):
+# a byte that differs makes the interpreter and tok.py disagree on a
 # keyword, and the core executes image bytes.  D1H has a second spelling in
 # p75 (^ beside [, both the power operator); the first spelling is the table's.
 # Self-checking: exits 1 on any difference.

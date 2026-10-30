@@ -28,7 +28,7 @@ trap 'rm -f "$tmp"' EXIT
 fail() { echo "STMTTAIL FAILED: $1"; printf '%s\n' "$2"; exit 1; }
 # a batch run, stdout and stderr in one stream, newlines as blanks
 # run from the temp file's own directory: a program's file names are
-# confined to the cwd (R-9), so the FIELD case names ${tmp##*/}.dat
+# confined to the cwd, so the FIELD case names ${tmp##*/}.dat
 run() { printf '%b' "$1" > "$tmp"; (cd "${tmp%/*}" && TRS80_Z80= "$here/basic" "$tmp") 2>&1 </dev/null | tr '\n' ' '; }
 # a READY transcript, from the first prompt on
 repl() { printf '%b' "$1" | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | sed -n '/^>/,$p'; }
@@ -125,7 +125,7 @@ check "REM, the apostrophe and DATA own their lines" \
     '1 2 3OK '
 # READ tests its own tail (2263H-2266H -> 21FBH) before the DATA pointer is
 # committed (2274H): after READ A;B the next READ starts again at the first
-# item, and A keeps the 1 it stored (BL-8; until 2026-10-08 C read 2)
+# item, and A keeps the 1 it stored (until 2026-10-08 C read 2)
 check "READ A;B is READ's own ?SN: the DATA pointer stays" \
     "$(run '10 ON ERROR GOTO 100\n20 READ A;B\n30 READ C:PRINT A;B;C:END\n40 DATA 1,2,3\n100 PRINT "E";ERR/2+1;ERL;:RESUME NEXT\n')" \
     'E 2  20  1  0  1  '

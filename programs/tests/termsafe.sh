@@ -5,7 +5,7 @@
 # after ASCII.  CHR$ of every byte, a string literal and a REM holding ESC,
 # BEL and C1, and a data file holding the same, in batch (plain) output.
 # Screen mode is pinned in kbd_pty.py (scenario 13).  Confirmed 2026-10-03
-# (the 2026-09-30 audit, BL-39).  Self-checking: exits 1 on any mismatch.
+# (the 2026-09-30 audit).  Self-checking: exits 1 on any mismatch.
 # Run from the repo root:  sh programs/tests/termsafe.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
 d=$(mktemp -d) || exit 2
@@ -33,7 +33,7 @@ LC_ALL=C grep -Eq "$stray" t3 || bad "the raw-C1 check cannot fail"
 
 # the C1 test in the TAB completion is a byte loop, not a regex over bytes
 # above 127: that regex was a parse error to gawk in a UTF-8 locale without
-# -b, so a bare `gawk -f trs80basic.awk` did not start (BL-40, 2026-10-05).
+# -b, so a bare `gawk -f trs80basic.awk` did not start (2026-10-05).
 # The locale may not exist on the host; then the check measures nothing and
 # says so.
 if LC_ALL=en_US.UTF-8 locale charmap 2>/dev/null | grep -q UTF-8; then

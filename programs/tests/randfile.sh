@@ -41,7 +41,7 @@ got=$(sed 's/$/|/' "$dir/NEW.DAT")
 
 # MID$= on a FIELD variable stores into the record buffer, as LSET does:
 # the variable's characters ARE the buffer's.  It used to change the
-# variable alone, so PUT wrote the old record (the 2026-09-19 audit, M-25).
+# variable alone, so PUT wrote the old record (the 2026-09-19 audit).
 cat > "$dir/m.bas" <<'BAS'
 10 OPEN "R",1,"MID.DAT",10
 20 FIELD 1,4 AS A$,6 AS B$
@@ -57,7 +57,7 @@ want='[ABC*|U123YZ]
 [ "$out" = "$want" ] || fail "MID\$= on a FIELD variable reaches the record" "$out"
 
 # FIELD takes array elements: the Disk manual's own example is
-# FIELD 1,16 AS CLIENT$(1).  It was ?SN (the 2026-09-19 audit, M-29).  GET
+# FIELD 1,16 AS CLIENT$(1).  It was ?SN (the 2026-09-19 audit).  GET
 # refills them, LSET, RSET and MID$= store through them, and a simple
 # variable of the same name is a different variable.
 cat > "$dir/a.bas" <<'BAS'
@@ -87,7 +87,7 @@ out=$(cd "$dir" && TRS80_Z80= "$here/basic" s.bas 2>&1)
 
 # GET past the last record is no error: the buffer comes back as zero
 # bytes (Disk manual, GET and LOF).  It was ?IE, against the manual and
-# against `man GET` (the 2026-09-19 audit, M-27).  The file is not grown by
+# against `man GET` (the 2026-09-19 audit).  The file is not grown by
 # looking, the record after it is the next one, and record 0 is still ?RN.
 cat > "$dir/g.bas" <<'BAS'
 10 ON ERROR GOTO 90
@@ -132,7 +132,7 @@ want='[HELLO]
 # ...  0 is the same as 256."  Zero used to be ?FC.  A length past 256, and
 # a negative one, still are.  A single FIELD of 256 is ?FC: a string's
 # length is one descriptor byte (e7a5334, whose message promised this pin;
-# it came with the 2026-09-30 audit's BL-32), while two fields may fill
+# it came with the 2026-09-30 audit), while two fields may fill
 # the 256-byte record.
 printf 'AB\n' > "$dir/ZERO.TXT"
 cat > "$dir/z.bas" <<'BAS'
@@ -160,7 +160,7 @@ want='LEN= 256 [AB]'
 # ?AO, `man KILL` said "?FE", which is not an error code at all, where it
 # raises ?FF, and `man RESUME`'s example compared ERR/2+1 against 53 -- a
 # Disk BASIC number (the manual's own table runs 51-70), not one of ours
-# (the 2026-09-19 audit, L-38).  `man ERR` lists them all (at Disk BASIC's numbers since 2026-09-21).
+# (the 2026-09-19 audit).  `man ERR` lists them all (at Disk BASIC's numbers since 2026-09-21).
 printf 'AAAA\n' > "$dir/C.TXT"
 cat > "$dir/e.bas" <<'BAS'
 10 ON ERROR GOTO 900

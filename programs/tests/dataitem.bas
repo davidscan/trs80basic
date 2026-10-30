@@ -6,7 +6,7 @@
 55 REM Blank, tab and line feed behind the quote are skipped (RST 10H).
 60 REM Until 2026-09-21 the first dropped the rest of its line silently
 70 REM and the second read as 12.  What the reader took is STORED first
-75 REM (2240-224A; BL-7): 0 for the quoted 12, AB for "AB"CD (until
+75 REM (2240-224A): 0 for the quoted 12, AB for "AB"CD (until
 76 REM 2026-10-08 the variable kept its old value).
 80 F=0:S=0:ON ERROR GOTO 900
 90 READ A$,B$:IF A$<>"OK" OR B$<>"X,Y" THEN PRINT "FAIL: QUOTED ITEMS ";A$;"/";B$:F=1

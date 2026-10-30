@@ -34,7 +34,7 @@ bad() { echo "FAIL: $*"; fail=$((fail+1)); }
 # a suite that printed SKIPPED passed without measuring what it is for; one
 # that printed NOT RUN HERE left out a case this host cannot pose (root, a
 # case-sensitive disk), named here but never a failure (the 2026-09-30
-# audit, BL-36: such gates used to pass in silence)
+# audit: such gates used to pass in silence)
 skip_check() {
     if grep -q "NOT RUN HERE" "$log"; then
         notrun=$((notrun+1)); echo "not run here: $1 ($(grep -m1 "NOT RUN HERE" "$log"))"
@@ -47,7 +47,7 @@ skip_check() {
 # the companion core, found as the launcher finds it: TRS80_Z80 set is the
 # answer even when empty (empty means NO core, the 2026-09-14 rule), and
 # the sibling path is quoted, so a checkout path with a space or a quote
-# survives (the 2026-09-26 audit, N-3)
+# survives (the 2026-09-26 audit)
 if [ -n "${TRS80_Z80+set}" ]; then
     core=$TRS80_Z80
     corewhere=${core:-"(TRS80_Z80 empty)"}
@@ -62,7 +62,7 @@ else
 fi
 # Every part runs under a time bound (programs/tests/bound.pl: its own
 # process group, killed whole, exit 124): a suite whose failure is a hang
-# stopped the run with no verdict (the 2026-09-30 audit, BM-12).  The
+# stopped the run with no verdict (the 2026-09-30 audit).  The
 # shell suites' bound is about 40x the slowest local one (speed.sh, 7 s);
 # kbd_pty.py takes 1m40 locally and nearly 5 minutes on CI's runner, so
 # its bound is 1200 s.  Without perl the parts run unbounded, as before.
@@ -79,7 +79,7 @@ if ! cat src/p*.awk | cmp -s - trs80basic.awk; then
 fi
 
 # 2. the transcripts, each against its tN.out (transcripts.sh; until
-# 2026-10-23 only gawk's exit status was checked, the audit's BM-13)
+# 2026-10-23 only gawk's exit status was checked)
 bounded 600 sh programs/tests/transcripts.sh >"$log" 2>&1 \
     || { bad "transcripts (transcripts.sh)"; show "transcripts.sh"; }
 
@@ -141,7 +141,7 @@ else
 fi
 
 # every fixture and suite in programs/tests is one the lists above run: a
-# file added but never listed passed by never running (BL-36).  The rest
+# file added but never listed passed by never running.  The rest
 # are named here: run_all itself, the transcript runner (part 2) and the
 # stubs and helpers the suites call.
 for f in programs/tests/*.bas programs/tests/*.sh programs/tests/*.py programs/tests/*.pl; do

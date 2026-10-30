@@ -50,7 +50,7 @@
 360 IF PEEK(15360+LEN(W$))<>32 THEN G$=G$+"..."
 370 IF G$<>W$ THEN F=F+1:M$(F)="FAIL: "+U$+STR$(V)+" GAVE ["+G$+"] NOT ["+W$+"]"
 380 GOTO 330
-390 REM a double's exponent field says D (ROM 1075H-1079H: the letter by type); until 2026-09-27 E (audit L-19)
+390 REM a double's exponent field says D (ROM 1075H-1079H: the letter by type); until 2026-09-27 E (the 2026-09-26 audit)
 400 D#=234.56:PRINT@0,STRING$(20,32);:PRINT@0,USING "##.##^^^^";D#;:W$=" 2.35D+02":GOSUB 500
 402 PRINT@0,STRING$(20,32);:PRINT@0,USING "##.##^^^^";-D#/1000;:W$="-2.35D-01":GOSUB 500
 403 D#=-1D16:PRINT@0,STRING$(20,32);:PRINT@0,USING "##.##";D#;:W$="% 1D+16":GOSUB 500

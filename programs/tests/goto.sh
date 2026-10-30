@@ -1,7 +1,7 @@
 #!/bin/sh
 # goto.sh -- "GO TO" is GOTO.  ROM 1C24-1C2A: while the cruncher is matching
 # token 8DH, and ONLY that one, it skips a blank in the input, so GO TO
-# matches the GOTO keyword.  It was ?SN here (the 2026-09-19 audit, L-16).
+# matches the GOTO keyword.  It was ?SN here (the 2026-09-19 audit).
 # GO SUB does not crunch: the skip belongs to GOTO alone.
 #
 # Three crunchers have to agree, or the same listing gives two different

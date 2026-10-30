@@ -8,7 +8,7 @@
 # Until 2026-10-23 a transcript passed when gawk exited 0, whatever it
 # printed: t6's CSAVE/CLOAD and t16's PRINT # USING file had been ?FD for
 # months, and t4/t7's @DUMP was ?SN, all with exit 0 (the 2026-09-30
-# audit, BM-13).  Each runs from the repo root as before, with --seed 1
+# audit).  Each runs from the repo root as before, with --seed 1
 # (t7 prints RND), the OLLAMA stub (t13, t29) and the Z80 stub (t32), and
 # its exit status is the last line of its .out.  Every tN.txt from 1 up
 # must exist with its tN.out, so a new transcript cannot be left out.

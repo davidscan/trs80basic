@@ -5,7 +5,7 @@
 # N * 0.565 ms; the pacing is closed-loop against gawk's time extension
 # (thr_wait, p10).  Until 2026-09-26 each slice forked `sleep` for its
 # whole share on top of the time already spent, and the same loop ran 40%
-# slow (the 2026-09-23 audit, L-13).  The loop here is 4003 statements:
+# slow (the 2026-09-23 audit).  The loop here is 4003 statements:
 # 2.26 s nominal, 3.2 s under the old code, so the bound below separates
 # them with room for a slow runner.
 # The closed loop is measured with the extension loaded HERE (gawk -l),
@@ -78,7 +78,7 @@ t1=$(now)
 e=$(elapsed "$t0" "$t1")
 [ "$out" = "1" ] || fail "the speed 0 run" "$out"
 between "$e" 0 0.5 || fail "speed 0 after TRS80_MHZ=1.77 still paced: $e s" ""
-# the state line names the clock as typed, not in a double's 17 digits (N-4)
+# the state line names the clock as typed, not in a double's 17 digits
 out=$(printf '\nspeed 0.0000001\nspeed 1.774\n' | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep '^SPEED')
 want='SPEED 1e-07 MHZ
 SPEED 1.774 MHZ'

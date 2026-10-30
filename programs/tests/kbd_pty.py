@@ -30,28 +30,28 @@ terminal emulator gives it, and checks:
      a held key never drops out between press and repeat, an abandoned
      key releases itself after KP_STUCK seconds, a release lets go of
      what its press put down where the PC and Model I keyboards differ
-     (`: " @`, Ctrl-H: the 2026-09-19 audit, M-20), repeats never reach
+     (`: " @`, Ctrl-H: the 2026-09-19 audit), repeats never reach
      INKEY$ (events, or iTerm2's plain repeat bytes, measured at a real
      terminal), and
      the mode is pushed at RUN and popped at READY and BYE;
   7. TAB file-name completion: a unique directory gains "/", and a
      matched name with a quote in it is completed but never parsed by the
-     shell (the directory test once ran it as a command, the 2026-09-19 audit, C-2);
+     shell (the directory test once ran it as a command, the 2026-09-19 audit);
      and at SYSTEM's *? prompt, which takes a host file name (2026-10-12).
 
   8. a gawk that dies without its exit path (killed here; a gawk fatal
      ends the same way) does not leave the terminal raw: the launcher
-     puts the modes back as it found them (the 2026-09-19 audit, M-31);
+     puts the modes back as it found them (the 2026-09-19 audit);
   9. TRS80_DUMB=0 means OFF, as TRS80_EXT=0 and TRS80_KBPROTO=0 do --
      it used to turn plain mode on, since any non-empty value counted
-     (the 2026-09-19 audit, L-6);
+     (the 2026-09-19 audit);
  11. the kitty query's reply arriving after the LIST that sent it, at
      READY in line mode, still turns the protocol on, and an unanswered
-     query is asked again at the next poll episode (the 2026-09-19 audit,
-     H-15), and a key held at BREAK is up in the next RUN (L-7).
+     query is asked again at the next poll episode (the 2026-09-19 audit),
+     and a key held at BREAK is up in the next RUN.
  13. in screen mode nothing a program prints, reads from a file or LISTs
      reaches the terminal as a raw control: no BEL, none of the program's
-     escape sequences, no C1 (the 2026-09-30 audit, BL-39; batch output
+     escape sequences, no C1 (the 2026-09-30 audit; batch output
      is pinned in termsafe.sh).
  14. at the interactive grid an interpreter note (here SYSTEM "X"'s) is
      drawn below the 64x16 screen, once, and not over it: on stderr, the
@@ -70,15 +70,14 @@ terminal emulator gives it, and checks:
      grid stays up until a key, then exit 0;
      an error exits 1 with its message after the grid; --batch keeps a
      terminal run a batch run; a missing file is batch's exit 2, no grid,
-     and the launcher sends no restore it never needed (BL-23).
+     and the launcher sends no restore it never needed.
  18. a POKE into video memory draws its character and puts the terminal's
      cursor back where BASIC's is, at once, while the program runs on
-     (s_touch; the 2026-09-30 audit's mutant B09 dropped it and no suite
+     (s_touch; a mutant in the 2026-09-30 audit dropped it and no suite
      saw: the cursor stayed behind the poked character).
  19. Ctrl-L, the CLEAR key, under fullscreen/DUMB wipes the 64x16 buffer
      a program PEEKs and puts the prompt at its home, as on the grid (it
-     kept the old screen and took a second `>`: the 2026-09-30 audit,
-     BL-19).
+     kept the old screen and took a second `>`: the 2026-09-30 audit).
 
 Standard library only; run by run_all.sh when python3 is present (so CI
 exercises the tty reader on Linux, where it was not measured by hand).
@@ -207,7 +206,7 @@ def protocol(check):
     step(b'\x1b[127;1:3u', ['0'], 'its release (kitty code 127) lets it go')
     # a press is the typed byte, a release the PC's unshifted key: where the
     # keyboards differ the release must let go of what the press put down,
-    # SHIFT included (the 2026-09-19 audit, M-20; seen at a real terminal)
+    # SHIFT included (the 2026-09-19 audit; seen at a real terminal)
     step(b':', ['4'], 'colon (Shift+; on the PC) presses the Model I colon, row 5 bit 4')
     step(b'\x1b[59;2:3u', ['0'], 'its release names ; and lets the colon go')
     step(b'"', ['5'], 'quote (Shift+\' on the PC) presses shift-2 and SHIFT')
@@ -263,7 +262,7 @@ def protocol(check):
 
 def late_reply(check):
     """Scenario 11: the query's reply arrives after the LIST that sent it
-    (the 2026-09-19 audit, H-15).  It lands in line mode, at READY; it
+    (the 2026-09-19 audit).  It lands in line mode, at READY; it
     used to be eaten there as a typed escape sequence, the query never
     went out again, and a held key read as the timed latch's short taps
     for the rest of the session."""
@@ -295,7 +294,7 @@ def late_reply(check):
     b.send(b'\x1b[97;1:3u', 0.35)
     got = numbers(b.drain(0.2))
     check(got == ['0'], 'and lets go at its release event', ' '.join(got) or '(nothing)')
-    # L-7: a key held at BREAK, BREAK included, is let go at the pop; they
+    # a key held at BREAK, BREAK included, is let go at the pop; they
     # read as held into the next RUN until the stuck-key sweep
     b.send(b'a', 0.3)
     b.drain(0.2)
@@ -303,7 +302,7 @@ def late_reply(check):
     b.drain()
     b.send('RUN\r', 0.8)
     got = numbers(b.drain(0.3))
-    check(got == [], 'nothing held at BREAK is down in the next RUN (the 2026-09-19 audit, L-7)',
+    check(got == [], 'nothing held at BREAK is down in the next RUN (the 2026-09-19 audit)',
           ' '.join(got) or '(nothing)')
     b.send(b'\x03', 0.5)
     b.drain()
@@ -314,7 +313,7 @@ def late_reply(check):
 
 def split_event(check):
     """Scenario 12: a kitty event cut in two by the read (the 2026-09-19
-    audit, L-8).  The held fragment used to be flushed as keys by the very
+    audit).  The held fragment used to be flushed as keys by the very
     next empty poll -- microseconds later, long before the rest arrived --
     so the release was lost and the fragment's scan, ending on the next
     byte in 64-126, swallowed the next real key.  A real terminal cannot
@@ -386,7 +385,7 @@ def completion(check):
         # completed into one is quoted for sh, and Enter runs cat on THAT
         # file; a name holding a control byte is never completed, and dir
         # shows the byte as a full stop, so the visible line is the line
-        # that runs (the 2026-09-23 audit, L-9)
+        # that runs (the 2026-09-23 audit)
         open(os.path.join(d, 'zsemi;touch INJECTED;x'), 'w').close()
         open(os.path.join(d, 'zesc\x1b[2Kfoo'), 'w').close()
         b.send('cat zsem\t', 0.5)
@@ -402,7 +401,7 @@ def completion(check):
         b.send('\x15', 0.3)
         b.drain(0.2)
         # several matches share a prefix sh would take apart: it has no
-        # one quoted word to become, so it is listed, not inserted (L-21)
+        # one quoted word to become, so it is listed, not inserted
         open(os.path.join(d, 'zmq;touch INJECTED;a'), 'w').close()
         open(os.path.join(d, 'zmq;touch INJECTED;b'), 'w').close()
         b.send('cat zm\t', 0.5)
@@ -414,7 +413,7 @@ def completion(check):
               'an unquotable common prefix is never inserted into a cat line', out)
         # a C1 control (80H-9FH; here UTF-8's C2 9B, the 8-bit CSI) is a
         # control byte too: never completed, never listed (the 2026-09-30
-        # audit, BL-28)
+        # audit)
         open(os.path.join(d, 'zc1\u009b2Kfoo'), 'w').close()
         b.send('cat zc1\t', 0.5)
         out = b.drain(0.3)
@@ -518,7 +517,7 @@ def has_clock():
 
 
 def dumb_zero(check):
-    """Scenario 9: TRS80_DUMB=0 means OFF (the 2026-09-19 audit, L-6).
+    """Scenario 9: TRS80_DUMB=0 means OFF (the 2026-09-19 audit).
 
     Any non-empty value used to count, so TRS80_DUMB=0 turned plain mode
     ON -- the opposite of what it says.  Only a terminal can tell: DUMB
@@ -557,7 +556,7 @@ def piped_under_tty(check):
     `printf '\\nPRINT 1+1\\n' | gawk -b -f trs80basic.awk` read the keyboard
     and left the pipe unread: MEMORY SIZE? waited for a typed ENTER and the
     piped PRINT never ran -- and neither did any transcript-fed suite (the
-    2026-09-19 audit, M-22; ruled 2026-09-21: the keyboard is there when
+    2026-09-19 audit; ruled 2026-09-21: the keyboard is there when
     STDIN is a terminal).  Here the pty is the controlling terminal and the
     interpreter's stdin is the pipe.
     """
@@ -586,7 +585,7 @@ def piped_under_tty(check):
     os.waitpid(pid, 0)
     s = flat(out.decode('latin-1'))
     check(' 2 ' in s + ' ' and 'READY' in s,
-          'a transcript piped in under a controlling tty is read (M-22)', s)
+          'a transcript piped in under a controlling tty is read', s)
 
 
 def termsafe(check):
@@ -867,7 +866,7 @@ def played_bas(check):
         check(st == 2 and b'\x1b[?1049h' not in out and b'cannot read' in out,
               'a missing listing is exit 2 with no grid', repr(out[-300:]))
         # the launcher's restore after a status of 2 is for a gawk that died
-        # mid-session; this exit was clean, nothing was pushed (BL-23)
+        # mid-session; this exit was clean, nothing was pushed
         check(b'\x1b[<u' not in out and b'\x1b[?1049l' not in out,
               'a clean exit 2 pops no keyboard protocol and leaves no alt screen', repr(out[-300:]))
 
@@ -997,7 +996,7 @@ def main():
     # ... and now NOTHING more may arrive.  This used to read
     # `paused.endswith(' ') or paused.endswith('\r\n') or len(paused) > 0`
     # on that first drain, which any printing at all satisfies -- the check
-    # could not fail (the 2026-09-19 audit, L-11).  3b below had it right.
+    # could not fail (the 2026-09-19 audit).  3b below had it right.
     paused = b.drain(0.4, 0.6)
     b.send(b'x', 0.1)
     resumed = b.drain(0.05, 0.5)
@@ -1060,7 +1059,7 @@ def main():
     out = b.drain()
     check('[A.B]' in out, 'INPUT returns a line with a period; Delete erased the X', out)
 
-    # 4a. a letter is read in the machine's case (Farvour 0410H-041AH; Q-4,
+    # 4a. a letter is read in the machine's case (Farvour 0410H-041AH,
     # ruled 2026-10-03): an unshifted key is upper case, SHIFT + letter lower,
     # the echo shows what the program got, and INKEY$ (1 above) agrees.  Not
     # at READY: a lower-case metacommand still works there (5 below).
@@ -1081,7 +1080,7 @@ def main():
     # 4c. the editor repaints from the key typed, not the whole line: the
     # echo of an answer edited with three backspaces is a few bytes a key.
     # Until 2026-09-26 every key repainted the line from its start, the
-    # square of its length in output (the 2026-09-23 audit, L-14).  What
+    # square of its length in output (the 2026-09-23 audit).  What
     # the bytes draw is checked by playing them as a terminal would: a
     # backspace steps left, a character overwrites.
     b.send('NEW\r10 INPUT A$:PRINT "["A$"]"\rRUN\r', 0.6)
@@ -1104,7 +1103,7 @@ def main():
     check('LEN 240' in flat(out), 'the line editor stops at 240 characters', out)
 
     # 4d. BREAK at SYSTEM's *? goes to READY with no Break message and leaves
-    # the CONT state alone (06CCH -> 19AEH; audit BL-12): CONT after it goes
+    # the CONT state alone (06CCH -> 19AEH; the 2026-09-30 audit): CONT after it goes
     # on from the earlier STOP; in a program the rest of the line never runs
     b.send('NEW\r10 PRINT "ONE":STOP:PRINT "TWO"\rRUN\r', 0.6)
     b.drain(0.3)

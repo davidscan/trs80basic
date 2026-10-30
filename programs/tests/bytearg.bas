@@ -3,7 +3,7 @@
 30 REM past 255).  CHR$, STRING$ (both arguments), INP, TAB, LPRINT TAB, ON n, SET, RESET and
 40 REM POINT take theirs that way; PRINT @ takes a 16-bit integer (2B01H) and is ?FC past 1023
 50 REM (208DH).  SET/RESET/POINT test x against 128 as soon as it is read, before y (0140H).
-60 REM Until 2026-09-27 every one of them was ?FC (the 2026-09-26 audit, L-7).
+60 REM Until 2026-09-27 every one of them was ?FC (the 2026-09-26 audit).
 65 CLEAR 300:REM LEN(STRING$(255.9,"A")) in 320 needs the room: 50 bytes is ?OS (2A4EH)
 70 F=0:S=0:ON ERROR GOTO 900
 100 S=1:A$=CHR$(40000)

@@ -5,7 +5,7 @@
 # printed the SHELL's own "sh: /dev/tty: Device not configured", because
 # `stty size < /dev/tty 2>/dev/null` applies its redirections left to
 # right and the failed open is reported before 2>/dev/null takes effect
-# (the 2026-09-19 audit, L-12).  A stray line like that lands in the
+# (the 2026-09-19 audit).  A stray line like that lands in the
 # middle of a captured transcript and in every CI log.
 # Self-checking: exits 1 on any mismatch.
 # Run from the repo root:  sh programs/tests/notty.sh

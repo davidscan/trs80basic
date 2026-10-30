@@ -3,7 +3,7 @@
 30 REM 0AB9H, rounding at 0796H) before it drops the fraction.  So 28.9999999# is 29 for CHR$,
 40 REM STRING$, LEFT$/RIGHT$/MID$, POKE, TAB, ON, ERROR and SET/RESET/POINT, as CINT gives it,
 50 REM 255.99999999# is ?FC and 32767.9999999# is ?OV.  Until 2026-10-04 the byte converter
-60 REM floored the raw double: 28 (the 2026-09-30 audit, BM-2; L-8 fixed CINT's other copies).
+60 REM floored the raw double: 28 (the 2026-09-30 audit; CINT's other copies were fixed earlier).
 70 CLEAR 500:F=0:S=0:ON ERROR GOTO 900
 80 A#=28.9999999#:B#=1.99999999#:C#=2.99999999#:D#=4.99999999#
 100 IF CINT(A#)<>29 THEN PRINT "FAIL: CINT(28.9999999#) is 29:";CINT(A#):F=1

@@ -22,7 +22,7 @@ function setline(i) {
 # line's first statement that pointer is the 00 ending the line before
 # (40E6H, 40EEH), so the ROM re-enters through the next-line code
 # (1D35H-1D59H) and TRON prints the line's <n> again (the 2026-09-30
-# audit, BL-4).  A statement further along the line prints nothing.
+# audit).  A statement further along the line prints nothing.
 function trace_placed() {
     if (TRACE && CK != "I" && CP == 1) s_puts("<" CLN ">")
 }
@@ -45,12 +45,12 @@ function execloop(   ty, tx) {
                 # inside an error handler is ?NR (the 40F2H flag, code
                 # 22H); otherwise 1DC1H-1DD1H save the end as the CONT
                 # point, as END does, so a later CONT ends again at READY
-                # rather than ?CN (the 2026-09-26 audit, M-2 and R-5).
+                # rather than ?CN (the 2026-09-26 audit).
                 # ?NR is an error like any other: 19C9H-19CDH save the
                 # end as the CONT point first, so CONT after it is READY
                 # (until 2026-10-04 the trapped statement's point stayed,
                 # and CONT re-ran it into the handler: the 2026-09-30
-                # audit, BM-4)
+                # audit)
                 CONT_K = CK; CONT_LI = CLI; CONT_P = CP; CONTOK = 1
                 if (INHANDLER) { raise(18); report_err(); return }
                 return
@@ -66,7 +66,7 @@ function execloop(   ty, tx) {
             # the poll falls BETWEEN statements: the one behind is done, so
             # CONT starts the one in front (Farvour 1D1E, 1DB4H saves the
             # pointer past the finished verb); SK/SLI/SCP still name the
-            # finished one, which CONT would run twice (2026-09-26 audit, H-2).
+            # finished one, which CONT would run twice (2026-09-26 audit).
             # A line typed at READY is polled too (1D1E runs for it as for a
             # program line), so a typed loop can be broken; until 2026-10-10
             # it could not, and only killing gawk ended it.
@@ -82,7 +82,7 @@ function execloop(   ty, tx) {
         # an error there is noted at the IF, and RESUME NEXT scans from the
         # IF to its first ":" -- for the ELSE part's first statement that is
         # the colon in front of ELSE, so the rest of the line is skipped
-        # (19BAH-19BDH, 1FCFH-1FE7H; audit L-6).  No BREAK poll either.
+        # (19BAH-19BDH, 1FCFH-1FE7H; the 2026-09-26 audit).  No BREAK poll either.
         # The IF's point is saved here and put back after execstmt(), not
         # between the two lines that follow STK/STP (see there).
         IFK = IFKEEP; IFKEEP = 0
@@ -113,14 +113,14 @@ function execloop(   ty, tx) {
             # the statement was typed at READY (19C7H: the line is FFFFH),
             # which leaves an earlier STOP's point alone.  So CONT after an
             # error re-runs the failing statement, trapped or not; until
-            # 2026-09-24 a reported error made CONT ?CN (H-1).
+            # 2026-09-24 a reported error made CONT ?CN.
             if (SK != "I") { CONT_K = SK; CONT_LI = SLI; CONT_P = SCP; CONTOK = 1 }
             # 19D0H-19E0H: a handler that is armed and not already running
             # takes the error, whether the statement is a program's or one
             # typed at READY (the ROM's test skips only the CONT save for
             # line FFFFH, and END does not disarm the trap); ERL is then
             # 65535, and RESUME goes on in the typed line.  Until
-            # 2026-09-24 a typed statement's error was never trapped (M-6).
+            # 2026-09-24 a typed statement's error was never trapped.
             if (EHANDLER && !INHANDLER) {
                 ERRV = (E - 1) * 2; ERLV = ERR_AT
                 ERR_K = SK; ERR_LI = SLI; ERR_CP = SCP
@@ -153,7 +153,7 @@ function dobreak() {
 # ---- statement dispatch ----------------------------------------------------
 function execstmt(   ty, tx) {
     ty = TY[CK, CP]; tx = TK[CK, CP]
-    EVSTK = 2                               # the statement's own stack (OC-12, p60 e_or)
+    EVSTK = 2                               # the statement's own stack (p60 e_or)
     STMP = 0                                # no string temporary held (p75 st_alloc)
     if (ty == "i") {
         if (tx == "PRINT")   { CP++; st_print(); return }
@@ -206,7 +206,7 @@ function execstmt(   ty, tx) {
         if ((tx == "BYE" || tx == "EXIT") && TSX[CK, CP] == "") { CP++; if (at_stmt_end()) { QUITFLAG = 1; HALT = 1; return }; CP-- }
         if (tx == "TRON")    { CP++; TRACE = 1; return }
         if (tx == "TROFF")   { CP++; TRACE = 0; return }
-        if (tx == "RANDOM")  { CP++; rnd_setmid(int(rand() * 128)); return }   # LD A,R (01D3H): the refresh register is 7 bits, 0-127 (N-5)
+        if (tx == "RANDOM")  { CP++; rnd_setmid(int(rand() * 128)); return }   # LD A,R (01D3H): the refresh register is 7 bits, 0-127
         if (tx == "ERROR")   { CP++; st_error(); return }
         if (tx == "RESUME")  { CP++; st_resume(); return }
         if (tx == "DEFINT" || tx == "DEFSNG" || tx == "DEFDBL" || tx == "DEFSTR") { CP++; st_deftype(tx == "DEFINT" ? 2 : tx == "DEFSTR" ? 3 : tx == "DEFDBL" ? 8 : 4); return }
@@ -230,7 +230,7 @@ function execstmt(   ty, tx) {
 # the ROM's name reader refuses it (2612H-2615H, ?SN): ABS=3, TO=1, LET
 # PRINT=1, DIM SIN(5), FOR STEP=, READ ERR are all ?SN.  Every statement
 # that reads a target name asks here; until 2026-09-27 each took the
-# keyword as a variable of that name (the 2026-09-26 audit, L-1).
+# keyword as a variable of that name (the 2026-09-26 audit).
 function at_name() { return TY[CK, CP] == "i" && !TKW[CK, CP] }
 
 # is the token cursor at the end of the current statement?
@@ -252,7 +252,7 @@ function skipstmt(   ty, tx) {
 
 # ---- assignment ------------------------------------------------------------
 function st_let(   name, key, v, lp, src, j, n) {
-    EVSTK += 2                              # LET's push (OC-12, p60 e_or)
+    EVSTK += 2                              # LET's push (p60 e_or)
     if (!at_name()) { raise(2); return }
     name = lvname()
     key = ""
@@ -264,7 +264,7 @@ function st_let(   name, key, v, lp, src, j, n) {
     # simple variable it cannot find (26A0H-26CCH), and only then reads
     # the "=" (1F24H) and the expression (1F2EH).  So X=MEM counts X, and
     # a target whose expression fails is still there.  Until 2026-09-27
-    # the expression came first (the 2026-09-26 audit, M-8).  An array
+    # the expression came first (the 2026-09-26 audit).  An array
     # element's array was made by aref, as the ROM's 260DH makes it.
     mkvar(name, key, LVT)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
@@ -318,7 +318,7 @@ function st_deftype(code,   a, b, c) {
             # letter less the first, RET C); the ranges before it in the
             # list stand, since each is applied as it is read (1E29H-
             # 1E33H).  DEFINT C-A set nothing and went on until 2026-09-27
-            # (the 2026-09-26 audit, L-10).
+            # (the 2026-09-26 audit).
             if (ORD[b] < ORD[a]) { raise(2); return }
         }
         for (c = ORD[a]; c <= ORD[b]; c++) deftype(CHR[c], code)
@@ -346,7 +346,7 @@ function st_def(tx,   v) {
     if (tx == "FN") {                       # spaced name: DEF FN AB(X)=...
         CP++
         # a KEYWORD is never the name: the cruncher tokenized it (DEF FNTO
-        # is DEF FN <TO>, ?SN -- N-5)
+        # is DEF FN <TO>, ?SN)
         if (TY[CK, CP] != "i" || ((CK, CP) in TKW)) { raise(2); return }
         tx = TK[CK, CP]; CP++
         st_deffn(tx)
@@ -407,7 +407,7 @@ function st_deffn(name,   n, i) {
 # and file I/O consistently.  sx is the suffix written at the reference,
 # where the caller has it: a % ! # names the numeric variable of that
 # type whatever DEFSTR says of the letter (manual, section 1: "A$, A%,
-# A!, A# are distinct variable names"; 2026-10-05, the audit's OC-11),
+# A!, A# are distinct variable names"; 2026-10-05, an audit finding),
 # as a $ under DEFINT names the string.  A storage key (vkey) carries
 # its type as its last character, so it answers alone.  Until 2026-10-05
 # the DEFSTR letter won and G%=5 was ?TM.
@@ -485,7 +485,7 @@ function intvar(name, sx) {
 # nothing is stored.  READ and INPUT reach the same conversion (224AH ->
 # 1F33H), so a typed 40000 is ?OV, not ?REDO.
 function intstore(x,   r) {
-    r = bfloor(sround(x))                   # a double is a single first (0A7FH: 0AB9H, 0796H); L-8
+    r = bfloor(sround(x))                   # a double is a single first (0A7FH: 0AB9H, 0796H)
     if (r > 32767 || r < -32768) { raise(6); return 0 }
     return r
 }
@@ -527,7 +527,7 @@ function assignv(name, key, v,   isint, tgt, n, ty) {
         # still the variable's, so both must fit; past the area's end, a
         # collection (28E6H) and then ?OS, and nothing is stored.  Until
         # 2026-09-25 the string area had no end here (the 2026-09-23
-        # audit, L-15's cluster).
+        # audit).
         if (!HOSTMEM && STRUSED + n > mem_strsz()) { raise(14); return }   # never under `memory host` (EXT)
         STRUSED += n - ((tgt in STRCNT) ? STRCNT[tgt] : 0); STRCNT[tgt] = n
         if (ALN) al_clear(name, key)            # the descriptor moves (p75, finding 7)
@@ -540,7 +540,7 @@ function assignv(name, key, v,   isint, tgt, n, ty) {
         # by the target's type: an integer through 0A7FH (?OV), a single
         # rounded to 24 bits (0796H) and range-checked at the single's
         # limit -- a double past FMAX stored into a single is ?OV (0AB9H
-        # -> 0796H -> 07B2H; L-24) -- a double as it is: a single value
+        # -> 0796H -> 07B2H) -- a double as it is: a single value
         # stored into a double keeps its 24 bits, so A#=1/3 is
         # .3333333432674408 as on the machine
         v = isint ? intstore(num(v)) : (ty == "S") ? frange(sround(num(v)), "S") : (vtype(v) == "D") ? substr(v, 3) : num(v)   # a double keeps its payload (p91)
@@ -557,10 +557,10 @@ function assignv(name, key, v,   isint, tgt, n, ty) {
 # first byte that is not a digit, so a bare GOTO, or GOTO X, is GOTO 0;
 # and a value that would pass 65529 is ?SN (1E62H-1E66H), so GOTO 70000
 # is ?SN, never ?UL.  Until 2026-09-25 a bare GOTO was ?SN and GOTO 70000
-# was ?UL (the 2026-09-23 audit, L-5).  Only the DIGITS count: the number
+# was ?UL (the 2026-09-23 audit).  Only the DIGITS count: the number
 # token's text ends at a point or an exponent for 1E5AH, so GOTO 100.5 is
 # GOTO 100 and GOTO 1E2 is GOTO 1 (it took the whole value until
-# 2026-09-26, audit L-3).  LNREST says that text was left behind the
+# 2026-09-26, the 2026-09-26 audit).  LNREST says that text was left behind the
 # digits, which a caller that reads on (ON's skip) sees as the next byte.
 function lineno_arg(   ln, t) {
     LNREST = 0
@@ -595,7 +595,7 @@ function st_return() {
     if (!at_stmt_end()) { raise(2); return }
     # with no GOSUB open, the FOR frames are gone before the ?RG: 1EE1H's
     # walk (1936H) passes every one, 1EE4H-1EE5H keep that stack pointer,
-    # and only 1EE8H tests for the GOSUB (the 2026-09-30 audit, BL-1)
+    # and only 1EE8H tests for the GOSUB (the 2026-09-30 audit)
     if (GSN == 0) { FSN = 0; raise(3); return }
     CK = GS_K[GSN]; CLI = GS_LI[GSN]; CP = GS_P[GSN]
     skipstmt(); PLACED = 1
@@ -615,10 +615,10 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     sng = (ntype(name) == "S")              # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
     dbl = (ntype(name) == "D")
     CP++
-    mkvar(name, "", dbl ? "D" : sng ? "S" : "I")   # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
+    mkvar(name, "", dbl ? "D" : sng ? "S" : "I")   # the index exists before its start is evaluated (1CA6H -> 1F21H)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
-    EVSTK += 4                              # FOR's pushes and its LET's (OC-12, p60 e_or)
+    EVSTK += 4                              # FOR's pushes and its LET's (p60 e_or)
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     # an integer index runs an integer loop: the start through LET (1CA6H ->
@@ -636,7 +636,7 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     # a DOUBLE index is ?TM, tested after the start is stored and TO is
     # read (1CC5H-1CCBH: RST 20H on the index's type, JP NC,0AF6H): the
     # loop's frame holds a single or an integer only.  FOR I#= and a
-    # DEFDBL index ran here until 2026-09-27 (the 2026-09-26 audit, M-3).
+    # DEFDBL index ran here until 2026-09-27 (the 2026-09-26 audit).
     if (dbl) { raise(13); return }
     CP++
     v = e_or(); if (E) return
@@ -664,7 +664,7 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
 # IF I<3 THEN NEXT ELSE PRINT "DONE" is a bare NEXT, its ELSE stored
 # behind a ":" (1C42H), and NEXT TO, NEXT 5 and NEXT ,I are ?SN before
 # any loop steps.  Until 2026-10-04 any identifier, ELSE included, was
-# taken as the index: ?NF (the 2026-09-30 audit, BM-1).
+# taken as the index: ?NF (the 2026-09-30 audit).
 function st_next(   name, looped) {
     for (;;) {
         name = ""
@@ -704,7 +704,7 @@ function do_next(name,   j, v, fl, d) {
     # a single index steps by the single add (0716H): 24 bits, so X=X+.1
     # drifts as on the machine; and a sum past the single's range is ?OV
     # there (0796H -> 07B2H) before the store, so the index keeps its value
-    # (the 2026-09-30 audit, BL-5: FOR I=1E38 TO 1.7E38 STEP 1E38 ended
+    # (the 2026-09-30 audit: FOR I=1E38 TO 1.7E38 STEP 1E38 ended
     # with a single holding 2E+38)
     if (FS_SN[j]) { v = frange(sadd(NV[FS_V[j]], FS_S[j]), "S"); if (E) return 0 }
     else v = NV[FS_V[j]] + FS_S[j]
@@ -747,7 +747,7 @@ function st_if(   v, truth, hadkw, d, p, ty, tx, ln) {
         # the ROM never treats IF's GOTO specially: 204FH sees no number,
         # 1D5FH runs "GOTO <rest>" as a statement, and GOTO's reader
         # (1E5AH) takes a bare target as 0 -- so IF 1 GOTO PRINT is
-        # GOTO 0, ?UL, not ?SN (the 2026-09-26 audit, N-5)
+        # GOTO 0, ?UL, not ?SN (the 2026-09-26 audit)
         if (hadkw == "GOTO") { st_goto(); return }
         IFKEEP = 1                          # the next statement is dispatched from here (execloop)
         return                              # statements after THEN execute
@@ -778,7 +778,7 @@ function st_on(   v, n, mode, cnt, ln) {
         if (!(TY[CK, CP] == "i" && TK[CK, CP] == "GOTO")) { raise(2); return }
         CP++
         # 1F73H: the GOTO reader, so a bare ON ERROR GOTO is GOTO 0 (it
-        # disarms) and a number past 65529 is ?SN (audit M-14)
+        # disarms) and a number past 65529 is ?SN (the 2026-09-26 audit)
         n = lineno_arg(); if (E) return
         # ROM 1F7A-1F80: a target other than 0 is looked up at 1B2AH WHEN
         # THE STATEMENT RUNS, and a line that is not there is ?UL then --
@@ -794,7 +794,7 @@ function st_on(   v, n, mode, cnt, ln) {
     }
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    n = byteconv(num(v)); if (E) return    # 1F9BH -> 2B1CH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
+    n = byteconv(num(v)); if (E) return    # 1F9BH -> 2B1CH: ?OV past 16 bits, ?FC outside 0-255
     skipblank()
     if (TY[CK, CP] == "i" && (TK[CK, CP] == "GOTO" || TK[CK, CP] == "GOSUB")) {
         mode = TK[CK, CP]; CP++
@@ -805,7 +805,7 @@ function st_on(   v, n, mode, cnt, ln) {
     # a comma, or ON returns to the driver there (n past the list, or 0,
     # which counts round from 255, falls through).  An empty item is line
     # 0.  It read the whole list first until 2026-09-26, so ON Q GOTO 30,
-    # was ?SN and ON 2 GOTO 100,,200 too (audit M-14).
+    # was ?SN and ON 2 GOTO 100,,200 too (the 2026-09-26 audit).
     cnt = n
     for (;;) {
         cnt = (cnt + 255) % 256
@@ -876,7 +876,7 @@ function st_run(   n, f, keep, given) {
     }
     # 1EA3H: anything behind RUN but the end goes to the GOTO code, so
     # RUN X is RUN 0 (?UL without a line 0); it ran from the top until
-    # 2026-09-26 (audit L-3)
+    # 2026-09-26 (the 2026-09-26 audit)
     n = 0; given = 0
     if (!at_stmt_end()) { given = 1; n = lineno_arg(); if (E) return }
     run_start(n, 0, given)
@@ -894,7 +894,7 @@ function run_start(n, keepfiles, given) {
     DP = 1
     # 1B6EH-1B77H clear the handler flag, the ON ERROR address and the
     # CONT point; ERR (409AH) and ERL (40EAH) are left as they were
-    # (until 2026-09-26 RUN zeroed them, audit L-2)
+    # (until 2026-09-26 RUN zeroed them, the 2026-09-26 audit)
     EHANDLER = 0; INHANDLER = 0
     CONTOK = 0
     if (given) { jumpline(n); return }
@@ -917,15 +917,14 @@ function st_clear(   v, ty, tx, n) {
         # when the area would reach down to 40 bytes past the program's end
         # (1E90H-1E98H).  Either error leaves the variables alone: the
         # initializer at 1B61H is joined only afterwards (1EA0H).  Until
-        # 2026-09-25 n was evaluated and thrown away (the 2026-09-23 audit,
-        # L-4).
+        # 2026-09-25 n was evaluated and thrown away (the 2026-09-23 audit).
         n = bigint(num(v)); if (E) return
         if (n < 0) { raise(5); return }
         skipblank()
         # the statement must end here (1E80H-1E82H, RET NZ to the driver's
         # ?SN) before the string area is placed or anything is cleared:
         # CLEAR 100 X keeps the variables.  Until 2026-09-27 the clear ran
-        # first and the X was ?SN afterwards (the 2026-09-26 audit, L-11).
+        # first and the X was ?SN afterwards (the 2026-09-26 audit).
         if (!at_stmt_end()) { raise(2); return }
         if (!HOSTMEM) {                     # `memory host` (EXT): no string area to place, any count
             if (n > HIMEM) { raise_host(7); return }
@@ -948,7 +947,7 @@ function st_clear(   v, ty, tx, n) {
 # EXT: the line number.  Level II's RESTORE takes none (a number behind
 # it is ?SN) and neither Model III manual documents it, so a period
 # listing that used it stopped on the machine: taking it cannot change
-# one that runs (audit R-3, ruled 2026-09-26).
+# one that runs (the 2026-09-26 audit, ruled 2026-09-26).
 function st_restore(   n, i) {
     if (DATADIRTY) datascan()
     if (TY[CK, CP] == "n") {
@@ -974,10 +973,10 @@ function st_error(   v, n) {
     # System manual p.156), so past 23 -- the gaps and 51-70 alike -- is
     # ?UE.  Until 2026-09-21 they were 24-31 and ERROR 24-31 named them.
     n = byteconv(num(v)); if (E) return
-    if (!at_stmt_end()) return  # 1FF7H RET NZ: the driver's ?SN for ERROR 5 X (audit L-5)
+    if (!at_stmt_end()) return  # 1FF7H RET NZ: the driver's ?SN for ERROR 5 X (the 2026-09-26 audit)
     if (n == 0) { raise(5); return }
     # 1FFC-1FFF double n-1 in the 8-bit A, so 129-151 wrap to the codes of
-    # 1-23 (ERR included) and only 24-128 and 152-255 are ?UE (Q-6, BL-6)
+    # 1-23 (ERR included) and only 24-128 and 152-255 are ?UE
     if (n >= 129 && n <= 128 + NERRC) n -= 128
     if (n > NERRC) { raise(20); return }
     raise(n)
@@ -990,7 +989,7 @@ function st_error(   v, n) {
 function st_resume(   p, ty, tx) {
     if (!INHANDLER) { raise(19); return }
     INHANDLER = 0
-    ERRV = 0                    # 1FB7H-1FB8H: the error code cell 409AH is zeroed, so ERR is 0 (audit L-4)
+    ERRV = 0                    # 1FB7H-1FB8H: the error code cell 409AH is zeroed, so ERR is 0 (the 2026-09-26 audit)
     PLACED = 1
     if (TY[CK, CP] == "i" && TK[CK, CP] == "NEXT") {
         CP++
@@ -1009,7 +1008,7 @@ function st_resume(   p, ty, tx) {
     # RESUME n reads its line number with GOTO's reader (1FC1H CALL 1E5AH):
     # digits only, so RESUME 30.5 and RESUME 1E2 leave text behind it and
     # are ?SN (1FC4H RET NZ), and RESUME 70000 is ?SN, never ?UL.  Until
-    # 2026-10-05 it took the whole number token (the 2026-09-30 audit, BL-3).
+    # 2026-10-05 it took the whole number token (the 2026-09-30 audit).
     if (TY[CK, CP] == "n") {
         p = lineno_arg(); if (E) return
         if (LNREST || !at_stmt_end()) { raise(2); return }

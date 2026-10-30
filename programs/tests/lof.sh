@@ -4,7 +4,7 @@
 # in a file.  It is useful for both sequential and random access."  A
 # sequential file has no logical record length of its own, so its records are
 # the 256-byte physical ones and LOF is its length rounded up.  Anything but
-# "R" used to be ?BM (the 2026-09-19 audit, L-34).
+# "R" used to be ?BM (the 2026-09-19 audit).
 # The measurement must not disturb the channel's own read: gawk keys a file
 # redirection by name, so LOF asks a COMMAND pipe, not `getline < f`.
 # Self-checking: exits 1 on any mismatch.

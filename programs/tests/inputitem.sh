@@ -60,7 +60,7 @@ out=$(run "$tmp/d.bas")
 [ "$out" = "[ABC  ][DEF  ][G ]" ] || fail "DATA" "$out"
 
 # READ finds a DATA statement only where the DATA token begins a statement
-# (2296H-22AFH; BL-10): not behind THEN or ELSE.  An unquoted item ends at
+# (2296H-22AFH): not behind THEN or ELSE.  An unquoted item ends at
 # ":" past a quote (2869H), and the search starts again there with no
 # quote open, so D" or I" hides the rest of the line, :DATA 9 included.
 cat > "$tmp/dt.bas" <<'BAS'
@@ -81,7 +81,7 @@ E 4  80 '
 [ "$out" = "$want" ] || fail "WHERE READ FINDS DATA" "$out"
 
 # The item that fails the test is STORED first (2240-224A, JP 1F33H with
-# 225AH pushed; the 2026-09-30 audit, BL-7): ENTER after ?REDO keeps it.
+# 225AH pushed; the 2026-09-30 audit): ENTER after ?REDO keeps it.
 # 2X leaves 2, "Q"R leaves Q, X and a quoted "2" leave 0 for a number,
 # 7.5Q into an integer leaves 7; the items behind it keep their values.
 cat > "$tmp/st.bas" <<'BAS'
@@ -116,7 +116,7 @@ P/Q
 [ "$out" = "$want" ] || fail "STORED BEFORE ?REDO" "$out"
 
 # The answer is read before the variable list (21DBH), and each target is
-# found only when its item is due (21FDH -> 260DH; BL-9): INPUT A,3 asks,
+# found only when its item is due (21FDH -> 260DH): INPUT A,3 asks,
 # stores A, then is ?SN -- before any ?? when only 5 was typed -- and ENTER
 # alone runs on past a bad list (1F04H skips to the statement's end).
 cat > "$tmp/bl.bas" <<'BAS'

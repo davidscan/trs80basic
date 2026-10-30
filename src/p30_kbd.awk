@@ -17,7 +17,7 @@ function kb_init() {
     # /dev/tty alone read the keyboard while a transcript sat unread on a
     # piped stdin, so `printf ... | gawk` and every transcript-fed suite
     # stalled at MEM SIZE? whenever a terminal existed (the 2026-09-19
-    # audit, M-22; ruled 2026-09-21).  `stty -g` with no redirect reads
+    # audit; ruled 2026-09-21).  `stty -g` with no redirect reads
     # gawk's stdin.
     TTYIN = (system("( stty -g && stty -g < /dev/tty ) > /dev/null 2>&1") == 0)
     if (TTYIN) {
@@ -85,7 +85,7 @@ function kp_on(   e) {
 # The query goes out on every push until the terminal has answered.  It
 # used to go out once: a reply that missed the first poll episode (a short
 # RUN, a LIST, an arrow key at READY) was lost, and KBPROTO stayed 0 for
-# the session with flag 2 still pushed (the 2026-09-19 audit, H-15).  A
+# the session with flag 2 still pushed (the 2026-09-19 audit).  A
 # terminal without the protocol ignores the repeats as it ignored the first.
 function kp_push() {
     if (!kp_on()) return
@@ -100,7 +100,7 @@ function kp_push() {
 # too, until the stuck-key sweep KP_STUCK seconds after that last event --
 # so a program that polled again at once (a RUN typed quickly, a menu
 # loop, CONT) read BREAK as held for most of the window (the 2026-09-19
-# audit, L-7; seen at a real terminal).  Line mode takes no presses, and a key still
+# audit; seen at a real terminal).  Line mode takes no presses, and a key still
 # held when poll mode returns is pressed again by its repeat bytes.
 function kp_pop() {
     if (!KPPUSHED) return
@@ -114,7 +114,7 @@ function kp_pop() {
 # read cut short is held in KPPART for the next read to complete.  `bare`
 # (the poll reader) holds a trailing ESC or ESC [ too, once the terminal
 # has answered: the cut can fall there as well, and the rest of the event
-# arrived as keys (L-8 below).  The line reader blocks until the next
+# arrived as keys (KP_CUTMS, below).  The line reader blocks until the next
 # keystroke, so a real Esc key there would wait on it; and a terminal
 # without the protocol sends no events to cut: a bare ESC or ESC [ at the
 # end of the read is keys for both.
@@ -172,7 +172,7 @@ function kp_repeat(ch,   c, pk, now) {
 # the event, a write or two behind, came in after it as keys of its own --
 # the release was never applied, and the fragment's scan (kb_escseq), ending
 # on the next byte in 64-126, swallowed the next real keystroke (the
-# 2026-09-19 audit, L-8; kbd_pty scenario 12).  A terminal writes one
+# 2026-09-19 audit; kbd_pty scenario 12).  A terminal writes one
 # event whole, so the rest arrives within a millisecond; KP_CUTMS (100)
 # is far beyond that and still below any human keystroke.  Only a real
 # Esc key is ever kept that long, and only under the protocol.  Without
@@ -266,8 +266,8 @@ function kb_fill_tty(   save, r, i, n, line) {
 # reply and a release event arrive whenever the terminal sends them, and
 # one that lands here (the reply after a short RUN, a key let go after
 # BREAK) was queued as typed bytes for rl_arrow to swallow -- the protocol
-# never came on, the release was never applied (the 2026-09-19 audit,
-# H-15 and L-7).  Returns the bytes READ, not the bytes queued: a read
+# never came on, the release was never applied (the 2026-09-19 audit).
+# Returns the bytes READ, not the bytes queued: a read
 # the filter emptied is not the end of input kb_get counts to three.
 # Line mode at a TERMINAL: the editor's blocking read of /dev/tty (dd | od),
 # which kb_fill_stdin below mirrors for piped stdin.  Until 2026-09-26 the
@@ -371,7 +371,7 @@ function brk_take() {
 # queued for the rest of the run, and while the read waited for an empty
 # queue that one byte meant the tty was never read again -- no Ctrl-C, no
 # Ctrl-S, the 4096-byte guard below unreachable, and a runaway program
-# killable only from another shell (the 2026-09-19 audit, H-14).  KSCAN
+# killable only from another shell (the 2026-09-19 audit).  KSCAN
 # marks how far the queue has been searched for 3 and 19, so type-ahead
 # that sits there is looked at once, not on every poll.
 function pollbrk(   i, c, j) {
@@ -569,7 +569,7 @@ function kb_termkey(c) {
 # Until 2026-10-21 one keystroke was an unshifted Z on the matrix and 122
 # through INKEY$: 2,791 corpus listings compare INKEY$ with an upper-case
 # literal, and a user typing lower case got no response (the 2026-09-30
-# audit, Q-4; ruled 2026-10-03).  The screen echoes what the program
+# audit; ruled 2026-10-03).  The screen echoes what the program
 # received.  Terminal input only, and never at READY (lower case there is
 # the metacommands' look): a piped or batch byte stream stays byte-exact.
 function kb_case(c) {
@@ -646,7 +646,7 @@ function km_inkey_down(c, raw,   pk) {
 # and the two part company wherever the keyboards do: `:` is its own key on
 # a Model I and Shift+; on a PC, so the press put down row 5 bit 4 and the
 # release (code 59) let go of `;`, bit 8 -- the colon stayed down, SHIFT
-# with it, until the stuck-key sweep (the 2026-09-19 audit, M-20: `: @ " &
+# with it, until the stuck-key sweep (the 2026-09-19 audit: `: @ " &
 # ( ) * +` and the Ctrl-H/J arrows).  So each press records, under the PC
 # key that typed it (kp_pckey), the matrix key it put down, and the release
 # lets go of exactly that -- whatever the modifiers are by then.
@@ -776,7 +776,7 @@ function rl_read(repl,   c, r, s, oldl, oldp, swap) {
 # key just typed or deleted at the cursor, and nothing before it.  Until
 # 2026-09-26 every keystroke repainted the whole line from its start, so
 # a pasted line cost the square of its length in output (the 2026-09-23
-# audit, L-14).  The other callers (Ctrl-A/E/U, the arrows, history,
+# audit).  The other callers (Ctrl-A/E/U, the arrows, history,
 # completion, Ctrl-L) pass nothing: from 0, the whole line, as before.
 # Grid mode: repaint from the RLSTART anchor (tracking any scroll it
 # causes).  Fullscreen tty mode: plain backspace/overprint -- fine up to
@@ -850,7 +850,7 @@ function rl_hist(dir, oldl, oldp) {
 # Fullscreen/DUMB sends the terminal no clear (no ANSI there: a fresh line
 # instead), but the 64x16 buffer a program PEEKs is wiped as on the grid:
 # it kept the old screen and took the new `>` wherever the cursor stood
-# (the 2026-09-30 audit, BL-19).
+# (the 2026-09-30 audit).
 function rl_clear_screen() {
     if (DUMB) {
         printf (TTYIN ? "\r\n" : "\n")
@@ -866,10 +866,10 @@ function rl_clear_screen() {
     rl_draw(0, 0)
 }
 
-# does a file name hold a control byte (BL-28's test, in rl_complete)?
+# does a file name hold a control byte (in rl_complete)?
 # Byte by byte through ORD[], not a regex: a range over bytes above 127
 # is a parse error to gawk in a UTF-8 locale without -b, so the script
-# did not start at all when run bare (the 2026-10-05 audit, BL-40).
+# did not start at all when run bare (the 2026-10-05 audit).
 function ctl_name(s,   i, n, b, p) {
     n = length(s); p = 0
     for (i = 1; i <= n; i++) {
@@ -890,7 +890,7 @@ function ctl_name(s,   i, n, b, p) {
 # as before.  Extends by the longest common prefix of the glob matches; a
 # unique directory match gains "/"; ambiguous with nothing to extend lists
 # the candidates below the grid.
-# The line you see is the line that runs (the 2026-09-23 audit, L-9): a
+# The line you see is the line that runs (the 2026-09-23 audit): a
 # name holding a control byte is never offered, since on the screen it
 # could hide the rest of the line; and on a cat or dir line, which the
 # shell parses, a unique match the shell would take apart is inserted
@@ -911,7 +911,7 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
             # a control byte in the name is never offered: C0, DEL, and C1
             # (80H-9FH) as UTF-8 encodes it (C2 80-9F) or as a stray byte
             # after ASCII, which an 8-bit terminal takes as CSI and the
-            # rest (the 2026-09-30 audit, BL-28)
+            # rest (the 2026-09-30 audit)
             if (ctl_name(line)) continue
             if (nm < 100) mt[++nm] = line
         }
@@ -943,7 +943,7 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
     # any other extension on a cat or dir line that sh would take apart
     # (several matches, or inside a "...") has no one quoted word to
     # become: it is not inserted, the candidates are listed instead
-    # (the 2026-09-26 audit, L-21)
+    # (the 2026-09-26 audit)
     if (RLS ~ /^[ \t]*(cat|dir)[ \t]/ && add ~ /[^A-Za-z0-9._\/+,:@%=-]/) add = ""
     if (add != "") {
         if (oldl + length(add) > RLMAX) return

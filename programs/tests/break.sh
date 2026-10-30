@@ -39,7 +39,7 @@ out=$(run "$c3
 "); [ "$out" = " 4 " ] || fail "matrix should still show BREAK" "$out"
 # CONT after BREAK starts the statement in front of the break, never the
 # one already done behind it: N=N+1 once, RETURN once (Farvour 1D1E, 1DB4H;
-# the 2026-09-26 audit, H-2).  At the prompt, so CONT can be typed.
+# the 2026-09-26 audit).  At the prompt, so CONT can be typed.
 out=$(printf '\n10 A$=INKEY$\n20 FOR I=1 TO 1000:N=N+1:NEXT\n30 PRINT N;I\n40 GOSUB 100:K=K+1:IF K<300 THEN 40\n50 PRINT "DONE";K:END\n100 RETURN\nRUN\n%s\nCONT\n' "$c3" |
       TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep -v -e READY -e '^>' -e BREAK | tail -2)
 [ "$out" = " 1000  1001 

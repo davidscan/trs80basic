@@ -43,7 +43,7 @@ function handle_line(line,   s, ln, rest) {
     }
     # exit / bye: leave the interpreter, as BYE does (EXT, lowercase-only
     # metacommands like the rest, taking no argument: the user, 2026-10-21;
-    # the Q-5 ruling of 2026-10-03 named both).  Upper-case EXIT and BYE are
+    # the ruling of 2026-10-03 named both).  Upper-case EXIT and BYE are
     # the statement (p70), which works in a program too (2026-10-22)
     if (s ~ /^(exit|bye)[ \t]*$/) { QUITFLAG = 1; return 1 }
     if (s ~ /^man($|[ \t])/) {
@@ -96,7 +96,7 @@ function handle_line(line,   s, ln, rest) {
         # current-line cell holds FFFFH (1A36), so they carry no " IN n".
         # They used to set E by hand and report whatever line the LAST
         # error had left in ERR_AT -- "?UL ERROR IN 50" for a line typed
-        # at the prompt, and after L-4 "?UL ERROR IN " with no number at
+        # at the prompt, and after a 2026-09-20 fix "?UL ERROR IN " with no number at
         # all when nothing had failed yet.  raise() notes the line.
         if (ln > 65529) { CLN = DIRECTLN; raise(2); report_err(); return 1 }
         enter_line(ln, rest)
@@ -108,13 +108,13 @@ function handle_line(line,   s, ln, rest) {
 
 # The number in front of a typed or loaded line (ROM 1A81H-1A95H): 1E5AH
 # reads the digits through RST 10H, which SKIPS BLANKS, so 1 5 PRINT is
-# line 15 (it stored line 1 until 2026-09-27: the 2026-09-26 audit,
-# L-14).  That read stops on the first byte past the number that is not a
+# line 15 (it stored line 1 until 2026-09-27: the 2026-09-26 audit).
+# That read stops on the first byte past the number that is not a
 # blank, a TAB or an LF (1D78H-1D88H); 1A8BH-1A91H then back up over
 # BLANKS only, and ONE blank there is dropped (1A93H-1A95H).  So with
 # blanks alone one goes, and a TAB after the number is dropped with
 # everything before it: 10<TAB>PRINT and 10 <TAB>PRINT store PRINT, and
-# 10<TAB>  PRINT stores " PRINT" (audit BL-11; until 2026-10-08 the TAB
+# 10<TAB>  PRINT stores " PRINT" (the 2026-09-30 audit; until 2026-10-08 the TAB
 # was kept).  The keyboard never sends a raw TAB to this routine -- its
 # right arrow becomes blanks to the next column stop -- so the rule is
 # the one a text file's line meets, as on Disk BASIC's ASCII LOAD.  The
@@ -136,12 +136,12 @@ function cut_lineno(s,   n, lead, nb) {
 # scans for the line's first token SKIPPING BLANKS, and if that scan
 # meets the end of the line the entry is a deletion.  So a number
 # followed only by blanks deletes the line; it used to store a line of
-# blanks (the 2026-09-19 audit, L-17).  A deletion of a line that is not
+# blanks (the 2026-09-19 audit).  A deletion of a line that is not
 # there has NO error path: 1AB5H's search finds nothing, 1ABFH skips the
 # insert, and 1AEFH still runs 1B5DH -- the variables go, silently.  It
-# was ?UL here until 2026-09-27 (the 2026-09-26 audit, M-6; ruled R-11).
+# was ?UL here until 2026-09-27 (the 2026-09-26 audit; ruled.
 function enter_line(ln, rest) {
-    LASTLN = ln                     # 1AB1H: "." is the number typed, whatever the entry does (L-12)
+    LASTLN = ln                     # 1AB1H: "." is the number typed, whatever the entry does
     if (rest ~ /^[ \t]*$/) {
         if (ln in prog) delline(ln)
         else run_reset()
@@ -160,7 +160,7 @@ function hist_add(line,   i) {
 }
 
 # every line of the session, as the man page says: the below-grid region
-# pages it (PgUp/PgDn), and it showed only the last 28 (N-4)
+# pages it (PgUp/PgDn), and it showed only the last 28
 function st_history(   i, out) {
     if (HN == 0) { t_man("HISTORY: (empty)"); return }
     out = "HISTORY:"
@@ -183,7 +183,7 @@ function storeline(ln, text) {
 # past the last appends -- the order a listing is typed or pasted in --
 # and only a line in between re-sorts the whole index (rebuild).  Until
 # 2026-09-26 every stored line re-sorted it, so a pasted listing cost the
-# square of its length (the 2026-09-23 audit, L-14: 3000 lines 1.9 s, now
+# square of its length (the 2026-09-23 audit: 3000 lines 1.9 s, now
 # 0.7 s).  PROGDIRTY as rebuild sets it: the image has a new line.
 function index_add(ln) {
     if (ln in LIDX) { PROGDIRTY = 1; return }
@@ -234,7 +234,7 @@ function rebuild(   l) {
 # line at EITHER end (LIST .-, LIST 10-., DELETE .) and a number past
 # 65529 is ?SN.  A missing start is 0 (1B10H), a missing end behind the
 # dash is the top (1B1FH), and a lone number is both ends (1B28H).  Until
-# 2026-09-27 "." was taken only on its own (audit L-12).
+# 2026-09-27 "." was taken only on its own (the 2026-09-26 audit).
 function parse_range(   any) {
     RA = 0; RB = 65529; any = 0
     if (at_stmt_end()) return 0
@@ -253,19 +253,19 @@ function parse_range(   any) {
 # it a program that ran one of them carried on at its old line INDEX in a
 # line table that had just been rebuilt under it -- 10 PRINT "A":20 DELETE
 # 10:30 PRINT "B" skipped line 30 -- and a CLOADed second part started
-# somewhere past its first lines (the 2026-09-19 audit, H-8).
+# somewhere past its first lines (the 2026-09-19 audit).
 # The CONT point is NOT touched: LIST never writes 40F7H (2B2E-2B73); its
 # writers are RUN's initializer (1B77H), STOP/END (1DD1H) and the error
 # routine (19CDH).  So BREAK, LIST, CONT -- the period debugging loop --
-# works; until 2026-09-27 the LIST made CONT ?CN (the 2026-09-26 audit,
-# M-5).  DELETE and AUTO's stores go through 1B5DH (run_reset), CLOAD and
+# works; until 2026-09-27 the LIST made CONT ?CN (the 2026-09-26 audit).
+# DELETE and AUTO's stores go through 1B5DH (run_reset), CLOAD and
 # LOAD through NEW's initializer (prog_load), and those clear it.
 function to_ready() { HALT = 1 }
 
 # Whatever follows the range is ?SN (1B1BH-1B25H: after the numbers the
 # byte must be the dash or the end of the statement), and a number past
 # 65529 is ?SN where it is read (1E62H); LIST 10 X and LIST 70000 listed
-# until 2026-09-27 (the 2026-09-26 audit, L-13).
+# until 2026-09-27 (the 2026-09-26 audit).
 function st_list(   i, ln) {
     parse_range(); if (E) return
     if (!at_stmt_end()) { raise(2); return }
@@ -281,14 +281,14 @@ function st_list(   i, ln) {
 }
 
 # the text LIST and LLIST show for line ln: the line as the ROM stored it
-# (pm_list, p75; audits BM-5, BL-13), keywords spaced apart under the EXT
+# (pm_list, p75; the 2026-09-30 audit), keywords spaced apart under the EXT
 # `spaced on` (display only: SAVE, MEM and RUN never see it)
 function listtext(ln) { return pm_list(ln, SPACED ? "s" : "") }
 
 # LLIST: LIST to the printer stream (all the same range forms)
 function st_llist(   i, ln) {
     parse_range(); if (E) return
-    if (!at_stmt_end()) { raise(2); return }        # as LIST (L-13)
+    if (!at_stmt_end()) { raise(2); return }        # as LIST
     for (i = 1; i <= NL; i++) {
         ln = LNS[i]
         if (ln < RA) continue
@@ -345,7 +345,7 @@ function lineno_dot() {
 # as the running total passes 6552 (1E62-1E66): that is where the 65529
 # line limit comes from, and it makes AUTO 65530 an error rather than a
 # silent no-op.  Until 2026-09-27 "." was ignored, AUTO ,20 began at 10
-# and AUTO 10 X ran (the 2026-09-26 audit, M-7).
+# and AUTO 10 X ran (the 2026-09-26 audit).
 function st_auto(   start, inc) {
     start = 10; inc = 10
     if (!at_stmt_end()) {
@@ -375,7 +375,7 @@ function st_auto(   start, inc) {
 # the entry is stored (1A60-1A6C), and if the bumped number is 65529 or
 # more, or wraps, the entry just typed is DISCARDED and AUTO ends at
 # READY.  In a pipe, where there is no BREAK key, the end of input ends
-# AUTO (ruled R-6, 2026-09-26; an empty line ended it here until
+# AUTO (ruled 2026-09-26; an empty line ended it here until
 # 2026-09-27, and the 65529 entry was kept).
 function auto_run(start, inc,   line, k, bumped) {
     AUTOON = 1; AUTOINC = inc
@@ -402,7 +402,7 @@ function st_new(   x) {
     rebuild()
     clear_vars()
     FSN = 0; GSN = 0; NDATA = 0; DP = 1; DATADIRTY = 1
-    CONTOK = 0; EHANDLER = 0; INHANDLER = 0   # ERR, ERL and "." survive NEW as RUN (1B49H-1B77H, audit L-2, L-12)
+    CONTOK = 0; EHANDLER = 0; INHANDLER = 0   # ERR, ERL and "." survive NEW as RUN (1B49H-1B77H, the 2026-09-26 audit)
     TRACE = 0                       # ROM 1B50: NEW calls 1DF8H, "turn TRACE off"
     HALT = 1
 }
@@ -531,7 +531,7 @@ function st_man(arg,   k) {
     if (k in MANTXT) t_man(MANTXT[k])
     # a statement of more than one word (LINE INPUT, ON ERROR GOTO) is on
     # its first word's page: the pages are keyed by single words, so it was
-    # NO MANUAL ENTRY (the 2026-09-30 audit, N-4)
+    # NO MANUAL ENTRY (the 2026-09-30 audit)
     else if (k ~ / / && (substr(k, 1, index(k, " ") - 1) in MANTXT)) t_man(MANTXT[substr(k, 1, index(k, " ") - 1)])
     else t_man("NO MANUAL ENTRY FOR " k)
 }
@@ -620,7 +620,7 @@ function st_speed(arg) {
 }
 
 # %.6g: concatenation goes through CONVFMT, which carries a double's 17
-# digits, so `speed 0.0000001` showed 9.9999999999999995e-08 (N-4)
+# digits, so `speed 0.0000001` showed 9.9999999999999995e-08
 function speed_msg() {
     return (THROTTLE_MHZ > 0) ? "SPEED " sprintf("%.6g", THROTTLE_MHZ) " MHZ" : "SPEED: FULL (no throttle)"
 }
@@ -638,7 +638,7 @@ function st_sound(arg,   rest) {
         # `~` is the home directory, as at a shell prompt; a path that
         # cannot be written is refused here and the capture left as it
         # was -- it used to be shown as active while the core dropped it
-        # in silence (the 2026-09-19 audit, L-49)
+        # in silence (the 2026-09-19 audit)
         if (rest ~ /^~(\/|$)/ && ENVIRON["HOME"] != "") rest = ENVIRON["HOME"] substr(rest, 2)
         if (rest != "" && !host_canwrite(rest)) {
             t_man("?CANNOT WRITE " rest "\n" snd_msg()); return
@@ -653,7 +653,7 @@ function st_sound(arg,   rest) {
 # --- dir metacommand: shell passthrough for "ls -al" (below-grid output) ----
 # Its output is scrubbed as cat's is: a file NAME can hold an escape
 # sequence, which printed raw could redraw or erase part of the screen
-# (the 2026-09-23 audit, L-9).
+# (the 2026-09-23 audit).
 function st_dir(args) {
     if (WINNATIVE) pass_run("dir" (args == "" ? "" : " " args))
     else           pass_run("ls -al" (args == "" ? "" : " " args))
@@ -662,9 +662,9 @@ function st_dir(args) {
 # The one runner behind dir and cat.  The typed line runs as ONE word of
 # an inner `sh -c`, so the scrub and the 2>&1 take every command in it: a
 # line of two (`cat a; echo b`) used to scrub only the last, and the first
-# one's bytes and errors reached the terminal raw (the 2026-09-30 audit,
-# BL-17).  The output is cut at PASSCAP bytes: `cat /dev/zero` grew the
-# session's memory without end (BL-16).  The grid's below-grid region
+# one's bytes and errors reached the terminal raw (the 2026-09-30 audit).
+# The output is cut at PASSCAP bytes: `cat /dev/zero` grew the
+# session's memory without end.  The grid's below-grid region
 # pages what comes back (PgUp/PgDn / Ctrl-B/F).  A source that BLOCKS (a
 # FIFO, `cat -`) still holds the prompt until it ends: a pipe read gives
 # BREAK no way in.
@@ -727,7 +727,7 @@ function st_csave(   f) {
 }
 
 function save_prog(f,   i, ln) {
-    if (fio_busy(f)) { raise(70); return }      # an open file is not written over (BL-25, p85)
+    if (fio_busy(f)) { raise(70); return }      # an open file is not written over (p85)
     if ((!WINNATIVE && f ~ /'/) || !host_writable(f)) { raise(22); return }
     printf "" > f
     for (i = 1; i <= NL; i++) { ln = LNS[i]; print ln " " pm_list(ln, "f") > f }
@@ -739,7 +739,7 @@ function st_cload(   f, verify) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "?") { verify = 1; CP++ }
     f = parse_fname(); if (E) return
     if (f == "") { raise(21); return }
-    if (host_kind(f) == "x") { raise(22); return }    # a device, a directory, a FIFO (H-3; p90)
+    if (host_kind(f) == "x") { raise(22); return }    # a device, a directory, a FIFO (p90)
     if (!prog_load(f, verify)) { raise(22); return }
     to_ready()
 }
@@ -761,7 +761,7 @@ function st_cload(   f, verify) {
 # return it is READY, or the next statement when a program issued the
 # SYSTEM.  JP 1A19H is READY in both cases: the core reports it (`ready=1`,
 # PROTOCOL.md) and the program is over, as on the machine -- until the
-# 2026-09-19 audit's L-44 it was taken for a return.  Without a core the
+# 2026-09-19 audit it was taken for a return.  Without a core the
 # call is the stub and is tallied as USR's is.  Disk BASIC's SYSTEM
 # "command" ran a DOS command: DOS is not served (ruled 2026-09-15), ?FC.
 # Why it cannot break a period program: every listing that reaches SYSTEM
@@ -772,12 +772,12 @@ function st_cload(   f, verify) {
 # PRINT never runs.  BREAK at the prompt jumps to 06CCH -> 19AEH, READY with
 # no Break message and the CONT state untouched.  Until 2026-10-08 a tail was
 # ?SN (?FC for a string, taken for a DOS command) and BREAK printed BREAK and
-# armed CONT (audit BL-12).
+# armed CONT (the 2026-09-30 audit).
 function st_system(   line, a, s) {
     if (TY[CK, CP] == "s") {
         # a note only: Model 4 style SYSTEM "command" has no DOS behind it.
         # The program's own bytes go into it: a control byte is a full stop,
-        # never raw to the terminal (the 2026-09-23 audit, L-8)
+        # never raw to the terminal (the 2026-09-23 audit)
         s = TK[CK, CP]; gsub(/[^ -~]/, ".", s)
         diag_err("SYSTEM \"" s "\": Level II ignores the text after SYSTEM; no DOS is served here")
     }
@@ -788,7 +788,7 @@ function st_system(   line, a, s) {
     # buffer), which ends SYSTEM.  The address behind / is read by 1E5AH
     # (0323H), so past 65529 it is ?SN.  Until 2026-09-27 the prompt began
     # where the cursor was, ENTER prompted again and /65535 ran (the
-    # 2026-09-26 audit, L-15).
+    # 2026-09-26 audit).
     for (;;) {
         s_nl(); s_puts("*? ")
         line = rl_read(2)                   # 2: TAB completes the file name (p30)
@@ -818,7 +818,7 @@ function sys_find(name,   i, f, ext) {
     split("|.cas|.CAS|.cmd|.CMD", ext, "|")
     for (i = 1; i <= 5; i++) {
         f = name ext[i]
-        if (host_kind(f) != "f") continue         # absent, or not a regular file (H-3; p90)
+        if (host_kind(f) != "f") continue         # absent, or not a regular file (p90)
         if (slurp_bytes(f) >= 0) return f
     }
     return ""
@@ -831,12 +831,12 @@ function sys_find(name,   i, f, ext) {
 # itself, so that byte tells them apart.  Looking for A5H 55H anywhere came
 # first once, and took a load module for a tape whenever its CODE held
 # those two bytes -- ordinary Z80 (LD HL,55A5H) -- printing C and loading
-# nothing (the 2026-09-19 audit, M-6).
+# nothing (the 2026-09-19 audit).
 function sys_load(name,   f, data, i, c, ext) {
     f = sys_find(name)
     if (f == "") return ""
     data = SLURPED; SLURPED = ""
-    if (data == "") return "F"        # an empty file: ORD[""] must not be read bare (N-6)
+    if (data == "") return "F"        # an empty file: ORD[""] must not be read bare
     ext = tolower(substr(f, length(f) - 3))
     c = ORD[substr(data, 1, 1)]
     # The sniff set must be the set sys_load_cmd ACCEPTS, which is also the
@@ -844,7 +844,7 @@ function sys_load(name,   f, data, i, c, ext) {
     # 07/10/1A/1F header, comment and DOS-only records.  10H and 1AH were
     # missing here, so a load module that opens with one -- legal, and
     # accepted mid-file by the very next function -- was taken for a tape
-    # and then failed (the 2026-09-19 audit, L-42).
+    # and then failed (the 2026-09-19 audit).
     if (ext == ".cmd" || (ext != ".cas" && (c == 1 || c == 2 || c == 5 || c == 7 || c == 16 || c == 26 || c == 31)))
         return sys_load_cmd(data)
     i = index(data, CHR[165])                     # A5H: the tape's sync byte
@@ -858,14 +858,14 @@ function sys_load(name,   f, data, i, c, ext) {
 # no ROM behavior to follow.  EXT: the entry is then the first block's load
 # address, the core loader's rule, so both tools run the same file the same
 # way.  Keeping the entry of the file loaded BEFORE had `/` run the previous
-# program's code (the 2026-09-19 audit, M-7).  A load that FAILS keeps it,
+# program's code (the 2026-09-19 audit).  A load that FAILS keeps it,
 # as 40DFH is only written at 02ACH, once the 78H record has been read.
 function sys_load_cas(data, i,   n, c, cnt, a, sum, j, b, got, first) {
     n = length(data); got = 0
     while (i <= n) {
         c = ORD[substr(data, i, 1)]
         if (c == 60) {                            # 3CH: a data block
-            if (i + 1 > n) return "C"             # a lone 3CH at the end: no count byte to read (a bare ORD[""] would create the key: N-6)
+            if (i + 1 > n) return "C"             # a lone 3CH at the end: no count byte to read (a bare ORD[""] would create the key)
             cnt = ORD[substr(data, i + 1, 1)]; if (cnt == 0) cnt = 256
             if (i + 4 + cnt > n) return "C"
             a = ORD[substr(data, i + 2, 1)] + 256 * ORD[substr(data, i + 3, 1)]
@@ -943,7 +943,7 @@ function st_load(   f, keep) {
 # read whole; with R (and for MERGE) they stay open, and the file being read
 # must not be one of them -- it would be read short -- so that is AO, as
 # OPEN of an open file is.  SAVE and CSAVE refuse an open file the same
-# way (save_prog).  Until 2026-10-23 none of them looked (BL-25).
+# way (save_prog).  Until 2026-10-23 none of them looked.
 function load_files(f, keep) {
     if (!keep) { fio_closeall(); return 1 }
     if (fio_busy(f)) { raise(70); return 0 }
@@ -958,10 +958,10 @@ function load_files(f, keep) {
 # names one; so does a file that is there but will not read.  CLOAD does
 # not come here: a tape has no "not found", and Level II's cassette read
 # says bad file data.  Until 2026-09-24 all three said ?FD, so a listing's
-# ERR=106 handler never saw them (the 2026-09-23 audit, M-8).
+# ERR=106 handler never saw them (the 2026-09-23 audit).
 # A name that is there but is not a regular file -- a device spelled past
 # the prefix test, a directory, a FIFO -- is ?FD here, before slurp_bytes
-# would read it without end (the 2026-09-23 audit, H-3; host_kind, p90).
+# would read it without end (the 2026-09-23 audit; host_kind, p90).
 function host_found(f,   k) {
     if (host_special(f)) return 1
     k = host_kind(f)
@@ -1055,7 +1055,7 @@ function st_name(   n, m, i, j, cnt, ln, maxbelow, newn, map, newprog, wa, wn, w
     # resume point name positions in the numbering that no longer exists,
     # so a NAME issued inside a handler would otherwise leave every later
     # error untrapped (INHANDLER blocks the entry) and RESUME aimed at a
-    # stale line.  The one rule (audit L-22, with 2026-09-23's L-6): the
+    # stale line.  The one rule (the 2026-09-26 audit, with the 2026-09-23 audit): the
     # ARMED target follows its rewritten reference; the frames drop.
     INHANDLER = 0
     DATADIRTY = 1; CONTOK = 0
@@ -1162,8 +1162,8 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
         # initialize system variables", so it turns tracing off (1B50) and
         # zeroes the ON ERROR address (1B74, through the 1B5DH reset).  Both
         # outlived a load here: a TRON survived, and an error after the load
-        # jumped into the OLD program's handler line (the 2026-09-19 audit,
-        # L-14).  MERGE keeps the program, so it keeps the handler too.
+        # jumped into the OLD program's handler line (the 2026-09-19 audit).
+        # MERGE keeps the program, so it keeps the handler too.
         if (!merge) { EHANDLER = 0; INHANDLER = 0; TRACE = 0 }
     }
     ok = 1; nseen = 0
@@ -1171,17 +1171,17 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
         l = fl[pln]
         # blank is what RST 10H skips (1D78H): a blank, a TAB, an LF (the
         # in-line line feed of a CR file); FF, VT and a stray CR are not, so
-        # such a line has no number.  tools/tok.py agrees (BL-30).
+        # such a line has no number.  tools/tok.py agrees.
         sub(/^[ \t\n]+/, "", l)
         if (l != "") {
             if (l ~ /^[0-9]+/) {
-                ln = cut_lineno(l); rest = LNBODY     # 1 5 PRINT is line 15 (L-14)
+                ln = cut_lineno(l); rest = LNBODY     # 1 5 PRINT is line 15
                 if (ln > 65529) { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " pln " (LINE NUMBER > 65529)\n" }
                 else if (rest ~ /^[ \t]*$/) {
                     # an ASCII load's lines come in as typed (Disk BASIC
                     # feeds them to 1A98H), so a number followed only by
                     # blanks is a DELETION, silent when the line is not
-                    # there -- enter_line's rule (1AADH-1ABFH; audit L-17).
+                    # there -- enter_line's rule (1AADH-1ABFH; the 2026-09-26 audit).
                     # tools/tok.py drops the line the same way.  A verify
                     # pass skips it: it stores nothing.
                     if (!verify) {
@@ -1223,7 +1223,7 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
 # where a FIFO is read once and works (special.sh).
 function slurp_bytes(f,   save, r) {
     if (host_special(f)) { SLURPED = ""; return -1 }   # a socket or a descriptor, not a file (p90)
-    if (f == "") { SLURPED = ""; return -1 }           # `getline < ""` is a gawk fatal (BL-18)
+    if (f == "") { SLURPED = ""; return -1 }           # `getline < ""` is a gawk fatal
     save = RS; RS = "^$"
     r = (getline SLURPED < f)
     RS = save
@@ -1258,12 +1258,12 @@ function tok_header(data,   i, c) {
 # the detokenized text (pm_detok, p75, keyword spacing included) for CLOAD?
 # and NAME, and runtext (p75) is what a program's real BASIC lines run from.
 # LIST, LLIST, SAVE and CSAVE expand the escrowed bytes themselves
-# (pm_list, p75; since 2026-10-08, audit BL-13).
+# (pm_list, p75; since 2026-10-08, the 2026-09-30 audit).
 #
 # THE THREE USER-VISIBLE DECISIONS, taken 2026-09-12 (the defaults the
 # session recommended; the user did not object):
 #   * LIST shows the stored bytes expanded, as the machine's LIST did (no
-#     added blanks since 2026-10-08, ruled with Q-7).  A payload line lists
+#     added blanks since 2026-10-08, ruled.  A payload line lists
 #     as the glyph soup it always listed as.
 #   * The loader is ONE-WAY: CSAVE and SAVE write text, the same text, so
 #     SAVE + reLOAD gives back the bytes but for a CR or LF in a line and
@@ -1298,8 +1298,8 @@ function prog_load_tok(data, verify, keepfiles, merge,   n, pos, nxt, ln, z, bod
         # initialize system variables", so it turns tracing off (1B50) and
         # zeroes the ON ERROR address (1B74, through the 1B5DH reset).  Both
         # outlived a load here: a TRON survived, and an error after the load
-        # jumped into the OLD program's handler line (the 2026-09-19 audit,
-        # L-14).  MERGE keeps the program, so it keeps the handler too.
+        # jumped into the OLD program's handler line (the 2026-09-19 audit).
+        # MERGE keeps the program, so it keeps the handler too.
         if (!merge) { EHANDLER = 0; INHANDLER = 0; TRACE = 0 }
     }
     ok = 1; nseen = 0; rec = 0; bad = 0
@@ -1308,7 +1308,7 @@ function prog_load_tok(data, verify, keepfiles, merge,   n, pos, nxt, ln, z, bod
             # A tail of NUL is a harmless truncation of the 00 00 marker
             # itself -- a one-byte-short image is a complete program.
             # tools/detok.py has always taken it; this rejected it with
-            # ?FD (the 2026-09-19 audit, L-19), and the two readers of the
+            # ?FD (the 2026-09-19 audit), and the two readers of the
             # same image must agree.  Anything else really is cut short.
             for (x = pos; x <= n; x++) if (ORD[substr(data, x, 1)] != 0) break
             if (x <= n) { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " (rec + 1) " (TRUNCATED HEADER)\n" }

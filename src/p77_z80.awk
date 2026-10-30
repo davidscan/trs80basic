@@ -52,12 +52,12 @@ function z80_init() {
     # The `echo $$` in front makes that pid KNOWN before any handshake: the
     # shell prints its own pid and exec keeps it, z80_start reads the line
     # before HELLO's reply, and z80_close can kill a core that hung without
-    # ever answering (the 2026-09-26 audit, M-1: close() of a coprocess
+    # ever answering (the 2026-09-26 audit: close() of a coprocess
     # waits for the child, and this gawk's PROCINFO has no coprocess pid,
     # so a pid-less hung core held the session for ever -- the protocol's
     # own pid= arrives only with a completed handshake).  Not on native
     # Windows, where there is no $$ and no kill.
-    # `exec` takes a simple command only (the 2026-09-30 audit, BL-24): an
+    # `exec` takes a simple command only (the 2026-09-30 audit): an
     # assignment prefix (FOO=1 python3 core.py) is run through env, which
     # execs in turn and keeps the pid; a compound command (cd /x && ...,
     # a pipe, a subshell) runs without exec, so the pid is its shell's and
@@ -80,7 +80,7 @@ function z80_notice(msg) { diag_err("USR CORE: " msg) }
 # the two apart: getline is 0 at end of file (the core has exited) and -1
 # when READ_TIMEOUT ran out (it is there and silent) -- but 0 too, with
 # ERRNO set, when it ran out on a PARTIAL line, so ERRNO decides (the
-# 2026-09-30 audit, BL-21: a live core that went silent mid-line was
+# 2026-09-30 audit: a live core that went silent mid-line was
 # reported as exited).  gawk 5.2 says neither there: it returns the
 # partial line's length and leaves Z80LINE as the LAST line it read, so
 # the previous reply was taken for this one (CI's Ubuntu gawk 5.2.1:
@@ -130,7 +130,7 @@ function z80_field(key,   s) {
 # core that is hung (the timeout case) is killed first: the pid is the
 # `echo $$` line z80_start read (else the handshake's own pid=), gawk's
 # PROCINFO[cmd, "pid"] being empty on the gawk this was built with.  The
-# kill is BOUNDED (M-1): TERM, up to half a second for it to land, then
+# kill is BOUNDED: TERM, up to half a second for it to land, then
 # KILL -- a core that traps TERM (or a plain `sleep`) no longer holds the
 # session and the tty at close().  On native Windows there is no kill and
 # no pid; a hung core there still hangs the close (documented).
@@ -165,8 +165,8 @@ function z80_start(   w) {
         z80_close(); return
     }
     # the first line is the wrapper shell's `echo $$` -- the core's own pid,
-    # since exec keeps it -- so even a core that never answers can be killed
-    # (M-1).  The handshake's optional pid= is used only without it.
+    # since exec keeps it -- so even a core that never answers can be killed.
+    # The handshake's optional pid= is used only without it.
     if (Z80LINE ~ /^[0-9]+$/) {
         Z80PID = Z80LINE + 0
         if (!z80_recv()) {
@@ -181,7 +181,7 @@ function z80_start(   w) {
     }
     # The pid this side started outranks the one the core reports: a core
     # naming another process got THAT killed on a timeout, and kept its own
-    # hold on close() (the 2026-09-30 audit, BL-22).  pid= is the fallback
+    # hold on close() (the 2026-09-30 audit).  pid= is the fallback
     # for a start with no `echo $$` line.
     if (Z80PID == 0 && z80_field("pid") != "") Z80PID = z80_field("pid") + 0
     Z80STATE = "up"
@@ -194,7 +194,7 @@ function z80_stop() {
     Z80STATE = "dead"; Z80PID = 0
 }
 
-# BYE, then a BOUNDED wait for the core to go (the 2026-09-30 audit, BM-8:
+# BYE, then a BOUNDED wait for the core to go (the 2026-09-30 audit:
 # close() waits for the child, so a core that ignored BYE held the session's
 # end, and a recycle, for its whole life).  The write end closes too, so the
 # core sees EOF; its output is read to EOF, at least 5 s -- the shipped
@@ -221,7 +221,7 @@ function z80_apply(run, isvideo,   p, a, n, bs, j, b) {
         b = bs[j] + 0
         # poke_byte's contract is a byte 0-255 at a 16-bit address; a
         # value or a run outside it is protocol garbage, and the rest of
-        # the run is dropped rather than stored wrong (N-8)
+        # the run is dropped rather than stored wrong
         if (b < 0 || b > 255 || a > 65535) return
         if (isvideo) { if (a >= 15360 && a <= 16383) s_poke(a - 15360, b) }
         else poke_byte(a, b)
@@ -258,7 +258,7 @@ function z80_usr(x,   full, res) {
             # and the reply to it is a full frame with gen=1 -- so a NEED to
             # a frame that WAS full is a protocol violation, not a request.
             # The loop took it as one and resent for ever (the 2026-09-19
-            # audit, L-47): a core stuck on NEED hung the interpreter with no
+            # audit): a core stuck on NEED hung the interpreter with no
             # message and no BREAK.  Now it ends like any other bad line.
             if (full) {
                 z80_notice("'NEED' answered a full frame; the core is dead for this session, USR is the stub")
@@ -274,7 +274,7 @@ function z80_usr(x,   full, res) {
 
 # A frame larger than a pipe holds blocks gawk in write() until the core
 # reads it, and gawk has no write timeout: a core that stopped reading held
-# the session for ever, TRS80_Z80_TIMEOUT or not (BM-8).  So such a frame
+# the session for ever, TRS80_Z80_TIMEOUT or not.  So such a frame
 # is written under a watchdog: a shell whose timer kills the core after
 # TRS80_Z80_TIMEOUT unless the write ends first.  The killed core fails the
 # write (NONFATAL), and the watchdog's exit status says the timer fired
@@ -326,12 +326,12 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
             hl = z80_field("hl") + 0; res = z80_field("result") + 0
             brk = z80_field("break") + 0; k = z80_field("writes") + 0
             rdy = z80_field("ready") + 0         # read now: the W lines replace Z80LINE
-            hl = ((hl % 65536) + 65536) % 65536  # a reply outside 16 bits is garbage: wrapped, as the register would (N-8)
+            hl = ((hl % 65536) + 65536) % 65536  # a reply outside 16 bits is garbage: wrapped, as the register would
             # result=1: the routine went through 0A9AH, whose stores are HL
             # to 4121H and 2 to 40AFH.  Made here too, ahead of the
             # write-set (which wins where it has them: a CALL 0A9AH the
             # routine ran on from), so the value usr_wra1 reads (p60)
-            # does not depend on a peer sending them (XL-1).
+            # does not depend on a peer sending them.
             if (res) { poke_byte(16673, hl % 256); poke_byte(16674, int(hl / 256)); poke_byte(16559, 2) }
             for (i = 1; i <= k; i++) {
                 if (!z80_recv() || Z80LINE !~ /^W /) {
@@ -345,11 +345,11 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
             # ready=1: the routine left through the ROM's READY entry
             # (JP 1A19H), so the program is over -- the machine is at the
             # prompt.  It used to carry on with the next statement, as
-            # after a RET (the 2026-09-19 audit, L-44).  Not END: READY
+            # after a RET (the 2026-09-19 audit).  Not END: READY
             # closes no files, and there is nothing to CONT.
             if (rdy) { HALT = 1; CONTOK = 0 }
             if (hl > 32767) hl -= 65536           # HL to result: signed 16-bit
-            Z80RET = 1                            # the value is WRA1 now (XL-1)
+            Z80RET = 1                            # the value is WRA1 now
             if (res) return hl
             return x
         }

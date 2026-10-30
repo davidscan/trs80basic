@@ -10,7 +10,7 @@
 # reader works from gawk's LF-cut lines, so it must join a line to the
 # next when the next begins with a CR, and must not cut at a CR that an
 # LF precedes.  Until 2026-09-27 the pair split the record in two (the
-# 2026-09-26 audit, M-9).  A lone LF stays the host's own line end, and a
+# 2026-09-26 audit).  A lone LF stays the host's own line end, and a
 # CR with anything else before it still ends the record.
 # Self-checking: exits 1 on any mismatch.  Run from the repo root:
 #     sh programs/tests/lfrecord.sh

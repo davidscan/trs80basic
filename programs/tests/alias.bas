@@ -3,7 +3,7 @@
 30 DIM Z(1):F=0
 40 REM --- read direction: alias onto video RAM and read the screen into the string
 50 POKE 15360,72:POKE 15361,69:POKE 15362,76:POKE 15363,76:POKE 15364,79
-60 A$="     ":V=VARPTR(A$):REM the ROM's integer, negative above 32767 (L-43); PEEK and POKE take only that form (M-11)
+60 A$="     ":V=VARPTR(A$):REM the ROM's integer, negative above 32767; PEEK and POKE take only that form
 70 POKE V+1,0:POKE V+2,60
 80 IF A$<>"HELLO" THEN PRINT "FAIL read screen through alias: ";A$:F=1
 90 IF PEEK(V+1)<>0 OR PEEK(V+2)<>60 THEN PRINT "FAIL poked cells read back";PEEK(V+1);PEEK(V+2):F=1

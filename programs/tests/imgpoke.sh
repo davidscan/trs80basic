@@ -4,7 +4,7 @@
 # and the stored byte is part of the LINE it landed in, as on the machine:
 # it moves with the line when an earlier line is added or deleted, and it is
 # gone when that line is re-entered, deleted, or replaced by NEW or a LOAD.
-# Until the 2026-09-19 audit (M-8) the store was keyed by address alone and
+# Until the 2026-09-19 audit the store was keyed by address alone and
 # never dropped: a program loaded later was read -- by PEEK and by the USR
 # frame -- through the last program's POKEs.
 # Self-checking: exits 1 on any mismatch.

@@ -100,7 +100,7 @@ BEGIN {
     # classic idiom).  ENTER keeps the full 65535.  An answer n is stored
     # as n - 2: 00DEH and 00E7H each DEC HL before 00F2H saves it at 40B1H,
     # so MEM SIZE 32767 leaves 32766 and 32767 above the top, and PRINT MEM
-    # says 15568 (until 2026-10-08 n itself, 2 bytes more: audit OC-12).
+    # says 15568 (until 2026-10-08 n itself, 2 bytes more: the 2026-09-30 audit).
     # Past 65529 the machine's reader says ?SN and asks again (1E5AH); here,
     # as --memsize 65535 always meant, it is the whole map, as ENTER.
     if (BOOTMS ~ /^[ \t]*[0-9]+[ \t]*$/ && BOOTMS + 0 >= 17280 && BOOTMS + 0 <= RAMTOP) {
@@ -148,7 +148,7 @@ function init_tables(   i, c, m, n) {
     LPFILE = ("TRS80_PRINTER" in ENVIRON) ? ENVIRON["TRS80_PRINTER"] : ""
     # a path gawk could not append to would be a fatal at the first
     # LPRINT, losing the program: probed once here, and LPRINT/LLIST are
-    # ?FD instead (lp_refuse, p80; the 2026-09-23 audit, M-1)
+    # ?FD instead (lp_refuse, p80; the 2026-09-23 audit)
     LPBAD = (LPFILE != "" && !host_appendable(LPFILE))
     LPCOL = 0
     # the SYSTEM VARIABLE WINDOW (p75 sv_*): ROM RAM cells period listings
@@ -185,7 +185,7 @@ function init_tables(   i, c, m, n) {
     # REM META: memory host under the ext gate.  MEM and FRE count the ROM's
     # bytes against HOSTTOP so a program can still watch what it uses.
     # programs/tests/hostmem.sh pins it.
-    # EXT `spaced` (ruled 2026-10-03 with Q-7): LIST and LLIST show a
+    # EXT `spaced` (ruled 2026-10-03): LIST and LLIST show a
     # blank around each keyword, FOR I=1 TO 3 where the machine lists the
     # stored FORI=1TO3.  Display only -- the stored bytes, SAVE, MEM and RUN
     # never see it -- and off by default: TRS80_SPACED=1 (or on), the
@@ -247,7 +247,7 @@ function init_tables(   i, c, m, n) {
     M3MODE = 0; M3KANA = 0; WIDE = 0; LATCH = 0
     # "0" means off, as it does for TRS80_EXT above and TRS80_KBPROTO in
     # p30: TRS80_DUMB=0 used to turn plain mode ON, because any non-empty
-    # value counted (the 2026-09-19 audit, L-6).  Unset and empty are both off.
+    # value counted (the 2026-09-19 audit).  Unset and empty are both off.
     DUMB = ("TRS80_DUMB" in ENVIRON && ENVIRON["TRS80_DUMB"] != "" && ENVIRON["TRS80_DUMB"] != "0")
     # misc state
     # the ROM marks the Input Phase in its current-line cell 40A2H with
@@ -258,14 +258,14 @@ function init_tables(   i, c, m, n) {
     # guard byte half up (0796H), so anything at or above (1 - 2^-25) * 2^127
     # carries into an exponent byte of 256: ?OV at 07B2H.  Until 2026-09-25
     # the limit was 1.7E38, so PRINT 1.70141E38 was ?OV (the 2026-09-23
-    # audit, M-10).  The p60 operators, a literal, numconv (p90) and the
+    # audit).  The p60 operators, a literal, numconv (p90) and the
     # MBF encoder (p85) all test against it.
     FMAX = 2^127 - 2^102
     # The double-precision threshold, by the same construction: MBF's
     # largest double is (1 - 2^-56) * 2^127, its guard rounding carries
     # from (1 - 2^-57) * 2^127 up, so the limit sits one half-ulp above
     # the largest value.  Until 2026-09-27 FMAX was applied to doubles
-    # too, and A#=1.7014118D38 was ?OV (the 2026-09-26 audit, L-24).
+    # too, and A#=1.7014118D38 was ?OV (the 2026-09-26 audit).
     DMAX = 2^127 - 2^70
     FMIN = 2^-128                           # the smallest exponent byte (1) is 2^-128; below it a result is 0 (0793H)
     LN2 = log(2)
@@ -354,7 +354,7 @@ function set_speed(mhz) {
 # still ahead -- so the sleep's own overshoot, the statements' own cost
 # and the fork below no longer add up.  Until 2026-09-26 every slice
 # forked `sleep` for the whole of DACC, whatever the time already spent,
-# and a loop ran 40% slow at 1.77 MHz (the 2026-09-23 audit, L-13); with
+# and a loop ran 40% slow at 1.77 MHz (the 2026-09-23 audit); with
 # the extension's sleep() nothing is forked.  A slice is 10 ms with the
 # clock, 30 ms without: the open loop keeps its fork count down.
 #   Falling BEHIND by more than a slice restarts the clock here and

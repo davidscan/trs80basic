@@ -100,7 +100,7 @@ BEGIN {
     # classic idiom).  ENTER keeps the full 65535.  An answer n is stored
     # as n - 2: 00DEH and 00E7H each DEC HL before 00F2H saves it at 40B1H,
     # so MEM SIZE 32767 leaves 32766 and 32767 above the top, and PRINT MEM
-    # says 15568 (until 2026-10-08 n itself, 2 bytes more: audit OC-12).
+    # says 15568 (until 2026-10-08 n itself, 2 bytes more: the 2026-09-30 audit).
     # Past 65529 the machine's reader says ?SN and asks again (1E5AH); here,
     # as --memsize 65535 always meant, it is the whole map, as ENTER.
     if (BOOTMS ~ /^[ \t]*[0-9]+[ \t]*$/ && BOOTMS + 0 >= 17280 && BOOTMS + 0 <= RAMTOP) {
@@ -148,7 +148,7 @@ function init_tables(   i, c, m, n) {
     LPFILE = ("TRS80_PRINTER" in ENVIRON) ? ENVIRON["TRS80_PRINTER"] : ""
     # a path gawk could not append to would be a fatal at the first
     # LPRINT, losing the program: probed once here, and LPRINT/LLIST are
-    # ?FD instead (lp_refuse, p80; the 2026-09-23 audit, M-1)
+    # ?FD instead (lp_refuse, p80; the 2026-09-23 audit)
     LPBAD = (LPFILE != "" && !host_appendable(LPFILE))
     LPCOL = 0
     # the SYSTEM VARIABLE WINDOW (p75 sv_*): ROM RAM cells period listings
@@ -185,7 +185,7 @@ function init_tables(   i, c, m, n) {
     # REM META: memory host under the ext gate.  MEM and FRE count the ROM's
     # bytes against HOSTTOP so a program can still watch what it uses.
     # programs/tests/hostmem.sh pins it.
-    # EXT `spaced` (ruled 2026-10-03 with Q-7): LIST and LLIST show a
+    # EXT `spaced` (ruled 2026-10-03): LIST and LLIST show a
     # blank around each keyword, FOR I=1 TO 3 where the machine lists the
     # stored FORI=1TO3.  Display only -- the stored bytes, SAVE, MEM and RUN
     # never see it -- and off by default: TRS80_SPACED=1 (or on), the
@@ -247,7 +247,7 @@ function init_tables(   i, c, m, n) {
     M3MODE = 0; M3KANA = 0; WIDE = 0; LATCH = 0
     # "0" means off, as it does for TRS80_EXT above and TRS80_KBPROTO in
     # p30: TRS80_DUMB=0 used to turn plain mode ON, because any non-empty
-    # value counted (the 2026-09-19 audit, L-6).  Unset and empty are both off.
+    # value counted (the 2026-09-19 audit).  Unset and empty are both off.
     DUMB = ("TRS80_DUMB" in ENVIRON && ENVIRON["TRS80_DUMB"] != "" && ENVIRON["TRS80_DUMB"] != "0")
     # misc state
     # the ROM marks the Input Phase in its current-line cell 40A2H with
@@ -258,14 +258,14 @@ function init_tables(   i, c, m, n) {
     # guard byte half up (0796H), so anything at or above (1 - 2^-25) * 2^127
     # carries into an exponent byte of 256: ?OV at 07B2H.  Until 2026-09-25
     # the limit was 1.7E38, so PRINT 1.70141E38 was ?OV (the 2026-09-23
-    # audit, M-10).  The p60 operators, a literal, numconv (p90) and the
+    # audit).  The p60 operators, a literal, numconv (p90) and the
     # MBF encoder (p85) all test against it.
     FMAX = 2^127 - 2^102
     # The double-precision threshold, by the same construction: MBF's
     # largest double is (1 - 2^-56) * 2^127, its guard rounding carries
     # from (1 - 2^-57) * 2^127 up, so the limit sits one half-ulp above
     # the largest value.  Until 2026-09-27 FMAX was applied to doubles
-    # too, and A#=1.7014118D38 was ?OV (the 2026-09-26 audit, L-24).
+    # too, and A#=1.7014118D38 was ?OV (the 2026-09-26 audit).
     DMAX = 2^127 - 2^70
     FMIN = 2^-128                           # the smallest exponent byte (1) is 2^-128; below it a result is 0 (0793H)
     LN2 = log(2)
@@ -354,7 +354,7 @@ function set_speed(mhz) {
 # still ahead -- so the sleep's own overshoot, the statements' own cost
 # and the fork below no longer add up.  Until 2026-09-26 every slice
 # forked `sleep` for the whole of DACC, whatever the time already spent,
-# and a loop ran 40% slow at 1.77 MHz (the 2026-09-23 audit, L-13); with
+# and a loop ran 40% slow at 1.77 MHz (the 2026-09-23 audit); with
 # the extension's sleep() nothing is forked.  A slice is 10 ms with the
 # clock, 30 ms without: the open loop keeps its fork count down.
 #   Falling BEHIND by more than a slice restarts the clock here and
@@ -525,7 +525,7 @@ function t_rows(   line, a) {
     # 2>/dev/null comes FIRST: a shell applies redirections left to right,
     # so with it last the shell's own "/dev/tty: Device not configured" for
     # the failed open still went to the real stderr.  `./basic --screen`
-    # off a terminal printed it (the 2026-09-19 audit, L-12).  Both strings
+    # off a terminal printed it (the 2026-09-19 audit).  Both strings
     # must stay identical: the command text is close()'s key.
     if (("stty size 2>/dev/null < /dev/tty" | getline line) > 0 && split(line, a, " ") >= 2) {
         if (a[1] + 0 >= 20) TROWS = a[1] + 0
@@ -672,7 +672,7 @@ function sync_cursor(   vis) {
 # statements (pollbrk), the throttle's wait (thr_wait), and every PRINT
 # and read, which sync on their own.  Until 2026-09-26 each SET and each
 # POKE into video memory wrote its own cursor escape and flushed, a write
-# system call per cell (the 2026-09-23 audit, L-14), so a loop of SETs
+# system call per cell (the 2026-09-23 audit), so a loop of SETs
 # reached the terminal as thousands of tiny writes.  The terminal's own
 # cursor is hidden while a program runs (sync_cursor), so where drawcell
 # leaves it is not seen; a program that showed it (CHR$(14)) sees it
@@ -735,7 +735,7 @@ function s_scroll(   i) {
     # their rows as they do in SCR.  Until 2026-09-26 every scrolled line
     # repainted the whole grid, 1.2 KB, and a listing pasted at READY or a
     # program printing a page reached a real terminal as megabytes (the
-    # 2026-09-23 audit, L-14).  Every ANSI terminal has the region; DUMB
+    # 2026-09-23 audit).  Every ANSI terminal has the region; DUMB
     # streams and draws no grid.  Callers place the cursor afterwards.
     if (!DUMB) printf "\033[1;16r\033[16;1H\n\033[r"
 }
@@ -775,7 +775,7 @@ function s_nl(   i) {
 # offset AND 3FH (2086H-2089H, p80), and the keyboard input routine zeroes
 # it (0365H, p30 rl_read).  Until 2026-09-25 the column was the display
 # byte, so in 32-character mode TAB(10) landed at character 5 and POS(0)
-# read double (the 2026-09-23 audit, M-4).
+# read double (the 2026-09-23 audit).
 function vcol_sync() {
     VCOL = WIDE ? int((CUR % 64) / 2) : CUR % 64
 }
@@ -811,7 +811,7 @@ function s_putc_drv(b,   n, r) {
     # ROM 050E-0513: a control code below 0AH is ignored (08H excepted,
     # just below), and 0AH through 0DH ALL go to the carriage return at
     # 0564H -- so CHR$(11) and CHR$(12) are line feeds like CHR$(10) and
-    # CHR$(13), not the no-ops they were here (the 2026-09-19 audit, L-2).
+    # CHR$(13), not the no-ops they were here (the 2026-09-19 audit).
     if (b >= 10 && b <= 13) { s_nl(); return }
     if (b == 8) {
         if (DUMB && TTYIN) printf "\b \b"
@@ -838,7 +838,7 @@ function s_putc_drv(b,   n, r) {
         return
     }
     # The four arrows NEVER LEAVE THE SCREEN AND NEVER SCROLL IT (the
-    # 2026-09-19 audit, L-1).  Left and right stay in their line: 04E2-04EB
+    # 2026-09-19 audit).  Left and right stay in their line: 04E2-04EB
     # steps back and, from column 0, adds 64 -- the end of the SAME line;
     # 04EC-04F5 steps on and, having reached the next line, takes 64 off.
     # Left runs twice in 32-column mode (04DA-04DF tests bit 3 of 403DH);
@@ -898,7 +898,7 @@ function kb_init() {
     # /dev/tty alone read the keyboard while a transcript sat unread on a
     # piped stdin, so `printf ... | gawk` and every transcript-fed suite
     # stalled at MEM SIZE? whenever a terminal existed (the 2026-09-19
-    # audit, M-22; ruled 2026-09-21).  `stty -g` with no redirect reads
+    # audit; ruled 2026-09-21).  `stty -g` with no redirect reads
     # gawk's stdin.
     TTYIN = (system("( stty -g && stty -g < /dev/tty ) > /dev/null 2>&1") == 0)
     if (TTYIN) {
@@ -966,7 +966,7 @@ function kp_on(   e) {
 # The query goes out on every push until the terminal has answered.  It
 # used to go out once: a reply that missed the first poll episode (a short
 # RUN, a LIST, an arrow key at READY) was lost, and KBPROTO stayed 0 for
-# the session with flag 2 still pushed (the 2026-09-19 audit, H-15).  A
+# the session with flag 2 still pushed (the 2026-09-19 audit).  A
 # terminal without the protocol ignores the repeats as it ignored the first.
 function kp_push() {
     if (!kp_on()) return
@@ -981,7 +981,7 @@ function kp_push() {
 # too, until the stuck-key sweep KP_STUCK seconds after that last event --
 # so a program that polled again at once (a RUN typed quickly, a menu
 # loop, CONT) read BREAK as held for most of the window (the 2026-09-19
-# audit, L-7; seen at a real terminal).  Line mode takes no presses, and a key still
+# audit; seen at a real terminal).  Line mode takes no presses, and a key still
 # held when poll mode returns is pressed again by its repeat bytes.
 function kp_pop() {
     if (!KPPUSHED) return
@@ -995,7 +995,7 @@ function kp_pop() {
 # read cut short is held in KPPART for the next read to complete.  `bare`
 # (the poll reader) holds a trailing ESC or ESC [ too, once the terminal
 # has answered: the cut can fall there as well, and the rest of the event
-# arrived as keys (L-8 below).  The line reader blocks until the next
+# arrived as keys (KP_CUTMS, below).  The line reader blocks until the next
 # keystroke, so a real Esc key there would wait on it; and a terminal
 # without the protocol sends no events to cut: a bare ESC or ESC [ at the
 # end of the read is keys for both.
@@ -1053,7 +1053,7 @@ function kp_repeat(ch,   c, pk, now) {
 # the event, a write or two behind, came in after it as keys of its own --
 # the release was never applied, and the fragment's scan (kb_escseq), ending
 # on the next byte in 64-126, swallowed the next real keystroke (the
-# 2026-09-19 audit, L-8; kbd_pty scenario 12).  A terminal writes one
+# 2026-09-19 audit; kbd_pty scenario 12).  A terminal writes one
 # event whole, so the rest arrives within a millisecond; KP_CUTMS (100)
 # is far beyond that and still below any human keystroke.  Only a real
 # Esc key is ever kept that long, and only under the protocol.  Without
@@ -1147,8 +1147,8 @@ function kb_fill_tty(   save, r, i, n, line) {
 # reply and a release event arrive whenever the terminal sends them, and
 # one that lands here (the reply after a short RUN, a key let go after
 # BREAK) was queued as typed bytes for rl_arrow to swallow -- the protocol
-# never came on, the release was never applied (the 2026-09-19 audit,
-# H-15 and L-7).  Returns the bytes READ, not the bytes queued: a read
+# never came on, the release was never applied (the 2026-09-19 audit).
+# Returns the bytes READ, not the bytes queued: a read
 # the filter emptied is not the end of input kb_get counts to three.
 # Line mode at a TERMINAL: the editor's blocking read of /dev/tty (dd | od),
 # which kb_fill_stdin below mirrors for piped stdin.  Until 2026-09-26 the
@@ -1252,7 +1252,7 @@ function brk_take() {
 # queued for the rest of the run, and while the read waited for an empty
 # queue that one byte meant the tty was never read again -- no Ctrl-C, no
 # Ctrl-S, the 4096-byte guard below unreachable, and a runaway program
-# killable only from another shell (the 2026-09-19 audit, H-14).  KSCAN
+# killable only from another shell (the 2026-09-19 audit).  KSCAN
 # marks how far the queue has been searched for 3 and 19, so type-ahead
 # that sits there is looked at once, not on every poll.
 function pollbrk(   i, c, j) {
@@ -1450,7 +1450,7 @@ function kb_termkey(c) {
 # Until 2026-10-21 one keystroke was an unshifted Z on the matrix and 122
 # through INKEY$: 2,791 corpus listings compare INKEY$ with an upper-case
 # literal, and a user typing lower case got no response (the 2026-09-30
-# audit, Q-4; ruled 2026-10-03).  The screen echoes what the program
+# audit; ruled 2026-10-03).  The screen echoes what the program
 # received.  Terminal input only, and never at READY (lower case there is
 # the metacommands' look): a piped or batch byte stream stays byte-exact.
 function kb_case(c) {
@@ -1527,7 +1527,7 @@ function km_inkey_down(c, raw,   pk) {
 # and the two part company wherever the keyboards do: `:` is its own key on
 # a Model I and Shift+; on a PC, so the press put down row 5 bit 4 and the
 # release (code 59) let go of `;`, bit 8 -- the colon stayed down, SHIFT
-# with it, until the stuck-key sweep (the 2026-09-19 audit, M-20: `: @ " &
+# with it, until the stuck-key sweep (the 2026-09-19 audit: `: @ " &
 # ( ) * +` and the Ctrl-H/J arrows).  So each press records, under the PC
 # key that typed it (kp_pckey), the matrix key it put down, and the release
 # lets go of exactly that -- whatever the modifiers are by then.
@@ -1657,7 +1657,7 @@ function rl_read(repl,   c, r, s, oldl, oldp, swap) {
 # key just typed or deleted at the cursor, and nothing before it.  Until
 # 2026-09-26 every keystroke repainted the whole line from its start, so
 # a pasted line cost the square of its length in output (the 2026-09-23
-# audit, L-14).  The other callers (Ctrl-A/E/U, the arrows, history,
+# audit).  The other callers (Ctrl-A/E/U, the arrows, history,
 # completion, Ctrl-L) pass nothing: from 0, the whole line, as before.
 # Grid mode: repaint from the RLSTART anchor (tracking any scroll it
 # causes).  Fullscreen tty mode: plain backspace/overprint -- fine up to
@@ -1731,7 +1731,7 @@ function rl_hist(dir, oldl, oldp) {
 # Fullscreen/DUMB sends the terminal no clear (no ANSI there: a fresh line
 # instead), but the 64x16 buffer a program PEEKs is wiped as on the grid:
 # it kept the old screen and took the new `>` wherever the cursor stood
-# (the 2026-09-30 audit, BL-19).
+# (the 2026-09-30 audit).
 function rl_clear_screen() {
     if (DUMB) {
         printf (TTYIN ? "\r\n" : "\n")
@@ -1747,10 +1747,10 @@ function rl_clear_screen() {
     rl_draw(0, 0)
 }
 
-# does a file name hold a control byte (BL-28's test, in rl_complete)?
+# does a file name hold a control byte (in rl_complete)?
 # Byte by byte through ORD[], not a regex: a range over bytes above 127
 # is a parse error to gawk in a UTF-8 locale without -b, so the script
-# did not start at all when run bare (the 2026-10-05 audit, BL-40).
+# did not start at all when run bare (the 2026-10-05 audit).
 function ctl_name(s,   i, n, b, p) {
     n = length(s); p = 0
     for (i = 1; i <= n; i++) {
@@ -1771,7 +1771,7 @@ function ctl_name(s,   i, n, b, p) {
 # as before.  Extends by the longest common prefix of the glob matches; a
 # unique directory match gains "/"; ambiguous with nothing to extend lists
 # the candidates below the grid.
-# The line you see is the line that runs (the 2026-09-23 audit, L-9): a
+# The line you see is the line that runs (the 2026-09-23 audit): a
 # name holding a control byte is never offered, since on the screen it
 # could hide the rest of the line; and on a cat or dir line, which the
 # shell parses, a unique match the shell would take apart is inserted
@@ -1792,7 +1792,7 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
             # a control byte in the name is never offered: C0, DEL, and C1
             # (80H-9FH) as UTF-8 encodes it (C2 80-9F) or as a stray byte
             # after ASCII, which an 8-bit terminal takes as CSI and the
-            # rest (the 2026-09-30 audit, BL-28)
+            # rest (the 2026-09-30 audit)
             if (ctl_name(line)) continue
             if (nm < 100) mt[++nm] = line
         }
@@ -1824,7 +1824,7 @@ function rl_complete(   i, c, word, cmd, line, nm, mt, lcp, j, add, oldl, oldp, 
     # any other extension on a cat or dir line that sh would take apart
     # (several matches, or inside a "...") has no one quoted word to
     # become: it is not inserted, the candidates are listed instead
-    # (the 2026-09-26 audit, L-21)
+    # (the 2026-09-26 audit)
     if (RLS ~ /^[ \t]*(cat|dir)[ \t]/ && add ~ /[^A-Za-z0-9._\/+,:@%=-]/) add = ""
     if (add != "") {
         if (oldl + length(add) > RLMAX) return
@@ -1884,7 +1884,7 @@ function handle_line(line,   s, ln, rest) {
     }
     # exit / bye: leave the interpreter, as BYE does (EXT, lowercase-only
     # metacommands like the rest, taking no argument: the user, 2026-10-21;
-    # the Q-5 ruling of 2026-10-03 named both).  Upper-case EXIT and BYE are
+    # the ruling of 2026-10-03 named both).  Upper-case EXIT and BYE are
     # the statement (p70), which works in a program too (2026-10-22)
     if (s ~ /^(exit|bye)[ \t]*$/) { QUITFLAG = 1; return 1 }
     if (s ~ /^man($|[ \t])/) {
@@ -1937,7 +1937,7 @@ function handle_line(line,   s, ln, rest) {
         # current-line cell holds FFFFH (1A36), so they carry no " IN n".
         # They used to set E by hand and report whatever line the LAST
         # error had left in ERR_AT -- "?UL ERROR IN 50" for a line typed
-        # at the prompt, and after L-4 "?UL ERROR IN " with no number at
+        # at the prompt, and after a 2026-09-20 fix "?UL ERROR IN " with no number at
         # all when nothing had failed yet.  raise() notes the line.
         if (ln > 65529) { CLN = DIRECTLN; raise(2); report_err(); return 1 }
         enter_line(ln, rest)
@@ -1949,13 +1949,13 @@ function handle_line(line,   s, ln, rest) {
 
 # The number in front of a typed or loaded line (ROM 1A81H-1A95H): 1E5AH
 # reads the digits through RST 10H, which SKIPS BLANKS, so 1 5 PRINT is
-# line 15 (it stored line 1 until 2026-09-27: the 2026-09-26 audit,
-# L-14).  That read stops on the first byte past the number that is not a
+# line 15 (it stored line 1 until 2026-09-27: the 2026-09-26 audit).
+# That read stops on the first byte past the number that is not a
 # blank, a TAB or an LF (1D78H-1D88H); 1A8BH-1A91H then back up over
 # BLANKS only, and ONE blank there is dropped (1A93H-1A95H).  So with
 # blanks alone one goes, and a TAB after the number is dropped with
 # everything before it: 10<TAB>PRINT and 10 <TAB>PRINT store PRINT, and
-# 10<TAB>  PRINT stores " PRINT" (audit BL-11; until 2026-10-08 the TAB
+# 10<TAB>  PRINT stores " PRINT" (the 2026-09-30 audit; until 2026-10-08 the TAB
 # was kept).  The keyboard never sends a raw TAB to this routine -- its
 # right arrow becomes blanks to the next column stop -- so the rule is
 # the one a text file's line meets, as on Disk BASIC's ASCII LOAD.  The
@@ -1977,12 +1977,12 @@ function cut_lineno(s,   n, lead, nb) {
 # scans for the line's first token SKIPPING BLANKS, and if that scan
 # meets the end of the line the entry is a deletion.  So a number
 # followed only by blanks deletes the line; it used to store a line of
-# blanks (the 2026-09-19 audit, L-17).  A deletion of a line that is not
+# blanks (the 2026-09-19 audit).  A deletion of a line that is not
 # there has NO error path: 1AB5H's search finds nothing, 1ABFH skips the
 # insert, and 1AEFH still runs 1B5DH -- the variables go, silently.  It
-# was ?UL here until 2026-09-27 (the 2026-09-26 audit, M-6; ruled R-11).
+# was ?UL here until 2026-09-27 (the 2026-09-26 audit; ruled.
 function enter_line(ln, rest) {
-    LASTLN = ln                     # 1AB1H: "." is the number typed, whatever the entry does (L-12)
+    LASTLN = ln                     # 1AB1H: "." is the number typed, whatever the entry does
     if (rest ~ /^[ \t]*$/) {
         if (ln in prog) delline(ln)
         else run_reset()
@@ -2001,7 +2001,7 @@ function hist_add(line,   i) {
 }
 
 # every line of the session, as the man page says: the below-grid region
-# pages it (PgUp/PgDn), and it showed only the last 28 (N-4)
+# pages it (PgUp/PgDn), and it showed only the last 28
 function st_history(   i, out) {
     if (HN == 0) { t_man("HISTORY: (empty)"); return }
     out = "HISTORY:"
@@ -2024,7 +2024,7 @@ function storeline(ln, text) {
 # past the last appends -- the order a listing is typed or pasted in --
 # and only a line in between re-sorts the whole index (rebuild).  Until
 # 2026-09-26 every stored line re-sorted it, so a pasted listing cost the
-# square of its length (the 2026-09-23 audit, L-14: 3000 lines 1.9 s, now
+# square of its length (the 2026-09-23 audit: 3000 lines 1.9 s, now
 # 0.7 s).  PROGDIRTY as rebuild sets it: the image has a new line.
 function index_add(ln) {
     if (ln in LIDX) { PROGDIRTY = 1; return }
@@ -2075,7 +2075,7 @@ function rebuild(   l) {
 # line at EITHER end (LIST .-, LIST 10-., DELETE .) and a number past
 # 65529 is ?SN.  A missing start is 0 (1B10H), a missing end behind the
 # dash is the top (1B1FH), and a lone number is both ends (1B28H).  Until
-# 2026-09-27 "." was taken only on its own (audit L-12).
+# 2026-09-27 "." was taken only on its own (the 2026-09-26 audit).
 function parse_range(   any) {
     RA = 0; RB = 65529; any = 0
     if (at_stmt_end()) return 0
@@ -2094,19 +2094,19 @@ function parse_range(   any) {
 # it a program that ran one of them carried on at its old line INDEX in a
 # line table that had just been rebuilt under it -- 10 PRINT "A":20 DELETE
 # 10:30 PRINT "B" skipped line 30 -- and a CLOADed second part started
-# somewhere past its first lines (the 2026-09-19 audit, H-8).
+# somewhere past its first lines (the 2026-09-19 audit).
 # The CONT point is NOT touched: LIST never writes 40F7H (2B2E-2B73); its
 # writers are RUN's initializer (1B77H), STOP/END (1DD1H) and the error
 # routine (19CDH).  So BREAK, LIST, CONT -- the period debugging loop --
-# works; until 2026-09-27 the LIST made CONT ?CN (the 2026-09-26 audit,
-# M-5).  DELETE and AUTO's stores go through 1B5DH (run_reset), CLOAD and
+# works; until 2026-09-27 the LIST made CONT ?CN (the 2026-09-26 audit).
+# DELETE and AUTO's stores go through 1B5DH (run_reset), CLOAD and
 # LOAD through NEW's initializer (prog_load), and those clear it.
 function to_ready() { HALT = 1 }
 
 # Whatever follows the range is ?SN (1B1BH-1B25H: after the numbers the
 # byte must be the dash or the end of the statement), and a number past
 # 65529 is ?SN where it is read (1E62H); LIST 10 X and LIST 70000 listed
-# until 2026-09-27 (the 2026-09-26 audit, L-13).
+# until 2026-09-27 (the 2026-09-26 audit).
 function st_list(   i, ln) {
     parse_range(); if (E) return
     if (!at_stmt_end()) { raise(2); return }
@@ -2122,14 +2122,14 @@ function st_list(   i, ln) {
 }
 
 # the text LIST and LLIST show for line ln: the line as the ROM stored it
-# (pm_list, p75; audits BM-5, BL-13), keywords spaced apart under the EXT
+# (pm_list, p75; the 2026-09-30 audit), keywords spaced apart under the EXT
 # `spaced on` (display only: SAVE, MEM and RUN never see it)
 function listtext(ln) { return pm_list(ln, SPACED ? "s" : "") }
 
 # LLIST: LIST to the printer stream (all the same range forms)
 function st_llist(   i, ln) {
     parse_range(); if (E) return
-    if (!at_stmt_end()) { raise(2); return }        # as LIST (L-13)
+    if (!at_stmt_end()) { raise(2); return }        # as LIST
     for (i = 1; i <= NL; i++) {
         ln = LNS[i]
         if (ln < RA) continue
@@ -2186,7 +2186,7 @@ function lineno_dot() {
 # as the running total passes 6552 (1E62-1E66): that is where the 65529
 # line limit comes from, and it makes AUTO 65530 an error rather than a
 # silent no-op.  Until 2026-09-27 "." was ignored, AUTO ,20 began at 10
-# and AUTO 10 X ran (the 2026-09-26 audit, M-7).
+# and AUTO 10 X ran (the 2026-09-26 audit).
 function st_auto(   start, inc) {
     start = 10; inc = 10
     if (!at_stmt_end()) {
@@ -2216,7 +2216,7 @@ function st_auto(   start, inc) {
 # the entry is stored (1A60-1A6C), and if the bumped number is 65529 or
 # more, or wraps, the entry just typed is DISCARDED and AUTO ends at
 # READY.  In a pipe, where there is no BREAK key, the end of input ends
-# AUTO (ruled R-6, 2026-09-26; an empty line ended it here until
+# AUTO (ruled 2026-09-26; an empty line ended it here until
 # 2026-09-27, and the 65529 entry was kept).
 function auto_run(start, inc,   line, k, bumped) {
     AUTOON = 1; AUTOINC = inc
@@ -2243,7 +2243,7 @@ function st_new(   x) {
     rebuild()
     clear_vars()
     FSN = 0; GSN = 0; NDATA = 0; DP = 1; DATADIRTY = 1
-    CONTOK = 0; EHANDLER = 0; INHANDLER = 0   # ERR, ERL and "." survive NEW as RUN (1B49H-1B77H, audit L-2, L-12)
+    CONTOK = 0; EHANDLER = 0; INHANDLER = 0   # ERR, ERL and "." survive NEW as RUN (1B49H-1B77H, the 2026-09-26 audit)
     TRACE = 0                       # ROM 1B50: NEW calls 1DF8H, "turn TRACE off"
     HALT = 1
 }
@@ -2372,7 +2372,7 @@ function st_man(arg,   k) {
     if (k in MANTXT) t_man(MANTXT[k])
     # a statement of more than one word (LINE INPUT, ON ERROR GOTO) is on
     # its first word's page: the pages are keyed by single words, so it was
-    # NO MANUAL ENTRY (the 2026-09-30 audit, N-4)
+    # NO MANUAL ENTRY (the 2026-09-30 audit)
     else if (k ~ / / && (substr(k, 1, index(k, " ") - 1) in MANTXT)) t_man(MANTXT[substr(k, 1, index(k, " ") - 1)])
     else t_man("NO MANUAL ENTRY FOR " k)
 }
@@ -2461,7 +2461,7 @@ function st_speed(arg) {
 }
 
 # %.6g: concatenation goes through CONVFMT, which carries a double's 17
-# digits, so `speed 0.0000001` showed 9.9999999999999995e-08 (N-4)
+# digits, so `speed 0.0000001` showed 9.9999999999999995e-08
 function speed_msg() {
     return (THROTTLE_MHZ > 0) ? "SPEED " sprintf("%.6g", THROTTLE_MHZ) " MHZ" : "SPEED: FULL (no throttle)"
 }
@@ -2479,7 +2479,7 @@ function st_sound(arg,   rest) {
         # `~` is the home directory, as at a shell prompt; a path that
         # cannot be written is refused here and the capture left as it
         # was -- it used to be shown as active while the core dropped it
-        # in silence (the 2026-09-19 audit, L-49)
+        # in silence (the 2026-09-19 audit)
         if (rest ~ /^~(\/|$)/ && ENVIRON["HOME"] != "") rest = ENVIRON["HOME"] substr(rest, 2)
         if (rest != "" && !host_canwrite(rest)) {
             t_man("?CANNOT WRITE " rest "\n" snd_msg()); return
@@ -2494,7 +2494,7 @@ function st_sound(arg,   rest) {
 # --- dir metacommand: shell passthrough for "ls -al" (below-grid output) ----
 # Its output is scrubbed as cat's is: a file NAME can hold an escape
 # sequence, which printed raw could redraw or erase part of the screen
-# (the 2026-09-23 audit, L-9).
+# (the 2026-09-23 audit).
 function st_dir(args) {
     if (WINNATIVE) pass_run("dir" (args == "" ? "" : " " args))
     else           pass_run("ls -al" (args == "" ? "" : " " args))
@@ -2503,9 +2503,9 @@ function st_dir(args) {
 # The one runner behind dir and cat.  The typed line runs as ONE word of
 # an inner `sh -c`, so the scrub and the 2>&1 take every command in it: a
 # line of two (`cat a; echo b`) used to scrub only the last, and the first
-# one's bytes and errors reached the terminal raw (the 2026-09-30 audit,
-# BL-17).  The output is cut at PASSCAP bytes: `cat /dev/zero` grew the
-# session's memory without end (BL-16).  The grid's below-grid region
+# one's bytes and errors reached the terminal raw (the 2026-09-30 audit).
+# The output is cut at PASSCAP bytes: `cat /dev/zero` grew the
+# session's memory without end.  The grid's below-grid region
 # pages what comes back (PgUp/PgDn / Ctrl-B/F).  A source that BLOCKS (a
 # FIFO, `cat -`) still holds the prompt until it ends: a pipe read gives
 # BREAK no way in.
@@ -2568,7 +2568,7 @@ function st_csave(   f) {
 }
 
 function save_prog(f,   i, ln) {
-    if (fio_busy(f)) { raise(70); return }      # an open file is not written over (BL-25, p85)
+    if (fio_busy(f)) { raise(70); return }      # an open file is not written over (p85)
     if ((!WINNATIVE && f ~ /'/) || !host_writable(f)) { raise(22); return }
     printf "" > f
     for (i = 1; i <= NL; i++) { ln = LNS[i]; print ln " " pm_list(ln, "f") > f }
@@ -2580,7 +2580,7 @@ function st_cload(   f, verify) {
     if (TY[CK, CP] == "o" && TK[CK, CP] == "?") { verify = 1; CP++ }
     f = parse_fname(); if (E) return
     if (f == "") { raise(21); return }
-    if (host_kind(f) == "x") { raise(22); return }    # a device, a directory, a FIFO (H-3; p90)
+    if (host_kind(f) == "x") { raise(22); return }    # a device, a directory, a FIFO (p90)
     if (!prog_load(f, verify)) { raise(22); return }
     to_ready()
 }
@@ -2602,7 +2602,7 @@ function st_cload(   f, verify) {
 # return it is READY, or the next statement when a program issued the
 # SYSTEM.  JP 1A19H is READY in both cases: the core reports it (`ready=1`,
 # PROTOCOL.md) and the program is over, as on the machine -- until the
-# 2026-09-19 audit's L-44 it was taken for a return.  Without a core the
+# 2026-09-19 audit it was taken for a return.  Without a core the
 # call is the stub and is tallied as USR's is.  Disk BASIC's SYSTEM
 # "command" ran a DOS command: DOS is not served (ruled 2026-09-15), ?FC.
 # Why it cannot break a period program: every listing that reaches SYSTEM
@@ -2613,12 +2613,12 @@ function st_cload(   f, verify) {
 # PRINT never runs.  BREAK at the prompt jumps to 06CCH -> 19AEH, READY with
 # no Break message and the CONT state untouched.  Until 2026-10-08 a tail was
 # ?SN (?FC for a string, taken for a DOS command) and BREAK printed BREAK and
-# armed CONT (audit BL-12).
+# armed CONT (the 2026-09-30 audit).
 function st_system(   line, a, s) {
     if (TY[CK, CP] == "s") {
         # a note only: Model 4 style SYSTEM "command" has no DOS behind it.
         # The program's own bytes go into it: a control byte is a full stop,
-        # never raw to the terminal (the 2026-09-23 audit, L-8)
+        # never raw to the terminal (the 2026-09-23 audit)
         s = TK[CK, CP]; gsub(/[^ -~]/, ".", s)
         diag_err("SYSTEM \"" s "\": Level II ignores the text after SYSTEM; no DOS is served here")
     }
@@ -2629,7 +2629,7 @@ function st_system(   line, a, s) {
     # buffer), which ends SYSTEM.  The address behind / is read by 1E5AH
     # (0323H), so past 65529 it is ?SN.  Until 2026-09-27 the prompt began
     # where the cursor was, ENTER prompted again and /65535 ran (the
-    # 2026-09-26 audit, L-15).
+    # 2026-09-26 audit).
     for (;;) {
         s_nl(); s_puts("*? ")
         line = rl_read(2)                   # 2: TAB completes the file name (p30)
@@ -2659,7 +2659,7 @@ function sys_find(name,   i, f, ext) {
     split("|.cas|.CAS|.cmd|.CMD", ext, "|")
     for (i = 1; i <= 5; i++) {
         f = name ext[i]
-        if (host_kind(f) != "f") continue         # absent, or not a regular file (H-3; p90)
+        if (host_kind(f) != "f") continue         # absent, or not a regular file (p90)
         if (slurp_bytes(f) >= 0) return f
     }
     return ""
@@ -2672,12 +2672,12 @@ function sys_find(name,   i, f, ext) {
 # itself, so that byte tells them apart.  Looking for A5H 55H anywhere came
 # first once, and took a load module for a tape whenever its CODE held
 # those two bytes -- ordinary Z80 (LD HL,55A5H) -- printing C and loading
-# nothing (the 2026-09-19 audit, M-6).
+# nothing (the 2026-09-19 audit).
 function sys_load(name,   f, data, i, c, ext) {
     f = sys_find(name)
     if (f == "") return ""
     data = SLURPED; SLURPED = ""
-    if (data == "") return "F"        # an empty file: ORD[""] must not be read bare (N-6)
+    if (data == "") return "F"        # an empty file: ORD[""] must not be read bare
     ext = tolower(substr(f, length(f) - 3))
     c = ORD[substr(data, 1, 1)]
     # The sniff set must be the set sys_load_cmd ACCEPTS, which is also the
@@ -2685,7 +2685,7 @@ function sys_load(name,   f, data, i, c, ext) {
     # 07/10/1A/1F header, comment and DOS-only records.  10H and 1AH were
     # missing here, so a load module that opens with one -- legal, and
     # accepted mid-file by the very next function -- was taken for a tape
-    # and then failed (the 2026-09-19 audit, L-42).
+    # and then failed (the 2026-09-19 audit).
     if (ext == ".cmd" || (ext != ".cas" && (c == 1 || c == 2 || c == 5 || c == 7 || c == 16 || c == 26 || c == 31)))
         return sys_load_cmd(data)
     i = index(data, CHR[165])                     # A5H: the tape's sync byte
@@ -2699,14 +2699,14 @@ function sys_load(name,   f, data, i, c, ext) {
 # no ROM behavior to follow.  EXT: the entry is then the first block's load
 # address, the core loader's rule, so both tools run the same file the same
 # way.  Keeping the entry of the file loaded BEFORE had `/` run the previous
-# program's code (the 2026-09-19 audit, M-7).  A load that FAILS keeps it,
+# program's code (the 2026-09-19 audit).  A load that FAILS keeps it,
 # as 40DFH is only written at 02ACH, once the 78H record has been read.
 function sys_load_cas(data, i,   n, c, cnt, a, sum, j, b, got, first) {
     n = length(data); got = 0
     while (i <= n) {
         c = ORD[substr(data, i, 1)]
         if (c == 60) {                            # 3CH: a data block
-            if (i + 1 > n) return "C"             # a lone 3CH at the end: no count byte to read (a bare ORD[""] would create the key: N-6)
+            if (i + 1 > n) return "C"             # a lone 3CH at the end: no count byte to read (a bare ORD[""] would create the key)
             cnt = ORD[substr(data, i + 1, 1)]; if (cnt == 0) cnt = 256
             if (i + 4 + cnt > n) return "C"
             a = ORD[substr(data, i + 2, 1)] + 256 * ORD[substr(data, i + 3, 1)]
@@ -2784,7 +2784,7 @@ function st_load(   f, keep) {
 # read whole; with R (and for MERGE) they stay open, and the file being read
 # must not be one of them -- it would be read short -- so that is AO, as
 # OPEN of an open file is.  SAVE and CSAVE refuse an open file the same
-# way (save_prog).  Until 2026-10-23 none of them looked (BL-25).
+# way (save_prog).  Until 2026-10-23 none of them looked.
 function load_files(f, keep) {
     if (!keep) { fio_closeall(); return 1 }
     if (fio_busy(f)) { raise(70); return 0 }
@@ -2799,10 +2799,10 @@ function load_files(f, keep) {
 # names one; so does a file that is there but will not read.  CLOAD does
 # not come here: a tape has no "not found", and Level II's cassette read
 # says bad file data.  Until 2026-09-24 all three said ?FD, so a listing's
-# ERR=106 handler never saw them (the 2026-09-23 audit, M-8).
+# ERR=106 handler never saw them (the 2026-09-23 audit).
 # A name that is there but is not a regular file -- a device spelled past
 # the prefix test, a directory, a FIFO -- is ?FD here, before slurp_bytes
-# would read it without end (the 2026-09-23 audit, H-3; host_kind, p90).
+# would read it without end (the 2026-09-23 audit; host_kind, p90).
 function host_found(f,   k) {
     if (host_special(f)) return 1
     k = host_kind(f)
@@ -2896,7 +2896,7 @@ function st_name(   n, m, i, j, cnt, ln, maxbelow, newn, map, newprog, wa, wn, w
     # resume point name positions in the numbering that no longer exists,
     # so a NAME issued inside a handler would otherwise leave every later
     # error untrapped (INHANDLER blocks the entry) and RESUME aimed at a
-    # stale line.  The one rule (audit L-22, with 2026-09-23's L-6): the
+    # stale line.  The one rule (the 2026-09-26 audit, with the 2026-09-23 audit): the
     # ARMED target follows its rewritten reference; the frames drop.
     INHANDLER = 0
     DATADIRTY = 1; CONTOK = 0
@@ -3003,8 +3003,8 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
         # initialize system variables", so it turns tracing off (1B50) and
         # zeroes the ON ERROR address (1B74, through the 1B5DH reset).  Both
         # outlived a load here: a TRON survived, and an error after the load
-        # jumped into the OLD program's handler line (the 2026-09-19 audit,
-        # L-14).  MERGE keeps the program, so it keeps the handler too.
+        # jumped into the OLD program's handler line (the 2026-09-19 audit).
+        # MERGE keeps the program, so it keeps the handler too.
         if (!merge) { EHANDLER = 0; INHANDLER = 0; TRACE = 0 }
     }
     ok = 1; nseen = 0
@@ -3012,17 +3012,17 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
         l = fl[pln]
         # blank is what RST 10H skips (1D78H): a blank, a TAB, an LF (the
         # in-line line feed of a CR file); FF, VT and a stray CR are not, so
-        # such a line has no number.  tools/tok.py agrees (BL-30).
+        # such a line has no number.  tools/tok.py agrees.
         sub(/^[ \t\n]+/, "", l)
         if (l != "") {
             if (l ~ /^[0-9]+/) {
-                ln = cut_lineno(l); rest = LNBODY     # 1 5 PRINT is line 15 (L-14)
+                ln = cut_lineno(l); rest = LNBODY     # 1 5 PRINT is line 15
                 if (ln > 65529) { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " pln " (LINE NUMBER > 65529)\n" }
                 else if (rest ~ /^[ \t]*$/) {
                     # an ASCII load's lines come in as typed (Disk BASIC
                     # feeds them to 1A98H), so a number followed only by
                     # blanks is a DELETION, silent when the line is not
-                    # there -- enter_line's rule (1AADH-1ABFH; audit L-17).
+                    # there -- enter_line's rule (1AADH-1ABFH; the 2026-09-26 audit).
                     # tools/tok.py drops the line the same way.  A verify
                     # pass skips it: it stores nothing.
                     if (!verify) {
@@ -3064,7 +3064,7 @@ function prog_load(f, verify, keepfiles, merge,   l, r, ln, rest, bad, x, nseen,
 # where a FIFO is read once and works (special.sh).
 function slurp_bytes(f,   save, r) {
     if (host_special(f)) { SLURPED = ""; return -1 }   # a socket or a descriptor, not a file (p90)
-    if (f == "") { SLURPED = ""; return -1 }           # `getline < ""` is a gawk fatal (BL-18)
+    if (f == "") { SLURPED = ""; return -1 }           # `getline < ""` is a gawk fatal
     save = RS; RS = "^$"
     r = (getline SLURPED < f)
     RS = save
@@ -3099,12 +3099,12 @@ function tok_header(data,   i, c) {
 # the detokenized text (pm_detok, p75, keyword spacing included) for CLOAD?
 # and NAME, and runtext (p75) is what a program's real BASIC lines run from.
 # LIST, LLIST, SAVE and CSAVE expand the escrowed bytes themselves
-# (pm_list, p75; since 2026-10-08, audit BL-13).
+# (pm_list, p75; since 2026-10-08, the 2026-09-30 audit).
 #
 # THE THREE USER-VISIBLE DECISIONS, taken 2026-09-12 (the defaults the
 # session recommended; the user did not object):
 #   * LIST shows the stored bytes expanded, as the machine's LIST did (no
-#     added blanks since 2026-10-08, ruled with Q-7).  A payload line lists
+#     added blanks since 2026-10-08, ruled.  A payload line lists
 #     as the glyph soup it always listed as.
 #   * The loader is ONE-WAY: CSAVE and SAVE write text, the same text, so
 #     SAVE + reLOAD gives back the bytes but for a CR or LF in a line and
@@ -3139,8 +3139,8 @@ function prog_load_tok(data, verify, keepfiles, merge,   n, pos, nxt, ln, z, bod
         # initialize system variables", so it turns tracing off (1B50) and
         # zeroes the ON ERROR address (1B74, through the 1B5DH reset).  Both
         # outlived a load here: a TRON survived, and an error after the load
-        # jumped into the OLD program's handler line (the 2026-09-19 audit,
-        # L-14).  MERGE keeps the program, so it keeps the handler too.
+        # jumped into the OLD program's handler line (the 2026-09-19 audit).
+        # MERGE keeps the program, so it keeps the handler too.
         if (!merge) { EHANDLER = 0; INHANDLER = 0; TRACE = 0 }
     }
     ok = 1; nseen = 0; rec = 0; bad = 0
@@ -3149,7 +3149,7 @@ function prog_load_tok(data, verify, keepfiles, merge,   n, pos, nxt, ln, z, bod
             # A tail of NUL is a harmless truncation of the 00 00 marker
             # itself -- a one-byte-short image is a complete program.
             # tools/detok.py has always taken it; this rejected it with
-            # ?FD (the 2026-09-19 audit, L-19), and the two readers of the
+            # ?FD (the 2026-09-19 audit), and the two readers of the
             # same image must agree.  Anything else really is cut short.
             for (x = pos; x <= n; x++) if (ORD[substr(data, x, 1)] != 0) break
             if (x <= n) { bad = 1; rpt = rpt "?FD ERROR - FILE LINE " (rec + 1) " (TRUNCATED HEADER)\n" }
@@ -3275,17 +3275,17 @@ function parse_args(   i, a, nofl, host) {
         if (!nofl && a == "--batch") { OPT_BATCH = 1; continue }
         # -h and --version are taken where they stand but the parse goes on:
         # a usage error anywhere is one, whatever its order (`--bogus -h`
-        # errored and `-h --bogus` helped: the 2026-09-30 audit, N-4)
+        # errored and `-h --bogus` helped: the 2026-09-30 audit)
         if (!nofl && (a == "-h" || a == "--help")) { OPT_HELP = 1; continue }
         if (!nofl && a == "--version") { OPT_VERSION = 1; continue }
         if (!nofl && a ~ /^-./) { ARGMSG = "unknown option " a; return 0 }
         if (BATCH) { ARGMSG = "only one program file may be given"; return 0 }
         # an empty name is a usage error: it reached `getline <` as a gawk
-        # fatal (the 2026-09-30 audit, BL-18)
+        # fatal (the 2026-09-30 audit)
         if (a == "") { ARGMSG = "the program file name is empty"; return 0 }
         BATCHFILE = a; BATCH = 1
     }
-    # the mode as p10 will set it: --memory, else TRS80_MEMORY (BL-29: the
+    # the mode as p10 will set it: --memory, else TRS80_MEMORY (until 2026-10-23 the
     # environment's host was let past both checks below)
     host = (OPT_MEMORY != "") ? (OPT_MEMORY == "host") : ("TRS80_MEMORY" in ENVIRON && ENVIRON["TRS80_MEMORY"] == "host")
     if (host && OPT_MEMSIZE) { ARGMSG = "--memory host and --memsize cannot be combined"; return 0 }
@@ -3346,7 +3346,7 @@ function batch_main() {
     if (!prog_load(BATCHFILE, 0)) {
         # /dev/stdin and the shell's <(...) (/dev/fd/N) are refused by name
         # (host_special, p90), and "cannot read" alone sent the user looking
-        # for a missing file (the 2026-09-19 audit, M-23)
+        # for a missing file (the 2026-09-19 audit)
         if (host_special(BATCHFILE))
             diag_err("basic: cannot read '" BATCHFILE "': a device, descriptor or socket name is not taken for a program; give a file (stdin feeds the program's INPUT)")
         else diag_err("basic: cannot read '" BATCHFILE "'")
@@ -3516,7 +3516,7 @@ function batch_ineof() {
 # stand and READS them at run time through RST 10H (0E6CH from 24A5H), so
 # blanks inside a number are nothing (1 2 is 12) -- tk_number below.
 # Until 2026-09-25 a whole identifier was read first and then looked up,
-# and a number by a regex (the 2026-09-23 audit, M-2, and the keyword-
+# and a number by a regex (the 2026-09-23 audit, and the keyword-
 # crunching rule ruled 2026-09-23).
 
 function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
@@ -3527,7 +3527,7 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
     # position, so an unquoted file name is taken verbatim.  EVERY token
     # needs its TPO: a missing one made substr() start at "" and hand back
     # the WHOLE line, so `CSAVE DATA` saved to a file called "CSAVE DATA"
-    # (the 2026-09-19 audit, L-15).  The string, REM, ' and DATA tokens had
+    # (the 2026-09-19 audit).  The string, REM, ' and DATA tokens had
     # none.
     TSRC[key] = text                        # raw source + per-token offsets
     while (i <= n) {                        # (parse_fname reads paths verbatim)
@@ -3589,7 +3589,7 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
                 # the ROM's cruncher knows no FN: a keyword right behind it
                 # is tokenized (DEF FNTO is DEF FN <TO>, ?SN when parsed),
                 # so the name must not swallow one (the 2026-09-26 audit,
-                # N-5; tk_name only cuts keywords AFTER its first letter)
+                # tk_name only cuts keywords AFTER its first letter)
                 if (!(s == "FN" && substr(text, j, 1) ~ /^[A-Za-z]$/ && kw_at(up, j) == "")) {
                     k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0; TKW[key, k] = 1
                     continue
@@ -3742,7 +3742,7 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
     # An E exponent, even an empty one, makes it single whatever its digits
     # (0E8CH CP 45H -> 0EA4H -> 0EFFH CALL Z,0AB1H, CSNG): 12345678E2 is
     # 1.23457E+09.  Until 2026-10-04 eight digits kept it double (the
-    # 2026-09-30 audit, BM-3).
+    # 2026-09-30 audit).
     # TSX carries it as I, S or D (or %SN, ?SN at e_prim).
     if (TKSX == "%") TKSX = "I"
     else if (TKSX == "!") TKSX = "S"
@@ -3784,7 +3784,7 @@ function vn_cut(s,   d, b) {
 # BYE or EXIT is the statement (EXT) only when it is a whole statement:
 # first in the statement (line start, after `:`, THEN or ELSE) and followed
 # by nothing but the statement's end.  `BYE=5` and `PRINT BYE` are the
-# variable BY on the ROM, and stay so here (the 2026-09-30 audit, BM-9).
+# variable BY on the ROM, and stay so here (the 2026-09-30 audit).
 function bye_alone(key, k, up, i,   p) {
     if (k > 0) {
         p = TK[key, k]
@@ -3808,7 +3808,7 @@ function inval_cache_key(k,   i) {
 # Values: "N<t><number>" or "S<string>", where t is the number's TYPE as
 # the ROM holds it: I integer (16 bits), S single (24-bit mantissa), D
 # double (56 bits, held as a payload: p91).    Since 2026-09-26
-# (the 2026-09-23 audit, M-15 and L-16: printing and arithmetic go by
+# (the 2026-09-23 audit: printing and arithmetic go by
 # type).  A literal is typed by the ROM's reader (tk_number, p50); a
 # variable by its NAME at the reference (ntype, p70: the suffix, else the
 # DEF table, else single); an operation by the wider operand, I < S < D
@@ -3835,7 +3835,7 @@ function isN(v) { return substr(v, 1, 1) == "N" }
 # list takes what follows as a new item.
 function skipblank() { if (TY[CK, CP] == "b") CP++ }
 
-# THE EVALUATOR'S STACK (audit OC-12, ruled 2026-10-08: follow the ROM).
+# THE EVALUATOR'S STACK (the 2026-09-30 audit, ruled 2026-10-08: follow the ROM).
 # MEM and FRE(n) are SP minus the top of the arrays (27D4H), and while an
 # expression is being evaluated SP is lower by what the evaluator holds,
 # so the machine's MEM depends on where it stands.  EVSTK is that count:
@@ -3955,7 +3955,7 @@ function e_add(   v, r, op, x, c, vt) {
                 # a carry to ?LS: a string is at most 255 characters, and
                 # the store never happens.  Until 2026-09-24 strings grew
                 # without bound, so the VARPTR length byte held the length
-                # mod 256 and a handler written for ?LS never fired (H-2).
+                # mod 256 and a handler written for ?LS never fired.
                 if (!HOSTMEM && length(v) + length(r) - 2 > 255) { raise_host(15); return v }   # unbounded under `memory host` (EXT)
                 # 29A8H: room for the sum while both operands are held
                 if (!st_alloc(length(v) + length(r) - 2, vt + VTMP)) return v
@@ -3999,7 +3999,7 @@ function tresult(t, x) {
 # ROM bug 5a's mechanism.  From 32768 up the integer part is taken in
 # the value's own type (0B40H's 24-bit conversion for a single, 0B78H
 # for a double), exactly.  Until 2026-09-27 INT floored the raw value
-# and kept its type (the 2026-09-26 audit, L-8).  FIX (0B26H) is INT of
+# and kept its type (the 2026-09-26 audit).  FIX (0B26H) is INT of
 # the magnitude, negated back (097BH: an integer -32768 overflows into
 # a single at 0C5BH).
 function fn_int(v,   t, x) {
@@ -4108,7 +4108,7 @@ function e_prim0(   t, s, v, key, sx) {
     VTMP = 0                                # until a string is built (p75 st_alloc)
     # a lone "." in operand position enters the number reader (24B2H ->
     # 0E6CH), which takes the point and no digits as 0 -- a single, as a
-    # pointed literal is (the 2026-09-26 audit, N-5).  ".5" and "1." were
+    # pointed literal is (the 2026-09-26 audit).  ".5" and "1." were
     # folded into number tokens by tk_number already; only the bare dot
     # reaches here.
     if (t == "o" && TK[CK, CP] == ".") { CP++; return "NS0" }
@@ -4120,7 +4120,7 @@ function e_prim0(   t, s, v, key, sx) {
         if (t == "I") return "NI" s
         if (t == "S") s = rdsng(TK[CK, CP - 1])  # scaled as the reader scales it: .29 is 29/10/10 (p90)
         if (t == "D") { s = dread(TK[CK, CP - 1]); if (E) return "NI0"; return "ND" s }   # the reader's 56-bit steps (p91)
-        s = frange(s, t); if (E) return "NI0"    # 1.70142E38, 1E39 ?OV (p10 FMAX; a double literal at DMAX, L-24); 1E-40 is 0
+        s = frange(s, t); if (E) return "NI0"    # 1.70142E38, 1E39 ?OV (p10 FMAX; a double literal at DMAX); 1E-40 is 0
         return "N" t s
     }
     if (t == "s") {
@@ -4128,8 +4128,8 @@ function e_prim0(   t, s, v, key, sx) {
         # (240) cannot hold one, so the ROM has no case; a LOADed text
         # line here can (linelen.sh), and the value is refused as ?LS,
         # the error every string past 255 gets (29A2H), never stored
-        # (the 2026-09-19 audit's H-2 named it; the 2026-09-26 audit,
-        # L-23).  Unbounded under `memory host` (EXT, p10).
+        # (the 2026-09-19 audit named it; the 2026-09-26 audit).
+        # Unbounded under `memory host` (EXT, p10).
         if (!HOSTMEM && length(TK[CK, CP]) > 255) { raise_host(15); return "NI0" }
         v = "S" TK[CK, CP]; CP++; return v
     }
@@ -4151,9 +4151,9 @@ function e_prim0(   t, s, v, key, sx) {
         # a REM token where an operand is expected is ?SN, as at 2337H:
         # PRINT A REM X used to print A and take the REM as the list's
         # end, and here REM would read as a variable (the 2026-09-23
-        # audit, L-10).  ' is :REM, so a remark after a colon is untouched.
+        # audit).  ' is :REM, so a remark after a colon is untouched.
         # The other statement keywords as operands are the keyword-
-        # crunching rule's business (M-2), not this line's.
+        # crunching rule's business, not this line's.
         if (s == "REM")    { raise(2); return "NI0" }
         if (s == "ERR")    { CP++; return "NI" ERRV }
         if (s == "ERL")    { CP++; return "NS" ERLV }     # 24DFH-24E2H: the line number through 0C66H, a SINGLE (it can be 65535)
@@ -4191,8 +4191,8 @@ function e_prim0(   t, s, v, key, sx) {
         # at 2337H (PRINT 1END, X=END): a variable is never spelled like a
         # keyword, since the tokenizer takes the keyword out of the name
         # (TOTAL is TO TAL, p50).  It read as a variable of that name
-        # before 2026-09-25 (the L-10 remainder).  ELSE, stored behind a
-        # ":", is the statement's end: ?MO, as below (OC-13).
+        # before 2026-09-25.  ELSE, stored behind a
+        # ":", is the statement's end: ?MO, as below.
         if (TKW[CK, CP]) { raise(at_stmt_end() ? 21 : 2); return "NI0" }
         s = vkey(s, TSX[CK, CP]); CP++            # the name and its type (vkey, p70): V, V% and V# are three variables
         if (TY[CK, CP] == "o" && TK[CK, CP] == "(") {
@@ -4209,7 +4209,7 @@ function e_prim0(   t, s, v, key, sx) {
         # NV[s] here is awk's bare-read trap (reading an element creates
         # it) reaching the memory accounting (mem_varbytes counts the
         # entries): until 2026-09-27
-        # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit, M-8).
+        # every read cost 7 or 6 bytes of MEM (the 2026-09-26 audit).
         if (strname(s)) return "S" ((ALN && (("V" s) in ALIAS)) ? al_read("V" s) : (s in SV) ? SV[s] : "")
         t = ntype(s)
         return "N" t ((s in NV) ? ((t == "D") ? NV[s] : NV[s] + 0) : 0)   # a double's payload as it is (p91)
@@ -4218,7 +4218,7 @@ function e_prim0(   t, s, v, key, sx) {
     # ":", or the ELSE stored behind one) is ?MO, missing operand, as on
     # the machine (X=1+, X=(, PRINT B(, LEFT$(A$, , FOR I=1 TO); any other
     # byte is ?SN (X=*2, PRINT 1+;, IF X= THEN).  Until 2026-10-08 both
-    # were ?SN (the 2026-10-08 oracle finding OC-13).
+    # were ?SN (until 2026-10-08).
     raise(at_stmt_end() ? 21 : 2)
     return "NI0"
 }
@@ -4252,7 +4252,7 @@ function aref(name,   nd, i, v, idx, key, idxs, vz) {
         # the auto-DIM creates through DIM's own code (275CH-2774H, shared by
         # create and locate): past 64K it is ?BS before it is ?OM, so
         # A(1,1,1,1)=1 on a 48K machine is ?BS, as DIM A(10,10,10,10) is
-        # (until 2026-10-08 ?OM: audit BL-34, L-9's sibling)
+        # (until 2026-10-08 ?OM: the 2026-09-30 audit)
         if (mem_arrbs(6 + 2 * nd, 11 ^ nd * vz)) { raise_host(9); return "" }   # ?BS (p75)
         if (!mem_need(6 + 2 * nd + 11 ^ nd * vz)) return ""   # ?OM (p75)
         ADIM[name] = nd; AVZ[name] = vz
@@ -4401,12 +4401,12 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc, t1, th) {
     # twin: only port 255 bit 3 does anything there.
     if (name == "INP") {
         x = numarg(a1, na); if (E) return "NI0"
-        x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits (0A7FH), then ?FC outside 0-255 (L-7)
+        x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits (0A7FH), then ?FC outside 0-255
         return "NI" ((x == 255) ? (LATCH ? 63 : 127) : 255)
     }
     # 27F5H reads 40A6H and never looks at WRA1: the argument is a dummy of
     # ANY type -- the dispatch (2574H-257BH) type-checks only SQR-ATN, so
-    # POS("A") is legal on the ROM (the 2026-09-26 audit, N-5)
+    # POS("A") is legal on the ROM (the 2026-09-26 audit)
     if (name == "POS") { if (na != 1) { raise(2); return "NI0" }; return "NI" VCOL }
     if (name == "FRE") {                    # 27D4H: a number asks about free memory, a string about the string area (p75)
         if (na < 1) { raise(2); return "NI0" }
@@ -4422,7 +4422,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc, t1, th) {
     if (name == "VAL") { s = strarg(a1, na); if (E) return "NI0"; x = valnum(s, 1); if (E) return "NI0"; return "N" VALTYPE ((VALTYPE == "S") ? sround(x) : x) }   # a double comes back as its payload (valnum)
     if (name == "CHR$") {
         x = numarg(a1, na); if (E) return "NI0"
-        x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
+        x = byteconv(x); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits, ?FC outside 0-255
         if (!st_alloc(1, 0)) return "NI0"       # 2A21H
         return "S" CHR[x]
     }
@@ -4436,7 +4436,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc, t1, th) {
     if (name == "STRING$") {
         if (na < 2) { raise(2); return "NI0" }
         if (!isN(a1)) { raise(13); return "NI0" }
-        x = to16(num(a1)); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits first (L-7)
+        x = to16(num(a1)); if (E) return "NI0"   # 2B1CH: ?OV past 16 bits first
         if (x < 0 || (!HOSTMEM && x > 255)) { raise_host(5); return "NI0" }   # any count under `memory host` (EXT)
         if (isN(a2)) {
             i = byteconv(num(a2)); if (E) return "NI0"
@@ -4498,7 +4498,7 @@ function fncall(name,   v, a1, a2, a3, na, x, s, i, j, r, fc, t1, th) {
         if (!isN(a1) || !isN(a2)) { raise(13); return "NI0" }
         # 0132H-014DH, shared with SET and RESET: each coordinate a byte
         # (2B1CH: ?OV, then ?FC), x tested against 128 before y is read,
-        # y against 48 (L-7)
+        # y against 48
         x = byteconv(num(a1)); if (E) return "NI0"
         if (x > 127) { raise(5); return "NI0" }
         i = byteconv(num(a2)); if (E) return "NI0"
@@ -4584,7 +4584,7 @@ function bytearg2(a, na) {                # a string count or position (LEFT$, R
 # TRS80_USR=strict raises ?FC on the call instead, for a sweep that
 # wants the run to fail visibly.
 #
-# THE CALL PARSE is the ROM's own (27FE-2818, M-17): RST 10H, then 252CH
+# THE CALL PARSE is the ROM's own (27FE-2818): RST 10H, then 252CH
 # evaluates ONE expression of ANY type -- so `USR(1,2)` is ?SN at the
 # comma, where the generic function parser used to read a second argument
 # and drop it, and a string argument is legal, where numarg made it ?TM.
@@ -4641,8 +4641,8 @@ function fn_usr(name,   a1, x, r, tgt, cp0, nm, key) {
         # the ROM's USR returns through 0890H to the evaluator, which takes
         # whatever the routine left there -- the argument when it touched
         # nothing, the integer when it went through 0A7FH or 0A9AH, any
-        # value it stored itself (XL-1).  The stub returns the argument
-        # UNCHANGED, value and type (M-13: NI on every path was a 6fe3814
+        # value it stored itself.  The stub returns the argument
+        # UNCHANGED, value and type (NI on every path was a 6fe3814
         # regression).  A rewritten string variable is re-read: the
         # routine's write-set went through the descriptor's cells into the
         # variable itself.
@@ -4764,7 +4764,7 @@ function usr_entry(slot,   lo, hi) {
 # name what will actually run.  sys_exec used to resolve first and assign
 # USR_ENTRY afterwards, so the line printed the 408EH vector's entry -- or
 # "undefined" -- for a call that went somewhere else entirely (the
-# 2026-09-19 audit, L-50).
+# 2026-09-19 audit).
 function usr_resolve(name, arg, entry) {
     USR_SLOT = usr_slot(name); USR_ARG = arg
     USR_ENTRY = (entry == "") ? usr_entry(USR_SLOT) : entry + 0
@@ -4833,7 +4833,7 @@ function setline(i) {
 # line's first statement that pointer is the 00 ending the line before
 # (40E6H, 40EEH), so the ROM re-enters through the next-line code
 # (1D35H-1D59H) and TRON prints the line's <n> again (the 2026-09-30
-# audit, BL-4).  A statement further along the line prints nothing.
+# audit).  A statement further along the line prints nothing.
 function trace_placed() {
     if (TRACE && CK != "I" && CP == 1) s_puts("<" CLN ">")
 }
@@ -4856,12 +4856,12 @@ function execloop(   ty, tx) {
                 # inside an error handler is ?NR (the 40F2H flag, code
                 # 22H); otherwise 1DC1H-1DD1H save the end as the CONT
                 # point, as END does, so a later CONT ends again at READY
-                # rather than ?CN (the 2026-09-26 audit, M-2 and R-5).
+                # rather than ?CN (the 2026-09-26 audit).
                 # ?NR is an error like any other: 19C9H-19CDH save the
                 # end as the CONT point first, so CONT after it is READY
                 # (until 2026-10-04 the trapped statement's point stayed,
                 # and CONT re-ran it into the handler: the 2026-09-30
-                # audit, BM-4)
+                # audit)
                 CONT_K = CK; CONT_LI = CLI; CONT_P = CP; CONTOK = 1
                 if (INHANDLER) { raise(18); report_err(); return }
                 return
@@ -4877,7 +4877,7 @@ function execloop(   ty, tx) {
             # the poll falls BETWEEN statements: the one behind is done, so
             # CONT starts the one in front (Farvour 1D1E, 1DB4H saves the
             # pointer past the finished verb); SK/SLI/SCP still name the
-            # finished one, which CONT would run twice (2026-09-26 audit, H-2).
+            # finished one, which CONT would run twice (2026-09-26 audit).
             # A line typed at READY is polled too (1D1E runs for it as for a
             # program line), so a typed loop can be broken; until 2026-10-10
             # it could not, and only killing gawk ended it.
@@ -4893,7 +4893,7 @@ function execloop(   ty, tx) {
         # an error there is noted at the IF, and RESUME NEXT scans from the
         # IF to its first ":" -- for the ELSE part's first statement that is
         # the colon in front of ELSE, so the rest of the line is skipped
-        # (19BAH-19BDH, 1FCFH-1FE7H; audit L-6).  No BREAK poll either.
+        # (19BAH-19BDH, 1FCFH-1FE7H; the 2026-09-26 audit).  No BREAK poll either.
         # The IF's point is saved here and put back after execstmt(), not
         # between the two lines that follow STK/STP (see there).
         IFK = IFKEEP; IFKEEP = 0
@@ -4924,14 +4924,14 @@ function execloop(   ty, tx) {
             # the statement was typed at READY (19C7H: the line is FFFFH),
             # which leaves an earlier STOP's point alone.  So CONT after an
             # error re-runs the failing statement, trapped or not; until
-            # 2026-09-24 a reported error made CONT ?CN (H-1).
+            # 2026-09-24 a reported error made CONT ?CN.
             if (SK != "I") { CONT_K = SK; CONT_LI = SLI; CONT_P = SCP; CONTOK = 1 }
             # 19D0H-19E0H: a handler that is armed and not already running
             # takes the error, whether the statement is a program's or one
             # typed at READY (the ROM's test skips only the CONT save for
             # line FFFFH, and END does not disarm the trap); ERL is then
             # 65535, and RESUME goes on in the typed line.  Until
-            # 2026-09-24 a typed statement's error was never trapped (M-6).
+            # 2026-09-24 a typed statement's error was never trapped.
             if (EHANDLER && !INHANDLER) {
                 ERRV = (E - 1) * 2; ERLV = ERR_AT
                 ERR_K = SK; ERR_LI = SLI; ERR_CP = SCP
@@ -4964,7 +4964,7 @@ function dobreak() {
 # ---- statement dispatch ----------------------------------------------------
 function execstmt(   ty, tx) {
     ty = TY[CK, CP]; tx = TK[CK, CP]
-    EVSTK = 2                               # the statement's own stack (OC-12, p60 e_or)
+    EVSTK = 2                               # the statement's own stack (p60 e_or)
     STMP = 0                                # no string temporary held (p75 st_alloc)
     if (ty == "i") {
         if (tx == "PRINT")   { CP++; st_print(); return }
@@ -5017,7 +5017,7 @@ function execstmt(   ty, tx) {
         if ((tx == "BYE" || tx == "EXIT") && TSX[CK, CP] == "") { CP++; if (at_stmt_end()) { QUITFLAG = 1; HALT = 1; return }; CP-- }
         if (tx == "TRON")    { CP++; TRACE = 1; return }
         if (tx == "TROFF")   { CP++; TRACE = 0; return }
-        if (tx == "RANDOM")  { CP++; rnd_setmid(int(rand() * 128)); return }   # LD A,R (01D3H): the refresh register is 7 bits, 0-127 (N-5)
+        if (tx == "RANDOM")  { CP++; rnd_setmid(int(rand() * 128)); return }   # LD A,R (01D3H): the refresh register is 7 bits, 0-127
         if (tx == "ERROR")   { CP++; st_error(); return }
         if (tx == "RESUME")  { CP++; st_resume(); return }
         if (tx == "DEFINT" || tx == "DEFSNG" || tx == "DEFDBL" || tx == "DEFSTR") { CP++; st_deftype(tx == "DEFINT" ? 2 : tx == "DEFSTR" ? 3 : tx == "DEFDBL" ? 8 : 4); return }
@@ -5041,7 +5041,7 @@ function execstmt(   ty, tx) {
 # the ROM's name reader refuses it (2612H-2615H, ?SN): ABS=3, TO=1, LET
 # PRINT=1, DIM SIN(5), FOR STEP=, READ ERR are all ?SN.  Every statement
 # that reads a target name asks here; until 2026-09-27 each took the
-# keyword as a variable of that name (the 2026-09-26 audit, L-1).
+# keyword as a variable of that name (the 2026-09-26 audit).
 function at_name() { return TY[CK, CP] == "i" && !TKW[CK, CP] }
 
 # is the token cursor at the end of the current statement?
@@ -5063,7 +5063,7 @@ function skipstmt(   ty, tx) {
 
 # ---- assignment ------------------------------------------------------------
 function st_let(   name, key, v, lp, src, j, n) {
-    EVSTK += 2                              # LET's push (OC-12, p60 e_or)
+    EVSTK += 2                              # LET's push (p60 e_or)
     if (!at_name()) { raise(2); return }
     name = lvname()
     key = ""
@@ -5075,7 +5075,7 @@ function st_let(   name, key, v, lp, src, j, n) {
     # simple variable it cannot find (26A0H-26CCH), and only then reads
     # the "=" (1F24H) and the expression (1F2EH).  So X=MEM counts X, and
     # a target whose expression fails is still there.  Until 2026-09-27
-    # the expression came first (the 2026-09-26 audit, M-8).  An array
+    # the expression came first (the 2026-09-26 audit).  An array
     # element's array was made by aref, as the ROM's 260DH makes it.
     mkvar(name, key, LVT)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
@@ -5129,7 +5129,7 @@ function st_deftype(code,   a, b, c) {
             # letter less the first, RET C); the ranges before it in the
             # list stand, since each is applied as it is read (1E29H-
             # 1E33H).  DEFINT C-A set nothing and went on until 2026-09-27
-            # (the 2026-09-26 audit, L-10).
+            # (the 2026-09-26 audit).
             if (ORD[b] < ORD[a]) { raise(2); return }
         }
         for (c = ORD[a]; c <= ORD[b]; c++) deftype(CHR[c], code)
@@ -5157,7 +5157,7 @@ function st_def(tx,   v) {
     if (tx == "FN") {                       # spaced name: DEF FN AB(X)=...
         CP++
         # a KEYWORD is never the name: the cruncher tokenized it (DEF FNTO
-        # is DEF FN <TO>, ?SN -- N-5)
+        # is DEF FN <TO>, ?SN)
         if (TY[CK, CP] != "i" || ((CK, CP) in TKW)) { raise(2); return }
         tx = TK[CK, CP]; CP++
         st_deffn(tx)
@@ -5218,7 +5218,7 @@ function st_deffn(name,   n, i) {
 # and file I/O consistently.  sx is the suffix written at the reference,
 # where the caller has it: a % ! # names the numeric variable of that
 # type whatever DEFSTR says of the letter (manual, section 1: "A$, A%,
-# A!, A# are distinct variable names"; 2026-10-05, the audit's OC-11),
+# A!, A# are distinct variable names"; 2026-10-05, an audit finding),
 # as a $ under DEFINT names the string.  A storage key (vkey) carries
 # its type as its last character, so it answers alone.  Until 2026-10-05
 # the DEFSTR letter won and G%=5 was ?TM.
@@ -5296,7 +5296,7 @@ function intvar(name, sx) {
 # nothing is stored.  READ and INPUT reach the same conversion (224AH ->
 # 1F33H), so a typed 40000 is ?OV, not ?REDO.
 function intstore(x,   r) {
-    r = bfloor(sround(x))                   # a double is a single first (0A7FH: 0AB9H, 0796H); L-8
+    r = bfloor(sround(x))                   # a double is a single first (0A7FH: 0AB9H, 0796H)
     if (r > 32767 || r < -32768) { raise(6); return 0 }
     return r
 }
@@ -5338,7 +5338,7 @@ function assignv(name, key, v,   isint, tgt, n, ty) {
         # still the variable's, so both must fit; past the area's end, a
         # collection (28E6H) and then ?OS, and nothing is stored.  Until
         # 2026-09-25 the string area had no end here (the 2026-09-23
-        # audit, L-15's cluster).
+        # audit).
         if (!HOSTMEM && STRUSED + n > mem_strsz()) { raise(14); return }   # never under `memory host` (EXT)
         STRUSED += n - ((tgt in STRCNT) ? STRCNT[tgt] : 0); STRCNT[tgt] = n
         if (ALN) al_clear(name, key)            # the descriptor moves (p75, finding 7)
@@ -5351,7 +5351,7 @@ function assignv(name, key, v,   isint, tgt, n, ty) {
         # by the target's type: an integer through 0A7FH (?OV), a single
         # rounded to 24 bits (0796H) and range-checked at the single's
         # limit -- a double past FMAX stored into a single is ?OV (0AB9H
-        # -> 0796H -> 07B2H; L-24) -- a double as it is: a single value
+        # -> 0796H -> 07B2H) -- a double as it is: a single value
         # stored into a double keeps its 24 bits, so A#=1/3 is
         # .3333333432674408 as on the machine
         v = isint ? intstore(num(v)) : (ty == "S") ? frange(sround(num(v)), "S") : (vtype(v) == "D") ? substr(v, 3) : num(v)   # a double keeps its payload (p91)
@@ -5368,10 +5368,10 @@ function assignv(name, key, v,   isint, tgt, n, ty) {
 # first byte that is not a digit, so a bare GOTO, or GOTO X, is GOTO 0;
 # and a value that would pass 65529 is ?SN (1E62H-1E66H), so GOTO 70000
 # is ?SN, never ?UL.  Until 2026-09-25 a bare GOTO was ?SN and GOTO 70000
-# was ?UL (the 2026-09-23 audit, L-5).  Only the DIGITS count: the number
+# was ?UL (the 2026-09-23 audit).  Only the DIGITS count: the number
 # token's text ends at a point or an exponent for 1E5AH, so GOTO 100.5 is
 # GOTO 100 and GOTO 1E2 is GOTO 1 (it took the whole value until
-# 2026-09-26, audit L-3).  LNREST says that text was left behind the
+# 2026-09-26, the 2026-09-26 audit).  LNREST says that text was left behind the
 # digits, which a caller that reads on (ON's skip) sees as the next byte.
 function lineno_arg(   ln, t) {
     LNREST = 0
@@ -5406,7 +5406,7 @@ function st_return() {
     if (!at_stmt_end()) { raise(2); return }
     # with no GOSUB open, the FOR frames are gone before the ?RG: 1EE1H's
     # walk (1936H) passes every one, 1EE4H-1EE5H keep that stack pointer,
-    # and only 1EE8H tests for the GOSUB (the 2026-09-30 audit, BL-1)
+    # and only 1EE8H tests for the GOSUB (the 2026-09-30 audit)
     if (GSN == 0) { FSN = 0; raise(3); return }
     CK = GS_K[GSN]; CLI = GS_LI[GSN]; CP = GS_P[GSN]
     skipstmt(); PLACED = 1
@@ -5426,10 +5426,10 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     sng = (ntype(name) == "S")              # the index, limit and step are held in the variable's type (1D1DH-1D1FH)
     dbl = (ntype(name) == "D")
     CP++
-    mkvar(name, "", dbl ? "D" : sng ? "S" : "I")   # the index exists before its start is evaluated (1CA6H -> 1F21H; M-8)
+    mkvar(name, "", dbl ? "D" : sng ? "S" : "I")   # the index exists before its start is evaluated (1CA6H -> 1F21H)
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "=")) { raise(2); return }
     CP++
-    EVSTK += 4                              # FOR's pushes and its LET's (OC-12, p60 e_or)
+    EVSTK += 4                              # FOR's pushes and its LET's (p60 e_or)
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
     # an integer index runs an integer loop: the start through LET (1CA6H ->
@@ -5447,7 +5447,7 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
     # a DOUBLE index is ?TM, tested after the start is stored and TO is
     # read (1CC5H-1CCBH: RST 20H on the index's type, JP NC,0AF6H): the
     # loop's frame holds a single or an integer only.  FOR I#= and a
-    # DEFDBL index ran here until 2026-09-27 (the 2026-09-26 audit, M-3).
+    # DEFDBL index ran here until 2026-09-27 (the 2026-09-26 audit).
     if (dbl) { raise(13); return }
     CP++
     v = e_or(); if (E) return
@@ -5475,7 +5475,7 @@ function st_for(   name, v0, v1, stp, j, v, isint, sng, dbl) {
 # IF I<3 THEN NEXT ELSE PRINT "DONE" is a bare NEXT, its ELSE stored
 # behind a ":" (1C42H), and NEXT TO, NEXT 5 and NEXT ,I are ?SN before
 # any loop steps.  Until 2026-10-04 any identifier, ELSE included, was
-# taken as the index: ?NF (the 2026-09-30 audit, BM-1).
+# taken as the index: ?NF (the 2026-09-30 audit).
 function st_next(   name, looped) {
     for (;;) {
         name = ""
@@ -5515,7 +5515,7 @@ function do_next(name,   j, v, fl, d) {
     # a single index steps by the single add (0716H): 24 bits, so X=X+.1
     # drifts as on the machine; and a sum past the single's range is ?OV
     # there (0796H -> 07B2H) before the store, so the index keeps its value
-    # (the 2026-09-30 audit, BL-5: FOR I=1E38 TO 1.7E38 STEP 1E38 ended
+    # (the 2026-09-30 audit: FOR I=1E38 TO 1.7E38 STEP 1E38 ended
     # with a single holding 2E+38)
     if (FS_SN[j]) { v = frange(sadd(NV[FS_V[j]], FS_S[j]), "S"); if (E) return 0 }
     else v = NV[FS_V[j]] + FS_S[j]
@@ -5558,7 +5558,7 @@ function st_if(   v, truth, hadkw, d, p, ty, tx, ln) {
         # the ROM never treats IF's GOTO specially: 204FH sees no number,
         # 1D5FH runs "GOTO <rest>" as a statement, and GOTO's reader
         # (1E5AH) takes a bare target as 0 -- so IF 1 GOTO PRINT is
-        # GOTO 0, ?UL, not ?SN (the 2026-09-26 audit, N-5)
+        # GOTO 0, ?UL, not ?SN (the 2026-09-26 audit)
         if (hadkw == "GOTO") { st_goto(); return }
         IFKEEP = 1                          # the next statement is dispatched from here (execloop)
         return                              # statements after THEN execute
@@ -5589,7 +5589,7 @@ function st_on(   v, n, mode, cnt, ln) {
         if (!(TY[CK, CP] == "i" && TK[CK, CP] == "GOTO")) { raise(2); return }
         CP++
         # 1F73H: the GOTO reader, so a bare ON ERROR GOTO is GOTO 0 (it
-        # disarms) and a number past 65529 is ?SN (audit M-14)
+        # disarms) and a number past 65529 is ?SN (the 2026-09-26 audit)
         n = lineno_arg(); if (E) return
         # ROM 1F7A-1F80: a target other than 0 is looked up at 1B2AH WHEN
         # THE STATEMENT RUNS, and a line that is not there is ?UL then --
@@ -5605,7 +5605,7 @@ function st_on(   v, n, mode, cnt, ln) {
     }
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    n = byteconv(num(v)); if (E) return    # 1F9BH -> 2B1CH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
+    n = byteconv(num(v)); if (E) return    # 1F9BH -> 2B1CH: ?OV past 16 bits, ?FC outside 0-255
     skipblank()
     if (TY[CK, CP] == "i" && (TK[CK, CP] == "GOTO" || TK[CK, CP] == "GOSUB")) {
         mode = TK[CK, CP]; CP++
@@ -5616,7 +5616,7 @@ function st_on(   v, n, mode, cnt, ln) {
     # a comma, or ON returns to the driver there (n past the list, or 0,
     # which counts round from 255, falls through).  An empty item is line
     # 0.  It read the whole list first until 2026-09-26, so ON Q GOTO 30,
-    # was ?SN and ON 2 GOTO 100,,200 too (audit M-14).
+    # was ?SN and ON 2 GOTO 100,,200 too (the 2026-09-26 audit).
     cnt = n
     for (;;) {
         cnt = (cnt + 255) % 256
@@ -5687,7 +5687,7 @@ function st_run(   n, f, keep, given) {
     }
     # 1EA3H: anything behind RUN but the end goes to the GOTO code, so
     # RUN X is RUN 0 (?UL without a line 0); it ran from the top until
-    # 2026-09-26 (audit L-3)
+    # 2026-09-26 (the 2026-09-26 audit)
     n = 0; given = 0
     if (!at_stmt_end()) { given = 1; n = lineno_arg(); if (E) return }
     run_start(n, 0, given)
@@ -5705,7 +5705,7 @@ function run_start(n, keepfiles, given) {
     DP = 1
     # 1B6EH-1B77H clear the handler flag, the ON ERROR address and the
     # CONT point; ERR (409AH) and ERL (40EAH) are left as they were
-    # (until 2026-09-26 RUN zeroed them, audit L-2)
+    # (until 2026-09-26 RUN zeroed them, the 2026-09-26 audit)
     EHANDLER = 0; INHANDLER = 0
     CONTOK = 0
     if (given) { jumpline(n); return }
@@ -5728,15 +5728,14 @@ function st_clear(   v, ty, tx, n) {
         # when the area would reach down to 40 bytes past the program's end
         # (1E90H-1E98H).  Either error leaves the variables alone: the
         # initializer at 1B61H is joined only afterwards (1EA0H).  Until
-        # 2026-09-25 n was evaluated and thrown away (the 2026-09-23 audit,
-        # L-4).
+        # 2026-09-25 n was evaluated and thrown away (the 2026-09-23 audit).
         n = bigint(num(v)); if (E) return
         if (n < 0) { raise(5); return }
         skipblank()
         # the statement must end here (1E80H-1E82H, RET NZ to the driver's
         # ?SN) before the string area is placed or anything is cleared:
         # CLEAR 100 X keeps the variables.  Until 2026-09-27 the clear ran
-        # first and the X was ?SN afterwards (the 2026-09-26 audit, L-11).
+        # first and the X was ?SN afterwards (the 2026-09-26 audit).
         if (!at_stmt_end()) { raise(2); return }
         if (!HOSTMEM) {                     # `memory host` (EXT): no string area to place, any count
             if (n > HIMEM) { raise_host(7); return }
@@ -5759,7 +5758,7 @@ function st_clear(   v, ty, tx, n) {
 # EXT: the line number.  Level II's RESTORE takes none (a number behind
 # it is ?SN) and neither Model III manual documents it, so a period
 # listing that used it stopped on the machine: taking it cannot change
-# one that runs (audit R-3, ruled 2026-09-26).
+# one that runs (the 2026-09-26 audit, ruled 2026-09-26).
 function st_restore(   n, i) {
     if (DATADIRTY) datascan()
     if (TY[CK, CP] == "n") {
@@ -5785,10 +5784,10 @@ function st_error(   v, n) {
     # System manual p.156), so past 23 -- the gaps and 51-70 alike -- is
     # ?UE.  Until 2026-09-21 they were 24-31 and ERROR 24-31 named them.
     n = byteconv(num(v)); if (E) return
-    if (!at_stmt_end()) return  # 1FF7H RET NZ: the driver's ?SN for ERROR 5 X (audit L-5)
+    if (!at_stmt_end()) return  # 1FF7H RET NZ: the driver's ?SN for ERROR 5 X (the 2026-09-26 audit)
     if (n == 0) { raise(5); return }
     # 1FFC-1FFF double n-1 in the 8-bit A, so 129-151 wrap to the codes of
-    # 1-23 (ERR included) and only 24-128 and 152-255 are ?UE (Q-6, BL-6)
+    # 1-23 (ERR included) and only 24-128 and 152-255 are ?UE
     if (n >= 129 && n <= 128 + NERRC) n -= 128
     if (n > NERRC) { raise(20); return }
     raise(n)
@@ -5801,7 +5800,7 @@ function st_error(   v, n) {
 function st_resume(   p, ty, tx) {
     if (!INHANDLER) { raise(19); return }
     INHANDLER = 0
-    ERRV = 0                    # 1FB7H-1FB8H: the error code cell 409AH is zeroed, so ERR is 0 (audit L-4)
+    ERRV = 0                    # 1FB7H-1FB8H: the error code cell 409AH is zeroed, so ERR is 0 (the 2026-09-26 audit)
     PLACED = 1
     if (TY[CK, CP] == "i" && TK[CK, CP] == "NEXT") {
         CP++
@@ -5820,7 +5819,7 @@ function st_resume(   p, ty, tx) {
     # RESUME n reads its line number with GOTO's reader (1FC1H CALL 1E5AH):
     # digits only, so RESUME 30.5 and RESUME 1E2 leave text behind it and
     # are ?SN (1FC4H RET NZ), and RESUME 70000 is ?SN, never ?UL.  Until
-    # 2026-10-05 it took the whole number token (the 2026-09-30 audit, BL-3).
+    # 2026-10-05 it took the whole number token (the 2026-09-30 audit).
     if (TY[CK, CP] == "n") {
         p = lineno_arg(); if (E) return
         if (LNREST || !at_stmt_end()) { raise(2); return }
@@ -5852,7 +5851,7 @@ function st_resume(   p, ty, tx) {
 #     SIZE? answer).  The image is WRITABLE since 2026-09-12 (read rule 5,
 #     below).  Keyword bytes 80-FB embedded below = tools/level2_tokens.tsv;
 #     serialization is validated byte-for-byte against tools/tok.py
-#     (programs/tests/crunch.sh).  Until the 2026-09-19 audit's L-13 two
+#     (programs/tests/crunch.sh).  Until the 2026-09-19 audit two
 #     deviations were recorded here -- lowercase keywords stayed text and
 #     ELSE went without its hidden ":" -- and "?" was a third; pm_crunch
 #     follows the ROM's cruncher on all three now.
@@ -5910,7 +5909,7 @@ function st_resume(   p, ty, tx) {
 #     A BYTE STORED PAST THE LIVE LENGTH, inside the cells mapped for the
 #     string, is a byte of RAM and nothing more: it reads back, and the
 #     string's value and LEN do not change, because on the machine only the
-#     descriptor says how long a string is (the 2026-09-19 audit, L-48: it
+#     descriptor says how long a string is (the 2026-09-19 audit: it
 #     used to LENGTHEN the string, padding up to it with blanks).
 
 # ---- THE ADDRESS-RESOLUTION CONTRACT --------------------------------------
@@ -5964,7 +5963,7 @@ function st_resume(   p, ty, tx) {
 # name rules 2 and 5 together and call "POKE lands in MEM[] and is never
 # read back" a class; rule 5 stopped being an instance of it on 2026-09-12,
 # when the image became writable, and the note was left behind (the
-# 2026-09-19 audit, L-51).  What is still read-only, with no write branch at
+# 2026-09-19 audit).  What is still read-only, with no write branch at
 # all, is listed under the write side below: 37E8/37E9H, 3800-3BFFH,
 # 40A4/40A5H and 40F9/40FAH.
 #
@@ -6079,7 +6078,7 @@ function pm_init_index(   tbl, pairs, np, i, j, v, w, ins) {
     }
     # the same table by first character, in the same order, for kw_at: a
     # character tries only the keywords that begin with it (the 2026-09-23
-    # audit, L-14: the linear scan cost 8.5 us a byte)
+    # audit: the linear scan cost 8.5 us a byte)
     for (j = 1; j <= NTOKI; j++) {
         w = substr(TIW[j], 1, 1)
         KW[w, ++KWN[w]] = TIW[j]; KWV[w, KWN[w]] = TIV[j]
@@ -6169,7 +6168,7 @@ function pm_detok(body, raw,   out, i, n, b, c, ins, ind, lit, kw, nxt, par) {
         }
         # outside a string an LF or CR in an image byte is no blank: RST 10H
         # skips 20H and 09H only (1D78-1D88), so the dispatch meets the byte
-        # and the statement is ?SN at run time (audit L-16).  The run
+        # and the statement is ?SN at run time (the 2026-09-26 audit).  The run
         # rendering (raw) keeps it for tokline; LIST shows a blank.
         if (b == 10 || b == 13) { out = out (raw ? c : " "); i++; continue }
         if (b >= 128) {
@@ -6187,8 +6186,8 @@ function pm_detok(body, raw,   out, i, n, b, c, ins, ind, lit, kw, nxt, par) {
         # (1BC0H upper-cases), so an image is its only way in, and on the
         # machine it is no letter: the name reader and the dispatch refuse
         # it, ?SN at run time.  tokline upper-cases what it reads, so the run
-        # rendering hands it the CR of L-16 above in its place; LIST shows
-        # the letter, as the ROM's does (the 2026-09-30 audit, N-3).
+        # rendering hands it a CR in its place (the ?SN above); LIST shows
+        # the letter, as the ROM's does (the 2026-09-30 audit).
         if (raw && b >= 97 && b <= 122) { out = out "\r"; i++; continue }
         out = out c; i++
     }
@@ -6222,7 +6221,7 @@ function spl_paren(body, i,   j, n, c, p) {
 }
 
 # the text LIST, LLIST, SAVE and CSAVE show for line ln: its stored bytes
-# expanded as the ROM's LIST does (2B7E-2BC4; audits BM-5, BL-13).  A byte
+# expanded as the ROM's LIST does (2B7E-2BC4; the 2026-09-30 audit).  A byte
 # below 80H is copied, a token is replaced by its keyword with no blank
 # added, and nothing knows about quotes, so a token byte inside a string
 # or a REM expands too.  The ' token first takes back the four characters
@@ -6301,7 +6300,7 @@ function pm_body(ln,   body, j) {
 # DATA-to-colon, and REM/' payloads stay literal; ' stores as :REM')
 #
 # Outside those regions it crunches as the ROM does (1BC0-1C8F; the
-# 2026-09-19 audit, L-13), because the core EXECUTES image bytes and a
+# 2026-09-19 audit), because the core EXECUTES image bytes and a
 # program PEEKs them:
 #   * a letter is matched, and stored, in UPPER case: 1C00-1C0B upper-cases
 #     a symbol's first character in the buffer, 1C2D-1C31 compares the rest
@@ -6368,7 +6367,7 @@ function pm_crunch(text,   i, n, c, ins, ind, lit, w, up) {
 # fooled.  Until 2026-09-11 the next pointer wrapped modulo 65536 and PMEM
 # went on being written above the address space, unreachable by any PEEK.
 #
-# WHAT A POKE INTO THE IMAGE BELONGS TO (the 2026-09-19 audit, M-8).  Read
+# WHAT A POKE INTO THE IMAGE BELONGS TO (the 2026-09-19 audit).  Read
 # rule 5 serves MEM[a] over the crunched byte, and MEM[] is keyed by
 # address, but on the machine a byte POKEd into a line is part of that
 # LINE: it moves when an earlier line grows or goes, and it is gone when the
@@ -6502,7 +6501,7 @@ function sp_map_data(tgt, base, len,   j) {
 # The bytes a numeric's value takes: the size recorded when its entry was
 # made (NVZ, AVZ; vt_size), else the name's type.  Until 2026-09-29 every
 # numeric took a single's 4, so A%=513 read back as MBF bytes and a
-# double lost its low half (the 2026-09-26 audit, R-8, step 2).
+# double lost its low half (the 2026-09-26 audit, step 2).
 function sp_nsize(tgt,   k, i) {
     k = substr(tgt, 2)
     if (substr(tgt, 1, 1) == "A") {
@@ -6576,12 +6575,12 @@ function sp_materialize(tgt, isstr,   len, need, base, j, dbase) {
 # allocates and zeroes the whole array; Farvour's array entry: the header,
 # then the elements in order).  So VARPTR(A%(1)) is VARPTR(A%(0))+2 and
 # machine code can walk the array from VARPTR(A%(0)).  The first touch of
-# any element maps every element (R-8 Q1, ruled 2026-09-29); the block
+# any element maps every element (ruled 2026-09-29); the block
 # stays where it is for the run (Q2: VARPTR stays stable; the ROM's
 # array region moves when a new simple variable is made, which is not
 # modelled).  Until 2026-10-22 each element was mapped alone as it was
 # first touched, descending: VARPTR(A%(1))-VARPTR(A%(0)) was -2 (the
-# 2026-09-26 audit, R-8 step 3).
+# 2026-09-26 audit).
 function sp_arrblock(tgt,   key, name, i, nd, vz, n, base, e, r, k, t, a, j, w) {
     key = substr(tgt, 2); i = index(key, SUBSEP); name = substr(key, 1, i - 1)
     nd = ADIM[name]; vz = (name in AVZ) ? AVZ[name] : vt_size(name, "")
@@ -6633,7 +6632,7 @@ function sp_strblock(tgt,   key, name, i, nd, n, base, e, r, k, t, d, w) {
 # address at V+1/V+2 straight away.  Re-home NOW, not at the next VARPTR
 # call: until 2026-09-20 the descriptor went on naming the old cells, a
 # PEEK past them read the descriptor's own bytes (it sits just above), and
-# a POKE there rewrote the length (the 2026-09-19 audit, M-13).
+# a POKE there rewrote the length (the 2026-09-19 audit).
 function sp_grown(name, key,   tgt) {
     tgt = (key != "") ? "A" key : "V" name
     if (tgt in VPDATA) sp_materialize(tgt, 1)
@@ -6643,7 +6642,7 @@ function sp_grown(name, key,   tgt) {
 function sp_gets(tgt,   key) {
     key = substr(tgt, 2)
     if (substr(tgt, 1, 1) == "A") return (key in VA) ? substr(VA[key], 2) : ""
-    return (key in SV) ? SV[key] : ""          # membership first: a bare read would create the entry (M-8)
+    return (key in SV) ? SV[key] : ""          # membership first: a bare read would create the entry
 }
 function sp_sets(tgt, s,   key) {
     key = substr(tgt, 2)
@@ -6672,7 +6671,7 @@ function sp_setn(tgt, x,   key) {
 # was re-derived from that 0 and lost -- which broke the Level II MKS$/CVS
 # substitute (copy four PEEKed bytes into a fresh variable) and any Z80
 # routine storing a float through VARPTR, whose write-set arrives in
-# ascending order, exponent last (the 2026-09-19 audit, H-11).  So a POKE
+# ascending order, exponent last (the 2026-09-19 audit).  So a POKE
 # keeps the bytes it made in NRAW, and they stay the truth for as long as
 # they still decode to the variable's value; an assignment that changes
 # the value outdates them, and the next read encodes afresh.
@@ -6688,11 +6687,11 @@ function sp_peek(a,   t, tgt, v) {
     if (t == "C") return SPV[a]
     if (substr(t, 1, 1) == "N") {
         v = sp_nbytes(tgt); t = substr(t, 2) + 1
-        return (t <= length(v)) ? ORD[substr(v, t, 1)] : 0   # never a bare ORD[""] (N-6)
+        return (t <= length(v)) ? ORD[substr(v, t, 1)] : 0   # never a bare ORD[""]
     }
     # the live value: fetched once per string while a frame is built, since
     # the frame walks a string's cells in order and an array element's
-    # value is a copy each time (the 2026-09-23 audit, M-12: O(len^2))
+    # value is a copy each time (the 2026-09-23 audit: O(len^2))
     if (FRCACHE) { if (tgt != FRCT) { FRCT = tgt; FRCV = sp_gets(tgt) }; v = FRCV }
     else v = sp_gets(tgt)
     if (t == "L") return (length(v) > 255) ? 255 : length(v)   # past 255 only under `memory host` (EXT): the byte says 255
@@ -6723,7 +6722,7 @@ function sp_poke(a, b,   t, tgt, v, j) {
     }
     v = sp_gets(tgt); j = t + 1                   # string byte, write through
     # past the live length the cell is RAM, not string: the descriptor
-    # alone says how long the string is, so the value does not grow (L-48)
+    # alone says how long the string is, so the value does not grow
     if (j > length(v)) { SPX[a] = b; return }
     sp_sets(tgt, substr(v, 1, j - 1) CHR[b] substr(v, j + 1))
 }
@@ -6735,7 +6734,7 @@ function sp_poke(a, b,   t, tgt, v, j) {
 # So after V%=1:DEFDBL V, VARPTR(V) is ?FC: V is V#, a variable not made
 # yet.  An element always has one: the reference makes its array (aref's
 # auto-DIM).  Until 2026-10-24 any name got an address here, sized by its
-# suffix (AUDIT BM-14, B108).
+# suffix (the 2026-09-30 audit, B108).
 function fn_varptr(   name, key, tgt) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
     CP++
@@ -6753,7 +6752,7 @@ function fn_varptr(   name, key, tgt) {
     # V=V+65536 is the period idiom (280 corpus lines).  PEEK and POKE take
     # the negative form (addrconv), and a USR argument of it passes the
     # core's 0A7FH trap, which is the ROM's CINT and would ?OV the positive
-    # form (the 2026-09-19 audit, L-43; ruled 2026-09-21).  Internal callers
+    # form (the 2026-09-19 audit; ruled 2026-09-21).  Internal callers
     # keep sp_materialize's positive address.
     return "NI" (key > 32767 ? key - 65536 : key)
 }
@@ -6793,7 +6792,7 @@ function fn_varptr(   name, key, tgt) {
 #                         measure, 033AH zeroes it in CLS.  POKE sets it,
 #                         so a routine (or a POKE) that moves the ROM's
 #                         idea of the column moves PRINT's.  Added
-#                         2026-09-27 (the 2026-09-26 audit, M-18): it read
+#                         2026-09-27 (the 2026-09-26 audit): it read
 #                         255, and a USR routine's CLS left it stale.
 #   40A2/40A3H (16546/7)  the line number executing (CLN).  At READY, and
 #                         for a statement typed at the prompt, it is 65535
@@ -7071,7 +7070,7 @@ function lit_bind(tgt,   p, a, s, j, d, c) {
 #     sets SCRALL and the whole 1K goes).  The core's own video writes
 #     come back through s_poke during the call and are dropped afterwards
 #     (fr_sent): the core wrote them, it has them.  Until 2026-09-25 the
-#     screen went whole in every frame (the 2026-09-23 audit, M-12).
+#     screen went whole in every frame (the 2026-09-23 audit).
 #   * every VARPTR'd variable whose SIGNATURE changed: its value, where
 #     its data cells are and the descriptor's address bytes (FRSIG, kept
 #     per locator from the last frame).  A string's value changes through
@@ -7209,19 +7208,19 @@ function fr_dump(   i) {
 # a 6-byte header, 2 per dimension and the elements (DIM allocates them
 # all); a GOSUB frame is 5 bytes (1EB7H-1EC0H: PUSH HL, PUSH HL, PUSH
 # AF, INC SP; 1963H is only asked for 6; 6 until 2026-10-05, the
-# 2026-09-30 audit, BL-2) and a FOR frame 17 (the
+# 2026-09-30 audit) and a FOR frame 17 (the
 # pushes of 1CBBH-1D1DH); and the driver's own depth while a statement
 # runs is 14 bytes, and the PRINT's own 2 (EVSTK) make PRINT MEM say
 # 15568 at MEM SIZE 32767 with no program: 32765 - 50 - 17131 - 14 - 2.  Names longer than
 # two characters are counted as the ROM would count them, two.  The
 # evaluator's own stack is EVSTK (p60 e_or: 2 inside a PRINT, more in a
-# nested expression; since 2026-10-08, audit OC-12).  Not counted: the
+# nested expression; since 2026-10-08, the 2026-09-30 audit).  Not counted: the
 # string data of a FIELD
 # buffer, and a string that LET or READ left pointing into its program
 # line (1F46H-1F57H), which takes no string space (STRUSED is kept per
 # locator in STRCNT so a re-assignment gives the old count back).
 # Until 2026-09-25 MEM and FRE were the constant 15572 and CLEAR n threw
-# n away (the 2026-09-23 audit, L-15 and L-4; ruled 2026-09-24: follow
+# n away (the 2026-09-23 audit; ruled 2026-09-24: follow
 # the ROM, as a cluster).
 function mem_strlo() { return STRLO_SET ? STRLO : HIMEM - 50 }   # 40A0H
 function mem_strsz() { return HIMEM - mem_strlo() }                # the string area
@@ -7253,7 +7252,7 @@ function st_alloc(n, live) {
 # its type (vkey, p70), so the record and the key's type agree.
 # Until 2026-09-29 the size came from the DEF table alone: Z% cost 7
 # bytes, Z# 7, DIM A%(9) 48 (the machine's 5, 11 and 28; the 2026-09-26
-# audit, R-8).
+# audit).
 function vt_size(name, sx,   t) {
     if (strname(name, sx)) return 3
     t = ntype(name, sx)
@@ -7297,7 +7296,7 @@ function mem_strfree() { return (HOSTMEM ? HOSTTOP : mem_strsz()) - STRUSED }
 # BEFORE the free-space check (196CH, ?OM below).  So DIM A(20000) is ?BS
 # on any machine, and on a 48K one nearly every array too large for the
 # free memory ends past 64K first.  Until 2026-09-27 both were ?OM (the
-# 2026-09-26 audit, L-9).  Never under `memory host` (EXT, p10).
+# 2026-09-26 audit).  Never under `memory host` (EXT, p10).
 function mem_arrbs(hdr, bytes) {
     if (HOSTMEM) return 0
     pm_sync(); pm_truncnote()
@@ -7307,7 +7306,7 @@ function mem_arrbs(hdr, bytes) {
 # memory holds it and 58 more (FFC6H), else ?OM.  GOSUB asks for 6
 # (1EB1H), FOR for 16 (1CB6H), DIM for its array.  Until 2026-09-25 a
 # GOSUB that called itself ran until the host ran out of memory (the
-# 2026-09-23 audit, M-9).
+# 2026-09-23 audit).
 function mem_need(n) {
     if (mem_free() < n + 58) { raise_host(7); return 0 }
     return 1
@@ -7366,12 +7365,12 @@ function z80_init() {
     # The `echo $$` in front makes that pid KNOWN before any handshake: the
     # shell prints its own pid and exec keeps it, z80_start reads the line
     # before HELLO's reply, and z80_close can kill a core that hung without
-    # ever answering (the 2026-09-26 audit, M-1: close() of a coprocess
+    # ever answering (the 2026-09-26 audit: close() of a coprocess
     # waits for the child, and this gawk's PROCINFO has no coprocess pid,
     # so a pid-less hung core held the session for ever -- the protocol's
     # own pid= arrives only with a completed handshake).  Not on native
     # Windows, where there is no $$ and no kill.
-    # `exec` takes a simple command only (the 2026-09-30 audit, BL-24): an
+    # `exec` takes a simple command only (the 2026-09-30 audit): an
     # assignment prefix (FOO=1 python3 core.py) is run through env, which
     # execs in turn and keeps the pid; a compound command (cd /x && ...,
     # a pipe, a subshell) runs without exec, so the pid is its shell's and
@@ -7394,7 +7393,7 @@ function z80_notice(msg) { diag_err("USR CORE: " msg) }
 # the two apart: getline is 0 at end of file (the core has exited) and -1
 # when READ_TIMEOUT ran out (it is there and silent) -- but 0 too, with
 # ERRNO set, when it ran out on a PARTIAL line, so ERRNO decides (the
-# 2026-09-30 audit, BL-21: a live core that went silent mid-line was
+# 2026-09-30 audit: a live core that went silent mid-line was
 # reported as exited).  gawk 5.2 says neither there: it returns the
 # partial line's length and leaves Z80LINE as the LAST line it read, so
 # the previous reply was taken for this one (CI's Ubuntu gawk 5.2.1:
@@ -7444,7 +7443,7 @@ function z80_field(key,   s) {
 # core that is hung (the timeout case) is killed first: the pid is the
 # `echo $$` line z80_start read (else the handshake's own pid=), gawk's
 # PROCINFO[cmd, "pid"] being empty on the gawk this was built with.  The
-# kill is BOUNDED (M-1): TERM, up to half a second for it to land, then
+# kill is BOUNDED: TERM, up to half a second for it to land, then
 # KILL -- a core that traps TERM (or a plain `sleep`) no longer holds the
 # session and the tty at close().  On native Windows there is no kill and
 # no pid; a hung core there still hangs the close (documented).
@@ -7479,8 +7478,8 @@ function z80_start(   w) {
         z80_close(); return
     }
     # the first line is the wrapper shell's `echo $$` -- the core's own pid,
-    # since exec keeps it -- so even a core that never answers can be killed
-    # (M-1).  The handshake's optional pid= is used only without it.
+    # since exec keeps it -- so even a core that never answers can be killed.
+    # The handshake's optional pid= is used only without it.
     if (Z80LINE ~ /^[0-9]+$/) {
         Z80PID = Z80LINE + 0
         if (!z80_recv()) {
@@ -7495,7 +7494,7 @@ function z80_start(   w) {
     }
     # The pid this side started outranks the one the core reports: a core
     # naming another process got THAT killed on a timeout, and kept its own
-    # hold on close() (the 2026-09-30 audit, BL-22).  pid= is the fallback
+    # hold on close() (the 2026-09-30 audit).  pid= is the fallback
     # for a start with no `echo $$` line.
     if (Z80PID == 0 && z80_field("pid") != "") Z80PID = z80_field("pid") + 0
     Z80STATE = "up"
@@ -7508,7 +7507,7 @@ function z80_stop() {
     Z80STATE = "dead"; Z80PID = 0
 }
 
-# BYE, then a BOUNDED wait for the core to go (the 2026-09-30 audit, BM-8:
+# BYE, then a BOUNDED wait for the core to go (the 2026-09-30 audit:
 # close() waits for the child, so a core that ignored BYE held the session's
 # end, and a recycle, for its whole life).  The write end closes too, so the
 # core sees EOF; its output is read to EOF, at least 5 s -- the shipped
@@ -7535,7 +7534,7 @@ function z80_apply(run, isvideo,   p, a, n, bs, j, b) {
         b = bs[j] + 0
         # poke_byte's contract is a byte 0-255 at a 16-bit address; a
         # value or a run outside it is protocol garbage, and the rest of
-        # the run is dropped rather than stored wrong (N-8)
+        # the run is dropped rather than stored wrong
         if (b < 0 || b > 255 || a > 65535) return
         if (isvideo) { if (a >= 15360 && a <= 16383) s_poke(a - 15360, b) }
         else poke_byte(a, b)
@@ -7572,7 +7571,7 @@ function z80_usr(x,   full, res) {
             # and the reply to it is a full frame with gen=1 -- so a NEED to
             # a frame that WAS full is a protocol violation, not a request.
             # The loop took it as one and resent for ever (the 2026-09-19
-            # audit, L-47): a core stuck on NEED hung the interpreter with no
+            # audit): a core stuck on NEED hung the interpreter with no
             # message and no BREAK.  Now it ends like any other bad line.
             if (full) {
                 z80_notice("'NEED' answered a full frame; the core is dead for this session, USR is the stub")
@@ -7588,7 +7587,7 @@ function z80_usr(x,   full, res) {
 
 # A frame larger than a pipe holds blocks gawk in write() until the core
 # reads it, and gawk has no write timeout: a core that stopped reading held
-# the session for ever, TRS80_Z80_TIMEOUT or not (BM-8).  So such a frame
+# the session for ever, TRS80_Z80_TIMEOUT or not.  So such a frame
 # is written under a watchdog: a shell whose timer kills the core after
 # TRS80_Z80_TIMEOUT unless the write ends first.  The killed core fails the
 # write (NONFATAL), and the watchdog's exit status says the timer fired
@@ -7640,12 +7639,12 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
             hl = z80_field("hl") + 0; res = z80_field("result") + 0
             brk = z80_field("break") + 0; k = z80_field("writes") + 0
             rdy = z80_field("ready") + 0         # read now: the W lines replace Z80LINE
-            hl = ((hl % 65536) + 65536) % 65536  # a reply outside 16 bits is garbage: wrapped, as the register would (N-8)
+            hl = ((hl % 65536) + 65536) % 65536  # a reply outside 16 bits is garbage: wrapped, as the register would
             # result=1: the routine went through 0A9AH, whose stores are HL
             # to 4121H and 2 to 40AFH.  Made here too, ahead of the
             # write-set (which wins where it has them: a CALL 0A9AH the
             # routine ran on from), so the value usr_wra1 reads (p60)
-            # does not depend on a peer sending them (XL-1).
+            # does not depend on a peer sending them.
             if (res) { poke_byte(16673, hl % 256); poke_byte(16674, int(hl / 256)); poke_byte(16559, 2) }
             for (i = 1; i <= k; i++) {
                 if (!z80_recv() || Z80LINE !~ /^W /) {
@@ -7659,11 +7658,11 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
             # ready=1: the routine left through the ROM's READY entry
             # (JP 1A19H), so the program is over -- the machine is at the
             # prompt.  It used to carry on with the next statement, as
-            # after a RET (the 2026-09-19 audit, L-44).  Not END: READY
+            # after a RET (the 2026-09-19 audit).  Not END: READY
             # closes no files, and there is nothing to CONT.
             if (rdy) { HALT = 1; CONTOK = 0 }
             if (hl > 32767) hl -= 65536           # HL to result: signed 16-bit
-            Z80RET = 1                            # the value is WRA1 now (XL-1)
+            Z80RET = 1                            # the value is WRA1 now
             if (res) return hl
             return x
         }
@@ -7735,13 +7734,13 @@ END { z80_stop() }
 # 1023 is ?FC (208DH), the cursor address is set and 40A6H takes the byte
 # offset AND 3FH even in 32-character mode (2093H-209DH), and a comma
 # must follow (20A1H, RST 08H): PRINT @5;"X" and PRINT @5 "X" are ?SN.
-# Until 2026-09-24 a ";" or nothing passed (the 2026-09-23 audit, L-2).
+# Until 2026-09-24 a ";" or nothing passed (the 2026-09-23 audit).
 # LPRINT shares the loop: its @ moves the video cursor too.
 function pr_at(   v, tgt) {
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    tgt = to16(num(v)); if (E) return          # 2B01H: ?OV past 16 bits (0A7FH), then ?FC past 1023 or negative (208DH-2091H; L-7)
+    tgt = to16(num(v)); if (E) return          # 2B01H: ?OV past 16 bits (0A7FH), then ?FC past 1023 or negative (208DH-2091H)
     if (tgt < 0 || tgt > 1023) { raise(5); return }
     CUR = tgt
     VCOL = tgt % 64
@@ -7758,11 +7757,11 @@ function st_print(   sep, ty, tx, v, col, t) {
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
         # a bare REM token is an item: the evaluator meets it and says ?SN,
-        # as at 20B9H -> 2337H (the 2026-09-23 audit, L-10); ' is :REM
+        # as at 20B9H -> 2337H (the 2026-09-23 audit); ' is :REM
         if (ty == "i" && tx == "ELSE") break
         if (ty == "b") { CP++; continue }                # 2# +3 is two items: 2, then +3 (ROM bug 7; p50)
         if (ty == "o" && tx == "@") { pr_at(); if (E) return; sep = 0; continue }
-        if (ty == "i" && tx == "USING") { CP++; EVSTK += 4; pr_using(); return }   # USING's pushes (OC-12, p60 e_or)
+        if (ty == "i" && tx == "USING") { CP++; EVSTK += 4; pr_using(); return }   # USING's pushes (p60 e_or)
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
             sep = 1
@@ -7788,7 +7787,7 @@ function st_print(   sep, ty, tx, v, col, t) {
             skipblank()
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
             CP++
-            t = byteconv(num(v)); if (E) return   # 2B1BH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
+            t = byteconv(num(v)); if (E) return   # 2B1BH: ?OV past 16 bits, ?FC outside 0-255
             t = t % 128                       # 213AH: AND 7FH in ROM 1.3 (3FH before it)
             # 2153H-2162H: the blanks are counted from 40A6H once, each
             # one a character (two display bytes in 32-character mode);
@@ -7797,7 +7796,7 @@ function st_print(   sep, ty, tx, v, col, t) {
             while (col < t) { s_putc(32); col++ }
             # the TAB path rejoins at 20A0H, past the carriage return of
             # 209DH (2164H-2166H): a list ending in TAB(n) ends without
-            # one, as after ; or , (the 2026-09-23 audit, M-3)
+            # one, as after ; or , (the 2026-09-23 audit)
             sep = 1
             continue
         }
@@ -7844,7 +7843,7 @@ function pr_using(   sep) {
 # remain (2DE6H), and behind the last item its text runs on to the next
 # field.  Until 2026-09-27 a "," after the format passed, "1 2" was two
 # items, and the whole line was built before any of it was printed (the
-# 2026-09-26 audit, L-18).  Returns 1 when the list ended in a separator
+# 2026-09-26 audit).  Returns 1 when the list ended in a separator
 # (no carriage return follows); E is set on an error.
 function pu_stmt(sink,   sep, ty, tx, v, n) {
     PU_SINK = sink; PU_OUT = ""
@@ -7857,7 +7856,7 @@ function pu_stmt(sink,   sep, ty, tx, v, n) {
     for (;;) {
         ty = TY[CK, CP]; tx = TK[CK, CP]
         if (ty == "" || ty == "e" || (ty == "o" && tx == ":")) break
-        if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
+        if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN
         if (ty == "b") { CP++; continue }                # 2# ;3 goes on; 2# 3 is ?SN below, as 2 3 is (ROM bug 7; p50)
         if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
         if (n && !sep) { raise(2); return 0 }            # 2DE2H
@@ -7930,7 +7929,7 @@ function st_lprint(   sep, ty, tx, v, t) {
         if (ty == "" || ty == "e") break
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
-        if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
+        if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN
         if (ty == "b") { CP++; continue }                # as PRINT's list (ROM bug 7; p50)
         if (ty == "o" && tx == "@") { pr_at(); if (E) return; sep = 0; continue }
         if (ty == "i" && tx == "USING") { CP++; lp_using(); return }
@@ -7953,10 +7952,10 @@ function st_lprint(   sep, ty, tx, v, t) {
             skipblank()
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
             CP++
-            t = byteconv(num(v)); if (E) return   # 2B1BH, as PRINT's TAB (L-7)
+            t = byteconv(num(v)); if (E) return   # 2B1BH, as PRINT's TAB
             t = t % 128                       # the ROM masks it, as PRINT's (213AH: 7FH in 1.3)
             while (LPCOL < t) lp_puts(" ")
-            sep = 1                           # no carriage return after a trailing TAB (M-3)
+            sep = 1                           # no carriage return after a trailing TAB
             continue
         }
         v = e_or(); if (E) return
@@ -8197,7 +8196,7 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         while (length(ds) < (id < 0 ? PU_DP : nd)) ds = "0" ds
         ist = substr(ds, 1, length(ds) - PU_DP); dec = substr(ds, length(ds) - PU_DP + 1)
         e2 = k - id
-        es = sprintf("%s%s%02d", (vtype(v) == "D" ? "D" : "E"), (e2 < 0 ? "-" : "+"), (e2 < 0 ? -e2 : e2))   # 1075H-1079H: the letter by type (L-19)
+        es = sprintf("%s%s%02d", (vtype(v) == "D" ? "D" : "E"), (e2 < 0 ? "-" : "+"), (e2 < 0 ? -e2 : e2))   # 1075H-1079H: the letter by type
         body = (PU_DOT ? "." dec : "") es
         # a zero is not scaled (11B6H is skipped), and the edit at 10C0H
         # blanks its leading zeros like any field's: ###.##^^^^ of 0 is
@@ -8292,7 +8291,7 @@ function pu_big(ax, ty,   t) {
 function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad) {
     # the illegal-direct check comes FIRST on the ROM (219AH CALL 2828H,
     # before the # is even looked at), so INPUT#1,A typed at READY is ?ID
-    # like any other INPUT (the 2026-09-26 audit, N-5; until then the #
+    # like any other INPUT (the 2026-09-26 audit; until then the #
     # branch was taken before the guard)
     if (CK == "I") { raise(12); return }
     if (TY[CK, CP] == "o" && TK[CK, CP] == "#") { CP++; st_input_file(); return }
@@ -8304,8 +8303,8 @@ function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad
             # The ROM takes a bare literal only (21D3H: anything else
             # behind the quote is ?SN, before the prompt is shown).  EXT
             # (gated): under ext on, a prompt expression, INPUT "A"+B$;X,
-            # as later BASICs take it.  Always on until 2026-10-22 (audit
-            # R-4): the listings that needed it were detok's CR/LF splices,
+            # as later BASICs take it.  Always on until 2026-10-22 (ruled
+            # that day): the listings that needed it were detok's CR/LF splices,
             # which the corpus now runs from their tokenized originals,
             # where the prompt is one literal.  e_prim reads the leading
             # literal, so just evaluate from here.
@@ -8317,7 +8316,7 @@ function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad
         # ROM 21D3H: RST 08H against ";" -- the prompt is followed by a
         # semicolon, and a comma is ?SN.  EXT (gated): under ext on, the
         # later Microsoft BASICs' INPUT "prompt",var is taken and drops
-        # the "? ".  No period listing uses it (the 2026-09-23 audit, L-2,
+        # the "? ".  No period listing uses it (the 2026-09-23 audit,
         # ruled 2026-09-24), so the gate costs nothing; LINE INPUT takes
         # only ";" either way.
         if (TY[CK, CP] == "o" && TK[CK, CP] == ";") { pq = 1; CP++ }
@@ -8331,7 +8330,7 @@ function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad
         # (21E8H -> 1F04H); anything typed then meets no variable, ?SN.
         # EXT (gated): under ext on, typed text is discarded instead, and
         # INPUT "P" with no ";" is taken (above).  It was all behind ext
-        # until 2026-09-26 (audit R-2).
+        # until 2026-09-26 (the 2026-09-26 audit).
         if (prompt != "") s_puts(prompt)
         if (pq != 2) s_puts("? ")
         line = rl_read()
@@ -8348,9 +8347,9 @@ function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad
     # for its item, and the byte behind it is tested after its store
     # (2263H; RST 08H against "," at 21FBH).  So INPUT A,3 answered 5,6
     # stores A and is then ?SN, answered 5 it is ?SN with no ??, and
-    # INPUT A;B is ?SN behind A's store, never ?EXTRA (N-5).  Until
+    # INPUT A;B is ?SN behind A's store, never ?EXTRA.  Until
     # 2026-10-08 the whole list was checked before the prompt (the
-    # 2026-09-30 audit, BL-9), so nothing was asked or stored, and ENTER
+    # 2026-09-30 audit), so nothing was asked or stored, and ENTER
     # alone could not run past a bad list.
     lst = CP
     for (;;) {                              # REDO loop: the list from its start
@@ -8389,7 +8388,7 @@ function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad
             # leaves Q, and a quoted item for a number leaves 0 (the
             # reader takes nothing), all seen by ENTER after ?REDO.
             # Until 2026-10-08 nothing was stored (the 2026-09-30
-            # audit, BL-7).
+            # audit).
             bad = IBBAD[idx]
             if (strname(name)) assignv(name, key, "S" IB[idx])
             else {
@@ -8453,7 +8452,7 @@ function parse_items(line, base,   cnt, i, n, c, j, item, q, bad) {
         } else {
             j = i
             while (j <= n && substr(line, j, 1) !~ /^[,:]$/) j++
-            item = substr(line, i, j - i)   # trailing blanks are the item's (2869H-287EH, H-3)
+            item = substr(line, i, j - i)   # trailing blanks are the item's (2869H-287EH)
             i = j
         }
         cnt++; IB[cnt] = item; IBQ[cnt] = q; IBBAD[cnt] = bad
@@ -8475,7 +8474,7 @@ function parse_items(line, base,   cnt, i, n, c, j, item, q, bad) {
 # at that ":" with no quote open: DATA AB"C:D",E reads AB"C, and the
 # quote of D" then hides the rest of the line, a later :DATA included.
 # Until 2026-10-08 every DATA text of a line was read whole (the
-# 2026-09-30 audit, BL-10).
+# 2026-09-30 audit).
 function datascan(   i, k, j, dn, txt, n, p, q, c, DKW, DNO, stop) {
     NDATA = 0
     for (i = 1; i <= NL; i++) {
@@ -8537,7 +8536,7 @@ function data_items(txt, ln, dn,   ci, cn, c, j, item, wasq, bad, off) {
             j = ci
             while (j <= cn && substr(txt, j, 1) !~ /^[,:]$/) j++
             # every byte up to the comma or ":" is the item's, trailing
-            # blanks too (Farvour 2869H-287EH; the 2026-09-26 audit, H-3)
+            # blanks too (Farvour 2869H-287EH; the 2026-09-26 audit)
             item = substr(txt, ci, j - ci)
             ci = j
             wasq = 0
@@ -8566,7 +8565,7 @@ function st_read(   dp0) {
     # -> 21FBH, RST 08H against ",") before 2274H commits the pointer, so
     # the next READ starts again at this statement's first item; the items
     # stored keep their values.  Until 2026-10-08 the run loop raised it
-    # after the pointer had moved (the 2026-09-30 audit, BL-8).
+    # after the pointer had moved (the 2026-09-30 audit).
     if (!E && !at_stmt_end()) raise(2)
     if (E) DP = dp0
 }
@@ -8584,10 +8583,10 @@ function st_read_items(   name, key, x, dbl, bad) {
         # "12", so 0 is stored) or junk behind a number is ?SN in the DATA
         # line AFTER the store, the pointer stays (225A-2260 -> 1991H).
         # DATA 1,2X read into A,B leaves B = 2 for an ON ERROR handler.
-        # Until 2026-10-08 nothing was stored (the 2026-09-30 audit, BL-7).
+        # Until 2026-10-08 nothing was stored (the 2026-09-30 audit).
         bad = DBAD[DP]
         if (strname(name)) {
-            if (!HOSTMEM && length(DITEM[DP]) > 255) { raise_host(15); return }   # a DATA item past 255 is ?LS, as a literal is (p60; L-23)
+            if (!HOSTMEM && length(DITEM[DP]) > 255) { raise_host(15); return }   # a DATA item past 255 is ?LS, as a literal is (p60)
             LITSTORE = 1                    # the item stays in its line: no string space (p75, mem_*)
             assignv(name, key, "S" DITEM[DP])
             LITSTORE = 0
@@ -8627,7 +8626,7 @@ function st_dim(   name, nd, i, v, sz, vz) {
             # habit for variable-lookup speed) is the ROM's: 2608H locates
             # the name in create mode and 2664H takes the simple-variable
             # path, so the variable is made (MEM falls) and holds 0 or "".
-            # It was an EXT behind `ext` until 2026-09-26 (audit R-1).
+            # It was an EXT behind `ext` until 2026-09-26 (the 2026-09-26 audit).
             if (at_stmt_end() || (TY[CK, CP] == "o" && TK[CK, CP] == ",")) {
                 if (strname(name)) { if (!(name in SV)) SV[name] = "" }
                 else if (!(name in NV)) { NV[name] = 0; NVZ[name] = vz }
@@ -8670,7 +8669,7 @@ function st_dim(   name, nd, i, v, sz, vz) {
 # negative number (POKE -1 is 65535, the period idiom IF D>32767 THEN
 # D=D-65536): addrarg below.  Until 2026-09-25 a positive 32768-65535 was
 # taken and a negative below -32768 wrapped again, so POKE -40000,7
-# stored at 25536 (the 2026-09-23 audit, M-11).  addrconv itself is the
+# stored at 25536 (the 2026-09-23 audit).  addrconv itself is the
 # plain 16-bit wrap, and stays so: the core, the USR frame and the string
 # space call it with positive addresses of their own.
 # A byte argument, the way the ROM takes one (2B1C-2B22: the value of
@@ -8683,8 +8682,8 @@ function st_dim(   name, nd, i, v, sz, vz) {
 # The integer step is CINT's own (2B1FH CALL 2B05H -> 0A7FH), so a double
 # is a single first: to16 (p90).  A=.29 held in a double makes A*100
 # 28.99999916553497, which is 29 on the machine for CHR$, STRING$, LEFT$,
-# TAB, ON and the rest; flooring it raw gave 28 (the 2026-09-30 audit,
-# BM-2, the L-8 sibling).
+# TAB, ON and the rest; flooring it raw gave 28 (the 2026-09-30 audit:
+# CINT's own copies were fixed earlier).
 function byteconv(x) {
     x = to16(x); if (E) return -1           # ?OV outside -32768..32767
     if (x < 0 || x > 255) { raise(5); return -1 }
@@ -8791,7 +8790,7 @@ function poke_byte(a, b) {
     # 0000-2FFFH is the ROM: a store there changes nothing on the machine,
     # and PROTOCOL.md has the range holding no bytes on either side.  It
     # used to land in MEM[] and read back, from POKE and from a Z80
-    # write-set alike (the 2026-09-19 audit, L-45).
+    # write-set alike (the 2026-09-19 audit).
     else if (a < 12288) { }
     else {
         # a store into a STALE image would be judged by the next build as one
@@ -8839,7 +8838,7 @@ function st_setreset(on,   v, x, y, col) {
     # bits, then ?FC outside 0-255), and x is tested against 128 as soon
     # as it is read, before the comma and y; y against 48.  Until
     # 2026-09-27 both were read first and every bad value was ?FC (the
-    # 2026-09-26 audit, L-7).
+    # 2026-09-26 audit).
     x = byteconv(num(v)); if (E) return
     if (x > 127) { raise(5); return }
     skipblank()
@@ -8964,7 +8963,7 @@ function egg_text(   h, k, i, n, s) {
 # (per-variable; a re-FIELD of a variable moves it, last fielding wins).
 # A variable is named here by its TARGET, p75's form: "V" name for a simple
 # variable, "A" key for an array element -- the Disk manual's own example
-# is FIELD 1,16 AS CLIENT$(1) (the 2026-09-19 audit, M-29).  Membership is
+# is FIELD 1,16 AS CLIENT$(1) (the 2026-09-19 audit).  Membership is
 # always asked with `in`: a bare FVCH[tgt] creates the key, and a created
 # key made LSET on a variable fielded away raise ?NO.
 function fld_tgt(name, key) { return (key != "") ? "A" key : "V" name }
@@ -8974,7 +8973,7 @@ function fio_isopen(n) { return FH_MODE[n] != "" }
 # is host file f open on some channel?  By the spelling first, then by what
 # the name RESOLVES to: `./DATA`, a case variant on a case-blind disk and a
 # link all name the open file, and a compare of spellings let KILL delete
-# it and two channels write it (the 2026-09-30 audit, BL-27).  Native
+# it and two channels write it (the 2026-09-30 audit).  Native
 # Windows has no -ef: its names compare case-blind, as its disks do.
 function fio_busy(f,   i) {
     for (i = 1; i <= 15; i++) {
@@ -9040,9 +9039,9 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     if (fio_busy(f)) { raise(70); return }
     if (toupper(f) ~ /^OLLAMA(:|$)/) { ai_open(n, f); return }   # EXT: the OLLAMA channel (p87)
     if (host_special(f)) { raise(22); return }    # /inet/..., /dev/..., "-": not for a program (p90)
-    if (mode != "I" && host_escape(f)) { raise(22); return }   # a write stays under the cwd (R-9, p90)
+    if (mode != "I" && host_escape(f)) { raise(22); return }   # a write stays under the cwd (p90)
     # a device by another spelling, a directory, a FIFO: not a file either,
-    # however it is written (the 2026-09-23 audit, H-3); "O", "E" and "R"
+    # however it is written (the 2026-09-23 audit); "O", "E" and "R"
     # ask host_writable, which holds the same rule
     if (mode == "I" && host_kind(f) == "x") { raise(22); return }
     if (mode != "I") {
@@ -9057,7 +9056,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
         # the first record is read now, so EOF(n) is right at once; the ONE
         # reader (fio_fill below) cuts it, and says when the file could not
         # be read at all (?FF).  A second copy of the cut lived here until
-        # 2026-09-27 and missed the LF CR rule (M-9).
+        # 2026-09-27 and missed the LF CR rule.
         FH_NAME[n] = f; FH_MODE[n] = mode
         FIO_RERR = 0
         fio_fill(n)
@@ -9129,7 +9128,7 @@ function fio_flushR(n,   f, r) {
     # REOPENS the path, and an outside actor replacing it (a directory in
     # its place) would make the redirect a gawk fatal, killing the session.
     # Probe again at flush time; the failure is ?FD, as at OPEN (the
-    # 2026-09-26 audit, M-16).
+    # 2026-09-26 audit).
     HOSTFREE = FH_FREE[n]; r = host_writable(f); HOSTFREE = 0
     if (!r) { raise(22); return }
     printf "" > f
@@ -9148,12 +9147,12 @@ function st_kill(   v, f, i) {
     if (f == "") { raise(21); return }
     if (fio_busy(f)) { raise(70); return }
     if (!WINNATIVE && f ~ /'/) { raise(22); return }
-    if (host_escape(f)) { raise(22); return }     # a program's name stays under the cwd (R-9, p90): ?FD, not 54
+    if (host_escape(f)) { raise(22); return }     # a program's name stays under the cwd (p90): ?FD, not 54
     if (!host_exists(f)) { raise(54); return }
     # a delete the host refuses -- a read-only directory, say -- used to be
     # ignored: rm complained on the program's own error channel, the file
     # stayed, and the program carried on as though it had gone.  ?FD is what
-    # every other host refusal here reports (the 2026-09-19 audit, L-5).
+    # every other host refusal here reports (the 2026-09-19 audit).
     if (!host_delete(f)) { raise(22); return }
 }
 
@@ -9164,7 +9163,7 @@ function st_kill(   v, f, i) {
 # (ENTER) character" -- on the machine the file is a byte stream and 0DH is
 # what separates records, so a CHR$(13) a program PRINT#s is a record end
 # like any other.  Here the reader knew only gawk's own line split, so an
-# embedded 0DH stayed inside the item (the 2026-09-19 audit, L-35).  The text
+# embedded 0DH stayed inside the item (the 2026-09-19 audit).  The text
 # after it is held in FH_RAW and served as the next line, so a file whose
 # records end in CR alone -- the machine's own form -- reads record by
 # record instead of arriving as one enormous line.  A trailing CR (a CR LF
@@ -9175,7 +9174,7 @@ function st_kill(   v, f, i) {
 # successor begins with a CR is joined to it (with the LF put back) and
 # the scan goes on behind the pair; a CR inside a line is skipped when an
 # LF is just before it.  A lone LF stays the host's line end.  Until
-# 2026-09-27 the pair split the record (the 2026-09-26 audit, M-9).
+# 2026-09-27 the pair split the record (the 2026-09-26 audit).
 # FH_RAWLF says whether the held text ended at an LF (1) or the file's end.
 function fio_fill(n,   r, l, p, q, k, more, nx) {
     if (FH_MODE[n] == "A") return ai_fill(n)
@@ -9249,7 +9248,7 @@ function fio_next_item(n, isnum,   l, i, len, j, c, item, ist) {
     # Disk manual, INPUT#: EVERY one of the three terminator sets -- numeric,
     # quoted string, unquoted string -- lists "255th data character
     # encountered" beside the comma and the end of file.  An item longer
-    # than that was returned whole here (the 2026-09-19 audit, L-41).  The
+    # than that was returned whole here (the 2026-09-19 audit).  The
     # 255th character IS the terminator, so the next read resumes right
     # after it -- no comma is consumed, because none was reached.
     if (!HOSTMEM && length(item) > 255) {   # whole under `memory host` (EXT)
@@ -9310,7 +9309,7 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         # character up to: 1. an (ENTER) character ... 2. the end of file
         # 3. the 255th data character (this 255 character is included in
         # the string)".  There was no limit here, so a long line came back
-        # as a string longer than one can hold (the 2026-09-19 audit, L-41).
+        # as a string longer than one can hold (the 2026-09-19 audit).
         # What is left stays for the next read, as a terminator would leave it.
         line = FH_PEND[n]
         if (!HOSTMEM && length(line) > 255) {   # whole under `memory host` (EXT)
@@ -9442,7 +9441,7 @@ function st_field(   n, off, w, v, name, key, tgt, i, found) {
         # a field width is a string LENGTH: one descriptor byte on the
         # machine, so 256 is ?FC as any byte argument (2B1CH); `memory
         # host` lifts it with the other string counts (the 2026-09-26
-        # audit, N-5)
+        # audit)
         w = lenconv(num(v)); if (E) return
         if (!(TY[CK, CP] == "i" && TK[CK, CP] == "AS")) { raise(2); return }
         CP++
@@ -9482,7 +9481,7 @@ function fld_is(tgt, s) {
 # store s, FVW[name] long, as a FIELD variable's slice of its record buffer.
 # Every in-place string store reaches the buffer through here: LSET, RSET
 # and MID$= (which wrote the variable only, so PUT wrote the old record:
-# the 2026-09-19 audit, M-25).
+# the 2026-09-19 audit).
 function fld_put(tgt, s,   n) {
     n = FVCH[tgt]
     FH_BUF[n] = substr(FH_BUF[n], 1, FVOF[tgt]) s substr(FH_BUF[n], FVOF[tgt] + FVW[tgt] + 1)
@@ -9544,8 +9543,8 @@ function st_get(   n, rec, v) {
     # past the last record: "BASIC simply fills the buffer with hexadecimal
     # zeros, and no error is generated" (Disk manual, GET and LOF; the error
     # it speaks of is for variable-length records, which are not served).
-    # This was ?IE while `man GET` promised spaces (the 2026-09-19 audit,
-    # M-27).  EOF(n) is true afterwards, and LOF(n) is the test beforehand.
+    # This was ?IE while `man GET` promised spaces (the 2026-09-19 audit).
+    # EOF(n) is true afterwards, and LOF(n) is the test beforehand.
     if (rec > FH_NREC[n]) { FH_BUF[n] = ""; while (length(FH_BUF[n]) < FH_RLEN[n]) FH_BUF[n] = FH_BUF[n] CHR[0] }
     else FH_BUF[n] = fio_pad(FH_REC[n, rec], FH_RLEN[n])
     FH_LOC[n] = rec
@@ -9610,7 +9609,7 @@ function fio_mki(x,   v, u) {
     # Disk manual p.144: the argument "is evaluated as an integer, -32768
     # <= n <= 32767; if it exceeds this range, an ILLEGAL FUNCTION CALL
     # error" -- ?FC, where the plain integer conversion (to16, CINT's) says
-    # ?OV.  The fraction goes the way CINT drops it: down (H-5).
+    # ?OV.  The fraction goes the way CINT drops it: down.
     v = bfloor(x)
     if (v < -32768 || v > 32767) { raise(5); return "" }
     u = (v < 0) ? v + 65536 : v
@@ -9631,7 +9630,7 @@ function fio_mkf(x, nb,   sgn, e, i, b, out) {
     }
     sgn = 0
     if (x < 0) { sgn = 128; x = -x }
-    if (x >= ((nb == 8) ? DMAX : FMAX)) { raise(6); return "" }   # the exponent byte would pass 255 (p10 FMAX, DMAX for MKD$'s 8 bytes; L-24); an infinity would never leave the loop
+    if (x >= ((nb == 8) ? DMAX : FMAX)) { raise(6); return "" }   # the exponent byte would pass 255 (p10 FMAX, DMAX for MKD$'s 8 bytes); an infinity would never leave the loop
     e = 0
     while (x >= 1) { x /= 2; e++ }
     while (x < 0.5) { x *= 2; e-- }
@@ -9647,7 +9646,7 @@ function fio_mkf(x, nb,   sgn, e, i, b, out) {
     # bit set -> 07A8H bumps the mantissa, the carry going up through the
     # bytes and, from FFFFFFH, into the exponent with ?OV at 07B2H), so .1
     # is CDH CCH CCH 7DH on the machine.  Cutting it off gave CCH, and
-    # INT(CVS(MKS$(.07))*100) was 6 (the 2026-09-19 audit, M-26).  Every
+    # INT(CVS(MKS$(.07))*100) was 6 (the 2026-09-19 audit).  Every
     # caller is a single (MKS$, a single USR result); a double's 8 bytes
     # come from dbytes (p91), never through here.
     if (x >= 0.5) {
@@ -9736,7 +9735,7 @@ function ai_open(n, f,   np, parts, model, thread, i, tf, l, role) {
     if (model == "") { raise(21); return }
     # the transcript is appended to after every exchange (ai_log), and a
     # failed awk redirect is fatal: probe it now, before any channel state
-    # (a directory or read-only <thread>.ollama killed gawk -- the 2026-09-19 audit, C-1)
+    # (a directory or read-only <thread>.ollama killed gawk -- the 2026-09-19 audit)
     if (thread != "" && !host_writable(thread ".ollama")) { raise(22); return }
     FH_LOC[n] = 0; FH_EOF[n] = 0
     FH_PEND[n] = ""; FH_PENDHAS[n] = 0
@@ -9920,7 +9919,7 @@ function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok,
     # ai_log reopens the transcript at every exchange, and a failed awk
     # redirect is fatal: the OPEN probe does not cover a file that became a
     # directory or read-only since.  Probe again, and fail the exchange as a
-    # failed send does (the 2026-09-30 audit, BM-7).
+    # failed send does (the 2026-09-30 audit).
     if (AI_TFILE[n] != "") {
         HOSTFREE = FH_FREE[n]; ok = host_writable(AI_TFILE[n]); HOSTFREE = 0
         if (!ok) { ai_unsend(n); raise(22); return }
@@ -9995,7 +9994,7 @@ function ai_junesc(s,   out, i, n, c, e, u, v) {
             u = strtonum("0x" substr(s, i + 2, 4))
             # A SURROGATE PAIR IS ONE CODE POINT.  \uD83D\uDE00 is U+1F600;
             # encoding each half on its own gives CESU-8, a pair of 3-byte
-            # sequences no reader accepts (the 2026-09-19 audit, L-36).
+            # sequences no reader accepts (the 2026-09-19 audit).
             if (u >= 0xD800 && u <= 0xDBFF && substr(s, i + 6, 2) == "\\u" && i + 11 <= n) {
                 v = strtonum("0x" substr(s, i + 8, 4))
                 if (v >= 0xDC00 && v <= 0xDFFF) {
@@ -10018,7 +10017,7 @@ function ai_junesc(s,   out, i, n, c, e, u, v) {
 # DIRECTLN is the line number of a statement typed at the prompt.  The ROM
 # keeps ONE cell for the line it is executing, 40A2H, and marks the Input
 # Phase by putting FFFFH there (1A36), so a real line 0 and "no line" are
-# told apart -- which a plain 0 cannot do (the 2026-09-19 audit, L-4).  ERL
+# told apart -- which a plain 0 cannot do (the 2026-09-19 audit).  ERL
 # reads it through 40EAH (19A5), so ERL is 65535 after a direct-mode error.
 function inln(n) { return (n == DIRECTLN) ? "" : " IN " n }
 
@@ -10033,7 +10032,7 @@ function raise(c) {
     # with ERL, before it looks for an ON ERROR handler (19A5-19A8), so
     # LIST . and EDIT . go to the line that failed.  A statement typed at
     # READY moves it too, to FFFFH (19A8H copies 40A2H as it is), so LIST .
-    # then lists nothing and DELETE . is ?FC (audit L-12; until 2026-09-27
+    # then lists nothing and DELETE . is ?FC (the 2026-09-26 audit; until 2026-09-27
     # a typed error left "." alone)
     LASTLN = CLN
 }
@@ -10044,7 +10043,7 @@ function report_err(   c, msg) {
     # an UNTRAPPED syntax error clears the ERR cell on its way to READY:
     # 1A2BH reads 409AH, SUB 02H leaves 0 for ?SN, and 1A30H's CALL 2E53H
     # stores that 0 back -- so ERR reads 0 afterwards, not 2 (the
-    # 2026-09-26 audit, N-5; ERL keeps the line)
+    # 2026-09-26 audit; ERL keeps the line)
     if (c == 2) ERRV = 0
     # ROM 1A11-1A14 prints the line unless H AND L is FF, that is unless it
     # is 65535 -- so an error in line 0 reports " IN 0"
@@ -10053,10 +10052,10 @@ function report_err(   c, msg) {
     # (40F2H), so a handler that failed is over -- the trap stays armed
     # (40F0H is cleared only by RUN's initializer, 1B74H) and a RESUME typed
     # afterwards is ?RW.  Until 2026-09-24 the flag stayed set: later errors
-    # were not trapped, and a stray RESUME resumed the dead handler (M-5).
+    # were not trapped, and a stray RESUME resumed the dead handler.
     # The CONT point is NOT cleared: the error routine's exit (19B1H ->
     # 1B9AH, past the 1B77H clear) leaves 40F5H/40F7H as execloop set
-    # them, so CONT re-runs the statement that failed (H-1).
+    # them, so CONT re-runs the statement that failed.
     INHANDLER = 0
     # only UNCAUGHT errors reach here (ON ERROR GOTO is handled in execloop),
     # so this is the one place batch mode needs for its exit-1 status
@@ -10072,7 +10071,7 @@ function report_err(   c, msg) {
 function raise_host(c) { if (E) return; raise(c); HINTHOST = 1 }
 
 # LEVEL II-style number formatting: leading space or -, trailing space,
-# BY TYPE, since 2026-09-26 (L-16): an integer in full; a single to 6
+# BY TYPE, since 2026-09-26: an integer in full; a single to 6
 # significant digits, a double to 16 with D as its exponent letter (the
 # manual: "stored with 17 digits but printed out with only 16"; Barden
 # shows 1.23456789D+18).  Until then every exact integer below 1e15
@@ -10090,7 +10089,7 @@ function raise_host(c) { if (E) return; raise(c); HINTHOST = 1 }
 # for a double), so .01 and 999999 are fixed and .001 is 1E-03, 1000000
 # is 1E+06, as on the machine (Richcraft vol. 2 p.97: 7.8125E-03).
 # Until 2026-09-27 every value below .01 was fixed (.00195313; the
-# 2026-09-26 audit, M-10).  The exponent letter is E or D by type
+# 2026-09-26 audit).  The exponent letter is E or D by type
 # (1075H-1079H), the exponent two digits and signed; trailing zeros
 # and a bare point are dropped (1066H-106EH), so 1E-03, not 1.00000E-03.
 #
@@ -10298,7 +10297,7 @@ function d56_loadp(p,   i, k, x) {
 #     44H): VAL("1e5") is 1, and DATA 1e5 read into a number is ?SN as
 #     any letter behind a number is (the reader stops in front of it).
 #     Until 2026-09-27 a lower-case letter was taken too (the 2026-09-26
-#     audit, L-20); a program line is upper-cased by the cruncher, so
+#     audit); a program line is upper-cased by the cruncher, so
 #     only VAL, DATA and typed input ever see one.
 function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, expl, sig, sx) {
     i = 1; m = ""; ex = ""; isint = !dp; expd = 0; expl = 0; sx = ""
@@ -10338,8 +10337,8 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, expl, sig, s
     # digits and VAL(".1")=.1 is false, as on the machine.  Only an E
     # exponent or a "!" drops it to single (0EA4H/0EF6H reach 0EFBH with
     # Z, the convert-to-single call); "#" and a D exponent keep it.  Until
-    # 2026-09-27 VAL typed its number as a literal (the 2026-09-26 audit,
-    # M-11).  The 0E6CH entry (READ, INPUT) starts at integer and types by
+    # 2026-09-27 VAL typed its number as a literal (the 2026-09-26 audit).
+    # The 0E6CH entry (READ, INPUT) starts at integer and types by
     # tk_number's rule (p50): I while there is no point or exponent and
     # it fits 15 bits, D from the eighth significant digit or a D exponent,
     # S for an E exponent at any length.
@@ -10348,7 +10347,7 @@ function valnum(s, dp,   i, c, sg, m, dot, isint, ex, exs, x, expd, expl, sig, s
     # stores .1000000014901161 and 1.23456789E0 stores 1.234567880630493,
     # where a plain 0.1 stays .1.  Until 2026-10-04 the value kept every
     # digit and an E item of eight digits was double (the 2026-09-30
-    # audit, BM-3).  A single result is the reader's own (rdsng).
+    # audit).  A single result is the reader's own (rdsng).
     # READ and INPUT enter at 0E65H, as VAL does, when the variable is a
     # double (dp = 1 from their callers): .29 into A# is .29, and 12% is
     # ?SN there (0EEFH), where into A it is 12.
@@ -10388,7 +10387,7 @@ function numrest() {
 # Every caller checks E before it stores: nothing is assigned.  The
 # limit is the type's own (VALTYPE, set by valnum just before the call):
 # a D-exponent or # item overflows at the double's limit (p10 DMAX; the
-# 2026-09-26 audit, L-24).
+# 2026-09-26 audit).
 function numconv(s,   x, lim) {
     sub(/[Dd]/, "E", s)
     x = s + 0
@@ -10426,7 +10425,7 @@ function rdsng(t,   p, ex, fp, x, n, i) {
 # bumps the least significant bit -- half up on the magnitude, never to
 # even.  Here the IEEE double result is rounded to the same 24 bits, so a
 # sum of singles drifts as the machine's does: FOR X=0 TO 1 STEP .1 makes
-# 10 passes, not 11 (the 2026-09-23 audit, M-15).  Since 2026-09-26.
+# 10 passes, not 11 (the 2026-09-23 audit).  Since 2026-09-26.
 function sround(x,   ax, e, q, r) {
     if (x == 0) return 0
     ax = (x < 0) ? -x : x
@@ -10476,7 +10475,7 @@ function sexp(x,   e) {
 
 # CSNG (0AB1H -> 0AB9H -> 0796H): a number as a single, rounded on the 25th
 # bit; a double that rounds past the single's limit is ?OV (07B2H), so
-# CSNG(1.70141183D38) and SQR of it are ?OV (the 2026-09-30 audit, BL-33;
+# CSNG(1.70141183D38) and SQR of it are ?OV (the 2026-09-30 audit;
 # until 2026-10-05 only the store into a single variable tested it).
 function csng(x) {
     if (x < FMIN && x > -FMIN) return 0
@@ -10492,7 +10491,7 @@ function sfl(x) {
 }
 
 # SIN, COS and TAN as the ROM computes them (1541H-15BAH), step for step
-# in single precision.  Since 2026-09-27 (the 2026-09-26 audit, M-12);
+# in single precision.  Since 2026-09-27 (the 2026-09-26 audit);
 # until then they were the host's libm on the raw argument, which gave
 # COS(90*.01745329) = 1.94707E-07 where the machine gives 0, and TAN of
 # it 5.13592E+06 where the Model III manual (p.239) promises ?/0.
@@ -10683,8 +10682,8 @@ function rom_tan(x,   s, c) {
 # ?OV (0796H's overflow, 07B2H; the double normalizer carries the same
 # way); below 2^-128 the exponent byte runs out and the result is ZERO,
 # silently (0793H JR NC,0778H).  t is "D" for a double result (p10
-# DMAX; the 2026-09-26 audit, L-24), anything else is the single limit.
-# Returns the value, with E set for ?OV.  Since 2026-09-26 (M-10's
+# DMAX; the 2026-09-26 audit), anything else is the single limit.
+# Returns the value, with E set for ?OV.  Since 2026-09-26 (the
 # underflow half).
 function frange(x, t,   lim) {
     lim = (t == "D") ? DMAX : FMAX
@@ -10712,7 +10711,7 @@ function bfloor(x,   f) {
 # (0A87H CALL NC,0AB9H), which rounds the fourth mantissa byte half up
 # (0796H), and only then converts to 16 bits.  So CINT(2.9999999#) is
 # 3 and CINT(32767.9999999#) is ?OV, as on the machine (ROM bug 5a's
-# mechanism; the 2026-09-26 audit, L-8).  sround leaves a single or an
+# mechanism; the 2026-09-26 audit).  sround leaves a single or an
 # integer as it is.  Since 2026-09-27.
 function to16(x,   r) {
     r = bfloor(sround(x))
@@ -10750,7 +10749,7 @@ function toS(u) { return (u > 32767) ? u - 65536 : u }
 # Authentic quirks reproduced: RND(1) is 1 (the corpus dialect trap) on
 # every draw but one -- seed E20F02H yields mantissa FFFFFF, which PRINTs
 # as 1 from RND(0), and whose single add of 1 rounds up, so there RND(n)
-# is n+1 for a power of 2 (RND(1) is 2; audit B-2, p60's sadd).
+# is n+1 for a power of 2 (RND(1) is 2; the 2026-09-30 audit, p60's sadd).
 function rnd_next() {
     RNDSEED = (RNDSEED * 4253261 + 372837) % 16777216
     return RNDSEED / 16777216
@@ -10795,7 +10794,7 @@ function rnd_poke(i, b,   lo, mid, hi) {
 # failures are fatal in gawk (that is why this stays a shell-out).  touch
 # alone is not the probe: it succeeds on a directory, and on a read-only
 # file the owner may still set times -- both then killed gawk at the
-# redirect, losing the program in memory (the 2026-09-19 audit, C-1).  So: not a
+# redirect, losing the program in memory (the 2026-09-19 audit).  So: not a
 # directory, creatable, and writable once it exists.
 # gawk does not treat every name as a file.  /inet/tcp/0/host/80 (and
 # /inet4, /inet6) is a SOCKET, /dev/fd/N and "-" are the interpreter's own
@@ -10803,13 +10802,13 @@ function rnd_poke(i, b,   lo, mid, hi) {
 # slurp).  A BASIC program chooses its file names -- OPEN takes an
 # expression -- so without this gate a listing could open a network
 # connection, carry out a file it had read in the host part of the name,
-# or LOAD and RUN whatever a server sent (the 2026-09-19 audit, H-1).  gawk
+# or LOAD and RUN whatever a server sent (the 2026-09-19 audit).  gawk
 # matches these names as literal prefixes, so that is the test here.  It is
 # only half the gate: any OTHER spelling of a device -- //dev/zero,
 # /./dev/zero, /Dev/zero on a case-insensitive filesystem -- is not gawk's
 # name, so gawk hands it to the OS, which resolves it to the device: a
 # slurp that never ends, a write that lands raw on the terminal (the
-# 2026-09-23 audit, H-3).  The other half is host_kind below: a program
+# 2026-09-23 audit).  The other half is host_kind below: a program
 # READS a regular file and WRITES a regular file or a name that does not
 # exist yet; a device, a directory, a FIFO or a socket is ?FD however it
 # is spelled.  EVERY path that hands a BASIC-chosen name to getline or to
@@ -10821,7 +10820,7 @@ function rnd_poke(i, b,   lo, mid, hi) {
 # A CHR$(0) in a name is refused outright: gawk hands the name to open()
 # and to sh as a C string, so both see it cut at the NUL -- "-" CHR$(0) is
 # stdin, "//dev/zero" CHR$(0) the device -- while every test here sees the
-# whole name (the 2026-09-26 audit, H-1).
+# whole name (the 2026-09-26 audit).
 function host_special(f) {
     return index(f, sprintf("%c", 0)) > 0 || f == "-" || f ~ /^\/inet[46]?\// || f ~ /^\/dev\//
 }
@@ -10830,7 +10829,7 @@ function host_special(f) {
 # directory: an absolute path, a drive-letter root or a `..` path
 # component is refused (?FD at the caller), so a listing cannot append to
 # a startup file or delete one outside the directory it was started in
-# (the 2026-09-26 audit, R-9; measured 2026-09-28: no listing in the
+# (the 2026-09-26 audit; measured 2026-09-28: no listing in the
 # corpus names such a path -- the TRSDOS form NAME/EXT:d is an ordinary
 # relative path and stays allowed).  READS go anywhere (OPEN "I", LOAD,
 # RUN "f", MERGE, CLOAD, SYSTEM; ruled 2026-09-30): reading damages
@@ -10842,13 +10841,13 @@ function host_special(f) {
 # line (no statement context).  The name is then followed to where it
 # RESOLVES (host_outside): a symbolic link already in the directory, to a
 # file, a directory or nothing yet, cannot carry the write or the KILL out
-# (the 2026-09-30 audit, BL-37).  Native Windows checks the spelling only.
+# (the 2026-09-30 audit).  Native Windows checks the spelling only.
 # WHO chose the name is asked when it was chosen: a channel OPENed at READY
 # keeps FH_FREE[n] = host_typed(), and the probes made later for it under
 # a program (the "R" flush, the OLLAMA transcript) set HOSTFREE from it.
 # They asked who was running then, so a file OPENed at READY by an
 # absolute path and closed by a program's END lost its PUT records to ?FD
-# (the 2026-09-30 audit, BL-26).
+# (the 2026-09-30 audit).
 function host_typed() { return CK == "" || CK == "I" }
 function host_escape(f) {
     if (HOSTFREE || host_typed()) return 0
@@ -10905,7 +10904,7 @@ function host_isdir(d) {
 # else that is there (a directory, a device, a FIFO, a socket, a dangling
 # link), "" nothing.  One shell-out; cmd.exe knows only "is it there".
 # It fails closed: a probe that answers nothing is "x", never "nothing
-# there", and a name holding a NUL is "x" before any probe (H-1, 2026-09-26).
+# there", and a name holding a NUL is "x" before any probe (2026-09-26).
 function host_kind(f,   cmd, s, r) {
     if (index(f, sprintf("%c", 0))) return "x"
     if (WINNATIVE) {
@@ -10924,8 +10923,8 @@ function host_writable(f) {
     if (host_special(f) || host_escape(f)) return 0
     if (WINNATIVE)
         return f !~ /"/ && system("type nul >> \"" f "\" 2>nul") == 0
-    # a regular file or a new name (H-3), then: not a directory, creatable,
-    # and writable once it exists (C-1)
+    # a regular file or a new name, then: not a directory, creatable,
+    # and writable once it exists
     return system("{ test ! -e " shq(f) " || test -f " shq(f) "; } && test ! -d " shq(f) \
                   " && touch -- " shq(f) " 2>/dev/null && test -w " shq(f)) == 0
 }
@@ -10947,8 +10946,8 @@ function host_canwrite(f) {
 # shows the printout in a capture).  What is refused is exactly what makes
 # gawk's redirect fatal -- a directory, a name in a directory that is not
 # there or cannot be written, a file that cannot be written -- and a
-# socket name, which gawk would try to connect (the 2026-09-23 audit,
-# M-1, the C-1 class).  Asked once at start (p10, LPBAD); nothing is
+# socket name, which gawk would try to connect (the 2026-09-23 audit:
+# an unprobed redirect).  Asked once at start (p10, LPBAD); nothing is
 # created by asking, the redirect makes the file when something prints.
 function host_appendable(f) {
     if (f ~ /^\/inet[46]?\//) return 0
@@ -10959,7 +10958,7 @@ function host_appendable(f) {
 
 # s as one single-quoted sh word: each ' becomes '\'' (close the quote,
 # an escaped quote, reopen).  For names the shell must never parse, such
-# as file names read back from ls (p30 rl_complete, the 2026-09-19 audit, C-2).
+# as file names read back from ls (p30 rl_complete, the 2026-09-19 audit).
 function shq(s) {
     gsub(/'/, "'\\''", s)
     return "'" s "'"
@@ -10969,7 +10968,7 @@ function shq(s) {
 # pipe, not `getline < f`, on purpose: LOF can be asked while the channel's
 # own read of the same name is part way through the file, and gawk keys a
 # file redirection by its name -- closing it to measure the file would
-# restart the read from the top (the 2026-09-19 audit, L-34).
+# restart the read from the top (the 2026-09-19 audit).
 function host_size(f,   cmd, s, r) {
     if (host_special(f)) return -1
     if (WINNATIVE) {
@@ -10993,7 +10992,7 @@ function host_exists(f) {
 
 # 1 when f is gone afterwards.  rm's own complaint is swallowed: stderr is
 # the BASIC program's error channel, and a KILL that fails has an error code
-# of its own to report (the 2026-09-19 audit, L-5).  The OLLAMA request file
+# of its own to report (the 2026-09-19 audit).  The OLLAMA request file
 # is removed with the same helper and ignores the answer -- a temp file left
 # behind is not the program's business.
 function host_delete(f) {
@@ -11013,7 +11012,7 @@ function host_tmpdir() {
 # from the pid is predictable, and an awk redirect writes through whatever
 # is already there: on a shared /tmp another local user could plant a
 # symlink under that name and have our output land on any file we can
-# write (the 2026-09-19 audit, M-5).  mktemp picks the name and creates
+# write (the 2026-09-19 audit).  mktemp picks the name and creates
 # the file exclusively, mode 0600, so what the redirect then opens is ours;
 # a temp directory that cannot be written is "" here instead of a gawk
 # fatal at the redirect.  %TEMP% on Windows is per user and cmd.exe has no

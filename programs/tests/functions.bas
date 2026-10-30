@@ -1,5 +1,5 @@
-10 REM Built-in functions the suite did not pin (the 2026-09-23 audit,
-20 REM M-13): plain values a mutation could change without a test
+10 REM Built-in functions the suite did not pin (the 2026-09-23 audit):
+20 REM plain values a mutation could change without a test
 30 REM noticing, and the ?FC/?BS cases through an ON ERROR handler.
 40 F=0:ON ERROR GOTO 900
 50 IF SGN(0)<>0 OR SGN(-3)<>-1 OR SGN(2)<>1 THEN PRINT "FAIL: SGN":F=1

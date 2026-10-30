@@ -12,7 +12,7 @@ run() { TRS80_Z80= "$here/basic" "$@" "$tmp" 2>&1 </dev/null; }
 
 printf '10 PRINT PEEK(16561)+256*PEEK(16562)\n' > "$tmp"
 out=$(run);                  [ "$out" = " 65535 " ] || fail "default top of memory" "$out"
-# the machine stores an answer n as n - 2 (00DEH, 00E7H: audit OC-12)
+# the machine stores an answer n as n - 2 (00DEH, 00E7H: the 2026-09-30 audit)
 out=$(run --memsize 32767);  [ "$out" = " 32765 " ] || fail "--memsize 32767" "$out"
 out=$(run --memsize=20000);  [ "$out" = " 19998 " ] || fail "--memsize=20000" "$out"
 

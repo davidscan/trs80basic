@@ -2,7 +2,7 @@
 # kill the whole group and exit 124.  A test whose only failure is a hang
 # (a core never killed, a close that waits for ever) then fails instead of
 # holding the suite, and no orphan keeps a $(...) or a log open (the
-# 2026-09-30 audit, BM-12).  Otherwise CMD's exit status, or 128+signal.
+# 2026-09-30 audit).  Otherwise CMD's exit status, or 128+signal.
 #   VAR=x perl programs/tests/bound.pl 30 ./basic prog.bas
 my $n = shift;
 my $p = fork;

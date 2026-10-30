@@ -16,7 +16,7 @@
 # (per-variable; a re-FIELD of a variable moves it, last fielding wins).
 # A variable is named here by its TARGET, p75's form: "V" name for a simple
 # variable, "A" key for an array element -- the Disk manual's own example
-# is FIELD 1,16 AS CLIENT$(1) (the 2026-09-19 audit, M-29).  Membership is
+# is FIELD 1,16 AS CLIENT$(1) (the 2026-09-19 audit).  Membership is
 # always asked with `in`: a bare FVCH[tgt] creates the key, and a created
 # key made LSET on a variable fielded away raise ?NO.
 function fld_tgt(name, key) { return (key != "") ? "A" key : "V" name }
@@ -26,7 +26,7 @@ function fio_isopen(n) { return FH_MODE[n] != "" }
 # is host file f open on some channel?  By the spelling first, then by what
 # the name RESOLVES to: `./DATA`, a case variant on a case-blind disk and a
 # link all name the open file, and a compare of spellings let KILL delete
-# it and two channels write it (the 2026-09-30 audit, BL-27).  Native
+# it and two channels write it (the 2026-09-30 audit).  Native
 # Windows has no -ef: its names compare case-blind, as its disks do.
 function fio_busy(f,   i) {
     for (i = 1; i <= 15; i++) {
@@ -92,9 +92,9 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
     if (fio_busy(f)) { raise(70); return }
     if (toupper(f) ~ /^OLLAMA(:|$)/) { ai_open(n, f); return }   # EXT: the OLLAMA channel (p87)
     if (host_special(f)) { raise(22); return }    # /inet/..., /dev/..., "-": not for a program (p90)
-    if (mode != "I" && host_escape(f)) { raise(22); return }   # a write stays under the cwd (R-9, p90)
+    if (mode != "I" && host_escape(f)) { raise(22); return }   # a write stays under the cwd (p90)
     # a device by another spelling, a directory, a FIFO: not a file either,
-    # however it is written (the 2026-09-23 audit, H-3); "O", "E" and "R"
+    # however it is written (the 2026-09-23 audit); "O", "E" and "R"
     # ask host_writable, which holds the same rule
     if (mode == "I" && host_kind(f) == "x") { raise(22); return }
     if (mode != "I") {
@@ -109,7 +109,7 @@ function st_open(   v, mode, n, f, rlen, r, l, i, cnt, p) {
         # the first record is read now, so EOF(n) is right at once; the ONE
         # reader (fio_fill below) cuts it, and says when the file could not
         # be read at all (?FF).  A second copy of the cut lived here until
-        # 2026-09-27 and missed the LF CR rule (M-9).
+        # 2026-09-27 and missed the LF CR rule.
         FH_NAME[n] = f; FH_MODE[n] = mode
         FIO_RERR = 0
         fio_fill(n)
@@ -181,7 +181,7 @@ function fio_flushR(n,   f, r) {
     # REOPENS the path, and an outside actor replacing it (a directory in
     # its place) would make the redirect a gawk fatal, killing the session.
     # Probe again at flush time; the failure is ?FD, as at OPEN (the
-    # 2026-09-26 audit, M-16).
+    # 2026-09-26 audit).
     HOSTFREE = FH_FREE[n]; r = host_writable(f); HOSTFREE = 0
     if (!r) { raise(22); return }
     printf "" > f
@@ -200,12 +200,12 @@ function st_kill(   v, f, i) {
     if (f == "") { raise(21); return }
     if (fio_busy(f)) { raise(70); return }
     if (!WINNATIVE && f ~ /'/) { raise(22); return }
-    if (host_escape(f)) { raise(22); return }     # a program's name stays under the cwd (R-9, p90): ?FD, not 54
+    if (host_escape(f)) { raise(22); return }     # a program's name stays under the cwd (p90): ?FD, not 54
     if (!host_exists(f)) { raise(54); return }
     # a delete the host refuses -- a read-only directory, say -- used to be
     # ignored: rm complained on the program's own error channel, the file
     # stayed, and the program carried on as though it had gone.  ?FD is what
-    # every other host refusal here reports (the 2026-09-19 audit, L-5).
+    # every other host refusal here reports (the 2026-09-19 audit).
     if (!host_delete(f)) { raise(22); return }
 }
 
@@ -216,7 +216,7 @@ function st_kill(   v, f, i) {
 # (ENTER) character" -- on the machine the file is a byte stream and 0DH is
 # what separates records, so a CHR$(13) a program PRINT#s is a record end
 # like any other.  Here the reader knew only gawk's own line split, so an
-# embedded 0DH stayed inside the item (the 2026-09-19 audit, L-35).  The text
+# embedded 0DH stayed inside the item (the 2026-09-19 audit).  The text
 # after it is held in FH_RAW and served as the next line, so a file whose
 # records end in CR alone -- the machine's own form -- reads record by
 # record instead of arriving as one enormous line.  A trailing CR (a CR LF
@@ -227,7 +227,7 @@ function st_kill(   v, f, i) {
 # successor begins with a CR is joined to it (with the LF put back) and
 # the scan goes on behind the pair; a CR inside a line is skipped when an
 # LF is just before it.  A lone LF stays the host's line end.  Until
-# 2026-09-27 the pair split the record (the 2026-09-26 audit, M-9).
+# 2026-09-27 the pair split the record (the 2026-09-26 audit).
 # FH_RAWLF says whether the held text ended at an LF (1) or the file's end.
 function fio_fill(n,   r, l, p, q, k, more, nx) {
     if (FH_MODE[n] == "A") return ai_fill(n)
@@ -301,7 +301,7 @@ function fio_next_item(n, isnum,   l, i, len, j, c, item, ist) {
     # Disk manual, INPUT#: EVERY one of the three terminator sets -- numeric,
     # quoted string, unquoted string -- lists "255th data character
     # encountered" beside the comma and the end of file.  An item longer
-    # than that was returned whole here (the 2026-09-19 audit, L-41).  The
+    # than that was returned whole here (the 2026-09-19 audit).  The
     # 255th character IS the terminator, so the next read resumes right
     # after it -- no comma is consumed, because none was reached.
     if (!HOSTMEM && length(item) > 255) {   # whole under `memory host` (EXT)
@@ -362,7 +362,7 @@ function st_lineinput(   n, name, key, prompt, line, x) {
         # character up to: 1. an (ENTER) character ... 2. the end of file
         # 3. the 255th data character (this 255 character is included in
         # the string)".  There was no limit here, so a long line came back
-        # as a string longer than one can hold (the 2026-09-19 audit, L-41).
+        # as a string longer than one can hold (the 2026-09-19 audit).
         # What is left stays for the next read, as a terminator would leave it.
         line = FH_PEND[n]
         if (!HOSTMEM && length(line) > 255) {   # whole under `memory host` (EXT)
@@ -494,7 +494,7 @@ function st_field(   n, off, w, v, name, key, tgt, i, found) {
         # a field width is a string LENGTH: one descriptor byte on the
         # machine, so 256 is ?FC as any byte argument (2B1CH); `memory
         # host` lifts it with the other string counts (the 2026-09-26
-        # audit, N-5)
+        # audit)
         w = lenconv(num(v)); if (E) return
         if (!(TY[CK, CP] == "i" && TK[CK, CP] == "AS")) { raise(2); return }
         CP++
@@ -534,7 +534,7 @@ function fld_is(tgt, s) {
 # store s, FVW[name] long, as a FIELD variable's slice of its record buffer.
 # Every in-place string store reaches the buffer through here: LSET, RSET
 # and MID$= (which wrote the variable only, so PUT wrote the old record:
-# the 2026-09-19 audit, M-25).
+# the 2026-09-19 audit).
 function fld_put(tgt, s,   n) {
     n = FVCH[tgt]
     FH_BUF[n] = substr(FH_BUF[n], 1, FVOF[tgt]) s substr(FH_BUF[n], FVOF[tgt] + FVW[tgt] + 1)
@@ -596,8 +596,8 @@ function st_get(   n, rec, v) {
     # past the last record: "BASIC simply fills the buffer with hexadecimal
     # zeros, and no error is generated" (Disk manual, GET and LOF; the error
     # it speaks of is for variable-length records, which are not served).
-    # This was ?IE while `man GET` promised spaces (the 2026-09-19 audit,
-    # M-27).  EOF(n) is true afterwards, and LOF(n) is the test beforehand.
+    # This was ?IE while `man GET` promised spaces (the 2026-09-19 audit).
+    # EOF(n) is true afterwards, and LOF(n) is the test beforehand.
     if (rec > FH_NREC[n]) { FH_BUF[n] = ""; while (length(FH_BUF[n]) < FH_RLEN[n]) FH_BUF[n] = FH_BUF[n] CHR[0] }
     else FH_BUF[n] = fio_pad(FH_REC[n, rec], FH_RLEN[n])
     FH_LOC[n] = rec
@@ -662,7 +662,7 @@ function fio_mki(x,   v, u) {
     # Disk manual p.144: the argument "is evaluated as an integer, -32768
     # <= n <= 32767; if it exceeds this range, an ILLEGAL FUNCTION CALL
     # error" -- ?FC, where the plain integer conversion (to16, CINT's) says
-    # ?OV.  The fraction goes the way CINT drops it: down (H-5).
+    # ?OV.  The fraction goes the way CINT drops it: down.
     v = bfloor(x)
     if (v < -32768 || v > 32767) { raise(5); return "" }
     u = (v < 0) ? v + 65536 : v
@@ -683,7 +683,7 @@ function fio_mkf(x, nb,   sgn, e, i, b, out) {
     }
     sgn = 0
     if (x < 0) { sgn = 128; x = -x }
-    if (x >= ((nb == 8) ? DMAX : FMAX)) { raise(6); return "" }   # the exponent byte would pass 255 (p10 FMAX, DMAX for MKD$'s 8 bytes; L-24); an infinity would never leave the loop
+    if (x >= ((nb == 8) ? DMAX : FMAX)) { raise(6); return "" }   # the exponent byte would pass 255 (p10 FMAX, DMAX for MKD$'s 8 bytes); an infinity would never leave the loop
     e = 0
     while (x >= 1) { x /= 2; e++ }
     while (x < 0.5) { x *= 2; e-- }
@@ -699,7 +699,7 @@ function fio_mkf(x, nb,   sgn, e, i, b, out) {
     # bit set -> 07A8H bumps the mantissa, the carry going up through the
     # bytes and, from FFFFFFH, into the exponent with ?OV at 07B2H), so .1
     # is CDH CCH CCH 7DH on the machine.  Cutting it off gave CCH, and
-    # INT(CVS(MKS$(.07))*100) was 6 (the 2026-09-19 audit, M-26).  Every
+    # INT(CVS(MKS$(.07))*100) was 6 (the 2026-09-19 audit).  Every
     # caller is a single (MKS$, a single USR result); a double's 8 bytes
     # come from dbytes (p91), never through here.
     if (x >= 0.5) {

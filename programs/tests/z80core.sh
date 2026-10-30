@@ -95,7 +95,7 @@ $err"
 
 # A routine that ends with JP 1A19H hands the machine to READY: the program
 # is over, and the statement after the call does not run (the 2026-09-19
-# audit, L-44).  The byte it stored first still arrives.  Line 40 only runs
+# audit).  The byte it stored first still arrives.  Line 40 only runs
 # through the prompt, after the program has ended.
 cat > "$tmp" <<'EOF2'
 10 FOR I=0 TO 7:READ B:POKE 32000+I,B:NEXT
@@ -150,7 +150,7 @@ $err"
 # The routine stores A at 7B00H (LD (7B00H),A / RET).  Nothing else
 # shows the type of 32767: the mutants that made it single at the
 # constant (tk_number) and at an integer result (tresult) passed every
-# suite (the 2026-09-30 audit, N-5's B92 and B73).
+# suite (the 2026-09-30 audit's B92 and B73).
 cat > "$tmp" <<'EOF2'
 10 FOR I=0 TO 3:READ B:POKE 31400+I,B:NEXT:DEFUSR=31400
 20 DATA 50,0,123,201
@@ -167,12 +167,12 @@ out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null)
 [ "$out" = " 2  2  4  2  4  4  2  2 " ] || fail "the type byte USR finds for 32767 and its neighbours" "$out"
 # The value of USR is WRA1 as the type flag says when the routine returns
 # (27FE-2818H: the routine RETs through 0890H to the evaluator, Farvour),
-# not the argument or an HL reply (XL-1): CALL 0A7FH / RET is the integer,
+# not the argument or an HL reply: CALL 0A7FH / RET is the integer,
 # 2.7 -> 2 and -2.5 -> -3; storing 1234 and type 2 there is 1234; storing
 # HL over a single's low bytes is that single, 9.50118.  The routine
 # enters with DE = 0890H for a number (2806H, 2814H's EX DE,HL) and A is
 # FFH after 0A7FH on an integer (0A83H's RET M after RST 20H), 2 after
-# a conversion (XL-2).  A plain RET still keeps the argument and its type.
+# a conversion.  A plain RET still keeps the argument and its type.
 cat > "$tmp" <<'EOF2'
 10 FOR I=0 TO 35:READ B:POKE 32000+I,B:NEXT
 20 DATA 205,127,10,201

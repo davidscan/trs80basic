@@ -17,7 +17,7 @@
 # stand and READS them at run time through RST 10H (0E6CH from 24A5H), so
 # blanks inside a number are nothing (1 2 is 12) -- tk_number below.
 # Until 2026-09-25 a whole identifier was read first and then looked up,
-# and a number by a regex (the 2026-09-23 audit, M-2, and the keyword-
+# and a number by a regex (the 2026-09-23 audit, and the keyword-
 # crunching rule ruled 2026-09-23).
 
 function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
@@ -28,7 +28,7 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
     # position, so an unquoted file name is taken verbatim.  EVERY token
     # needs its TPO: a missing one made substr() start at "" and hand back
     # the WHOLE line, so `CSAVE DATA` saved to a file called "CSAVE DATA"
-    # (the 2026-09-19 audit, L-15).  The string, REM, ' and DATA tokens had
+    # (the 2026-09-19 audit).  The string, REM, ' and DATA tokens had
     # none.
     TSRC[key] = text                        # raw source + per-token offsets
     while (i <= n) {                        # (parse_fname reads paths verbatim)
@@ -90,7 +90,7 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
                 # the ROM's cruncher knows no FN: a keyword right behind it
                 # is tokenized (DEF FNTO is DEF FN <TO>, ?SN when parsed),
                 # so the name must not swallow one (the 2026-09-26 audit,
-                # N-5; tk_name only cuts keywords AFTER its first letter)
+                # tk_name only cuts keywords AFTER its first letter)
                 if (!(s == "FN" && substr(text, j, 1) ~ /^[A-Za-z]$/ && kw_at(up, j) == "")) {
                     k++; TK[key, k] = s; TY[key, k] = "i"; TPO[key, k] = t0; TKW[key, k] = 1
                     continue
@@ -243,7 +243,7 @@ function tk_number(text, up, i,   c, m, dot, ex, exs, hasexp, isint, expd, sig) 
     # An E exponent, even an empty one, makes it single whatever its digits
     # (0E8CH CP 45H -> 0EA4H -> 0EFFH CALL Z,0AB1H, CSNG): 12345678E2 is
     # 1.23457E+09.  Until 2026-10-04 eight digits kept it double (the
-    # 2026-09-30 audit, BM-3).
+    # 2026-09-30 audit).
     # TSX carries it as I, S or D (or %SN, ?SN at e_prim).
     if (TKSX == "%") TKSX = "I"
     else if (TKSX == "!") TKSX = "S"
@@ -285,7 +285,7 @@ function vn_cut(s,   d, b) {
 # BYE or EXIT is the statement (EXT) only when it is a whole statement:
 # first in the statement (line start, after `:`, THEN or ELSE) and followed
 # by nothing but the statement's end.  `BYE=5` and `PRINT BYE` are the
-# variable BY on the ROM, and stay so here (the 2026-09-30 audit, BM-9).
+# variable BY on the ROM, and stay so here (the 2026-09-30 audit).
 function bye_alone(key, k, up, i,   p) {
     if (k > 0) {
         p = TK[key, k]

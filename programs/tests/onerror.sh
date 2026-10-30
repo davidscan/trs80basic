@@ -120,8 +120,8 @@ READY
 
 # RESUME zeroes ERR (1FB7H-1FB8H store 0 in 409AH) and leaves ERL; RUN
 # and NEW keep both (1B49H-1B77H never touch 409AH or 40EAH); ERROR n
-# with anything behind n is the driver's ?SN (1FF7H RET NZ).  Audit L-4,
-# L-2, L-5.
+# with anything behind n is the driver's ?SN (1FF7H RET NZ).  All three from
+# the 2026-09-26 audit.
 out=$(printf '\n10 ON ERROR GOTO 100\n20 ERROR 7\n30 PRINT "AFTER";ERR;ERL:END\n100 PRINT "IN";ERR;ERL:RESUME NEXT\nRUN\n10 X=1/0\nRUN\nDELETE 10-100\nRUN\nPRINT ERR;ERL\nNEW\nPRINT ERR;ERL\nERROR 5 X\n' \
     | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | sed -n '/^>RUN/,$p')
 want='>RUN
@@ -154,7 +154,7 @@ READY
 # (2053H -> 1D5FH skips 1D25H): RESUME NEXT scans from the IF to its
 # first ":", so an error in the ELSE part's first statement skips the
 # rest of the line, and one in the THEN part's first goes on behind it
-# (19BAH, 1FCFH-1FE7H; audit L-6)
+# (19BAH, 1FCFH-1FE7H; the 2026-09-26 audit)
 out=$(printf '\n10 ON ERROR GOTO 100\n20 IF 0 THEN 30 ELSE X=1/0:PRINT "REST OF ELSE"\n30 IF 1 THEN X=1/0:PRINT "REST OF THEN"\n40 END\n100 PRINT "ERL";ERL:RESUME NEXT\nRUN\n' \
     | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | sed -n '/^>RUN/,$p')
 want='>RUN
@@ -168,7 +168,7 @@ READY
 # RESUME n reads its number with GOTO's reader (1FC1H CALL 1E5AH, 1FC4H
 # RET NZ): digits only, so a point or an exponent behind them, a word, or a
 # number past 65529 is ?SN, trapped by the same handler; blanks between
-# the digits are read through (the 2026-09-30 audit, BL-3)
+# the digits are read through (the 2026-09-30 audit)
 for t in '30.5' '1E2' '70000' '30 X'; do
     out=$(printf '\n10 ON ERROR GOTO 100\n20 X=1/0\n30 PRINT "AT30":END\n100 PRINT "H";ERR/2+1;ERL:IF ERR/2+1=11 THEN RESUME %s\n110 PRINT "TWO":END\nRUN\n' "$t" \
         | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | sed -n '/^>RUN/,/^READY/p')

@@ -30,7 +30,7 @@ Q4 REPLY -> Msgs=7 T=- K=-
 EOF-1 .'
 [ "$out" = "$want" ] || fail "a waiting prompt is sent at the next read" "$out"
 
-# The request body's scratch file (the 2026-09-19 audit, M-5).  Its name
+# The request body's scratch file (the 2026-09-19 audit).  Its name
 # must not be guessable from the pid -- on a shared /tmp a planted symlink
 # under a known name has the body written over any file the user can
 # write -- it is private (0600), it is gone after the request, a temp
@@ -77,7 +77,7 @@ SURVIVED'
 # the letters "b" and "f", and a SURROGATE PAIR is one code point -- the
 # pair D83D DE00 is U+1F600, four UTF-8 bytes, not two 3-byte halves
 # (CESU-8, which no reader accepts).  Both were wrong (the 2026-09-19
-# audit, L-36).  An UNPAIRED surrogate is still encoded as it stands;
+# audit).  An UNPAIRED surrogate is still encoded as it stands;
 # strictly it should become U+FFFD, but that is beyond the finding.
 #
 # The stub emits its JSON with cat and a QUOTED heredoc, not printf:
@@ -106,7 +106,7 @@ want='65,8,66,12,67,124,195,169,124,240,159,152,128,124,237,160,189,124,92,124,4
 [ "$out" = "$want" ] || fail "the JSON escapes b, f and a surrogate pair" "$out"
 
 # a thread OPENed at READY by an absolute path, sent on by a program: the
-# transcript's re-probe asked who was running then, ?FD (BL-26)
+# transcript's re-probe asked who was running then, ?FD
 mkdir "$dir/th"
 out=$(cd "$dir" && printf '\n10 PRINT#1,"Q":LINE INPUT#1,A$:PRINT "GOT ";A$:CLOSE 1\nOPEN "O",1,"OLLAMA:stub:%s/th/abs"\nGOTO 10\n' "$dir" \
       | TRS80_DUMB=1 TRS80_Z80= TRS80_OLLAMA_CURL="sh $here/programs/tests/ollama_stub.sh" \

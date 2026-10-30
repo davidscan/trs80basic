@@ -78,7 +78,7 @@ function t_rows(   line, a) {
     # 2>/dev/null comes FIRST: a shell applies redirections left to right,
     # so with it last the shell's own "/dev/tty: Device not configured" for
     # the failed open still went to the real stderr.  `./basic --screen`
-    # off a terminal printed it (the 2026-09-19 audit, L-12).  Both strings
+    # off a terminal printed it (the 2026-09-19 audit).  Both strings
     # must stay identical: the command text is close()'s key.
     if (("stty size 2>/dev/null < /dev/tty" | getline line) > 0 && split(line, a, " ") >= 2) {
         if (a[1] + 0 >= 20) TROWS = a[1] + 0
@@ -225,7 +225,7 @@ function sync_cursor(   vis) {
 # statements (pollbrk), the throttle's wait (thr_wait), and every PRINT
 # and read, which sync on their own.  Until 2026-09-26 each SET and each
 # POKE into video memory wrote its own cursor escape and flushed, a write
-# system call per cell (the 2026-09-23 audit, L-14), so a loop of SETs
+# system call per cell (the 2026-09-23 audit), so a loop of SETs
 # reached the terminal as thousands of tiny writes.  The terminal's own
 # cursor is hidden while a program runs (sync_cursor), so where drawcell
 # leaves it is not seen; a program that showed it (CHR$(14)) sees it
@@ -288,7 +288,7 @@ function s_scroll(   i) {
     # their rows as they do in SCR.  Until 2026-09-26 every scrolled line
     # repainted the whole grid, 1.2 KB, and a listing pasted at READY or a
     # program printing a page reached a real terminal as megabytes (the
-    # 2026-09-23 audit, L-14).  Every ANSI terminal has the region; DUMB
+    # 2026-09-23 audit).  Every ANSI terminal has the region; DUMB
     # streams and draws no grid.  Callers place the cursor afterwards.
     if (!DUMB) printf "\033[1;16r\033[16;1H\n\033[r"
 }
@@ -328,7 +328,7 @@ function s_nl(   i) {
 # offset AND 3FH (2086H-2089H, p80), and the keyboard input routine zeroes
 # it (0365H, p30 rl_read).  Until 2026-09-25 the column was the display
 # byte, so in 32-character mode TAB(10) landed at character 5 and POS(0)
-# read double (the 2026-09-23 audit, M-4).
+# read double (the 2026-09-23 audit).
 function vcol_sync() {
     VCOL = WIDE ? int((CUR % 64) / 2) : CUR % 64
 }
@@ -364,7 +364,7 @@ function s_putc_drv(b,   n, r) {
     # ROM 050E-0513: a control code below 0AH is ignored (08H excepted,
     # just below), and 0AH through 0DH ALL go to the carriage return at
     # 0564H -- so CHR$(11) and CHR$(12) are line feeds like CHR$(10) and
-    # CHR$(13), not the no-ops they were here (the 2026-09-19 audit, L-2).
+    # CHR$(13), not the no-ops they were here (the 2026-09-19 audit).
     if (b >= 10 && b <= 13) { s_nl(); return }
     if (b == 8) {
         if (DUMB && TTYIN) printf "\b \b"
@@ -391,7 +391,7 @@ function s_putc_drv(b,   n, r) {
         return
     }
     # The four arrows NEVER LEAVE THE SCREEN AND NEVER SCROLL IT (the
-    # 2026-09-19 audit, L-1).  Left and right stay in their line: 04E2-04EB
+    # 2026-09-19 audit).  Left and right stay in their line: 04E2-04EB
     # steps back and, from column 0, adds 64 -- the end of the SAME line;
     # 04EC-04F5 steps on and, having reached the next line, takes 64 off.
     # Left runs twice in 32-column mode (04DA-04DF tests bit 3 of 403DH);

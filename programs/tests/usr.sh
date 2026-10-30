@@ -54,7 +54,7 @@ if [ "$rc" != "1" ] || [ "$out" != "?FC ERROR IN 10" ]; then
 fi
 # the stub's identity keeps the argument's TYPE as well as its value
 # (PROTOCOL.md "The return": result=0 means the argument unchanged).
-# Until the M-13 fix every USR result was tagged integer, so this
+# Until 2026-09-24 every USR result was tagged integer, so this
 # printed  1 -2  40000  0  (a 6fe3814 regression).
 printf '10 A#=1/3\n20 PRINT USR(1.5);USR(-2.5);USR(40000);USR(A#)\n' > "$tmp"
 out=$(TRS80_Z80="" "$here/basic" "$tmp" 2>/dev/null); rc=$?
@@ -63,7 +63,7 @@ want=' 1.5 -2.5  40000  .3333333432674408 '
 if [ "$rc" != "0" ] || [ "$out" != "$want" ]; then
     echo "USR FRAME FIXTURE FAILED (stub identity keeps the type): rc=$rc out=$out"; exit 1
 fi
-# a STRING argument is legal (ROM 27FE-2818, M-17): the stub returns it
+# a STRING argument is legal (ROM 27FE-2818): the stub returns it
 # unchanged, a temporary expression included; a second argument is ?SN
 # (the ROM expects ")" after the one expression 252CH read)
 printf '10 A$="HI":PRINT USR(A$);USR(A$+"!")\n' > "$tmp"
@@ -81,7 +81,7 @@ fi
 # full; later frames are deltas -- a POKE shows up once, a packed string
 # when its value or place changed, and cells CLEAR unmapped come back as
 # 255 (ruled 2026-09-11; the string and the screen by change since
-# 2026-09-25, M-12).
+# 2026-09-25).
 # The strings are joined (+) so they live in string space: a lone literal
 # stays in its program line, as the ROM's LET leaves it (1F46H-1F57H).
 dump=$(printf '\n10 POKE 30000,7:A$="HEL"+"LO":V=VARPTR(A$)\n20 X=USR(1)\n30 POKE 30001,8:X=USR(2)\n40 A$="WORLD"+"S":X=USR(3)\n50 CLEAR:X=USR(4)\nRUN\nBYE\n' \
@@ -89,7 +89,7 @@ dump=$(printf '\n10 POKE 30000,7:A$="HEL"+"LO":V=VARPTR(A$)\n20 X=USR(1)\n30 POK
       | awk '/^USR FRAME/ { g = $3; print; next } /^  / && g != "" { print g " " $1 }')
 chk() { if ! printf '%s\n' "$dump" | grep -q -- "$1"; then echo "USR FRAME FIXTURE FAILED (image): missing $1"; printf '%s\n' "$dump" | head -40; exit 1; fi; }
 nochk() { if printf '%s\n' "$dump" | grep -q -- "$1"; then echo "USR FRAME FIXTURE FAILED (image): unexpected $1"; exit 1; fi; }
-chk '^USR FRAME gen=1 full=1 slot=0 entry=-1 arg=1 sp=65527 himem=65535 ramtop=65535 bytes=1215 runs=19$'   # +9 the argument image 40AFH and 411D-4124H the evaluator stores before the jump, 2026-10-23 (XL-1); +20 window bytes and +4 seeded driver-vector bytes, 2026-09-11; +1 seeded 403DH print-flag byte (16445), 2026-09-13; +6 image bytes for the two joins, 2026-09-23; +26 the DEF-type table 4101-411AH, 2026-09-23; +1 the 40A6H cursor column (16550), 2026-09-27 (M-18)
+chk '^USR FRAME gen=1 full=1 slot=0 entry=-1 arg=1 sp=65527 himem=65535 ramtop=65535 bytes=1215 runs=19$'   # +9 the argument image 40AFH and 411D-4124H the evaluator stores before the jump, 2026-10-23; +20 window bytes and +4 seeded driver-vector bytes, 2026-09-11; +1 seeded 403DH print-flag byte (16445), 2026-09-13; +6 image bytes for the two joins, 2026-09-23; +26 the DEF-type table 4101-411AH, 2026-09-23; +1 the 40A6H cursor column (16550), 2026-09-27
 chk '^gen=1 16445:0$'                       # the seeded ROM print-flag byte, 403DH
 chk '^gen=1 30000:7$'                       # the POKE
 chk '^gen=1 16396:201$'                     # the seeded DOS probe byte
@@ -108,7 +108,7 @@ chk '^gen=4 65522:255,255,255,255,255,255$'                      # the unmapped 
 chk '^gen=4 65533:255,255,255$'                                  # and the descriptor's
 
 # A delta carries what changed since the last frame, and no more (the
-# 2026-09-23 audit, M-12; until 2026-09-25 the screen and every VARPTR'd
+# 2026-09-23 audit; until 2026-09-25 the screen and every VARPTR'd
 # cell went in every frame).  A string assigned the same length in the same
 # place is resent for its value; untouched, it is not; a number the same;
 # a POKE into a mapped cell is resent once; a PRINT resends its cells and
@@ -126,12 +126,12 @@ chk '^gen=6 65524:0,0,96,131$'; chk '^gen=7 65524:0,0,0,132$'; nochk '^gen=8 655
 chk '^gen=8 65534:248$'                                          # the POKE of the same byte: resent once
 # never the keyboard: the POKE at 3840H (14400) sits in MEM but a frame
 # must not read 3800-38FFH -- dopeek there is the live matrix and would
-# consume a line of stdin (the 2026-09-26 audit, L-27)
+# consume a line of stdin (the 2026-09-26 audit)
 nochk '^gen=8 14400:'
 
 # A program that shrinks (DELETE) leaves its old tail mapped in the core's
 # memory: the next delta resends those cells as 255, unmapped (fr_build,
-# the 2026-09-30 audit, XM-5 B135).
+# the 2026-09-30 audit B135).
 dump=$(printf '\n10 X=USR(1)\n20 PRINT "AAAAAAAAAA"\n30 PRINT "BBBBBBBBBB"\nRUN\nDELETE 20-30\nX=USR(2)\nBYE\n' \
       | TRS80_USR_TRACE=2 TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 >/dev/null \
       | awk '/^USR FRAME/ { g = $3; print; next } /^  / && g != "" { print g " " $1 }')

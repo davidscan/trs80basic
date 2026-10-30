@@ -7,7 +7,7 @@ the reference part of docs/USER_GUIDE.md.  They must agree, or the guide says
 something `man` does not.  They did not: init_man skips a line beginning with
 '#' as a comment in the file, parse_manpages kept it, and the metacommands
 banner near the end of the file was tacked onto the body of whichever entry
-came before it and printed in the guide (the 2026-09-19 audit, L-20).
+came before it and printed in the guide (the 2026-09-19 audit).
 
     python3 -m unittest test_userguide        # from tools/
 """
@@ -43,7 +43,7 @@ class TestManpageReading(unittest.TestCase):
         for header, body in mug.parse_manpages():
             bodies[header[0]] = body
         keys = sorted(bodies)
-        # every TRS80_* goes (AM-4's sibling): the caller's must not reach the run
+        # every TRS80_* goes: the caller's must not reach the run
         env = {k: v for k, v in os.environ.items() if not k.startswith("TRS80_")}
         env.update(TRS80_DUMB="1", TRS80_Z80="",
                    TRS80_MANFILE=str(mug.MANPAGES))

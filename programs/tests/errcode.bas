@@ -96,7 +96,7 @@
 739 REM would be a double and measure against the double's limit)
 740 S=63:PRINT VAL("1.70141178389866830818769697729071284224E38"):IF S<>64 THEN PRINT "FAIL: VAL AT EXACTLY THE LIMIT WAS NOT ?OV  S=";S:F=1
 750 REM 1FFC-1FFF double n-1 in eight bits: 129-151 wrap to the codes 1-23, ERR included;
-752 REM 128 and 152 stay past the table (?UE).  Q-6 (BL-6)
+752 REM 128 and 152 stay past the table (?UE), as ruled.
 754 S=65:ERROR 129
 756 IF S<>66 THEN PRINT "FAIL: ERROR 129 WAS NOT ?NF  S=";S:F=1
 758 S=67:ERROR 151
@@ -106,13 +106,13 @@
 766 S=71:ERROR 152
 768 IF S<>72 THEN PRINT "FAIL: ERROR 152 WAS NOT ?UE  S=";S:F=1
 770 REM NEXT reads its name with subscripts allowed (22B9H, 260DH): an element is no
-772 REM loop, ?NF once the subscript is read, ?BS first when it is out of range (N-3)
+772 REM loop, ?NF once the subscript is read, ?BS first when it is out of range
 774 DIM J9(3):S=73:FOR J9=1 TO 2:NEXT J9(1)
 776 IF S<>74 THEN PRINT "FAIL: NEXT J9(1) WAS NOT ?NF  S=";S:F=1
 778 S=75:FOR J9=1 TO 2:NEXT J9(9)
 780 IF S<>76 THEN PRINT "FAIL: NEXT J9(9) WAS NOT ?BS  S=";S:F=1
 782 REM MID$()='s start and count and INSTR's start are bytes, as MID$()'s are:
-784 REM ?OV outside the integers, ?FC past 255 (N-3)
+784 REM ?OV outside the integers, ?FC past 255
 786 A$="HELLO":S=77:MID$(A$,1E10)="X"
 788 IF S<>78 THEN PRINT "FAIL: MID$(A$,1E10)= WAS NOT ?OV  S=";S:F=1
 790 S=79:X=INSTR(1E10,A$,"L")

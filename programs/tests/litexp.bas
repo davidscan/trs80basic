@@ -3,7 +3,7 @@
 30 REM exponent (or a # behind the digits) keeps it double.  READ and INPUT use the same reader:
 40 REM an item with an E exponent or a ! is stored as its single value, even into a double, where
 50 REM a plain 0.1 stays .1.  Until 2026-10-04 eight digits kept an E literal double and READ
-60 REM kept every digit of an E or ! item (the 2026-09-30 audit, BM-3).
+60 REM kept every digit of an E or ! item (the 2026-09-30 audit).
 70 F=0:DEFDBL D
 100 IF STR$(12345678E2)<>" 1.23457E+09" OR STR$(1.23456789E0)<>" 1.23457" THEN PRINT "FAIL: an E literal is single:";12345678E2;1.23456789E0:F=1
 110 IF STR$(1.2345678E0*3)<>" 3.7037" OR STR$(123456789E-1)<>" 1.23457E+07" THEN PRINT "FAIL: computes as single:";1.2345678E0*3;123456789E-1:F=1

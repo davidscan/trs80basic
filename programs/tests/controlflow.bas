@@ -1,4 +1,4 @@
-10 REM Control flow the suite did not pin (the 2026-09-23 audit, M-13):
+10 REM Control flow the suite did not pin (the 2026-09-23 audit):
 20 REM ON n GOSUB/GOTO, NEXT J,I, a negative STEP, a loop body runs at
 30 REM least once (FOR at 1CA1H only builds the frame; the compare is
 40 REM NEXT's, at 2310H), RESUME's forms, DEF FN's parameter, RESTORE n.
@@ -46,7 +46,7 @@
 370 REM so the caller's NEXT still finds its own loop
 371 S=7:C=0:FOR I=1 TO 2:GOSUB 530:C=C+1:NEXT
 372 IF C<>2 OR I<>3 THEN PRINT "FAIL: RETURN INSIDE FOR";C;I:F=1
-373 REM NEXT's single add is ?OV past the single's range, the index kept (BL-5)
+373 REM NEXT's single add is ?OV past the single's range, the index kept
 374 S=8:FOR I=1E38 TO 1.7E38 STEP 1E38:NEXT:IF S<>9 OR I<>1E38 THEN PRINT "FAIL: NEXT ADD PAST 1.7E38";S;I:F=1
 375 ON ERROR GOTO 0:IF F THEN PRINT "CONTROLFLOW FIXTURE FAILED":ERROR 5
 380 PRINT "CONTROLFLOW FIXTURE OK":END

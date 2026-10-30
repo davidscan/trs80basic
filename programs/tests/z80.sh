@@ -10,7 +10,7 @@ core="python3 $here/programs/tests/z80_stub.py"
 tmp=$(mktemp) || exit 2
 fail() { echo "Z80 FIXTURE FAILED: $1"; [ -n "$2" ] && printf '%s\n' "$2"; rm -f "$tmp" "$tmp.err"; exit 1; }
 # Every interpreter run is bounded (programs/tests/bound.pl): a test whose
-# only failure is a hang held the whole suite (the 2026-09-30 audit, BM-12).
+# only failure is a hang held the whole suite (the 2026-09-30 audit).
 bound="$here/programs/tests/bound.pl"
 
 # --- the main program: every entry with a batch-visible effect
@@ -84,14 +84,14 @@ out=$(TRS80_Z80="$core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); 
 [ "$rc" = "0" ] && [ "$out" = "AB 127  0  66 " ] || fail "CLS restores 64-column and the print flag: rc=$rc" "$out"
 
 # --- a routine's CLS zeroes the ROM's cursor column at 40A6H (0342H), so
-# BASIC's TAB and POS follow (M-18): before the fix the column stayed 7
+# BASIC's TAB and POS follow: before the fix the column stayed 7
 # after the call and TAB(10) padded from there
 printf '10 DEFUSR=&H700D:PRINT "ABCDEFG";:X=USR(0):PRINT PEEK(16550);TAB(10);"X"\n' > "$tmp"
 out=$(TRS80_Z80="$core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = "ABCDEFG 0        X" ] || fail "CLS zeroes the cursor column: rc=$rc" "$out"
 
 # --- a hung core that never answers HELLO -- and traps TERM -- is killed
-# within a bounded close (M-1): TERM, half a second, then KILL.  Before the
+# within a bounded close: TERM, half a second, then KILL.  Before the
 # fix close() waited for the child for ever (no pid without a handshake)
 # and this test never finished.
 cat > "$tmp.core" <<'EOF'
@@ -111,8 +111,8 @@ USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argumen
 [ $((t1 - t0)) -lt 10 ] || fail "hung core: close took $((t1 - t0))s, not bounded"
 
 # --- a core that ignores BYE (and traps TERM) no longer holds the session's
-# end for its whole life: BYE, EOF, a bounded wait, then the bounded kill
-# (BM-8).  Before, close() waited the 20 s out.
+# end for its whole life: BYE, EOF, a bounded wait, then the bounded kill.
+# Before, close() waited the 20 s out.
 cat > "$tmp.core" <<'EOF'
 trap '' TERM
 while read l; do
@@ -131,7 +131,7 @@ t1=$(date +%s)
 [ $((t1 - t0)) -lt 12 ] || fail "BYE ignored: the session end took $((t1 - t0))s, not bounded"
 
 # --- a core that stops reading: a frame larger than a pipe used to block
-# gawk in write() until the core died, TRS80_Z80_TIMEOUT ignored (BM-8)
+# gawk in write() until the core died, TRS80_Z80_TIMEOUT ignored
 printf 'read l; echo "Z80 proto=3"; exec sleep 20\n' > "$tmp.core"
 printf '10 FOR I=0 TO 30000:POKE -30000+I,I AND 255:NEXT\n20 DEFUSR=&H7003:X=USR(4):PRINT "OK"\n' > "$tmp"
 t0=$(date +%s)
@@ -144,7 +144,7 @@ want='USR CORE: the frame was not read within 500 ms; the core is dead for this 
 [ $((t1 - t0)) -lt 12 ] || fail "frame not read: took $((t1 - t0))s, not bounded"
 
 # --- a live core that goes silent MID-LINE is a timeout, not an exit:
-# getline gives 0 there too, with ERRNO set (BL-21).  And the same at
+# getline gives 0 there too, with ERRNO set.  And the same at
 # BYE: a partial line, then a hang, still meets the bounded kill.
 cat > "$tmp.core" <<'EOF'
 while read l; do
@@ -174,7 +174,7 @@ t1=$(date +%s)
 rm -f "$tmp.core"
 [ "$rc" = "0" ] && [ "$out" = "OK" ] || fail "partial line at BYE: rc=$rc" "$out"
 
-# --- the value of USR is WRA1 by 40AFH after a RET (XL-1), whatever the
+# --- the value of USR is WRA1 by 40AFH after a RET, whatever the
 # peer sends: with no write-set at all, result=1 is 0A9AH's HL (the
 # interpreter makes that routine's stores itself) and result=0 is the
 # argument, value and type (the evaluator's own stores, made before the
@@ -189,7 +189,7 @@ rm -f "$tmp.core"
 [ $((t1 - t0)) -lt 12 ] || fail "partial line at BYE: the session end took $((t1 - t0))s, not bounded"
 
 # --- a core whose pid= names another process: the timeout kills the core
-# this side started, never the named one (BL-22)
+# this side started, never the named one
 sleep 60 </dev/null >/dev/null 2>&1 & victim=$!
 cat > "$tmp.core" <<EOF
 while read l; do
@@ -212,7 +212,7 @@ want='USR CORE: no reply within 500 ms; the core is dead for this session, USR i
 [ $((t1 - t0)) -lt 12 ] || fail "pid= of another process: took $((t1 - t0))s, the core itself was not killed"
 
 # --- TRS80_Z80 with an assignment prefix or as a compound command reaches
-# the core; `exec` alone took neither, and both fell back to the stub (BL-24)
+# the core; `exec` alone took neither, and both fell back to the stub
 printf '10 DEFUSR=&H7003:PRINT USR(4)\n' > "$tmp"
 out=$(TRS80_Z80="FOO=1 $core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
 [ "$rc" = "0" ] && [ "$out" = " 8 " ] || fail "assignment prefix: rc=$rc" "$out"
@@ -280,7 +280,7 @@ out=$(TRS80_Z80="$stub" Z80_STUB_DIE_AFTER=1 perl "$bound" 30 "$here/basic" "$tm
 # a request: NEED means "I did not see frame gen-1", and a full frame IS
 # gen 1.  The retry loop took it as one and resent for ever, so a stuck
 # core hung the interpreter with no message and no way out (the 2026-09-19
-# audit, L-47).  It now ends like any other bad line.  The bound is the
+# audit).  It now ends like any other bad line.  The bound is the
 # check: before the fix this never returns.
 printf '10 DEFUSR=&H7000:PRINT "R=";USR(5)\n20 PRINT "AFTER"\n' > "$tmp"
 out=$(TRS80_Z80="$stub" Z80_STUB_ALWAYS_NEED=1 perl "$bound" 20 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
@@ -293,7 +293,7 @@ esac
 # --- a routine that ends by jumping to READY (JP 1A19H) ends the PROGRAM:
 # `ready=1` on the RET line.  The statement after the call must not run, the
 # write-set is still applied, and it is not an error (the 2026-09-19 audit,
-# L-44: the call was taken for an ordinary return and the program went on).
+# the call was taken for an ordinary return and the program went on).
 # Entry 7002 on purpose: its RET is followed by a write-set, and the field has
 # to be read before those W lines replace the RET line.
 printf '10 DEFUSR=&H7002:X=USR(30000):PRINT "SAME LINE"\n20 PRINT "AFTER"\n' > "$tmp"

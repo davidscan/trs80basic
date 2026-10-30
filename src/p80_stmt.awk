@@ -8,13 +8,13 @@
 # 1023 is ?FC (208DH), the cursor address is set and 40A6H takes the byte
 # offset AND 3FH even in 32-character mode (2093H-209DH), and a comma
 # must follow (20A1H, RST 08H): PRINT @5;"X" and PRINT @5 "X" are ?SN.
-# Until 2026-09-24 a ";" or nothing passed (the 2026-09-23 audit, L-2).
+# Until 2026-09-24 a ";" or nothing passed (the 2026-09-23 audit).
 # LPRINT shares the loop: its @ moves the video cursor too.
 function pr_at(   v, tgt) {
     CP++
     v = e_or(); if (E) return
     if (!isN(v)) { raise(13); return }
-    tgt = to16(num(v)); if (E) return          # 2B01H: ?OV past 16 bits (0A7FH), then ?FC past 1023 or negative (208DH-2091H; L-7)
+    tgt = to16(num(v)); if (E) return          # 2B01H: ?OV past 16 bits (0A7FH), then ?FC past 1023 or negative (208DH-2091H)
     if (tgt < 0 || tgt > 1023) { raise(5); return }
     CUR = tgt
     VCOL = tgt % 64
@@ -31,11 +31,11 @@ function st_print(   sep, ty, tx, v, col, t) {
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
         # a bare REM token is an item: the evaluator meets it and says ?SN,
-        # as at 20B9H -> 2337H (the 2026-09-23 audit, L-10); ' is :REM
+        # as at 20B9H -> 2337H (the 2026-09-23 audit); ' is :REM
         if (ty == "i" && tx == "ELSE") break
         if (ty == "b") { CP++; continue }                # 2# +3 is two items: 2, then +3 (ROM bug 7; p50)
         if (ty == "o" && tx == "@") { pr_at(); if (E) return; sep = 0; continue }
-        if (ty == "i" && tx == "USING") { CP++; EVSTK += 4; pr_using(); return }   # USING's pushes (OC-12, p60 e_or)
+        if (ty == "i" && tx == "USING") { CP++; EVSTK += 4; pr_using(); return }   # USING's pushes (p60 e_or)
         if (ty == "o" && tx == ";") { sep = 1; CP++; continue }
         if (ty == "o" && tx == ",") {
             sep = 1
@@ -61,7 +61,7 @@ function st_print(   sep, ty, tx, v, col, t) {
             skipblank()
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
             CP++
-            t = byteconv(num(v)); if (E) return   # 2B1BH: ?OV past 16 bits, ?FC outside 0-255 (L-7)
+            t = byteconv(num(v)); if (E) return   # 2B1BH: ?OV past 16 bits, ?FC outside 0-255
             t = t % 128                       # 213AH: AND 7FH in ROM 1.3 (3FH before it)
             # 2153H-2162H: the blanks are counted from 40A6H once, each
             # one a character (two display bytes in 32-character mode);
@@ -70,7 +70,7 @@ function st_print(   sep, ty, tx, v, col, t) {
             while (col < t) { s_putc(32); col++ }
             # the TAB path rejoins at 20A0H, past the carriage return of
             # 209DH (2164H-2166H): a list ending in TAB(n) ends without
-            # one, as after ; or , (the 2026-09-23 audit, M-3)
+            # one, as after ; or , (the 2026-09-23 audit)
             sep = 1
             continue
         }
@@ -117,7 +117,7 @@ function pr_using(   sep) {
 # remain (2DE6H), and behind the last item its text runs on to the next
 # field.  Until 2026-09-27 a "," after the format passed, "1 2" was two
 # items, and the whole line was built before any of it was printed (the
-# 2026-09-26 audit, L-18).  Returns 1 when the list ended in a separator
+# 2026-09-26 audit).  Returns 1 when the list ended in a separator
 # (no carriage return follows); E is set on an error.
 function pu_stmt(sink,   sep, ty, tx, v, n) {
     PU_SINK = sink; PU_OUT = ""
@@ -130,7 +130,7 @@ function pu_stmt(sink,   sep, ty, tx, v, n) {
     for (;;) {
         ty = TY[CK, CP]; tx = TK[CK, CP]
         if (ty == "" || ty == "e" || (ty == "o" && tx == ":")) break
-        if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
+        if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN
         if (ty == "b") { CP++; continue }                # 2# ;3 goes on; 2# 3 is ?SN below, as 2 3 is (ROM bug 7; p50)
         if (ty == "o" && (tx == ";" || tx == ",")) { sep = 1; CP++; continue }
         if (n && !sep) { raise(2); return 0 }            # 2DE2H
@@ -203,7 +203,7 @@ function st_lprint(   sep, ty, tx, v, t) {
         if (ty == "" || ty == "e") break
         tx = TK[CK, CP]
         if (ty == "o" && tx == ":") break
-        if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN (L-10)
+        if (ty == "i" && tx == "ELSE") break             # a bare REM is an item: ?SN
         if (ty == "b") { CP++; continue }                # as PRINT's list (ROM bug 7; p50)
         if (ty == "o" && tx == "@") { pr_at(); if (E) return; sep = 0; continue }
         if (ty == "i" && tx == "USING") { CP++; lp_using(); return }
@@ -226,10 +226,10 @@ function st_lprint(   sep, ty, tx, v, t) {
             skipblank()
             if (!(TY[CK, CP] == "o" && TK[CK, CP] == ")")) { raise(2); return }
             CP++
-            t = byteconv(num(v)); if (E) return   # 2B1BH, as PRINT's TAB (L-7)
+            t = byteconv(num(v)); if (E) return   # 2B1BH, as PRINT's TAB
             t = t % 128                       # the ROM masks it, as PRINT's (213AH: 7FH in 1.3)
             while (LPCOL < t) lp_puts(" ")
-            sep = 1                           # no carriage return after a trailing TAB (M-3)
+            sep = 1                           # no carriage return after a trailing TAB
             continue
         }
         v = e_or(); if (E) return
@@ -470,7 +470,7 @@ function pu_num(v,   x, ax, neg, id, nd, k, e2, es, ds, ist, dec, lead, body, co
         while (length(ds) < (id < 0 ? PU_DP : nd)) ds = "0" ds
         ist = substr(ds, 1, length(ds) - PU_DP); dec = substr(ds, length(ds) - PU_DP + 1)
         e2 = k - id
-        es = sprintf("%s%s%02d", (vtype(v) == "D" ? "D" : "E"), (e2 < 0 ? "-" : "+"), (e2 < 0 ? -e2 : e2))   # 1075H-1079H: the letter by type (L-19)
+        es = sprintf("%s%s%02d", (vtype(v) == "D" ? "D" : "E"), (e2 < 0 ? "-" : "+"), (e2 < 0 ? -e2 : e2))   # 1075H-1079H: the letter by type
         body = (PU_DOT ? "." dec : "") es
         # a zero is not scaled (11B6H is skipped), and the edit at 10C0H
         # blanks its leading zeros like any field's: ###.##^^^^ of 0 is
@@ -565,7 +565,7 @@ function pu_big(ax, ty,   t) {
 function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad) {
     # the illegal-direct check comes FIRST on the ROM (219AH CALL 2828H,
     # before the # is even looked at), so INPUT#1,A typed at READY is ?ID
-    # like any other INPUT (the 2026-09-26 audit, N-5; until then the #
+    # like any other INPUT (the 2026-09-26 audit; until then the #
     # branch was taken before the guard)
     if (CK == "I") { raise(12); return }
     if (TY[CK, CP] == "o" && TK[CK, CP] == "#") { CP++; st_input_file(); return }
@@ -577,8 +577,8 @@ function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad
             # The ROM takes a bare literal only (21D3H: anything else
             # behind the quote is ?SN, before the prompt is shown).  EXT
             # (gated): under ext on, a prompt expression, INPUT "A"+B$;X,
-            # as later BASICs take it.  Always on until 2026-10-22 (audit
-            # R-4): the listings that needed it were detok's CR/LF splices,
+            # as later BASICs take it.  Always on until 2026-10-22 (ruled
+            # that day): the listings that needed it were detok's CR/LF splices,
             # which the corpus now runs from their tokenized originals,
             # where the prompt is one literal.  e_prim reads the leading
             # literal, so just evaluate from here.
@@ -590,7 +590,7 @@ function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad
         # ROM 21D3H: RST 08H against ";" -- the prompt is followed by a
         # semicolon, and a comma is ?SN.  EXT (gated): under ext on, the
         # later Microsoft BASICs' INPUT "prompt",var is taken and drops
-        # the "? ".  No period listing uses it (the 2026-09-23 audit, L-2,
+        # the "? ".  No period listing uses it (the 2026-09-23 audit,
         # ruled 2026-09-24), so the gate costs nothing; LINE INPUT takes
         # only ";" either way.
         if (TY[CK, CP] == "o" && TK[CK, CP] == ";") { pq = 1; CP++ }
@@ -604,7 +604,7 @@ function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad
         # (21E8H -> 1F04H); anything typed then meets no variable, ?SN.
         # EXT (gated): under ext on, typed text is discarded instead, and
         # INPUT "P" with no ";" is taken (above).  It was all behind ext
-        # until 2026-09-26 (audit R-2).
+        # until 2026-09-26 (the 2026-09-26 audit).
         if (prompt != "") s_puts(prompt)
         if (pq != 2) s_puts("? ")
         line = rl_read()
@@ -621,9 +621,9 @@ function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad
     # for its item, and the byte behind it is tested after its store
     # (2263H; RST 08H against "," at 21FBH).  So INPUT A,3 answered 5,6
     # stores A and is then ?SN, answered 5 it is ?SN with no ??, and
-    # INPUT A;B is ?SN behind A's store, never ?EXTRA (N-5).  Until
+    # INPUT A;B is ?SN behind A's store, never ?EXTRA.  Until
     # 2026-10-08 the whole list was checked before the prompt (the
-    # 2026-09-30 audit, BL-9), so nothing was asked or stored, and ENTER
+    # 2026-09-30 audit), so nothing was asked or stored, and ENTER
     # alone could not run past a bad list.
     lst = CP
     for (;;) {                              # REDO loop: the list from its start
@@ -662,7 +662,7 @@ function st_input(   prompt, pq, lst, name, key, line, nib, idx, ok, x, dbl, bad
             # leaves Q, and a quoted item for a number leaves 0 (the
             # reader takes nothing), all seen by ENTER after ?REDO.
             # Until 2026-10-08 nothing was stored (the 2026-09-30
-            # audit, BL-7).
+            # audit).
             bad = IBBAD[idx]
             if (strname(name)) assignv(name, key, "S" IB[idx])
             else {
@@ -726,7 +726,7 @@ function parse_items(line, base,   cnt, i, n, c, j, item, q, bad) {
         } else {
             j = i
             while (j <= n && substr(line, j, 1) !~ /^[,:]$/) j++
-            item = substr(line, i, j - i)   # trailing blanks are the item's (2869H-287EH, H-3)
+            item = substr(line, i, j - i)   # trailing blanks are the item's (2869H-287EH)
             i = j
         }
         cnt++; IB[cnt] = item; IBQ[cnt] = q; IBBAD[cnt] = bad
@@ -748,7 +748,7 @@ function parse_items(line, base,   cnt, i, n, c, j, item, q, bad) {
 # at that ":" with no quote open: DATA AB"C:D",E reads AB"C, and the
 # quote of D" then hides the rest of the line, a later :DATA included.
 # Until 2026-10-08 every DATA text of a line was read whole (the
-# 2026-09-30 audit, BL-10).
+# 2026-09-30 audit).
 function datascan(   i, k, j, dn, txt, n, p, q, c, DKW, DNO, stop) {
     NDATA = 0
     for (i = 1; i <= NL; i++) {
@@ -810,7 +810,7 @@ function data_items(txt, ln, dn,   ci, cn, c, j, item, wasq, bad, off) {
             j = ci
             while (j <= cn && substr(txt, j, 1) !~ /^[,:]$/) j++
             # every byte up to the comma or ":" is the item's, trailing
-            # blanks too (Farvour 2869H-287EH; the 2026-09-26 audit, H-3)
+            # blanks too (Farvour 2869H-287EH; the 2026-09-26 audit)
             item = substr(txt, ci, j - ci)
             ci = j
             wasq = 0
@@ -839,7 +839,7 @@ function st_read(   dp0) {
     # -> 21FBH, RST 08H against ",") before 2274H commits the pointer, so
     # the next READ starts again at this statement's first item; the items
     # stored keep their values.  Until 2026-10-08 the run loop raised it
-    # after the pointer had moved (the 2026-09-30 audit, BL-8).
+    # after the pointer had moved (the 2026-09-30 audit).
     if (!E && !at_stmt_end()) raise(2)
     if (E) DP = dp0
 }
@@ -857,10 +857,10 @@ function st_read_items(   name, key, x, dbl, bad) {
         # "12", so 0 is stored) or junk behind a number is ?SN in the DATA
         # line AFTER the store, the pointer stays (225A-2260 -> 1991H).
         # DATA 1,2X read into A,B leaves B = 2 for an ON ERROR handler.
-        # Until 2026-10-08 nothing was stored (the 2026-09-30 audit, BL-7).
+        # Until 2026-10-08 nothing was stored (the 2026-09-30 audit).
         bad = DBAD[DP]
         if (strname(name)) {
-            if (!HOSTMEM && length(DITEM[DP]) > 255) { raise_host(15); return }   # a DATA item past 255 is ?LS, as a literal is (p60; L-23)
+            if (!HOSTMEM && length(DITEM[DP]) > 255) { raise_host(15); return }   # a DATA item past 255 is ?LS, as a literal is (p60)
             LITSTORE = 1                    # the item stays in its line: no string space (p75, mem_*)
             assignv(name, key, "S" DITEM[DP])
             LITSTORE = 0
@@ -900,7 +900,7 @@ function st_dim(   name, nd, i, v, sz, vz) {
             # habit for variable-lookup speed) is the ROM's: 2608H locates
             # the name in create mode and 2664H takes the simple-variable
             # path, so the variable is made (MEM falls) and holds 0 or "".
-            # It was an EXT behind `ext` until 2026-09-26 (audit R-1).
+            # It was an EXT behind `ext` until 2026-09-26 (the 2026-09-26 audit).
             if (at_stmt_end() || (TY[CK, CP] == "o" && TK[CK, CP] == ",")) {
                 if (strname(name)) { if (!(name in SV)) SV[name] = "" }
                 else if (!(name in NV)) { NV[name] = 0; NVZ[name] = vz }
@@ -943,7 +943,7 @@ function st_dim(   name, nd, i, v, sz, vz) {
 # negative number (POKE -1 is 65535, the period idiom IF D>32767 THEN
 # D=D-65536): addrarg below.  Until 2026-09-25 a positive 32768-65535 was
 # taken and a negative below -32768 wrapped again, so POKE -40000,7
-# stored at 25536 (the 2026-09-23 audit, M-11).  addrconv itself is the
+# stored at 25536 (the 2026-09-23 audit).  addrconv itself is the
 # plain 16-bit wrap, and stays so: the core, the USR frame and the string
 # space call it with positive addresses of their own.
 # A byte argument, the way the ROM takes one (2B1C-2B22: the value of
@@ -956,8 +956,8 @@ function st_dim(   name, nd, i, v, sz, vz) {
 # The integer step is CINT's own (2B1FH CALL 2B05H -> 0A7FH), so a double
 # is a single first: to16 (p90).  A=.29 held in a double makes A*100
 # 28.99999916553497, which is 29 on the machine for CHR$, STRING$, LEFT$,
-# TAB, ON and the rest; flooring it raw gave 28 (the 2026-09-30 audit,
-# BM-2, the L-8 sibling).
+# TAB, ON and the rest; flooring it raw gave 28 (the 2026-09-30 audit:
+# CINT's own copies were fixed earlier).
 function byteconv(x) {
     x = to16(x); if (E) return -1           # ?OV outside -32768..32767
     if (x < 0 || x > 255) { raise(5); return -1 }
@@ -1064,7 +1064,7 @@ function poke_byte(a, b) {
     # 0000-2FFFH is the ROM: a store there changes nothing on the machine,
     # and PROTOCOL.md has the range holding no bytes on either side.  It
     # used to land in MEM[] and read back, from POKE and from a Z80
-    # write-set alike (the 2026-09-19 audit, L-45).
+    # write-set alike (the 2026-09-19 audit).
     else if (a < 12288) { }
     else {
         # a store into a STALE image would be judged by the next build as one
@@ -1112,7 +1112,7 @@ function st_setreset(on,   v, x, y, col) {
     # bits, then ?FC outside 0-255), and x is tested against 128 as soon
     # as it is read, before the comma and y; y against 48.  Until
     # 2026-09-27 both were read first and every bad value was ?FC (the
-    # 2026-09-26 audit, L-7).
+    # 2026-09-26 audit).
     x = byteconv(num(v)); if (E) return
     if (x > 127) { raise(5); return }
     skipblank()

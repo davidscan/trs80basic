@@ -104,7 +104,7 @@ def crunch(text, index):
     inside a string would be swallowed into a token and the text destroyed.
 
     Outside those regions it crunches as the ROM does (1BC0-1C8F; the
-    2026-09-19 audit, L-13), and p75's pm_crunch does the same:
+    2026-09-19 audit), and p75's pm_crunch does the same:
       * a letter is matched, and stored, in UPPER case (1C00-1C0B upper-cases
         the symbol's first character in the buffer, 1C2D-1C31 compares the
         rest that way, and every unmatched letter comes round as a first
@@ -196,7 +196,7 @@ def split_lines(data):
     for raw in raws:
         # Blank is what RST 10H skips (1D78H-1D88H): a blank, a TAB or an
         # LF.  A line of FF, VT or a stray CR is not blank: it has no line
-        # number, as prog_load says too (audit BL-30; bytes.strip() took
+        # number, as prog_load says too (the 2026-09-30 audit; bytes.strip() took
         # those for blanks).
         if not raw.strip(b" \t\n"):
             continue
@@ -228,7 +228,7 @@ def split_lines(data):
         # or an LF (1D78H-1D88H); 1A8BH-1A91H back up over blanks only and
         # drop one (1A93H-1A95H): with blanks alone one goes (detok's
         # separator), and a TAB after the number goes with everything
-        # before it (audit BL-11).  prog_load's cut_lineno is the same.
+        # before it (the 2026-09-30 audit).  prog_load's cut_lineno is the same.
         k = j
         while k < len(raw) and raw[k] in (0x20, 0x09, 0x0A):
             k += 1
@@ -239,7 +239,7 @@ def split_lines(data):
         if not body.strip(b" \t"):
             # A number followed only by blanks is a DELETION, as typed
             # (1AADH-1ABFH); the interpreter's loader (prog_load) does the
-            # same, so the image must not carry the line (audit L-17).
+            # same, so the image must not carry the line (the 2026-09-26 audit).
             lines = [(n, b) for (n, b) in lines if n != number]
             continue
         lines.append((number, body))

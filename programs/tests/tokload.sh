@@ -11,7 +11,7 @@
 #      bytes exactly, relinked at 42E9H -- CR bytes and all;
 #   2. the real BASIC lines run (keyword spacing: FORI=1TO3, IFA=1THEN, GOTO259);
 #   3. CSAVE writes each line as the ROM's LIST shows it (no blank added,
-#      ELSE without its colon, ' without :REM: audit BL-13), with the two
+#      ELSE without its colon, ' without :REM: the 2026-09-30 audit), with the two
 #      rewrites a text file needs: a CR in a string is the CHR$(13) splice,
 #      in parentheses where it starts an expression, so a comparison against
 #      it still compares (bug 21; line 266), an empty body is REM; LIST shows the empty body as "3 "; the EXT
@@ -126,7 +126,7 @@ grep -q '^2 ' "$tmp/text.bas" || fail "payload line missing from the text"
 got=$(TRS80_DUMB=1 "$here/basic" "$tmp/text.bas" 2>&1 </dev/null | tail -1)
 [ "$got" = "EQ" ] || fail "the CSAVEd text's comparison" "$got"
 
-# --- 3b: LIST shows the stored text as the ROM's LIST does (audit BL-13):
+# --- 3b: LIST shows the stored text as the ROM's LIST does (the 2026-09-30 audit):
 # no blank added, the empty body as "3 "; the EXT `spaced on` (metacommand,
 # TRS80_SPACED, REM META under ext on) adds keyword spacing to LIST and
 # LLIST only -- CSAVE writes the same bytes either way
@@ -146,7 +146,7 @@ got=$(printf '\nCLOAD "%s"\nLIST 259\n' "$tmp/img.bas" | TRS80_SPACED=1 TRS80_DU
 got=$(printf '\next on\n10 REM META:spaced on\n20 FORI=1TO2:NEXT\nRUN\nLIST 20\n' | TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 | grep '^20 ')
 [ "$got" = "20 FOR I=1 TO 2:NEXT" ] || fail "REM META:spaced on spaces LIST" "$got"
 
-# --- 3c: SAVE + reLOAD gives back the image's bytes (ruled with Q-7): an
+# --- 3c: SAVE + reLOAD gives back the image's bytes (ruled 2026-10-03): an
 # image of compressed lines, ELSE behind its colon and the ' form, and a
 # typed ":ELSE", stored "::ELSE" (Farvour 1C42): SAVE writes ":ELSE", and
 # the reLOAD must store both colons again
@@ -191,8 +191,8 @@ printf '%s' "$out" | grep -q 'FD ERROR - FILE LINE 11 (UNTERMINATED LINE)' || fa
 
 # --- 7: a one-byte-short 00 00 end marker is a COMPLETE program.  A tail of
 # NUL is a harmless truncation of the marker itself; tools/detok.py has
-# always taken it, and this rejected it with ?FD (the 2026-09-19 audit,
-# L-19).  The two readers of the same image must agree.
+# always taken it, and this rejected it with ?FD (the 2026-09-19 audit).
+# The two readers of the same image must agree.
 python3 - "$tmp" "$here" <<'PYEOF' || fail "could not build the images" ""
 import sys, os
 d, here = sys.argv[1], sys.argv[2]
@@ -218,7 +218,7 @@ printf '%s' "$out" | grep -q 'TRUNCATED HEADER' \
 [ "$rc" = 2 ] || fail "junkmark.bin exit status" "$rc"
 
 # a lower-case letter outside a string can come only from an image, and the
-# machine takes it for no letter: LIST shows it, RUN is ?SN (N-3)
+# machine takes it for no letter: LIST shows it, RUN is ?SN
 python3 - "$tmp" <<'LCEOF' || fail "could not build the lower-case image"
 import sys
 body = b"a=5:\xb2 A"                      # a=5:PRINT A

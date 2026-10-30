@@ -35,7 +35,7 @@ X KEPT 7 "
 
 # READ: the same forms; what is left over after the number is ?SN in the
 # DATA line, a bad % is ?SN in the READ's line and the pointer stays.  The
-# number read is STORED before the leftover is tested (BL-7): 12X leaves
+# number read is STORED before the leftover is tested: 12X leaves
 # K = 12 for the handler (until 2026-10-08 K stayed 0)
 cat > "$tmp/read.bas" <<'BAS'
 10 ON ERROR GOTO 100

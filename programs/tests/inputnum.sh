@@ -61,7 +61,7 @@ LIKE VAL 34  0  5  0 ."
 # encountered" beside the comma and the end of file, and LINE INPUT# reads
 # "up to ... the 255th data character (this 255 character is included in the
 # string)".  Neither stopped here, so a long line came back as a string
-# longer than one can hold (the 2026-09-19 audit, L-41).  The 255th
+# longer than one can hold (the 2026-09-19 audit).  The 255th
 # character IS the terminator, so what is left waits for the next read.
 python3 - "$dir" <<'PYEOF'
 import sys, os
@@ -102,7 +102,7 @@ want=' 255 A.
 # (ENTER) in every INPUT# terminator set, and LINE INPUT# reads up to "an
 # (ENTER) character"; on the machine the file is a byte stream and 0DH is
 # what separates records, so a CHR$(13) a program PRINT#s is a record end.
-# The reader knew only gawk's own line split (the 2026-09-19 audit, L-35).
+# The reader knew only gawk's own line split (the 2026-09-19 audit).
 cat > "$dir/cr.bas" <<'BAS'
 10 OPEN "O",1,"CR.TXT":PRINT#1,"ONE";CHR$(13);"TWO";CHR$(13);"THREE":CLOSE
 20 OPEN "I",1,"CR.TXT"

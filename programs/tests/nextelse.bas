@@ -2,7 +2,7 @@
 20 REM reader refuses anything but a name (2612H): IF c THEN NEXT ELSE ... is a bare NEXT (the
 30 REM ELSE is stored behind a ":", 1C42H), and NEXT TO, NEXT 5, NEXT ,I are ?SN before the loop
 40 REM steps.  Until 2026-10-04 any identifier was the index, ELSE included: ?NF (the 2026-09-30
-50 REM audit, BM-1).
+50 REM audit).
 60 F=0:S=0:ON ERROR GOTO 900
 100 N=0:FOR I=1 TO 3:N=N+1:IF I<3 THEN NEXT ELSE N=N+10
 110 IF N<>13 OR I<>3 THEN PRINT "FAIL: IF ... THEN NEXT ELSE:";N;I:F=1

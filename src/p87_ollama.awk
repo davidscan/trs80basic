@@ -63,7 +63,7 @@ function ai_open(n, f,   np, parts, model, thread, i, tf, l, role) {
     if (model == "") { raise(21); return }
     # the transcript is appended to after every exchange (ai_log), and a
     # failed awk redirect is fatal: probe it now, before any channel state
-    # (a directory or read-only <thread>.ollama killed gawk -- the 2026-09-19 audit, C-1)
+    # (a directory or read-only <thread>.ollama killed gawk -- the 2026-09-19 audit)
     if (thread != "" && !host_writable(thread ".ollama")) { raise(22); return }
     FH_LOC[n] = 0; FH_EOF[n] = 0
     FH_PEND[n] = ""; FH_PENDHAS[n] = 0
@@ -247,7 +247,7 @@ function ai_send(n,   i, body, bf, cmd, host, tmo, resp, line, content, rc, tok,
     # ai_log reopens the transcript at every exchange, and a failed awk
     # redirect is fatal: the OPEN probe does not cover a file that became a
     # directory or read-only since.  Probe again, and fail the exchange as a
-    # failed send does (the 2026-09-30 audit, BM-7).
+    # failed send does (the 2026-09-30 audit).
     if (AI_TFILE[n] != "") {
         HOSTFREE = FH_FREE[n]; ok = host_writable(AI_TFILE[n]); HOSTFREE = 0
         if (!ok) { ai_unsend(n); raise(22); return }
@@ -322,7 +322,7 @@ function ai_junesc(s,   out, i, n, c, e, u, v) {
             u = strtonum("0x" substr(s, i + 2, 4))
             # A SURROGATE PAIR IS ONE CODE POINT.  \uD83D\uDE00 is U+1F600;
             # encoding each half on its own gives CESU-8, a pair of 3-byte
-            # sequences no reader accepts (the 2026-09-19 audit, L-36).
+            # sequences no reader accepts (the 2026-09-19 audit).
             if (u >= 0xD800 && u <= 0xDBFF && substr(s, i + 6, 2) == "\\u" && i + 11 <= n) {
                 v = strtonum("0x" substr(s, i + 8, 4))
                 if (v >= 0xDC00 && v <= 0xDFFF) {

@@ -76,11 +76,11 @@ eq(split_lines(b"10 CLS\r \n\r20 END\r"), [(10, b"CLS"), (20, b"END")], "so is o
 for junk in (b"\x0c", b"\x0b", b"\r\r"):     # one CR before the LF is the line end's
     try:
         split_lines(b"10 CLS\n" + junk + b"\n20 END\n")
-        print(f"FAIL: a line of {junk!r} is not blank (BL-30)"); sys.exit(1)
+        print(f"FAIL: a line of {junk!r} is not blank"); sys.exit(1)
     except TokError:
         pass
 eq(split_lines(b"1 5 CLS\n  20 END\n"), [(15, b"CLS"), (20, b"END")], "blanks inside the number are skipped (ROM 1E5AH), leading blanks too")
-eq(split_lines(b"10\tCLS\n20 \tCLS\n30\t  CLS\n40  CLS\n"), [(10, b"CLS"), (20, b"CLS"), (30, b" CLS"), (40, b" CLS")], "a TAB after the number goes with what precedes it; one blank is dropped (1A8BH-1A95H, audit BL-11)")
+eq(split_lines(b"10\tCLS\n20 \tCLS\n30\t  CLS\n40  CLS\n"), [(10, b"CLS"), (20, b"CLS"), (30, b" CLS"), (40, b" CLS")], "a TAB after the number goes with what precedes it; one blank is dropped (1A8BH-1A95H, the 2026-09-30 audit)")
 eq(split_lines(b"10 CLS\n20\n30 END\n"), [(10, b"CLS"), (30, b"END")],
    "a bare line number deletes the line, as typed (1AADH-1ABFH)")
 eq(split_lines(b"10 CLS\n20 END\n20   \n"), [(10, b"CLS")],
@@ -112,7 +112,7 @@ for listing in (
 # every byte after the first comes through RST 10H, which skips blanks, so
 # "GO TO" and "G O T O" crunch to GOTO.  p50's tokenizer and p75's pm_crunch
 # do the same; all three must agree or one listing gives two different
-# images (the 2026-09-19 audit, L-16; the keyword-crunching rule, 2026-09-25).
+# images (the 2026-09-19 audit; the keyword-crunching rule, 2026-09-25).
 eq(crunch("GO TO 100", IDX), crunch("GOTO 100", IDX), "GO TO crunches to GOTO")
 eq(crunch("GO   TO 100", IDX), crunch("GOTO 100", IDX), "GO TO, several blanks")
 eq(crunch("G O T O 100", IDX), crunch("GOTO 100", IDX), "G O T O, a blank after every letter")
@@ -129,7 +129,7 @@ eq(crunch('PRINT "GO TO JAIL"', IDX), bytes([0xB2]) + b' "GO TO JAIL"',
 eq(crunch("DATA GO TO JAIL", IDX), bytes([0x88]) + b" GO TO JAIL",
    "GO TO in DATA stays text")
 
-# ROM 1BC0-1C8F, the rest of the cruncher (the 2026-09-19 audit, L-13).
+# ROM 1BC0-1C8F, the rest of the cruncher (the 2026-09-19 audit).
 eq(crunch('print a', IDX), crunch('PRINT A', IDX), "lowercase crunches as upper")
 eq(crunch('a=b', IDX), b'A' + bytes([0xD5]) + b'B', "a name is stored in upper case")
 eq(crunch('print "abc":rem abc', IDX),

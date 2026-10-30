@@ -1,7 +1,7 @@
 10 REM A numeric's VARPTR bytes are the machine's for its type: an
 20 REM integer 2 (LSB, MSB), a single 4, a double 8 (MBF, exponent last),
 30 REM sized by the suffix, else the DEF table.  Until 2026-09-29 every
-40 REM numeric was a single's 4 bytes (the 2026-09-26 audit, R-8, step 2).
+40 REM numeric was a single's 4 bytes (the 2026-09-26 audit, step 2).
 50 F=0
 100 REM --- an integer: LSB, MSB; a POKE into either changes the value
 110 A%=513:V=VARPTR(A%):IF PEEK(V)<>1 OR PEEK(V+1)<>2 THEN PRINT "FAIL: 513 IS 01 02";PEEK(V);PEEK(V+1):F=1
@@ -27,7 +27,7 @@
 350 L%=0:M#=0:X=VARPTR(L%):Y=VARPTR(M#):IF X-Y<>8 THEN PRINT "FAIL: L% M# ENTRIES";X-Y:F=1
 360 L%=772:V=VARPTR(L%):IF PEEK(V)<>4 OR PEEK(V+1)<>3 THEN PRINT "FAIL: L% LATER STORED";PEEK(V);PEEK(V+1):F=1
 400 REM --- an array is ONE block, ascending, its type's size apart, the first
-410 REM subscript fastest, mapped whole at the first touch (R-8 step 3; until
+410 REM subscript fastest, mapped whole at the first touch (until
 420 REM 2026-10-22 each element was placed alone, descending: -2 for A%)
 430 DIM P%(3):P%(2)=513:V=VARPTR(P%(0)):IF VARPTR(P%(1))-V<>2 OR VARPTR(P%(3))-V<>6 THEN PRINT "FAIL: P% STRIDE";VARPTR(P%(1))-V;VARPTR(P%(3))-V:F=1
 440 IF PEEK(V+4)<>1 OR PEEK(V+5)<>2 THEN PRINT "FAIL: P%(2) THROUGH P%(0)'S ADDRESS";PEEK(V+4);PEEK(V+5):F=1

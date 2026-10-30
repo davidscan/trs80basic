@@ -3,7 +3,7 @@
 #
 # The ROM's VARPTR (24E7-24FEH) hands the address to 0A9AH as an INTEGER,
 # so above 32767 it is negative: 65533 is -3.  This interpreter returned the
-# positive address (the 2026-09-19 audit, L-43; ruled 2026-09-21: follow the
+# positive address (the 2026-09-19 audit; ruled 2026-09-21: follow the
 # ROM).  PEEK and POKE take the negative form, the period idiom
 # IF V<0 THEN V=V+65536 gives the positive one back, and a USR argument of
 # it passes the core's 0A7FH trap (z80.sh pins that leg).
@@ -11,7 +11,7 @@
 # And a VARPTR typed at the READY prompt before any RUN must not be a gawk
 # fatal: the string-space tables were typed by their first use, which on
 # that path was `length(VPDATA)` -- a scalar context -- so the next
-# subscript killed the session (found 2026-09-21, fixing L-43).
+# subscript killed the session (found 2026-09-21, fixing VARPTR's sign).
 here=$(cd "$(dirname "$0")/../.." && pwd)
 fail() { echo "varptrsign.sh: FAIL: $1"; echo "$2"; exit 1; }
 run() { printf "$1" | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1; }

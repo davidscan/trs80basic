@@ -1,6 +1,6 @@
 #!/bin/sh
 # using.sh -- PRINT USING's statement, as the ROM parses and prints it
-# (the 2026-09-26 audit, L-18):
+# (the 2026-09-26 audit):
 #   the format is followed by ";" (2CC3H, RST 08H): PRINT USING F$,X is ?SN;
 #   an item is followed by ";" or "," or the end of the statement (2DD5H-2DE2H):
 #     PRINT USING "##";1 X is ?SN, PRINT USING "##";1,2 prints both;

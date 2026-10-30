@@ -83,7 +83,7 @@ def parse_manpages():
         # interpreter's own reader (init_man, src/p10_head.awk) skips them;
         # this one did not, so the metacommands banner was tacked onto the
         # end of whichever entry preceded it and turned up in the guide
-        # (the 2026-09-19 audit, L-20).  The two readers must agree.
+        # (the 2026-09-19 audit).  The two readers must agree.
         if line.startswith("#"):
             continue
         if line.startswith(":"):

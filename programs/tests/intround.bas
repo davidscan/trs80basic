@@ -4,7 +4,7 @@
 40 REM below 32768 (0B5FH JP C,0A7FH) all go that way.  So INT(2.9999999#) is 3 -- ROM bug 5a's
 50 REM mechanism -- and 32767.9999999# rounds to 32768: ?OV (0AA3H -> 07B2H).  From 32768 up INT
 60 REM takes the integer part exactly in the value's own type (0B40H, 0B78H); below it the result
-70 REM is an INTEGER (0A9FH).  Until 2026-09-27 the raw double was floored (audit L-8).
+70 REM is an INTEGER (0A9FH).  Until 2026-09-27 the raw double was floored (the 2026-09-26 audit).
 80 F=0:S=0:ON ERROR GOTO 900
 100 X#=2.9999999:IF CINT(X#)<>3 OR INT(X#)<>3 OR FIX(X#)<>3 OR FIX(-X#)<>-3 OR INT(-X#)<>-3 THEN PRINT "FAIL: 2.9999999# is 3 first:";CINT(X#);INT(X#);FIX(-X#);INT(-X#):F=1
 110 A%=X#:DEFINT B:B=X#:IF A%<>3 OR B<>3 THEN PRINT "FAIL: the integer store:";A%;B:F=1

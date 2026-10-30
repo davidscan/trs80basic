@@ -44,7 +44,7 @@ done
 
 # under memory host CLEAR takes any count, and so does --clear; the mode is
 # the one the run gets, from --memory or else TRS80_MEMORY, and --memsize
-# sizes the 64K map, which host mode does not have (BL-29)
+# sizes the 64K map, which host mode does not have
 printf '10 PRINT "RAN"\n' > "$tmp"
 out=$(run --memory host --clear 100000); [ "$out" = "RAN" ] || fail "--clear 100000 with --memory host" "$out"
 out=$(TRS80_MEMORY=host run --clear 100000); [ "$out" = "RAN" ] || fail "--clear 100000 with TRS80_MEMORY=host" "$out"

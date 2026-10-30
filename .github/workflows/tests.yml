@@ -8,7 +8,7 @@
 # (the oracle's text anchors into src/, the BASIC loader, PROTOCOL.md's
 # mirror and version), so an edit here that breaks the core fails this
 # job, not the core's next push; the core's commit goes to the job
-# summary, so a run says which pair it tested (the 2026-09-30 audit, XM-3).
+# summary, so a run says which pair it tested (the 2026-09-30 audit).
 name: tests
 
 on:

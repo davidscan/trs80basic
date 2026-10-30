@@ -30,7 +30,7 @@ if command -v git >/dev/null 2>&1 && d=$(git -C "$here" describe --tags --always
 fi
 # the same checkout reached through a symlink names the same build: git
 # gives the top level's physical path, and the launcher compared it to the
-# logical one and dropped the build (BL-15)
+# logical one and dropped the build
 if command -v git >/dev/null 2>&1 && lk=$(mktemp -d) && ln -s "$here" "$lk/link"; then
     out2=$(TRS80_Z80= "$lk/link/basic" --version 2>&1)
     rm -f "$lk/link"; rmdir "$lk"

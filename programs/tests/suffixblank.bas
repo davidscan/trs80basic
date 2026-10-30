@@ -4,7 +4,7 @@
 40 REM stored and is ?SN at the blank; IF, FOR, a parenthesis, a function argument, a
 50 REM subscript and DIM are ?SN; the byte readers (ON, POKE's value, OUT, SET, RESET, TAB(,
 60 REM the counts of STRING$ LEFT$ RIGHT$ MID$) and CLEAR go on past it.  A name's suffix and
-70 REM a blank inside a number are unaffected.  Built 2026-10-05 (the audit's B-7).
+70 REM a blank inside a number are unaffected.  Built 2026-10-05 for an audit finding.
 75 CLEAR 200:REM STRING$(64," ") in 975 needs the room: 50 bytes is ?OS (2A4EH)
 80 F=0:S=0:ON ERROR GOTO 900
 90 CLS

@@ -1,6 +1,6 @@
 #!/bin/sh
 # print.sh -- two things the ROM's PRINT does to the screen that a cursor
-# move does not (the 2026-09-19 audit, H-4 and H-3):
+# move does not (the 2026-09-19 audit):
 #   a comma PRINTS blanks to the next 16-column zone (2123-2135 -> 215A):
 #     they are in the text stream, they overwrite what was on the screen,
 #     and they reach the printer when video is routed to it; from column
@@ -67,8 +67,8 @@ want=" 1001  1002  1003  1004  1005  1006  1007  1008  1009  1010  1011  1012  1
 
 # ROM 050E-0513: the video driver sends 0AH, 0BH, 0CH and 0DH all to the
 # carriage return at 0564H.  CHR$(11) and CHR$(12) were no-ops here (the
-# 2026-09-19 audit, L-2); a code below 0AH still is, 08H aside, and so is
-# 09H.  Each of the four also blanks the line it lands on, as H-3 has it.
+# 2026-09-19 audit); a code below 0AH still is, 08H aside, and so is
+# 09H.  Each of the four also blanks the line it lands on.
 printf '10 PRINT "A";CHR$(10);"B";CHR$(11);"C";CHR$(12);"D";CHR$(13);"E"\n' > "$tmp"
 out=$(run)
 want="A
@@ -82,7 +82,7 @@ printf '10 PRINT "A";CHR$(0);CHR$(7);CHR$(9);CHR$(16);CHR$(20);"B"\n' > "$tmp"
 out=$(run)
 [ "$out" = "AB" ] || fail "the control codes that are ignored still are" "$out"
 
-# ... and each blanks the line it lands on, as a CHR$(13) does (H-3): read
+# ... and each blanks the line it lands on, as a CHR$(13) does: read
 # the second screen row back rather than the text stream, which shows only
 # what was printed
 printf '10 CLS\n20 PRINT CHR$(28);"LINE A"\n30 PRINT "LONGER TEXT HERE"\n40 PRINT CHR$(28);"LINE A";CHR$(11);"SHORT";\n50 S$="":FOR I=15424 TO 15424+19:S$=S$+CHR$(PEEK(I)):NEXT:PRINT@192,"[";S$;"]"\n' > "$tmp"
@@ -92,7 +92,7 @@ out=$(run | tail -1 | sed "s/.*\[/[/")
 # a PRINT that ends in TAB(n) ends WITHOUT a carriage return, like one
 # that ends in ; or ,: the TAB path rejoins the loop at 20A0H, past the CR
 # call at 209DH (2164H-2166H).  LPRINT is the same routine (the 2026-09-23
-# audit, M-3).
+# audit).
 printf '10 PRINT "A";TAB(5)\n20 PRINT "B"\n30 PRINT TAB(3)\n40 PRINT "C"\n50 LPRINT "D";TAB(5)\n60 LPRINT "E"\n' > "$tmp"
 out=$(run); p=$(cat "$lp" 2>/dev/null)
 [ "$out" = "A    B
@@ -100,7 +100,7 @@ out=$(run); p=$(cat "$lp" 2>/dev/null)
 [ "$p" = "D    E" ] || fail "a trailing TAB printed a carriage return on the printer" "$p"
 
 # a bare REM token in the item list is ?SN, as on the ROM, where the item
-# evaluator meets it (20B9H -> 2337H); PRINT# already had it (L-10)
+# evaluator meets it (20B9H -> 2337H); PRINT# already had it
 printf '10 ON ERROR GOTO 100:N=0\n20 S=1:PRINT REM X\n30 S=2:LPRINT REM X\n40 S=3:PRINT USING "#";REM X\n50 S=4:LPRINT USING "#";REM X\n60 PRINT "SN";N\n70 END\n100 IF ERR/2+1=2 THEN N=N+1 ELSE PRINT "STEP";S;"ERR";ERR/2+1\n110 RESUME NEXT\n' > "$tmp"
 out=$(run)
 [ "$out" = "SN 4 " ] || fail "a bare REM in a PRINT list must be ?SN" "$out"
@@ -110,7 +110,7 @@ out=$(run)
 # cursor address, rotated right and masked to 0-31 in that mode
 # (032AH-0355H), while PRINT @ stores its byte offset AND 3FH as it is
 # (2086H-2089H).  The screen is read back through PEEK, two bytes per
-# character (M-4).
+# character.
 printf '10 CLS:PRINT CHR$(23);"ABC";TAB(10);"X";:P=POS(0):PRINT\n20 PRINT "AB","C"\n30 PRINT @70,TAB(10);"Y"\n40 PRINT CHR$(28);PEEK(15380);PEEK(15456);PEEK(15438);P\n' > "$tmp"
 out=$(run)
 case "$out" in *" 88  67  89  11 "*) ;; *) fail "the 32-character column (TAB, comma, PRINT @ then TAB, POS)" "$out" ;; esac

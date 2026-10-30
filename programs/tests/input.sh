@@ -57,7 +57,7 @@ INPUT# 2  0  88 "
 # the retype message is "?REDO" -- ROM 2178 holds the five bytes 3F 52 45
 # 44 4F and a carriage return, and the Level II manual prints it twice
 # (p.3-9 and its worked example).  "?REDO FROM START" is BASIC-80's
-# wording, not this machine's (the 2026-09-19 audit, L-27).  Retyping
+# wording, not this machine's (the 2026-09-19 audit).  Retyping
 # starts again at the FIRST value, and too many values is ?EXTRA IGNORED.
 cat > "$tmp" <<'BAS'
 10 INPUT X,Y$
@@ -76,9 +76,9 @@ Z= 8 "
 
 # INPUT with no variable is the ROM's pause (21DBH reads the answer
 # first; ENTER alone skips to 1F04H), no ext needed; typed text meets no
-# variable, ?SN (audit R-2).  DIM of a plain name makes the variable,
-# 0 or "" (2608H create mode, 2664H), and costs memory (audit R-1): 13
-# bytes, plus the 10 the PRINT's pending M- holds over the LET (OC-12).
+# variable, ?SN (the 2026-09-26 audit).  DIM of a plain name makes the variable,
+# 0 or "" (2608H create mode, 2664H), and costs memory (the 2026-09-26 audit): 13
+# bytes, plus the 10 the PRINT's pending M- holds over the LET.
 cat > "$tmp" <<'BAS'
 10 M=0:M=MEM:DIM X,Y$:PRINT M-MEM;X;"[";Y$;"]"
 20 INPUT "PRESS ENTER";:INPUT:PRINT "PAUSED"
@@ -95,19 +95,19 @@ AGAIN? TYPED
 
 rm -f "$tmp"
 # typed at READY, any INPUT is ?ID: the ROM's illegal-direct check
-# (219AH -> 2828H) runs before the # is looked at (N-5)
+# (219AH -> 2828H) runs before the # is looked at
 out=$(printf '\nINPUT#1,A\nINPUT A\n' | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep -c "?ID ERROR")
 [ "$out" = 2 ] || fail "INPUT# at READY is ?ID" "$out"
 
 # INPUT A;B: the separator behind each stored item is checked with RST 08H
-# (21FBH) -- A takes its value, then ?SN, and ?EXTRA never prints (N-5)
+# (21FBH) -- A takes its value, then ?SN, and ?EXTRA never prints
 out=$(printf '\n10 INPUT A;B\nRUN\n5,6\nPRINT A\n' | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | tr '\n' ' ')
 case $out in *EXTRA*) fail "INPUT A;B printed ?EXTRA" "$out" ;; esac
 case $out in *"?SN ERROR IN 10"*" 5 "*) ;; *) fail "INPUT A;B stores A then ?SN" "$out" ;; esac
 
 # a prompt is a bare literal: anything else behind the quote is ?SN at
 # 21D3H, before the prompt shows -- INPUT "A"+CHR$(10)+"B";X too.  EXT
-# (gated, audit R-4 re-ruled 2026-10-22): under ext on, a prompt
+# (gated, the 2026-09-26 audit re-ruled 2026-10-22): under ext on, a prompt
 # expression is taken, by INPUT and LINE INPUT alike.
 tmp=$(mktemp) || exit 2
 cat > "$tmp" <<'BAS'

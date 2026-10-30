@@ -2,7 +2,7 @@
 20 REM point (the 2026-09-26 audit, fix-order step 8).  Self-checking:
 30 REM a mismatch prints FAIL and the run ends in ERROR 5.
 40 CLEAR 8000:F=0:ON ERROR GOTO 900
-100 REM M-3: FOR with a DOUBLE index.  LET stores the start (1CA6H), the
+100 REM FOR with a DOUBLE index.  LET stores the start (1CA6H), the
 110 REM TO token is tested (1CC5H), then the index's type: ?TM (1CCBH)
 120 S=1:FOR D#=5 TO 6
 130 IF S<>2 THEN PRINT "FAIL: FOR D#=5 TO 6 WAS NOT ?TM  S=";S:F=1
@@ -12,7 +12,7 @@
 170 S=5:FOR E#=1 X
 180 IF S<>6 THEN PRINT "FAIL: FOR E#=1 X WAS NOT ?SN (TO IS TESTED FIRST)  S=";S:F=1
 190 FOR G!=1 TO 2:NEXT:FOR H%=1 TO 2:NEXT:IF G!<>3 OR H%<>3 THEN PRINT "FAIL: A SINGLE OR INTEGER INDEX";G!;H%:F=1
-200 REM L-1: a keyword is never a variable name: its byte is no letter to
+200 REM a keyword is never a variable name: its byte is no letter to
 210 REM the ROM's name reader (2612H-2615H), so each of these is ?SN
 220 S=7:ABS=3
 230 IF S<>8 THEN PRINT "FAIL: ABS=3 WAS NOT ?SN  S=";S:F=1
@@ -26,7 +26,7 @@
 310 IF S<>16 THEN PRINT "FAIL: LET PRINT=1 WAS NOT ?SN  S=";S:F=1
 320 S=17:V=VARPTR(TO)
 330 IF S<>18 THEN PRINT "FAIL: VARPTR(TO) WAS NOT ?SN  S=";S:F=1
-400 REM L-9: an array whose bytes (2768H) or whose end address (2773H)
+400 REM an array whose bytes (2768H) or whose end address (2773H)
 410 REM pass 64K is ?BS (273DH), before the free-space test (196CH, ?OM)
 420 S=19:DIM Z(20000)
 430 IF S<>20 THEN PRINT "FAIL: DIM Z(20000) WAS NOT ?BS  S=";S:F=1
@@ -34,16 +34,16 @@
 450 IF S<>22 THEN PRINT "FAIL: DIM W$(10000,3) WAS NOT ?BS  S=";S:F=1
 460 S=23:DIM Y(9000)
 470 IF S<>24 THEN PRINT "FAIL: DIM Y(9000) (ENDS BELOW 64K, PAST THE FREE MEMORY) WAS NOT ?OM  S=";S:F=1
-500 REM L-10: DEFINT C-A is ?SN (1E27H); the ranges before it in the list stand
+500 REM DEFINT C-A is ?SN (1E27H); the ranges before it in the list stand
 510 S=25:DEFINT K,N-P,M-L,R
 520 IF S<>26 THEN PRINT "FAIL: DEFINT M-L WAS NOT ?SN  S=";S:F=1
 530 K=1.5:N=2.5:P=3.5:R=4.5:IF K<>1 OR N<>2 OR P<>3 OR R<>4.5 THEN PRINT "FAIL: THE RANGES BEFORE M-L SHOULD STAND, R NOT ";K;N;P;R:F=1
-600 REM L-11: CLEAR 100 X is ?SN at 1E82H, before anything is cleared:
+600 REM CLEAR 100 X is ?SN at 1E82H, before anything is cleared:
 610 REM the variables, the string space and this handler stay
 620 S=27:CLEAR 100 X
 630 IF S<>28 THEN PRINT "FAIL: CLEAR 100 X WAS NOT ?SN  S=";S:F=1
 640 IF FRE("")<7000 THEN PRINT "FAIL: CLEAR 100 X CLEARED THE STRING SPACE";FRE(""):F=1
-700 REM L-23: a literal or a DATA item past 255 characters (a LOADed line
+700 REM a literal or a DATA item past 255 characters (a LOADed line
 710 REM can hold one; the machine's 240-byte line cannot) is ?LS, nothing stored
 720 S=29:A$="XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
 730 IF S<>30 OR LEN(A$)<>0 THEN PRINT "FAIL: A 256-CHARACTER LITERAL WAS NOT ?LS  S=";S;LEN(A$):F=1
@@ -51,7 +51,7 @@
 740 S=31:READ B$
 750 IF S<>32 OR LEN(B$)<>0 THEN PRINT "FAIL: A 256-CHARACTER DATA ITEM WAS NOT ?LS  S=";S;LEN(B$):F=1
 755 REM (the failed READ leaves the pointer on its item, so nothing reads DATA after this)
-760 REM L-24: a double overflows at the DOUBLE's limit (just under 2^127),
+760 REM a double overflows at the DOUBLE's limit (just under 2^127),
 762 REM not the single's: A#=1.7014118D38 is a value, 1.7014119D38 is ?OV;
 764 REM a big double STORED into a single is ?OV at the single's limit (0AB9H)
 766 A#=1.7014118D38:IF A#=0 THEN PRINT "FAIL: A#=1.7014118D38 SHOULD BE A VALUE":F=1

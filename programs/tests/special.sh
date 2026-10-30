@@ -3,7 +3,7 @@
 # /inet/tcp/... is a socket, /dev/fd/N and "-" are the interpreter's own
 # descriptors, /dev/zero never ends; a BASIC program picks its file names,
 # so each of these must be ?FD from every statement that takes a name
-# (the 2026-09-19 audit, H-1; host_special in p90).  With python3 a loopback
+# (the 2026-09-19 audit; host_special in p90).  With python3 a loopback
 # listener proves that no connection was even attempted.  Self-checking:
 # exits 1 on any mismatch.  Run from the repo root:
 #   sh programs/tests/special.sh
@@ -74,7 +74,7 @@ out=$(run "$net"); rc=$?
 out=$(printf '10 PRINT "FROM STDIN"\n' | TRS80_Z80= "$here/basic" /dev/stdin 2>&1); rc=$?
 [ $rc -eq 2 ] || fail "/dev/stdin as the batch program (rc=$rc)" "$out"
 # ... and the message says why: the file is there, the NAME is refused
-# (the 2026-09-19 audit, M-23)
+# (the 2026-09-19 audit)
 case $out in *"not taken for a program"*) ;; *) fail "/dev/stdin: the message must say why" "$out" ;; esac
 case $out in *"FROM STDIN"*) fail "/dev/stdin ran as the batch program" "$out" ;; esac
 # a FIFO is an ordinary name and can be read only ONCE: the loader used to
@@ -96,7 +96,7 @@ fi
 # literal prefixes, so //dev/zero, /./dev/zero and (on a case-insensitive
 # filesystem) /Dev/zero are handed to the OS, which resolves them to the
 # device: the slurp never ended, the write went raw to the terminal (the
-# 2026-09-23 audit, H-3).  The rule is now the file's KIND, not its
+# 2026-09-23 audit).  The rule is now the file's KIND, not its
 # spelling: a program reads a regular file, and writes a regular file or a
 # name that does not exist yet -- a device, a directory or a FIFO is ?FD.
 # A run that hangs on a device is killed after 20 s and counts as a failure.
@@ -152,7 +152,7 @@ case $out in *"THROUGH THE LINK"*) ;; *) fail "a symlink to a regular file must 
 
 # a CHR$(0) in the name: open() and sh see it cut there, so "-" CHR$(0) is
 # stdin and "//dev/zero" CHR$(0) the device; both ?FD, stdin untouched
-# (the 2026-09-26 audit, H-1)
+# (the 2026-09-26 audit)
 cat > nul.bas <<'BAS'
 10 ON ERROR GOTO 900:Z$=CHR$(0)
 20 S=1:OPEN "I",1,"-"+Z$
@@ -179,7 +179,7 @@ BAS
 out=$(run ok.bas)
 [ "$out" = "AB" ] || fail "ordinary file names" "$out"
 
-# a PROGRAM's WRITES stay under the working directory (R-9, the 2026-09-26
+# a PROGRAM's WRITES stay under the working directory (the 2026-09-26
 # audit): an absolute path or a .. component is ?FD for OPEN "O", "E" and
 # "R", KILL and SAVE, while a relative path with a slash (the TRSDOS
 # NAME/EXT form) still works, and a name typed at READY is the user's own
@@ -188,7 +188,7 @@ out=$(run ok.bas)
 # absolute directory): OPEN "I" and RUN "f" by an absolute path or
 # through .. both work
 # The escape targets carry this run's pid and are removed either way: a
-# fixed /tmp/r9esc left by one run failed every later one (BL-35).  The
+# fixed /tmp/r9esc left by one run failed every later one.  The
 # drive-letter arm is pinned on its own (55, 56): "C:\x" has no slash
 # here and "C:/x" names a real subdirectory C:, so only that arm refuses.
 esc=/tmp/r9esc.$$
@@ -227,7 +227,7 @@ out=$(printf '\nLOAD "%s"\nRUN\n' "$d/abs.bas" | TRS80_DUMB=1 TRS80_Z80= \
 
 # a channel OPENed at READY keeps the user's name when a program closes it:
 # the "R" flush asked who was running at the close, and END lost the PUT
-# record to ?FD (the 2026-09-30 audit, BL-26)
+# record to ?FD (the 2026-09-30 audit)
 rm -f "$d/../r9typed.$$"
 out=$(printf '\n10 FIELD 1,10 AS A$:LSET A$="TYPED":PUT 1,1:END\nOPEN "R",1,"%s",10\nGOTO 10\n' "$d/../r9typed.$$" \
     | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep 'ERROR')

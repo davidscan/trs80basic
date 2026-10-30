@@ -1,6 +1,6 @@
 #!/bin/sh
 # metaexit.sh -- `exit` and `bye` are lower-case metacommands that leave the
-# interpreter as BYE does (the user, 2026-10-21; the Q-5 ruling of 2026-10-03
+# interpreter as BYE does (the user, 2026-10-21; the ruling of 2026-10-03
 # named both): nothing after them runs, exit status 0.  Like every
 # metacommand they are lower case only and take no argument, so `exit now`
 # reaches BASIC (?SN).  Upper-case EXIT is BYE's synonym, the statement
@@ -46,7 +46,7 @@ READY
 [ "$out" = "$want" ] || fail "EX stays a variable" "$out"
 
 # BYE and EXIT are the statement only as a whole statement; elsewhere they
-# are the ROM's variables BY and EX (BM-9): BYE=5 assigns BY, PRINT BYE reads it
+# are the ROM's variables BY and EX: BYE=5 assigns BY, PRINT BYE reads it
 out=$(printf '\n10 BYE=5\n20 PRINT "AFTER";BY;BYE\n30 BY=7:PRINT BYE\n40 EXIT=3:PRINT EX;EXIT\n50 IF 1 THEN BYE=9:PRINT BY\n60 PRINT "A":BYE :PRINT "NO"\nRUN\n' | run | sed -n '/^>RUN/,$p')
 want='>RUN
 AFTER 5  5 

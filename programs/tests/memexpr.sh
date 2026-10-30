@@ -1,6 +1,6 @@
 #!/bin/sh
 # memexpr.sh -- MEM inside an expression counts the evaluator's own stack
-# (audit OC-12; p60 e_or, EVSTK).  MEM is the stack pointer less the end of
+# (the 2026-09-30 audit; p60 e_or, EVSTK).  MEM is the stack pointer less the end of
 # the arrays (27D4H), and while an expression is being read the stack holds
 # the statement's push (2; LET 4, FOR and PRINT USING 6), each operator
 # still waiting for its right operand (+ - * / 8 and the left operand's

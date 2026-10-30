@@ -4,7 +4,7 @@
 # host_writable (p90) probes first; until 2026-09-19 the probe was a bare
 # touch, which passes a directory and a read-only file its owner holds, and
 # the redirect then killed the interpreter with the unsaved program in
-# memory (the 2026-09-19 audit, C-1).  The OLLAMA transcript file (<thread>.ollama, p87
+# memory (the 2026-09-19 audit).  The OLLAMA transcript file (<thread>.ollama, p87
 # ai_open) is probed the same way.  Self-checking: exits 1 on any mismatch.
 # Run from the repo root:  sh programs/tests/hostwrite.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
@@ -38,7 +38,7 @@ check 'OPEN "O",1,"nodir/x.dat"'    'OPEN "O" into a missing directory'
 check 'OPEN "O",1,"OLLAMA:m:adir"'  'an OLLAMA thread whose transcript is a directory'
 # a read-only file: root may write it regardless, so only as an ordinary user
 # (and said, so a root run does not pass as though it had checked them:
-# the 2026-09-30 audit, BL-36)
+# the 2026-09-30 audit)
 if [ "$(id -u)" = 0 ]; then
     echo "NOT RUN HERE: the read-only file and refused-KILL cases (running as root)"
 fi
@@ -67,7 +67,7 @@ fi
 # KILL onto a file the host will not let go of: ?FD, the file stays, and
 # rm's own complaint never reaches the program's error channel.  It used to
 # be ignored outright -- the program carried on as though the file had gone
-# (the 2026-09-19 audit, L-5).  Only as an ordinary user: root deletes anyway.
+# (the 2026-09-19 audit).  Only as an ordinary user: root deletes anyway.
 if [ "$(id -u)" != 0 ]; then
     mkdir -p kdir && : > kdir/victim.txt && chmod 500 kdir
     printf '10 ON ERROR GOTO 100\n20 KILL "kdir/victim.txt"\n30 PRINT "NO ERROR":END\n100 PRINT "ERR=";ERR/2+1:END\n' > k.bas
@@ -86,7 +86,7 @@ fi
 # the printer: TRS80_PRINTER is a path the user chose, probed once at
 # start.  One that cannot be written makes LPRINT and LLIST ?FD, and says
 # why on the diagnostic channel -- the first LPRINT used to be a gawk
-# fatal at the redirect (the 2026-09-23 audit, M-1, the C-1 class).  A
+# fatal at the redirect (the 2026-09-23 audit: an unprobed redirect).  A
 # device is a fine printer: the path is the user's, not the program's.
 lpcheck() {   # $1 = TRS80_PRINTER, $2 = the statement on line 20, $3 = what it tests
     printf '10 PRINT "X"\n20 %s\n30 PRINT "NOT REACHED"\n' "$2" > t.bas
@@ -120,7 +120,7 @@ out=$(TRS80_PRINTER=never.txt TRS80_Z80= "$here/basic" q.bas 2>&1)
 # that cannot be written is refused at once and the capture stays as it
 # was, and nothing is created by asking; `~` is the home directory.  An
 # unwritable path used to be shown as the active capture while the core
-# dropped it in silence (the 2026-09-19 audit, L-49).  No core needed.
+# dropped it in silence (the 2026-09-19 audit).  No core needed.
 mkdir -p home
 out=$(printf '\nsound wav %s\nsound wav ~/cap.wav\nsound wav nodir/x.wav\nsound wav home\nBYE\n' "$d/home/a.wav" |
       HOME="$d/home" TRS80_Z80= TRS80_DUMB=1 "$here/basic" 2>&1 | grep -E '^(\?CANNOT|SOUND)')
@@ -136,7 +136,7 @@ SOUND OFF, WAV $d/home/cap.wav"
 # CLOSE of a dirty "R" file REOPENS the path to rewrite it, so the
 # OPEN-time probe is not enough: an outside actor replacing the file with
 # a directory between PUT and CLOSE made the redirect a gawk fatal (the
-# 2026-09-26 audit, M-16).  The program waits on INPUT while the shell
+# 2026-09-26 audit).  The program waits on INPUT while the shell
 # swaps the file out; CLOSE must be ?FD, never rc 2.
 printf '10 ON ERROR GOTO 100\n20 OPEN "R",1,"R.DAT":FIELD 1,10 AS A$:LSET A$="HELLO":PUT 1\n30 INPUT Z\n40 CLOSE 1\n50 PRINT "AFTER CLOSE":END\n100 PRINT "ERR";ERR/2+1;"IN";ERL:RESUME NEXT\n' > rclose.bas
 out=$( { sleep 2; rm -f R.DAT; mkdir R.DAT; printf '1\n'; } | TRS80_Z80= "$here/basic" rclose.bas 2>&1 )
@@ -148,7 +148,7 @@ rm -rf R.DAT
 # A symbolic link already in the directory cannot carry a program's write
 # or KILL outside it: the confinement is by where a name RESOLVES, not how
 # it is spelled.  Until 2026-10-03 link.dat -> $o/t.dat let OPEN "O"
-# overwrite a file outside the directory (the 2026-09-30 audit, BL-37).
+# overwrite a file outside the directory (the 2026-09-30 audit).
 o=$(mktemp -d) || exit 2
 trap 'rm -rf "$d" "$o"' EXIT
 printf 'keep\n' > "$o/t.dat"

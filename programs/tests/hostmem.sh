@@ -15,7 +15,7 @@ tmp=$(mktemp) || exit 2
 dat=$(mktemp) || exit 2
 fail() { echo "HOSTMEM FAILED: $1"; printf '%s\n' "$2"; rm -f "$tmp" "$dat"; exit 1; }
 # run from the temp file's own directory: a program's file names are
-# confined to the cwd (R-9), so the file case names ${dat##*/}
+# confined to the cwd, so the file case names ${dat##*/}
 run() { (cd "${tmp%/*}" && TRS80_Z80= TRS80_MEMORY= "$here/basic" "$@" "$tmp") 2>&1 </dev/null; }
 runout() { TRS80_Z80= TRS80_MEMORY= "$here/basic" "$@" "$tmp" 2>/dev/null </dev/null; }
 host() { run --memory host "$@"; }
@@ -38,7 +38,7 @@ printf '10 DIM A(20000)\n' > "$tmp"
 out=$(run); case $out in "?BS ERROR IN 10
 basic: "*"$HINT"*) ;; *) fail "a DIM past 64K is ?BS with the note" "$out" ;; esac
 # the auto-DIM makes its array through the same code (275CH-2774H): past
-# 64K ?BS, below it but too big ?OM (audit BL-34)
+# 64K ?BS, below it but too big ?OM (the 2026-09-30 audit)
 printf '10 A(1,1,1,1)=1\n' > "$tmp"
 out=$(run); case $out in "?BS ERROR IN 10
 basic: "*"$HINT"*) ;; *) fail "an auto-DIM past 64K is ?BS with the note" "$out" ;; esac
@@ -72,7 +72,7 @@ printf '10 DIM A(20000),B$(30000):PRINT MEM<2147483647-80000\n' > "$tmp"
 out=$(host); [ "$out" = "-1 " ] || fail "MEM still counts the arrays" "$out"
 printf '10 CLEAR 60\n20 A$=STRING$(255,"A"):B$=A$+A$+A$:PRINT LEN(B$);LEN(LEFT$(B$,600));LEN(MID$(B$,300));LEN(MID$(B$,2,700));LEN(RIGHT$(B$,500));LEN(STRING$(1000,"X"));INSTR(700,B$,"A")\n' > "$tmp"
 out=$(host); [ "$out" = " 765  600  466  700  500  1000  700 " ] || fail "long strings and counts" "$out"
-# MID$()= takes a start past 255 as the MID$() function does (BM-10)
+# MID$()= takes a start past 255 as the MID$() function does
 printf '10 CLEAR 1000\n20 A$=STRING$(300,"a"):MID$(A$,280,3)="XYZ":PRINT MID$(A$,278,7);LEN(A$)\n' > "$tmp"
 out=$(host); [ "$out" = "aaXYZaa 300 " ] || fail "MID\$()= at a start past 255" "$out"
 printf '10 CLEAR 1000:A$=STRING$(250,"a"):MID$(A$,256)="X"\n' > "$tmp"

@@ -1,7 +1,7 @@
 #!/bin/sh
 # crunch.sh -- the program image is crunched as the ROM crunches (1BC0-1C8F),
 # and tools/tok.py agrees with it byte for byte.  The 2026-09-19 audit's
-# L-13: a letter outside a string, a REM and DATA is matched and stored in
+# a letter outside a string, a REM and DATA is matched and stored in
 # upper case (1C00-1C0B, 1C2D-1C31), "?" is the PRINT token (1BE4-1BE8), and
 # ELSE is stored behind a ":" (1C42-1C49) -- the one thing the ROM's IF looks
 # for when it skips to the ELSE.  The image is what a program PEEKs and what
@@ -19,7 +19,7 @@ cat > "$dir/l.bas" <<'EOF2'
 40 ' and So does this ?
 50 FOR I=17129 TO PEEK(16633)+256*PEEK(16634)-1:PRINT PEEK(I);:NEXT
 EOF2
-# lines 60-90: a TAB after the line number (audit BL-11).  The digit read
+# lines 60-90: a TAB after the line number (the 2026-09-30 audit).  The digit read
 # stops past blanks, TABs and LFs (1D78H-1D88H); 1A8BH backs up over
 # blanks only and one blank is dropped (1A93H), so a TAB goes with all
 # before it, and of blanks alone one goes

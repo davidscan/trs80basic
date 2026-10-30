@@ -7,7 +7,7 @@
 # and Level II's cassette read reports bad file data.  A name that is not a
 # file at all (a socket, a descriptor) stays ?FD too (special.sh).  Until
 # 2026-09-24 LOAD, RUN and MERGE said ?FD, so a listing's ERR=106 handler
-# never saw them (AUDIT 2026-09-23, M-8).
+# never saw them (AUDIT 2026-09-23).
 # Self-checking: exits 1 on any mismatch.  Run from the repo root:
 #     sh programs/tests/notfound.sh
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2

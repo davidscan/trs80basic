@@ -13,7 +13,7 @@
 # screen and RETurns, the load module ends with JP 1A19H (READY), `/32000`
 # runs what is in memory.  Inside a PROGRAM the two endings differ: after a
 # RET the next statement runs, and JP 1A19H ends the program at READY, as
-# the machine does (the 2026-09-19 audit, L-44 -- until then this suite
+# the machine does (the 2026-09-19 audit -- until then this suite
 # pinned the next statement running after it, too).
 #
 # The fixtures were assembled by the core's `python3 -m z80.asm`:
@@ -80,7 +80,7 @@ grep -q "^NEVER" "$tmp" && fail "the statement after SYSTEM X: ran" "$(cat "$tmp
 grep -q "^PASSTAIL" "$tmp" || fail "SYSTEM X did not let the next line run" "$(cat "$tmp")"
 grep -q 'SYSTEM "I": Level II ignores' "$tmp.err" || fail "SYSTEM \"I\" must leave a note on stderr" "$(cat "$tmp.err")"
 # the note quotes the program's own bytes: a control byte in them is
-# shown as a full stop, never sent raw to the terminal (the 2026-09-23 audit, L-8)
+# shown as a full stop, never sent raw to the terminal (the 2026-09-23 audit)
 grep -q "^PASSESC" "$tmp" || fail "SYSTEM with an ESC byte in the string did not let the next line run" "$(cat "$tmp")"
 LC_ALL=C grep -q "$esc" "$tmp.err" && fail "a raw ESC byte from SYSTEM's string reached stderr" "$(LC_ALL=C od -c "$tmp.err" | head -20)"
 grep -q 'SYSTEM "I.\[2KZ"' "$tmp.err" || fail "the control byte in SYSTEM's string must show as a full stop" "$(cat "$tmp.err")"
@@ -97,7 +97,7 @@ grep -q "(7D00H x1)" "$tmp.err" && grep -q "(7E00H x1)" "$tmp.err" \
 # The prompt's shape (ROM 02B2H-02C7H, 0323H): a carriage return in front
 # of every "*? ", ENTER alone is ?SN and ends SYSTEM, and an address past
 # 65529 is ?SN where 1E5AH reads it; until 2026-09-27 ENTER prompted
-# again and /65535 ran (the 2026-09-26 audit, L-15)
+# again and /65535 ran (the 2026-09-26 audit)
 run "" <<EOF
 
 SYSTEM
@@ -113,7 +113,7 @@ grep -q "^PASSEMPTY" "$tmp" && grep -q "^PASSBIG" "$tmp" || fail "the lines afte
 grep -q "NOT EXECUTED" "$tmp.err" && fail "/65530 must not run" "$(cat "$tmp.err")"
 
 # A load module whose CODE holds A5H 55H is still a load module (the
-# 2026-09-19 audit, M-6): LD HL,55A5H / LD A,5 / LD (7F40H),A / RET at
+# 2026-09-19 audit): LD HL,55A5H / LD A,5 / LD (7F40H),A / RET at
 # 7F00H.  Looking for the tape's sync pair anywhere in the file took it for
 # a tape, printed C and loaded nothing.  Once by extension, once by its
 # first byte (no extension).
@@ -140,7 +140,7 @@ grep -q "^C$" "$tmp" && fail "a load module holding A5H 55H was read as a tape" 
 # sys_exec resolved the USR vector first and only then assigned the entry,
 # so the line printed the 408EH vector's entry -- "undefined" here, since
 # no DEFUSR has run -- for a call going somewhere else (the 2026-09-19
-# audit, L-50).
+# audit).
 TRS80_Z80= TRS80_USR_TRACE=1 gawk -b -f trs80basic.awk >"$tmp" 2>"$tmp.err" <<EOF
 
 SYSTEM
@@ -165,7 +165,7 @@ grep -q "USR slot=0 entry=32000 arg=0" "$tmp.err" \
 # record.  sys_load_cmd has always accepted both mid-file, and so does the
 # core (z80/load.py load_cmd), but the format sniff in sys_load did not have
 # them in its first-byte set, so such a file with no .cmd extension was
-# taken for a tape and failed (the 2026-09-19 audit, L-42).
+# taken for a tape and failed (the 2026-09-19 audit).
 # Each file: <type> 02 "AA", then 01 08 00 7F + LD A,7 / LD (7F40H),A / RET,
 # then 02 02 00 7F -- eight body bytes in the load record, entry 7F00H.
 r10=$(mktemp) || exit 2
@@ -188,7 +188,7 @@ EOF
 done
 rm -f "$r10" "$r1a"
 
-# A file that ends with no entry record (the 2026-09-19 audit, M-7): `/`
+# A file that ends with no entry record (the 2026-09-19 audit): `/`
 # runs at its first block's load address, the core loader's rule -- not at
 # the entry of whatever was loaded before it.  The tape is syshi.cas less
 # its 78H record, loaded after sysrdy (entry 7E00H); the load module is
@@ -215,7 +215,7 @@ grep -q "(7F00H x1)" "$tmp.err" || fail "a load module with no 02H record runs a
 
 # An EMPTY file: refused as ?FD like any file with nothing to load (until
 # 2026-09-28 the format sniff read ORD[""] bare, creating the key -- the
-# 2026-09-26 audit, N-6)
+# 2026-09-26 audit)
 : > "$ne.cas"
 run "" <<EOF
 

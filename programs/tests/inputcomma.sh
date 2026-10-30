@@ -4,7 +4,7 @@
 # RST 08H against 2CH); anything else is ?SN, as on the machine.
 # EXT (needs ext on / TRS80_EXT=1): INPUT "prompt",var is accepted and drops
 # the "? " -- the later Microsoft BASICs' form, never Level II's; no period
-# listing uses it, so the gate costs nothing (AUDIT 2026-09-23, L-2, ruled
+# listing uses it, so the gate costs nothing (AUDIT 2026-09-23, ruled
 # 2026-09-24).  PRINT @ has no such extension.
 # Self-checking: exits 1 on any mismatch.  Run from the repo root:
 #     sh programs/tests/inputcomma.sh

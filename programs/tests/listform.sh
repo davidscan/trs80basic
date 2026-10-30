@@ -1,6 +1,6 @@
 #!/bin/sh
 # listform.sh -- LIST shows a line as the ROM STORED it, not as it was
-# typed (audit BM-5).  The cruncher upper-cases letters outside strings,
+# typed (the 2026-09-30 audit).  The cruncher upper-cases letters outside strings,
 # DATA and REM, stores ? as PRINT and GO TO as GOTO (1BC0-1C8F); LIST
 # (2B7E-2BC4) expands the stored bytes back with no blank added, ELSE
 # takes back the ":" it is stored behind and ' the ":REM" before it, and

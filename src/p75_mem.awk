@@ -12,7 +12,7 @@
 #     SIZE? answer).  The image is WRITABLE since 2026-09-12 (read rule 5,
 #     below).  Keyword bytes 80-FB embedded below = tools/level2_tokens.tsv;
 #     serialization is validated byte-for-byte against tools/tok.py
-#     (programs/tests/crunch.sh).  Until the 2026-09-19 audit's L-13 two
+#     (programs/tests/crunch.sh).  Until the 2026-09-19 audit two
 #     deviations were recorded here -- lowercase keywords stayed text and
 #     ELSE went without its hidden ":" -- and "?" was a third; pm_crunch
 #     follows the ROM's cruncher on all three now.
@@ -70,7 +70,7 @@
 #     A BYTE STORED PAST THE LIVE LENGTH, inside the cells mapped for the
 #     string, is a byte of RAM and nothing more: it reads back, and the
 #     string's value and LEN do not change, because on the machine only the
-#     descriptor says how long a string is (the 2026-09-19 audit, L-48: it
+#     descriptor says how long a string is (the 2026-09-19 audit: it
 #     used to LENGTHEN the string, padding up to it with blanks).
 
 # ---- THE ADDRESS-RESOLUTION CONTRACT --------------------------------------
@@ -124,7 +124,7 @@
 # name rules 2 and 5 together and call "POKE lands in MEM[] and is never
 # read back" a class; rule 5 stopped being an instance of it on 2026-09-12,
 # when the image became writable, and the note was left behind (the
-# 2026-09-19 audit, L-51).  What is still read-only, with no write branch at
+# 2026-09-19 audit).  What is still read-only, with no write branch at
 # all, is listed under the write side below: 37E8/37E9H, 3800-3BFFH,
 # 40A4/40A5H and 40F9/40FAH.
 #
@@ -239,7 +239,7 @@ function pm_init_index(   tbl, pairs, np, i, j, v, w, ins) {
     }
     # the same table by first character, in the same order, for kw_at: a
     # character tries only the keywords that begin with it (the 2026-09-23
-    # audit, L-14: the linear scan cost 8.5 us a byte)
+    # audit: the linear scan cost 8.5 us a byte)
     for (j = 1; j <= NTOKI; j++) {
         w = substr(TIW[j], 1, 1)
         KW[w, ++KWN[w]] = TIW[j]; KWV[w, KWN[w]] = TIV[j]
@@ -329,7 +329,7 @@ function pm_detok(body, raw,   out, i, n, b, c, ins, ind, lit, kw, nxt, par) {
         }
         # outside a string an LF or CR in an image byte is no blank: RST 10H
         # skips 20H and 09H only (1D78-1D88), so the dispatch meets the byte
-        # and the statement is ?SN at run time (audit L-16).  The run
+        # and the statement is ?SN at run time (the 2026-09-26 audit).  The run
         # rendering (raw) keeps it for tokline; LIST shows a blank.
         if (b == 10 || b == 13) { out = out (raw ? c : " "); i++; continue }
         if (b >= 128) {
@@ -347,8 +347,8 @@ function pm_detok(body, raw,   out, i, n, b, c, ins, ind, lit, kw, nxt, par) {
         # (1BC0H upper-cases), so an image is its only way in, and on the
         # machine it is no letter: the name reader and the dispatch refuse
         # it, ?SN at run time.  tokline upper-cases what it reads, so the run
-        # rendering hands it the CR of L-16 above in its place; LIST shows
-        # the letter, as the ROM's does (the 2026-09-30 audit, N-3).
+        # rendering hands it a CR in its place (the ?SN above); LIST shows
+        # the letter, as the ROM's does (the 2026-09-30 audit).
         if (raw && b >= 97 && b <= 122) { out = out "\r"; i++; continue }
         out = out c; i++
     }
@@ -382,7 +382,7 @@ function spl_paren(body, i,   j, n, c, p) {
 }
 
 # the text LIST, LLIST, SAVE and CSAVE show for line ln: its stored bytes
-# expanded as the ROM's LIST does (2B7E-2BC4; audits BM-5, BL-13).  A byte
+# expanded as the ROM's LIST does (2B7E-2BC4; the 2026-09-30 audit).  A byte
 # below 80H is copied, a token is replaced by its keyword with no blank
 # added, and nothing knows about quotes, so a token byte inside a string
 # or a REM expands too.  The ' token first takes back the four characters
@@ -461,7 +461,7 @@ function pm_body(ln,   body, j) {
 # DATA-to-colon, and REM/' payloads stay literal; ' stores as :REM')
 #
 # Outside those regions it crunches as the ROM does (1BC0-1C8F; the
-# 2026-09-19 audit, L-13), because the core EXECUTES image bytes and a
+# 2026-09-19 audit), because the core EXECUTES image bytes and a
 # program PEEKs them:
 #   * a letter is matched, and stored, in UPPER case: 1C00-1C0B upper-cases
 #     a symbol's first character in the buffer, 1C2D-1C31 compares the rest
@@ -528,7 +528,7 @@ function pm_crunch(text,   i, n, c, ins, ind, lit, w, up) {
 # fooled.  Until 2026-09-11 the next pointer wrapped modulo 65536 and PMEM
 # went on being written above the address space, unreachable by any PEEK.
 #
-# WHAT A POKE INTO THE IMAGE BELONGS TO (the 2026-09-19 audit, M-8).  Read
+# WHAT A POKE INTO THE IMAGE BELONGS TO (the 2026-09-19 audit).  Read
 # rule 5 serves MEM[a] over the crunched byte, and MEM[] is keyed by
 # address, but on the machine a byte POKEd into a line is part of that
 # LINE: it moves when an earlier line grows or goes, and it is gone when the
@@ -662,7 +662,7 @@ function sp_map_data(tgt, base, len,   j) {
 # The bytes a numeric's value takes: the size recorded when its entry was
 # made (NVZ, AVZ; vt_size), else the name's type.  Until 2026-09-29 every
 # numeric took a single's 4, so A%=513 read back as MBF bytes and a
-# double lost its low half (the 2026-09-26 audit, R-8, step 2).
+# double lost its low half (the 2026-09-26 audit, step 2).
 function sp_nsize(tgt,   k, i) {
     k = substr(tgt, 2)
     if (substr(tgt, 1, 1) == "A") {
@@ -736,12 +736,12 @@ function sp_materialize(tgt, isstr,   len, need, base, j, dbase) {
 # allocates and zeroes the whole array; Farvour's array entry: the header,
 # then the elements in order).  So VARPTR(A%(1)) is VARPTR(A%(0))+2 and
 # machine code can walk the array from VARPTR(A%(0)).  The first touch of
-# any element maps every element (R-8 Q1, ruled 2026-09-29); the block
+# any element maps every element (ruled 2026-09-29); the block
 # stays where it is for the run (Q2: VARPTR stays stable; the ROM's
 # array region moves when a new simple variable is made, which is not
 # modelled).  Until 2026-10-22 each element was mapped alone as it was
 # first touched, descending: VARPTR(A%(1))-VARPTR(A%(0)) was -2 (the
-# 2026-09-26 audit, R-8 step 3).
+# 2026-09-26 audit).
 function sp_arrblock(tgt,   key, name, i, nd, vz, n, base, e, r, k, t, a, j, w) {
     key = substr(tgt, 2); i = index(key, SUBSEP); name = substr(key, 1, i - 1)
     nd = ADIM[name]; vz = (name in AVZ) ? AVZ[name] : vt_size(name, "")
@@ -793,7 +793,7 @@ function sp_strblock(tgt,   key, name, i, nd, n, base, e, r, k, t, d, w) {
 # address at V+1/V+2 straight away.  Re-home NOW, not at the next VARPTR
 # call: until 2026-09-20 the descriptor went on naming the old cells, a
 # PEEK past them read the descriptor's own bytes (it sits just above), and
-# a POKE there rewrote the length (the 2026-09-19 audit, M-13).
+# a POKE there rewrote the length (the 2026-09-19 audit).
 function sp_grown(name, key,   tgt) {
     tgt = (key != "") ? "A" key : "V" name
     if (tgt in VPDATA) sp_materialize(tgt, 1)
@@ -803,7 +803,7 @@ function sp_grown(name, key,   tgt) {
 function sp_gets(tgt,   key) {
     key = substr(tgt, 2)
     if (substr(tgt, 1, 1) == "A") return (key in VA) ? substr(VA[key], 2) : ""
-    return (key in SV) ? SV[key] : ""          # membership first: a bare read would create the entry (M-8)
+    return (key in SV) ? SV[key] : ""          # membership first: a bare read would create the entry
 }
 function sp_sets(tgt, s,   key) {
     key = substr(tgt, 2)
@@ -832,7 +832,7 @@ function sp_setn(tgt, x,   key) {
 # was re-derived from that 0 and lost -- which broke the Level II MKS$/CVS
 # substitute (copy four PEEKed bytes into a fresh variable) and any Z80
 # routine storing a float through VARPTR, whose write-set arrives in
-# ascending order, exponent last (the 2026-09-19 audit, H-11).  So a POKE
+# ascending order, exponent last (the 2026-09-19 audit).  So a POKE
 # keeps the bytes it made in NRAW, and they stay the truth for as long as
 # they still decode to the variable's value; an assignment that changes
 # the value outdates them, and the next read encodes afresh.
@@ -848,11 +848,11 @@ function sp_peek(a,   t, tgt, v) {
     if (t == "C") return SPV[a]
     if (substr(t, 1, 1) == "N") {
         v = sp_nbytes(tgt); t = substr(t, 2) + 1
-        return (t <= length(v)) ? ORD[substr(v, t, 1)] : 0   # never a bare ORD[""] (N-6)
+        return (t <= length(v)) ? ORD[substr(v, t, 1)] : 0   # never a bare ORD[""]
     }
     # the live value: fetched once per string while a frame is built, since
     # the frame walks a string's cells in order and an array element's
-    # value is a copy each time (the 2026-09-23 audit, M-12: O(len^2))
+    # value is a copy each time (the 2026-09-23 audit: O(len^2))
     if (FRCACHE) { if (tgt != FRCT) { FRCT = tgt; FRCV = sp_gets(tgt) }; v = FRCV }
     else v = sp_gets(tgt)
     if (t == "L") return (length(v) > 255) ? 255 : length(v)   # past 255 only under `memory host` (EXT): the byte says 255
@@ -883,7 +883,7 @@ function sp_poke(a, b,   t, tgt, v, j) {
     }
     v = sp_gets(tgt); j = t + 1                   # string byte, write through
     # past the live length the cell is RAM, not string: the descriptor
-    # alone says how long the string is, so the value does not grow (L-48)
+    # alone says how long the string is, so the value does not grow
     if (j > length(v)) { SPX[a] = b; return }
     sp_sets(tgt, substr(v, 1, j - 1) CHR[b] substr(v, j + 1))
 }
@@ -895,7 +895,7 @@ function sp_poke(a, b,   t, tgt, v, j) {
 # So after V%=1:DEFDBL V, VARPTR(V) is ?FC: V is V#, a variable not made
 # yet.  An element always has one: the reference makes its array (aref's
 # auto-DIM).  Until 2026-10-24 any name got an address here, sized by its
-# suffix (AUDIT BM-14, B108).
+# suffix (the 2026-09-30 audit, B108).
 function fn_varptr(   name, key, tgt) {
     if (!(TY[CK, CP] == "o" && TK[CK, CP] == "(")) { raise(2); return "NI0" }
     CP++
@@ -913,7 +913,7 @@ function fn_varptr(   name, key, tgt) {
     # V=V+65536 is the period idiom (280 corpus lines).  PEEK and POKE take
     # the negative form (addrconv), and a USR argument of it passes the
     # core's 0A7FH trap, which is the ROM's CINT and would ?OV the positive
-    # form (the 2026-09-19 audit, L-43; ruled 2026-09-21).  Internal callers
+    # form (the 2026-09-19 audit; ruled 2026-09-21).  Internal callers
     # keep sp_materialize's positive address.
     return "NI" (key > 32767 ? key - 65536 : key)
 }
@@ -953,7 +953,7 @@ function fn_varptr(   name, key, tgt) {
 #                         measure, 033AH zeroes it in CLS.  POKE sets it,
 #                         so a routine (or a POKE) that moves the ROM's
 #                         idea of the column moves PRINT's.  Added
-#                         2026-09-27 (the 2026-09-26 audit, M-18): it read
+#                         2026-09-27 (the 2026-09-26 audit): it read
 #                         255, and a USR routine's CLS left it stale.
 #   40A2/40A3H (16546/7)  the line number executing (CLN).  At READY, and
 #                         for a statement typed at the prompt, it is 65535
@@ -1231,7 +1231,7 @@ function lit_bind(tgt,   p, a, s, j, d, c) {
 #     sets SCRALL and the whole 1K goes).  The core's own video writes
 #     come back through s_poke during the call and are dropped afterwards
 #     (fr_sent): the core wrote them, it has them.  Until 2026-09-25 the
-#     screen went whole in every frame (the 2026-09-23 audit, M-12).
+#     screen went whole in every frame (the 2026-09-23 audit).
 #   * every VARPTR'd variable whose SIGNATURE changed: its value, where
 #     its data cells are and the descriptor's address bytes (FRSIG, kept
 #     per locator from the last frame).  A string's value changes through
@@ -1369,19 +1369,19 @@ function fr_dump(   i) {
 # a 6-byte header, 2 per dimension and the elements (DIM allocates them
 # all); a GOSUB frame is 5 bytes (1EB7H-1EC0H: PUSH HL, PUSH HL, PUSH
 # AF, INC SP; 1963H is only asked for 6; 6 until 2026-10-05, the
-# 2026-09-30 audit, BL-2) and a FOR frame 17 (the
+# 2026-09-30 audit) and a FOR frame 17 (the
 # pushes of 1CBBH-1D1DH); and the driver's own depth while a statement
 # runs is 14 bytes, and the PRINT's own 2 (EVSTK) make PRINT MEM say
 # 15568 at MEM SIZE 32767 with no program: 32765 - 50 - 17131 - 14 - 2.  Names longer than
 # two characters are counted as the ROM would count them, two.  The
 # evaluator's own stack is EVSTK (p60 e_or: 2 inside a PRINT, more in a
-# nested expression; since 2026-10-08, audit OC-12).  Not counted: the
+# nested expression; since 2026-10-08, the 2026-09-30 audit).  Not counted: the
 # string data of a FIELD
 # buffer, and a string that LET or READ left pointing into its program
 # line (1F46H-1F57H), which takes no string space (STRUSED is kept per
 # locator in STRCNT so a re-assignment gives the old count back).
 # Until 2026-09-25 MEM and FRE were the constant 15572 and CLEAR n threw
-# n away (the 2026-09-23 audit, L-15 and L-4; ruled 2026-09-24: follow
+# n away (the 2026-09-23 audit; ruled 2026-09-24: follow
 # the ROM, as a cluster).
 function mem_strlo() { return STRLO_SET ? STRLO : HIMEM - 50 }   # 40A0H
 function mem_strsz() { return HIMEM - mem_strlo() }                # the string area
@@ -1413,7 +1413,7 @@ function st_alloc(n, live) {
 # its type (vkey, p70), so the record and the key's type agree.
 # Until 2026-09-29 the size came from the DEF table alone: Z% cost 7
 # bytes, Z# 7, DIM A%(9) 48 (the machine's 5, 11 and 28; the 2026-09-26
-# audit, R-8).
+# audit).
 function vt_size(name, sx,   t) {
     if (strname(name, sx)) return 3
     t = ntype(name, sx)
@@ -1457,7 +1457,7 @@ function mem_strfree() { return (HOSTMEM ? HOSTTOP : mem_strsz()) - STRUSED }
 # BEFORE the free-space check (196CH, ?OM below).  So DIM A(20000) is ?BS
 # on any machine, and on a 48K one nearly every array too large for the
 # free memory ends past 64K first.  Until 2026-09-27 both were ?OM (the
-# 2026-09-26 audit, L-9).  Never under `memory host` (EXT, p10).
+# 2026-09-26 audit).  Never under `memory host` (EXT, p10).
 function mem_arrbs(hdr, bytes) {
     if (HOSTMEM) return 0
     pm_sync(); pm_truncnote()
@@ -1467,7 +1467,7 @@ function mem_arrbs(hdr, bytes) {
 # memory holds it and 58 more (FFC6H), else ?OM.  GOSUB asks for 6
 # (1EB1H), FOR for 16 (1CB6H), DIM for its array.  Until 2026-09-25 a
 # GOSUB that called itself ran until the host ran out of memory (the
-# 2026-09-23 audit, M-9).
+# 2026-09-23 audit).
 function mem_need(n) {
     if (mem_free() < n + 58) { raise_host(7); return 0 }
     return 1

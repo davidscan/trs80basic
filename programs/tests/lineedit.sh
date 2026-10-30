@@ -4,7 +4,7 @@
 # initializer without the jump, and DELETE leaves the same way.  Variables
 # and DEF FNs go, DEFINT and friends are forgotten, the GOSUB/FOR stacks,
 # ON ERROR and CONT are reset, DATA is RESTOREd, files are closed.  Before
-# the 2026-09-19 audit's M-9 all of it survived an edit, and the saved
+# the 2026-09-19 audit all of it survived an edit, and the saved
 # indexes pointed into a program that had changed: RETURN resumed at the
 # wrong line, FNA(3) evaluated tokens of whatever line now sat there.
 # (An FN that is not defined reads as 0 here -- what Disk BASIC does with
@@ -70,11 +70,11 @@ want='=BEFORE 11  6
 # A line number followed only by BLANKS is a deletion too (ROM 1AAD-1AAE,
 # 1ABF: the scan for the first token skips blanks, and meeting the end of
 # the line there means "delete").  It used to store a line of blanks (the
-# 2026-09-19 audit, L-17).  printf, not a heredoc: the blanks ARE the test.
+# 2026-09-19 audit).  printf, not a heredoc: the blanks ARE the test.
 # The number of a line that is NOT there is silent, and still ends at
 # 1B5DH (1AB5H finds nothing, 1ABFH skips the insert, 1AEFH resets): A is
-# 0 afterwards.  It was ?UL until 2026-09-27 (the 2026-09-26 audit, M-6,
-# ruled R-11).  The ?SN of the Input Phase names no line (the line cell
+# 0 afterwards.  It was ?UL until 2026-09-27 (the 2026-09-26 audit,
+# ruled.  The ?SN of the Input Phase names no line (the line cell
 # holds FFFFH there, 1A36H).
 out=$(cd "$dir" && printf '\nA=5\n30\nPRINT "=A"+STR$(A)\n10 PRINT "=TEN"\n20 PRINT "=TWENTY":ERROR 5\n10    \nRUN\nLIST\n30   \nPRINT "=B"+STR$(ERL)\n65530 X\n' \
     | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep -E '^([=?]|[0-9])')
@@ -89,7 +89,7 @@ want='=A 0
 # A line number with blanks inside: 1E5AH reads the digits through RST
 # 10H, which skips blanks, so 1 5 PRINT is line 15 -- typed, and loaded
 # from a text file (the same entry).  It stored line 1 with the body
-# "5 PRINT" until 2026-09-27 (the 2026-09-26 audit, L-14).
+# "5 PRINT" until 2026-09-27 (the 2026-09-26 audit).
 printf '1 5 PRINT "=LOADED FIFTEEN"\n 2 0 PRINT "=LOADED TWENTY"\n' > "$dir/blank.bas"
 out=$(cd "$dir" && printf '\n1 5 PRINT "=FIFTEEN"\n10  PRINT "=TEN"\nLIST\nRUN\nLOAD "blank.bas"\nLIST\n' \
     | TRS80_DUMB=1 TRS80_Z80= gawk -b -f "$here/trs80basic.awk" 2>&1 | grep -E '^([=?]|[0-9])')
@@ -103,7 +103,7 @@ want='10  PRINT "=TEN"
 
 # an ASCII load's lines come in as typed, so a bare line number (or one
 # followed only by blanks) in the file is a DELETION -- silent when the
-# line is not there; MERGE deletes an existing line (audit L-17)
+# line is not there; MERGE deletes an existing line (the 2026-09-26 audit)
 printf '10 PRINT "=ONE"\n20\n30 PRINT "=THREE"\n' > "$dir/bare.bas"
 printf '10   \n30 PRINT "=MERGED"\n' > "$dir/del.bas"
 out=$(cd "$dir" && printf '\nLOAD "bare.bas"\nRUN\nMERGE "del.bas"\nLIST\n' \
