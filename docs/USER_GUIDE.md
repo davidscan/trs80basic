@@ -590,7 +590,7 @@ Honest list, stated as current behavior:
   `FORX=1TO10` run and `SCORE=5` is `?SN ERROR`. Blanks inside a name are
   skipped as the ROM's name reader skips them: `A B` is `AB`, `A 1` is
   `A1`. One guard: a name never joins onto `AS`, so `FIELD 1,4 AS A$`
-  reads as Disk BASIC reads it.
+  reads as Disk BASIC reads it, and so does the packed `FIELD 1,4ASA$`.
 - **`ext on` (EXT gate).** Four things that valid Level II rejects, or
   never does, are accepted only when switched on (`ext on` or
   `TRS80_EXT=1`): text typed at a no-variable `INPUT"PRESS ENTER";`
@@ -2045,7 +2045,9 @@ LINE INPUT #n, v$             read one whole line from a file
 FIELD [#]n, w AS v$ [, w AS v$...]   name slices of a random record
   Divides the record buffer of an "R" file into fixed-width string
   variables (array elements too: 16 AS C$(1)).  The widths must not
-  exceed the record length, or ?FO.
+  exceed the record length, or ?FO.  AS may be packed against the
+  width and the name, as period listings print it: FIELD 1,9ASP$ is
+  FIELD 1,9 AS P$.
   These variables are windows onto the buffer, not ordinary strings:
   GET refills them, and only LSET/RSET store into them.  Assigning with
   = detaches the name from the buffer and the link is lost.

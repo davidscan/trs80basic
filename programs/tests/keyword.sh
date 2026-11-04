@@ -72,6 +72,18 @@ want '10 DEF FN A B(X)=X*2:PRINT FNAB(2)' ' 4 |' 'FN A B is FNAB'
 rm -f "$tmp.r"
 want "10 OPEN \"R\",1,\"${tmp##*/}.r\":FIELD 1,4 AS A\$:LSET A\$=\"AB\":PRINT A\$:CLOSE" 'AB  |' 'FIELD 1,4 AS A$ keeps AS apart from A$'
 rm -f "$tmp.r"
+# a packed AS behind the width (FIELD 1,9ASP$: 701 corpus listings) ends
+# the width's expression and is matched as letters, not read as the name
+# ASP, which the two-character cut made AS (?SN until 2026-11-04); a name
+# behind an operator or a comma is still the width's variable
+want "10 OPEN \"R\",1,\"${tmp##*/}.r\":FIELD 1,3ASP\$,2ASD\$(0):LSET P\$=\"AB\":PRINT P\$;LEN(D\$(0)):CLOSE" 'AB  2 |' 'FIELD 1,3ASP$,2ASD$(0): AS packed onto the name'
+rm -f "$tmp.r"
+want "10 OPEN \"R\",1,\"${tmp##*/}.r\":W=3:FIELD 1,(W-1)*2ASQ\$:PRINT LEN(Q\$):CLOSE" ' 4 |' 'a packed AS behind a closing parenthesis'
+rm -f "$tmp.r"
+want "10 OPEN \"R\",1,\"${tmp##*/}.r\":ASK=4:FIELD 1,ASK+1ASQ\$:PRINT LEN(Q\$):CLOSE" ' 5 |' 'ASK in the width is a variable'
+rm -f "$tmp.r"
+want '10 AS=5:ASX=6:PRINT AS;ASX' ' 6  6 |' 'outside FIELD, AS and ASX are the variable AS'
+want '10 X=9ASP' '?SN ERROR IN 10|' 'outside FIELD, 9ASP is ?SN'
 
 # a number is read through RST 10H
 want '10 A=1 2:PRINT A' ' 12 |' 'A=1 2 is 12'

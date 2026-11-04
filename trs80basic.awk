@@ -3600,6 +3600,17 @@ function tokline(key, text,   i, n, c, c2, k, s, j, q, two, t0, sx, up) {
                 # a DEF has run for it, else a variable (three period
                 # listings use FN* names as arrays)
                 i = tk_name(text, up, j); s = "FN" TKNAME
+            } else if (substr(up, i, 2) == "AS" && substr(up, i + 2, 1) ~ /^[A-Z]$/ && k > 0 \
+                       && (TY[key, k] == "n" || (TY[key, k] == "o" && TK[key, k] == ")")) && tk_infield(key, k)) {
+                # FIELD 1,9ASP$: behind an operand the width's expression has
+                # ended (no operator begins with a letter), and Disk BASIC's
+                # FIELD matches the letters A and S before it reads the
+                # variable, so a packed AS is not the start of a name ASP --
+                # which the two-character cut would make AS, the variable
+                # lost (?SN).  AS is no token: the image is the same bytes.
+                k++; TK[key, k] = "AS"; TY[key, k] = "i"; TPO[key, k] = t0; TSX[key, k] = ""
+                i += 2
+                continue
             } else {
                 # a name: the letters and digits up to the next keyword
                 i = tk_name(text, up, i); s = TKNAME
@@ -3779,6 +3790,17 @@ function vn_cut(s,   d, b) {
     b = d ? substr(s, 1, length(s) - 1) : s
     if (b ~ /^FN./) return "FN" substr(b, 3, 2) d
     return substr(b, 1, 2) d
+}
+
+# Is token k inside a FIELD statement?  Back to the statement's start
+# (line start, `:`, THEN or ELSE): FIELD's packed AS (tokline).
+function tk_infield(key, k,   p) {
+    for (p = k; p >= 1; p--) {
+        if (TY[key, p] == "o" && TK[key, p] == ":") return 0
+        if (TKW[key, p] && (TK[key, p] == "THEN" || TK[key, p] == "ELSE")) return 0
+        if (TKW[key, p] && TK[key, p] == "FIELD") return 1
+    }
+    return 0
 }
 
 # BYE or EXIT is the statement (EXT) only when it is a whole statement:
