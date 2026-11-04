@@ -9402,7 +9402,7 @@ function st_print_file(   n, s, sep, ty, tx, v, x) {
             CP++
             v = e_or(); if (E) return
             if (!isN(v)) { raise(13); return }
-            x = bfloor(num(v))
+            x = byteconv(num(v)); if (E) return   # 2B1BH, as PRINT's TAB (p80): ?FC outside 0-255
             skipblank()
             if (TY[CK, CP] == "o" && TK[CK, CP] == ")") CP++
             else { raise(2); return }

@@ -109,7 +109,7 @@ rm -f "$lp"
 
 # 4. the shell suites (each pins its own core or stub; z80core, sound and
 # system skip their core parts without one, and skip_check counts that)
-suites="break devvec usr suffixdisk pmtrunc protocol z80 z80core sound tokload system tips_probe hostwrite termsafe special linelen clear memsize clearopt hints print input ready inputnum printcomma onerror ollama randfile using lof crunch auto notty corepath errline goto imgpoke lineedit numov numread inputitem freshline linecut dotline fname notfound inputcomma varptrsign varnames cont lineno name keyword tokens stmttail mem speed lineorder hostmem version lfrecord listform memexpr dosname metaexit strrel kbmirror fileopen args passthru meta"
+suites="break devvec usr suffixdisk pmtrunc protocol z80 z80core sound tokload system tips_probe hostwrite termsafe special linelen clear memsize clearopt hints print input ready inputnum printcomma onerror ollama randfile using lof crunch auto notty corepath errline goto imgpoke lineedit numov numread inputitem freshline linecut dotline fname notfound inputcomma varptrsign varnames cont lineno name keyword tokens stmttail mem speed lineorder hostmem version lfrecord listform memexpr dosname metaexit strrel kbmirror fileopen filetab args passthru meta"
 for s in $suites; do
     # z80.sh takes its core from TRS80_Z80 and passes only against the stub
     # or a core in --fixture mode; this pass is the stub's (the core's is next)
