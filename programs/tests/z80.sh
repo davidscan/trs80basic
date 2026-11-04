@@ -130,6 +130,21 @@ t1=$(date +%s)
 [ "$rc" = "0" ] && [ "$out" = "OK" ] || fail "BYE ignored: rc=$rc" "$out"
 [ $((t1 - t0)) -lt 12 ] || fail "BYE ignored: the session end took $((t1 - t0))s, not bounded"
 
+# --- a write-set value outside 0-255 is protocol garbage (z80_apply, p77):
+# the bytes before it land, it and the rest of its run are dropped
+cat > "$tmp.core" <<'EOF'
+while read l; do
+  case "$l" in
+    HELLO*) echo "Z80 proto=3";;
+    GO) echo "RET hl=0 result=0 cycles=0 break=0 writes=1"; echo "W 30000:7,256,9";;
+  esac
+done
+EOF
+printf '10 DEFUSR=&H7003:X=USR(4):PRINT PEEK(30000);PEEK(30001);PEEK(30002)\n' > "$tmp"
+out=$(TRS80_Z80="sh $tmp.core" perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
+rm -f "$tmp.core"
+[ "$rc" = "0" ] && [ "$out" = " 7  255  255 " ] || fail "a W byte of 256: rc=$rc" "$out"
+
 # --- a core that stops reading: a frame larger than a pipe used to block
 # gawk in write() until the core died, TRS80_Z80_TIMEOUT ignored
 printf 'read l; echo "Z80 proto=3"; exec sleep 20\n' > "$tmp.core"
