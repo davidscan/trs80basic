@@ -111,13 +111,19 @@ rm -f "$lp"
 # system skip their core parts without one, and skip_check counts that)
 suites="break devvec usr suffixdisk pmtrunc protocol z80 z80core sound tokload system tips_probe hostwrite termsafe special linelen clear memsize clearopt hints print input ready inputnum printcomma onerror ollama randfile using lof crunch auto notty corepath errline goto imgpoke lineedit numov numread inputitem freshline linecut dotline fname notfound inputcomma varptrsign varnames cont lineno name keyword tokens stmttail mem speed lineorder hostmem version lfrecord listform memexpr dosname metaexit strrel kbmirror fileopen args passthru meta"
 for s in $suites; do
-    if bounded 300 sh "programs/tests/$s.sh" >"$log" 2>&1; then skip_check "$s.sh"; else bad "$s.sh"; show "$s.sh"; fi
+    # z80.sh takes its core from TRS80_Z80 and passes only against the stub
+    # or a core in --fixture mode; this pass is the stub's (the core's is next)
+    case $s in z80) pin="env TRS80_Z80=" ;; *) pin= ;; esac
+    if bounded 300 $pin sh "programs/tests/$s.sh" >"$log" 2>&1; then skip_check "$s.sh"; else bad "$s.sh"; show "$s.sh"; fi
 done
 # the protocol suite against the real core, whenever one is checked out beside
 # this repo: the stub alone cannot prove the two sides agree
 if [ -n "$have_core" ]; then
     bounded 300 env TRS80_Z80="$core --fixture" sh programs/tests/z80.sh >"$log" 2>&1 \
         || { bad "z80.sh against the core"; show "z80.sh (core)"; }
+    # a stub suite stays the stub's with a core exported (it failed until 2026-11-04)
+    bounded 300 env TRS80_Z80="$core" sh programs/tests/usr.sh >"$log" 2>&1 \
+        || { bad "usr.sh with a core exported"; show "usr.sh (core exported)"; }
 else
     echo "SKIPPED: z80.sh against the core (no core at $corewhere)" >"$log"; skip_check "z80.sh (core)"
 fi

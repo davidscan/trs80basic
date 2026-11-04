@@ -8,6 +8,9 @@
 # undefined), the -1 and -25536 address wrap, and that the stub still returns its
 # argument.
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
+# Every case here measures the stub unless it names a core itself: a core
+# exported by the caller would execute the calls and change the trace.
+TRS80_Z80=; export TRS80_Z80
 got=$(printf '\nX=USR(1)\nDEFUSR=&H7000\nDEF USR 1=28427\nDEFUSR2=-1\nDEF USR3=-25536\nX=USR(5)\nX=USR0(6)\nX=USR 1(7)\nX=USR2(8)\nX=USR3(9)\nX=USR4(10)\nPOKE 16526,1:POKE 16527,2\nDEFUSR=100\nX=USR(12)\nPRINT USR 3(13);USR3(14)\nBYE\n' \
       | TRS80_USR_TRACE=1 TRS80_DUMB=1 gawk -b -f "$here/trs80basic.awk" 2>&1 >/dev/null | grep '^USR slot')
 want='USR slot=0 entry=undefined arg=1
