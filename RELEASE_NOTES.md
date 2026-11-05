@@ -319,6 +319,9 @@ maintained outside this repository.
 ## Omissions and deviations (documented)
 
 - EDIT is not implemented (excluded by design). AUTO and DELETE are.
+  So the EDIT that Level II starts by itself on the line of a `?SN ERROR`
+  in a running program (Farvour 1A2BH-1A30H) is absent too: the error
+  returns to READY.
 - SYSTEM loads a SYSTEM tape or /CMD module and runs it through the
   companion core (`man SYSTEM`). OUT is an
   accepted no-op (2026-08-12: both expressions evaluate, the port write

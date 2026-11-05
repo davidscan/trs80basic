@@ -1373,7 +1373,9 @@ EDIT n   the ROM's line editor: NOT HERE, by design (?SN)
   commands (I, X, H, D, C, S, K, L, A and the rest).  Here a line is edited by
   typing it again under its number, by the editor keys at the >
   prompt (the arrows, Ctrl-A/E, history: help keys), or in a real
-  editor on a SAVEd text file loaded back with LOAD.
+  editor on a SAVEd text file loaded back with LOAD.  The EDIT that
+  Level II starts by itself after a ?SN ERROR in a running program
+  (Farvour 1A2BH-1A30H) is absent too: the error returns to READY.
   Example: 10 PRINT "HELO"   then retype   10 PRINT "HELLO"
 ```
 
