@@ -141,6 +141,7 @@ ever colliding with a period program.
 | `sound on\|off`, `sound wav <path>\|off` | machine-code sound: the cassette-port pulses a `USR` routine makes, played live through the core's player and/or written to a WAV file; bare `sound` shows the state. Needs the Z80 core; BASIC's own `OUT 255` stays silent |
 | `history` (or `h`) | list this session's typed commands |
 | `memory host\|rom` | `host` lifts the machine's capacity limits (the 64K, string space, the 255-character string, 32767 subscripts, two-character names), `rom` keeps them; bare `memory` shows the state. The same as `--memory` (Part III) |
+| `renum [n[,[m][,i]]]` | renumber the program, rewriting every line reference (`man renum`); the statement `NAME` did this until 2026-11-04 and is now the machine's 418EH vector (`man NAME`) |
 | `spaced on\|off` | `LIST` and `LLIST` show a blank around each keyword (`FOR I=1 TO 3` for the stored `FORI=1TO3`); display only; bare `spaced` shows the state |
 | `version` | the interpreter's release and, in a git checkout, the build (as `--version`) |
 | `@dump` | print the 16-row screen buffer (debugging aid) |
@@ -193,7 +194,7 @@ line in the file (a batch run that printed one exits 2 without running). Only st
 syntactically bad line loads and fails at RUN, like the real machine.
 
 `MERGE "f"` interleaves file lines into the current program (no implicit
-NEW); `NAME` renumbers, rewriting every `GOTO`/`GOSUB`/`ON`-list/`THEN`/
+NEW); the `renum` metacommand renumbers, rewriting every `GOTO`/`GOSUB`/`ON`-list/`THEN`/
 `ELSE`/`RESTORE`/`RESUME`/`RUN` reference (`ERL` comparisons cannot be
 rewritten).
 
@@ -205,7 +206,7 @@ IMAGE.BAS`. Every line's original bytes are kept for the program image
 `PEEK`ed and run exactly as the file holds it, while `LIST` shows the
 detokenized text with keywords spaced. The loader is one-way — `CSAVE`
 and `SAVE` write text — and a line you retype, `DELETE`, renumber with
-`NAME` or overwrite with a text `MERGE` becomes text again. To read or
+`renum` or overwrite with a text `MERGE` becomes text again. To read or
 edit an image as text, convert a copy:
 
 ```bash
@@ -1530,21 +1531,23 @@ MERGE "name"   read a file's lines INTO the current program
 #### NAME
 
 ```text
-NAME [n[,[m][,i]]]   renumber the program (Disk BASIC)
-  Lines from m onward (default: all) are renumbered starting at n in
-  steps of i; n and i both default to 10.
-  Every reference is rewritten with them -- GOTO, GOSUB, THEN, ELSE,
-  ON..GOTO/GOSUB, RESTORE, RESUME and RUN targets all follow the lines
-  they point at.
-  What CANNOT be fixed is a line number held in a variable or compared
-  against ERL, since those are data rather than references; check any
-  ERL test by hand after renumbering.
-  An ON ERROR GOTO already in force follows its line too.  The FOR and
-  GOSUB stacks are dropped and CONT is off, as after any change to the
-  program.
-  ?FC if the new numbering would overlap existing lines or pass 65529.
-  Example: NAME                 (renumber everything 10,20,30...)
-  Example: NAME 100,,20         (from 100, in steps of 20)
+NAME   run the machine code a program hung on NAME's vector (Disk BASIC verb)
+  Level II has no NAME of its own: the verb jumps to a three-byte RAM
+  vector at 418EH (16782), which the machine boots as a jump to its ?L3
+  routine.  So on its own NAME is ?L3 ERROR (error 23, trappable with
+  ON ERROR), typed or in a program.
+  A program that puts its own jump there -- POKE 16783/16784 with a
+  routine's address, 16782 holding 195 (JP) -- runs that routine with
+  every NAME, the period trick for calling machine code without USR.
+  The routine runs in the Z80 core and starts with HL on the first
+  non-blank byte after NAME, A holding that byte; the statement goes on
+  wherever it leaves HL, so a routine that reads its own argument (NAME 1,
+  NAME A) steps HL past it, and one that does not leaves NAME 1 to ?SN.
+  With no core, NAME skips the rest of its statement and the run's USR
+  STUB line counts it.
+  To renumber a program, use the `renum` metacommand (NAME did that here
+  until 2026-11-04, as some Disk BASICs do).
+  Example: POKE 16783,0:POKE 16784,125:NAME   (run the routine at 7D00H)
 ```
 
 #### SAVE
@@ -1780,7 +1783,7 @@ ERL   the line number on which the last error happened
   An error in line 0 reports " IN 0" and leaves ERL as 0.
   Lets one handler treat failures differently by where they came from:
   IF ERL=250 THEN ...
-  Note that RENUMBER/NAME cannot rewrite a number compared against ERL,
+  Note that renum cannot rewrite a number compared against ERL,
   so an ERL test silently goes stale if the program is renumbered --
   prefer testing ERR where you can.
   Example: PRINT "FAILED AT";ERL
@@ -2968,6 +2971,30 @@ speed         report the current setting
   (see: man REM); that needs `ext on`.
   Example: speed 1.77
   Example: speed 0
+```
+
+#### renum
+
+```text
+renum [n[,[m][,i]]]   renumber the program
+  EXT.  Lines from m onward (default: all) are renumbered starting at n
+  in steps of i; n and i both default to 10.
+  Every reference is rewritten with them -- GOTO, GOSUB, THEN, ELSE,
+  ON..GOTO/GOSUB, RESTORE, RESUME and RUN targets all follow the lines
+  they point at.
+  What CANNOT be fixed is a line number held in a variable or compared
+  against ERL, since those are data rather than references; check any
+  ERL test by hand after renumbering.
+  An ON ERROR GOTO already in force follows its line too.  The FOR and
+  GOSUB stacks are dropped and CONT is off, as after any change to the
+  program.  A loaded tokenized image becomes text again.
+  ?FC if the new numbering would overlap existing lines or pass 65529;
+  ?SN for anything else after the numbers.
+  This was the statement NAME until 2026-11-04; NAME now does what the
+  machine does with it (man NAME).
+  Metacommand: lowercase only, at the prompt (not in a program).
+  Example: renum                (renumber everything 10,20,30...)
+  Example: renum 100,,20        (from 100, in steps of 20)
 ```
 
 #### sound

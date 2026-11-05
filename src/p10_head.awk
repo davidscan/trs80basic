@@ -333,6 +333,12 @@ function init_tables(   i, c, m, n) {
     # POKEing them re-routes output (dv_update, p80): the period "send the
     # screen to the printer" and "send LPRINT to the screen" idioms.
     MEM[16414] = 88; MEM[16415] = 4; MEM[16422] = 141; MEM[16423] = 5
+    # 418EH-4190H: NAME's vector, one of the Disk BASIC exits Level II
+    # boots as a JP to its ?L3 routine, 012DH (Farvour 008EH-00A6H fills
+    # 4152H-41A5H with JP 012DH; 012DH is the L3 error; his RAM vector
+    # table: 418E NAME).  A program POKEs 418FH/4190H to point NAME at its own
+    # machine code (st_name, p77); 255s here made that JP a jump to FFFFH.
+    MEM[16782] = 195; MEM[16783] = 45; MEM[16784] = 1
     MEM[16445] = 0      # 403DH, the ROM's image of the port-FF bits: bit 3 is its 32-column print flag (s_putc, p20)
     dv_update()
     init_man()

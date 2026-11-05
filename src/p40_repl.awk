@@ -89,6 +89,12 @@ function handle_line(line,   s, ln, rest) {
         st_memory(rest)
         return 1
     }
+    # renum: the renumber NAME used to be (EXT, lowercase like every
+    # metacommand; the user, 2026-11-04).  The statement NAME is the
+    # ROM's 418EH vector now (p77), so the renumber needs a word no
+    # Level II listing can spell: a lower-case line never reaches here
+    # as a BASIC statement.
+    if (s ~ /^renum($|[ \t])/) { st_renum_meta(substr(s, 6)); return 1 }
     if (s ~ /^(history|h)[ \t]*$/) { st_history(); return 1 }
     if (s ~ /^[0-9]/) {
         ln = cut_lineno(s); rest = LNBODY
@@ -557,6 +563,7 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  history | h           list this session's typed commands\n" \
               "  man <KEYWORD>         syntax + example for a BASIC command\n" \
               "  memory host|rom       lift the machine's capacity limits, or keep them (bare: show state)\n" \
+              "  renum [n[,[m][,i]]]   renumber the program (NAME's job before 2026-11)\n" \
               "  spaced on|off         LIST/LLIST show keywords spaced apart (bare: show state)\n" \
               "  help meta             this list\n" \
               "  help keys             terminal key bindings\n" \
@@ -997,7 +1004,9 @@ function st_save(   f) {
     save_prog(f)
 }
 
-# Disk BASIC NAME [n[,[m][,i]]]: renumber.  Lines >= m (default: the whole
+# renum [n[,[m][,i]]]: renumber (EXT, the `renum` metacommand since
+# 2026-11-04; until then the statement NAME, which Level II runs through
+# its 418EH vector instead: st_name, p77).  Lines >= m (default: the whole
 # program) get numbers n, n+i, ... (defaults 10, 10); every line-number
 # reference in the WHOLE program -- GOTO/GOSUB (incl. ON.. lists), THEN,
 # ELSE, RESTORE, RESUME, RUN -- is rewritten in the stored source text,
@@ -1007,7 +1016,7 @@ function st_save(   f) {
 # ON ERROR GOTO 0 and RESUME 0 keep their special 0.  ?FC when i < 1, the
 # new numbers would pass 65529, or the renumbered block would collide with
 # or reorder around the un-renumbered head.  Returns to command level.
-function st_name(   n, m, i, j, cnt, ln, maxbelow, newn, map, newprog, wa, wn, wi) {
+function st_renum(   n, m, i, j, cnt, ln, maxbelow, newn, map, newprog, wa, wn, wi) {
     n = 10; m = 0; i = 10
     if (TY[CK, CP] == "n") { n = int(TK[CK, CP] + 0); CP++ }
     if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
@@ -1064,6 +1073,17 @@ function st_name(   n, m, i, j, cnt, ln, maxbelow, newn, map, newprog, wa, wn, w
         for (wi = 1; wi <= wn; wi++) if (wa[wi] != "") { s_puts(wa[wi]); s_nl() }
     }
     HALT = 1                                # a command: back to command level
+}
+
+# the metacommand: its arguments tokenized as a direct line's, then the
+# renumber; anything left over is ?SN, as a statement's tail is
+function st_renum_meta(rest) {
+    tokline("I", rest)
+    CK = "I"; CLI = 0; CLN = DIRECTLN; CP = 1
+    E = 0; HALT = 0; STOPPED = 0
+    st_renum()
+    if (!E && !at_stmt_end()) raise(2)
+    if (E) report_err()
 }
 
 # rewrite the line-number reference tokens of one line per map; append any
@@ -1270,7 +1290,7 @@ function tok_header(data,   i, c) {
 #     an empty body.  Writing the tokenized form back is a separate feature
 #     if it is ever wanted.
 #   * ESCROW INVALIDATION: any typed replacement of a line (storeline, AUTO),
-#     DELETE, NEW, MERGE of a text file over the line, and NAME (renumber,
+#     DELETE, NEW, MERGE of a text file over the line, and renum (EXT,
 #     which drops EVERY line's escrow, since it rewrites references in
 #     text) turn the line back into text.  A line the program never touches
 #     keeps its bytes for the life of the program.

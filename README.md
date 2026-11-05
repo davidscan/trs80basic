@@ -55,7 +55,7 @@ Developed and tested on MacOS (iTerm2), untested but probably works fine under L
   to one of a list of words so a program can branch on it; named threads
   persist between runs.
 - **Metacommands**, lowercase so they never collide with BASIC: `dir`, `cat`,
-  `history`, `speed`, `sound`, `fullscreen`, `memory`, `spaced`, `ext`,
+  `history`, `speed`, `sound`, `fullscreen`, `memory`, `spaced`, `renum`, `ext`,
   `man`, `help`, `version`, `exit`.
 - **Man pages.** `man PRINT` gives the syntax and an example for any BASIC
   keyword; `help <text>` searches them.
@@ -286,7 +286,7 @@ tokenized images (binary, first byte `0xFF`). Since 2026-09-12 `CLOAD`,
 original bytes are kept and imaged at 42E9H exactly as the file holds
 them, so a machine-language payload stored as fake BASIC lines survives
 intact, while `LIST` shows the detokenized text. The loader is one-way —
-`CSAVE` and `SAVE` write text — and a line you retype, `DELETE`, `NAME`
+`CSAVE` and `SAVE` write text — and a line you retype, `DELETE`, `renum`
 or overwrite with a text `MERGE` becomes text again. `detok.py` remains
 the tool for *reading* an image outside the interpreter:
 

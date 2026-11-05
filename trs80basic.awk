@@ -333,6 +333,12 @@ function init_tables(   i, c, m, n) {
     # POKEing them re-routes output (dv_update, p80): the period "send the
     # screen to the printer" and "send LPRINT to the screen" idioms.
     MEM[16414] = 88; MEM[16415] = 4; MEM[16422] = 141; MEM[16423] = 5
+    # 418EH-4190H: NAME's vector, one of the Disk BASIC exits Level II
+    # boots as a JP to its ?L3 routine, 012DH (Farvour 008EH-00A6H fills
+    # 4152H-41A5H with JP 012DH; 012DH is the L3 error; his RAM vector
+    # table: 418E NAME).  A program POKEs 418FH/4190H to point NAME at its own
+    # machine code (st_name, p77); 255s here made that JP a jump to FFFFH.
+    MEM[16782] = 195; MEM[16783] = 45; MEM[16784] = 1
     MEM[16445] = 0      # 403DH, the ROM's image of the port-FF bits: bit 3 is its 32-column print flag (s_putc, p20)
     dv_update()
     init_man()
@@ -1930,6 +1936,12 @@ function handle_line(line,   s, ln, rest) {
         st_memory(rest)
         return 1
     }
+    # renum: the renumber NAME used to be (EXT, lowercase like every
+    # metacommand; the user, 2026-11-04).  The statement NAME is the
+    # ROM's 418EH vector now (p77), so the renumber needs a word no
+    # Level II listing can spell: a lower-case line never reaches here
+    # as a BASIC statement.
+    if (s ~ /^renum($|[ \t])/) { st_renum_meta(substr(s, 6)); return 1 }
     if (s ~ /^(history|h)[ \t]*$/) { st_history(); return 1 }
     if (s ~ /^[0-9]/) {
         ln = cut_lineno(s); rest = LNBODY
@@ -2398,6 +2410,7 @@ function st_help(arg,   q, k, b, n, i, seen, firsts, bodies, out, cap, more) {
               "  history | h           list this session's typed commands\n" \
               "  man <KEYWORD>         syntax + example for a BASIC command\n" \
               "  memory host|rom       lift the machine's capacity limits, or keep them (bare: show state)\n" \
+              "  renum [n[,[m][,i]]]   renumber the program (NAME's job before 2026-11)\n" \
               "  spaced on|off         LIST/LLIST show keywords spaced apart (bare: show state)\n" \
               "  help meta             this list\n" \
               "  help keys             terminal key bindings\n" \
@@ -2838,7 +2851,9 @@ function st_save(   f) {
     save_prog(f)
 }
 
-# Disk BASIC NAME [n[,[m][,i]]]: renumber.  Lines >= m (default: the whole
+# renum [n[,[m][,i]]]: renumber (EXT, the `renum` metacommand since
+# 2026-11-04; until then the statement NAME, which Level II runs through
+# its 418EH vector instead: st_name, p77).  Lines >= m (default: the whole
 # program) get numbers n, n+i, ... (defaults 10, 10); every line-number
 # reference in the WHOLE program -- GOTO/GOSUB (incl. ON.. lists), THEN,
 # ELSE, RESTORE, RESUME, RUN -- is rewritten in the stored source text,
@@ -2848,7 +2863,7 @@ function st_save(   f) {
 # ON ERROR GOTO 0 and RESUME 0 keep their special 0.  ?FC when i < 1, the
 # new numbers would pass 65529, or the renumbered block would collide with
 # or reorder around the un-renumbered head.  Returns to command level.
-function st_name(   n, m, i, j, cnt, ln, maxbelow, newn, map, newprog, wa, wn, wi) {
+function st_renum(   n, m, i, j, cnt, ln, maxbelow, newn, map, newprog, wa, wn, wi) {
     n = 10; m = 0; i = 10
     if (TY[CK, CP] == "n") { n = int(TK[CK, CP] + 0); CP++ }
     if (TY[CK, CP] == "o" && TK[CK, CP] == ",") {
@@ -2905,6 +2920,17 @@ function st_name(   n, m, i, j, cnt, ln, maxbelow, newn, map, newprog, wa, wn, w
         for (wi = 1; wi <= wn; wi++) if (wa[wi] != "") { s_puts(wa[wi]); s_nl() }
     }
     HALT = 1                                # a command: back to command level
+}
+
+# the metacommand: its arguments tokenized as a direct line's, then the
+# renumber; anything left over is ?SN, as a statement's tail is
+function st_renum_meta(rest) {
+    tokline("I", rest)
+    CK = "I"; CLI = 0; CLN = DIRECTLN; CP = 1
+    E = 0; HALT = 0; STOPPED = 0
+    st_renum()
+    if (!E && !at_stmt_end()) raise(2)
+    if (E) report_err()
 }
 
 # rewrite the line-number reference tokens of one line per map; append any
@@ -3111,7 +3137,7 @@ function tok_header(data,   i, c) {
 #     an empty body.  Writing the tokenized form back is a separate feature
 #     if it is ever wanted.
 #   * ESCROW INVALIDATION: any typed replacement of a line (storeline, AUTO),
-#     DELETE, NEW, MERGE of a text file over the line, and NAME (renumber,
+#     DELETE, NEW, MERGE of a text file over the line, and renum (EXT,
 #     which drops EVERY line's escrow, since it rewrites references in
 #     text) turn the line back into text.  A line the program never touches
 #     keeps its bytes for the life of the program.
@@ -4819,7 +4845,9 @@ function usr_stub_notice(   i, s) {
     for (i = 1; i <= USR_NSEEN; i++)
         s = s (i > 1 ? ", " : "") USR_SEENORD[i] " x" USR_SEEN[USR_SEENORD[i]]
     diag_err("USR STUB: " USR_NCALL " CALL" (USR_NCALL == 1 ? "" : "S") " NOT EXECUTED (" s \
-             "): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead")
+             "): no Z80 core, each returned its argument" \
+             (("418EH" in USR_SEEN) ? " (418EH: NAME, which skipped the rest of its statement)" : "") \
+             "; TRS80_USR=strict raises ?FC instead")
     usr_stub_reset()
 }
 
@@ -7389,7 +7417,7 @@ function mem_need(n) {
 function z80_init() {
     if (Z80INIT) return
     Z80INIT = 1
-    Z80PROTO = 3
+    Z80PROTO = 4
     Z80NAMED = ENVIRON["TRS80_Z80"]               # as the user wrote it, for notices
     # gawk runs a coprocess through `sh -c`.  Where sh keeps itself between us
     # and the core (Ubuntu's dash does; macOS's sh execs a simple command), the
@@ -7619,6 +7647,106 @@ function z80_usr(x,   full, res) {
     }
 }
 
+# NAME through its vector.  Level II has no NAME of its own: the verb
+# jumps to 418EH, a RAM vector the ROM boots as JP 012DH, its ?L3 routine
+# (Farvour 008EH-00A6H and 012DH; his RAM vector table, 418E NAME), and a program that puts its own
+# JP there runs machine code with NAME, typed or in a program (The
+# Alternate Source, "TRS-80 ROM Routines Documented", introduction p. 8).
+# So: the boot bytes C3 2D 01 are ?L3 here, without a core; anything else
+# is executed by the core FROM 418EH, so the three bytes act as the
+# machine's would (a JP, a RET, anything).  The routine enters as the
+# ROM's verb dispatch leaves it: HL on the first non-blank byte after the
+# NAME token in the line's crunched bytes, A that byte, F the flags its
+# fetch leaves (fetch_flags) -- the CALL's `stmt=` field (PROTOCOL.md,
+# proto 4).  The statement then ends wherever the routine left HL: the
+# driver reads the byte there, so a routine that reads its own argument
+# (NAME 1, NAME A) steps HL past it, and one that does not leaves it to
+# ?SN (a blank there too: the driver skips none).  A program line's
+# bytes are its image (PMLA); a typed line's are put where the ROM
+# crunches it, 41E6H on, before the call.
+# No core: the stub skips the rest of the statement, as a routine that
+# took its argument would, and the run's USR STUB line counts the calls.
+function st_name(   base, len, off, a, f, rel, k, s, j) {
+    if (dopeek(16782) == 195 && dopeek(16783) == 45 && dopeek(16784) == 1) { raise(23); return }
+    usr_resolve("USR", 0, 16782)                  # slot 0, entry 418EH; TRS80_USR's switches read (p60)
+    z80_start()
+    if (Z80STATE != "up") {
+        if (USR_STRICT) { raise(5); return }
+        usr_stub_count()
+        skipstmt(); return
+    }
+    # the line's crunched bytes and where they are
+    if (CK == "I") {
+        pm_crunch(TSRC["I"]); len = PMBN; base = 16870
+        for (j = 1; j <= len; j++) poke_byte(base + j - 1, PMB[j])
+        poke_byte(base + len, 0)
+    } else {
+        pm_sync()
+        if (!(CLN in PMLA)) { pm_truncnote(); raise(5); return }   # past a truncated image: no bytes to point at
+        base = PMLA[CLN] + 4; len = PMLL[CLN] - 5
+    }
+    off = name_off(CP, len)
+    if (dopeek(base + name_off(CP - 1, len)) != 169) {   # A9H, NAME: the line and its bytes disagree
+        z80_notice("NAME: line " CLN "'s image does not hold its NAME token; not run")
+        raise(5); return
+    }
+    a = dopeek(base + off)
+    f = fetch_flags(a)
+    USR_TYPE = dopeek(16559)
+    USR_MBF = "0,0,0,0,0,0,0,0"
+    Z80STMT = (base + off) "," a "," f
+    z80_usr(0)
+    Z80STMT = ""
+    if (E || HALT || !Z80RET) return
+    # back from the core: the driver reads the byte at HL with no blank
+    # skipped (Farvour 1D2CH-1D32H): ":" goes on to the next statement, 00
+    # ends the line, anything else is ?SN.  A ":" is the ":" token, or the
+    # one the cruncher stores in front of ELSE (ELSE's offset); one inside
+    # a literal or a REM has no token to resume at, and like an HL outside
+    # the line is not modelled.
+    rel = Z80HL - base
+    if (rel >= 0 && rel <= len) {
+        a = dopeek(base + rel)
+        if (a == 0 && rel == len) { CP = eolpos(); return }
+        if (a != 58) { raise(2); return }
+        for (k = CP; TY[CK, k] != "" && TY[CK, k] != "e"; k++) {
+            s = name_off(k, len)
+            if (s == rel) { CP = k; return }
+            if (s > rel) break
+        }
+    }
+    z80_notice(sprintf("NAME: the routine returned HL=%04XH, where no statement of its line resumes; not modelled", Z80HL))
+    raise(5)
+}
+
+# F after the ROM's next-character fetch (RST 10H, Farvour 1D78H-1D8FH)
+# lands on byte a, as the Z80 sets it: a byte from ":" up returns from
+# CP 3AH (1D7AH-1D7CH), anything lower goes on through CP 30H, CCF, INC A,
+# DEC A, so C is "a digit" and the rest is DEC A's (bits 3 and 5 from A,
+# as every 8-bit DEC leaves them).  So ":" is 6AH, a digit 23H, a letter
+# 3AH, the line's 00 42H.
+function fetch_flags(a,   r, f) {
+    if (a >= 58) {
+        r = a - 58
+        f = 2 + 40 + (r >= 128 ? 128 : 0) + (r == 0 ? 64 : 0) + ((a % 16) < 10 ? 16 : 0)
+        if (a >= 128 && r < 128) f += 4      # CP's overflow: a negative minus a positive came out positive
+        return f
+    }
+    f = 2 + (a >= 48 ? 1 : 0) + (a == 0 ? 64 : 0) + and(a, 40)
+    if ((a + 1) % 16 == 0) f += 16           # DEC A's half borrow: INC A had left the low nibble 0
+    return f
+}
+
+# where token k of the current line starts in its crunched bytes: the
+# crunched length of the source before it (blanks in front included); the
+# end of the line for the end sentinel.  (pm_crunch, p75: the same bytes
+# the image holds; ELSE's added ":" lands in front of ELSE's offset.)
+function name_off(k, len) {
+    if (TY[CK, k] == "" || TY[CK, k] == "e") return len
+    pm_crunch(substr(TSRC[CK], 1, TPO[CK, k] - 1))
+    return PMBN
+}
+
 # A frame larger than a pipe holds blocks gawk in write() until the core
 # reads it, and gawk has no write timeout: a core that stopped reading held
 # the session for ever, TRS80_Z80_TIMEOUT or not.  So such a frame
@@ -7637,7 +7765,8 @@ function z80_sendframe(   i, nb, wd) {
     ERRNO = ""
     print "CALL gen=" FRGEN " full=" FRFULL " slot=" USR_SLOT " entry=" USR_ENTRY \
           " arg=" USR_ARG " argtype=" USR_TYPE " mbf=" USR_MBF \
-          " sp=" SSP " himem=" HIMEM " ramtop=" RAMTOP " runs=" FRN |& Z80CMD
+          " sp=" SSP " himem=" HIMEM " ramtop=" RAMTOP " runs=" FRN \
+          (Z80STMT != "" ? " stmt=" Z80STMT : "") |& Z80CMD
     for (i = 1; i <= FRN; i++) print "M " FRRUN[i] |& Z80CMD
     if (ERRNO != "") Z80WERR = 1
     z80_send("GO")
@@ -7674,6 +7803,7 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
             brk = z80_field("break") + 0; k = z80_field("writes") + 0
             rdy = z80_field("ready") + 0         # read now: the W lines replace Z80LINE
             hl = ((hl % 65536) + 65536) % 65536  # a reply outside 16 bits is garbage: wrapped, as the register would
+            Z80HL = hl                           # HL at the return, unsigned: where a NAME routine left the text pointer (st_name)
             # result=1: the routine went through 0A9AH, whose stores are HL
             # to 4121H and 2 to 40AFH.  Made here too, ahead of the
             # write-set (which wins where it has them: a CALL 0A9AH the

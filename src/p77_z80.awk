@@ -42,7 +42,7 @@
 function z80_init() {
     if (Z80INIT) return
     Z80INIT = 1
-    Z80PROTO = 3
+    Z80PROTO = 4
     Z80NAMED = ENVIRON["TRS80_Z80"]               # as the user wrote it, for notices
     # gawk runs a coprocess through `sh -c`.  Where sh keeps itself between us
     # and the core (Ubuntu's dash does; macOS's sh execs a simple command), the
@@ -272,6 +272,106 @@ function z80_usr(x,   full, res) {
     }
 }
 
+# NAME through its vector.  Level II has no NAME of its own: the verb
+# jumps to 418EH, a RAM vector the ROM boots as JP 012DH, its ?L3 routine
+# (Farvour 008EH-00A6H and 012DH; his RAM vector table, 418E NAME), and a program that puts its own
+# JP there runs machine code with NAME, typed or in a program (The
+# Alternate Source, "TRS-80 ROM Routines Documented", introduction p. 8).
+# So: the boot bytes C3 2D 01 are ?L3 here, without a core; anything else
+# is executed by the core FROM 418EH, so the three bytes act as the
+# machine's would (a JP, a RET, anything).  The routine enters as the
+# ROM's verb dispatch leaves it: HL on the first non-blank byte after the
+# NAME token in the line's crunched bytes, A that byte, F the flags its
+# fetch leaves (fetch_flags) -- the CALL's `stmt=` field (PROTOCOL.md,
+# proto 4).  The statement then ends wherever the routine left HL: the
+# driver reads the byte there, so a routine that reads its own argument
+# (NAME 1, NAME A) steps HL past it, and one that does not leaves it to
+# ?SN (a blank there too: the driver skips none).  A program line's
+# bytes are its image (PMLA); a typed line's are put where the ROM
+# crunches it, 41E6H on, before the call.
+# No core: the stub skips the rest of the statement, as a routine that
+# took its argument would, and the run's USR STUB line counts the calls.
+function st_name(   base, len, off, a, f, rel, k, s, j) {
+    if (dopeek(16782) == 195 && dopeek(16783) == 45 && dopeek(16784) == 1) { raise(23); return }
+    usr_resolve("USR", 0, 16782)                  # slot 0, entry 418EH; TRS80_USR's switches read (p60)
+    z80_start()
+    if (Z80STATE != "up") {
+        if (USR_STRICT) { raise(5); return }
+        usr_stub_count()
+        skipstmt(); return
+    }
+    # the line's crunched bytes and where they are
+    if (CK == "I") {
+        pm_crunch(TSRC["I"]); len = PMBN; base = 16870
+        for (j = 1; j <= len; j++) poke_byte(base + j - 1, PMB[j])
+        poke_byte(base + len, 0)
+    } else {
+        pm_sync()
+        if (!(CLN in PMLA)) { pm_truncnote(); raise(5); return }   # past a truncated image: no bytes to point at
+        base = PMLA[CLN] + 4; len = PMLL[CLN] - 5
+    }
+    off = name_off(CP, len)
+    if (dopeek(base + name_off(CP - 1, len)) != 169) {   # A9H, NAME: the line and its bytes disagree
+        z80_notice("NAME: line " CLN "'s image does not hold its NAME token; not run")
+        raise(5); return
+    }
+    a = dopeek(base + off)
+    f = fetch_flags(a)
+    USR_TYPE = dopeek(16559)
+    USR_MBF = "0,0,0,0,0,0,0,0"
+    Z80STMT = (base + off) "," a "," f
+    z80_usr(0)
+    Z80STMT = ""
+    if (E || HALT || !Z80RET) return
+    # back from the core: the driver reads the byte at HL with no blank
+    # skipped (Farvour 1D2CH-1D32H): ":" goes on to the next statement, 00
+    # ends the line, anything else is ?SN.  A ":" is the ":" token, or the
+    # one the cruncher stores in front of ELSE (ELSE's offset); one inside
+    # a literal or a REM has no token to resume at, and like an HL outside
+    # the line is not modelled.
+    rel = Z80HL - base
+    if (rel >= 0 && rel <= len) {
+        a = dopeek(base + rel)
+        if (a == 0 && rel == len) { CP = eolpos(); return }
+        if (a != 58) { raise(2); return }
+        for (k = CP; TY[CK, k] != "" && TY[CK, k] != "e"; k++) {
+            s = name_off(k, len)
+            if (s == rel) { CP = k; return }
+            if (s > rel) break
+        }
+    }
+    z80_notice(sprintf("NAME: the routine returned HL=%04XH, where no statement of its line resumes; not modelled", Z80HL))
+    raise(5)
+}
+
+# F after the ROM's next-character fetch (RST 10H, Farvour 1D78H-1D8FH)
+# lands on byte a, as the Z80 sets it: a byte from ":" up returns from
+# CP 3AH (1D7AH-1D7CH), anything lower goes on through CP 30H, CCF, INC A,
+# DEC A, so C is "a digit" and the rest is DEC A's (bits 3 and 5 from A,
+# as every 8-bit DEC leaves them).  So ":" is 6AH, a digit 23H, a letter
+# 3AH, the line's 00 42H.
+function fetch_flags(a,   r, f) {
+    if (a >= 58) {
+        r = a - 58
+        f = 2 + 40 + (r >= 128 ? 128 : 0) + (r == 0 ? 64 : 0) + ((a % 16) < 10 ? 16 : 0)
+        if (a >= 128 && r < 128) f += 4      # CP's overflow: a negative minus a positive came out positive
+        return f
+    }
+    f = 2 + (a >= 48 ? 1 : 0) + (a == 0 ? 64 : 0) + and(a, 40)
+    if ((a + 1) % 16 == 0) f += 16           # DEC A's half borrow: INC A had left the low nibble 0
+    return f
+}
+
+# where token k of the current line starts in its crunched bytes: the
+# crunched length of the source before it (blanks in front included); the
+# end of the line for the end sentinel.  (pm_crunch, p75: the same bytes
+# the image holds; ELSE's added ":" lands in front of ELSE's offset.)
+function name_off(k, len) {
+    if (TY[CK, k] == "" || TY[CK, k] == "e") return len
+    pm_crunch(substr(TSRC[CK], 1, TPO[CK, k] - 1))
+    return PMBN
+}
+
 # A frame larger than a pipe holds blocks gawk in write() until the core
 # reads it, and gawk has no write timeout: a core that stopped reading held
 # the session for ever, TRS80_Z80_TIMEOUT or not.  So such a frame
@@ -290,7 +390,8 @@ function z80_sendframe(   i, nb, wd) {
     ERRNO = ""
     print "CALL gen=" FRGEN " full=" FRFULL " slot=" USR_SLOT " entry=" USR_ENTRY \
           " arg=" USR_ARG " argtype=" USR_TYPE " mbf=" USR_MBF \
-          " sp=" SSP " himem=" HIMEM " ramtop=" RAMTOP " runs=" FRN |& Z80CMD
+          " sp=" SSP " himem=" HIMEM " ramtop=" RAMTOP " runs=" FRN \
+          (Z80STMT != "" ? " stmt=" Z80STMT : "") |& Z80CMD
     for (i = 1; i <= FRN; i++) print "M " FRRUN[i] |& Z80CMD
     if (ERRNO != "") Z80WERR = 1
     z80_send("GO")
@@ -327,6 +428,7 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
             brk = z80_field("break") + 0; k = z80_field("writes") + 0
             rdy = z80_field("ready") + 0         # read now: the W lines replace Z80LINE
             hl = ((hl % 65536) + 65536) % 65536  # a reply outside 16 bits is garbage: wrapped, as the register would
+            Z80HL = hl                           # HL at the return, unsigned: where a NAME routine left the text pointer (st_name)
             # result=1: the routine went through 0A9AH, whose stores are HL
             # to 4121H and 2 to 40AFH.  Made here too, ahead of the
             # write-set (which wins where it has them: a CALL 0A9AH the

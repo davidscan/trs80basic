@@ -991,7 +991,9 @@ function usr_stub_notice(   i, s) {
     for (i = 1; i <= USR_NSEEN; i++)
         s = s (i > 1 ? ", " : "") USR_SEENORD[i] " x" USR_SEEN[USR_SEENORD[i]]
     diag_err("USR STUB: " USR_NCALL " CALL" (USR_NCALL == 1 ? "" : "S") " NOT EXECUTED (" s \
-             "): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead")
+             "): no Z80 core, each returned its argument" \
+             (("418EH" in USR_SEEN) ? " (418EH: NAME, which skipped the rest of its statement)" : "") \
+             "; TRS80_USR=strict raises ?FC instead")
     usr_stub_reset()
 }
 

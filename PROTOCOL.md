@@ -1,7 +1,8 @@
-# The USR coprocess protocol, version 3
+# The USR coprocess protocol, version 4
 
 How `trs80basic` (the interpreter, GNU awk) drives `trs80_z80_core` (the Z80
-engine, Python) to execute a `USR` routine.  The interpreter's side is
+engine, Python) to execute a `USR` routine, or the machine code a
+program hangs on a statement's vector (`NAME` through 418EH).  The interpreter's side is
 `src/p77_z80.awk`; the reference implementation of the core's side is
 `programs/tests/z80_stub.py`, a stub that speaks this protocol and behaves
 in canned ways per entry address.  **The core conforms to this document and
@@ -73,12 +74,18 @@ tested with.
     DE enters as 0890H for a number; 0A7FH on an integer leaves A = FFH
     and stores nothing.  Either side's older release still pairs.
     First shipped by interpreter v2.1 and core v2.1.
+*   **4** (2026-11-04): a call may be a statement's vector instead of
+    `USR`.  The optional `stmt=<hl>,<a>,<f>` field on `CALL` (see "A
+    statement's vector") sets the routine's entry HL, A and F and turns
+    off USR's argument stores; `RET`'s `hl` is where the routine left the
+    text pointer.  A v3 core would ignore the field and enter with HL =
+    `entry`, running the routine on the wrong text silently: the bump.
 
 ## Session
 
 ```
-interpreter -> core   HELLO proto=3 mhz=<clock> ramtop=<addr>
-core -> interpreter   Z80 proto=3 name=<text>
+interpreter -> core   HELLO proto=4 mhz=<clock> ramtop=<addr>
+core -> interpreter   Z80 proto=4 name=<text>
 ...calls...
 interpreter -> core   BYE
 ```
@@ -103,7 +110,7 @@ interpreter -> core   BYE
 ## A call
 
 ```
-interpreter -> core   CALL gen=<n> full=<0|1> slot=<0-9> entry=<addr> arg=<number> argtype=<2|3|4|8> mbf=<b,b,b,b,b,b,b,b> sp=<addr> himem=<addr> ramtop=<addr> runs=<k>
+interpreter -> core   CALL gen=<n> full=<0|1> slot=<0-9> entry=<addr> arg=<number> argtype=<2|3|4|8> mbf=<b,b,b,b,b,b,b,b> sp=<addr> himem=<addr> ramtop=<addr> runs=<k> [stmt=<hl>,<a>,<f>]
 interpreter -> core   M <addr>:<b>,<b>,...          (k lines)
 interpreter -> core   GO
 core -> interpreter   (any number of V / K / T lines, in any order)
@@ -183,6 +190,35 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
     drops it (it is not in the write-set) and the interpreter's POKE
     drops it too, so the range stays empty on both sides.
 *   `himem` is the MEM SIZE? fence; `ramtop` as in HELLO.
+
+### A statement's vector (`stmt=`)
+
+Level II runs each Disk BASIC verb it lacks through a three-byte RAM
+vector; `NAME`'s is 418EH, which the ROM boots as `JP 012DH`, its `?L3`
+routine (Farvour's RAM vector table), and a program that puts its own
+`JP` there runs machine code with `NAME` (The Alternate Source, "TRS-80
+ROM Routines Documented", introduction p. 8).  The interpreter raises
+`?L3` itself while the boot bytes C3 2D 01 are there; otherwise it sends
+a `CALL` with `entry=16782` (418EH: the three bytes run as the machine's
+would) and `stmt=<hl>,<a>,<f>`:
+
+*   The routine enters with HL = `hl`, A = `a`, F = `f`, the other
+    registers zero: what the ROM's verb dispatch leaves -- HL on the first
+    non-blank byte after the token in the line's crunched bytes (the
+    program image for a program line; for a typed line the interpreter
+    first stores its crunched bytes from 41E6H, where the ROM crunches
+    it, with a 00 after them), A that byte, F the flags of the ROM's
+    next-character fetch (Farvour 1D78H-1D8FH).
+*   The core makes none of USR's entry stores (40AFH, 411D-4124H); `slot`,
+    `arg`, `argtype` and `mbf` are sent and ignored.
+*   `RET`'s `hl` is HL at the sentinel (`result=0`, unless the routine
+    went through 0A9AH): the interpreter resumes the statement there as
+    the ROM's driver does (Farvour 1D2CH-1D32H): ":" goes on to the next
+    statement, the line's 00 ends it, anything else -- a blank included --
+    is `?SN`.  An HL outside the line, or on a ":" no statement starts at,
+    prints a `USR CORE:` notice and raises `?FC`.
+*   Everything else -- the frame, `V`/`K`/`T`, the write-set, `ready=1`,
+    `break=1`, `ERR` -- is a `USR` call's, with `NAME` in place of `USR`.
 
 ### During the call
 
@@ -266,7 +302,8 @@ core -> interpreter   W <addr>:<b>,<b>,...          (k lines)
 core -> interpreter   ERR <code> <text>
 ```
 
-Sent instead of `RET`.  The interpreter raises `?FC` at the `USR` call and
+Sent instead of `RET`.  The interpreter raises `?FC` at the `USR` call (or
+the `NAME`) and
 prints `USR CORE: <text>` on stderr.  Codes: `rom` (a jump or call into
 ROM space that is neither the sentinel nor a served trap; when no frame
 and no store ever wrote the entry address, the text adds `-- no routine
@@ -304,6 +341,9 @@ is empty, or unset with no sibling core for the launcher to name; the
 command cannot be started or does not answer `HELLO`; the
 `Z80` line carries another `proto`; a call timed out, or the core exited,
 earlier in the session.  Each of those prints one `USR CORE:` notice the first time.
+A `NAME` whose vector is not the boot one skips the rest of its
+statement under the stub, as a routine that took its argument would, and
+the same line counts it (as entry 418EH).
 `TRS80_USR=strict` turns stub calls into `?FC`.
 
 ## Conformance

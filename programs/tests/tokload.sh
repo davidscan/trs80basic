@@ -18,7 +18,7 @@
 #      `spaced` switch spaces LIST and LLIST only; SAVE + reLOAD of a
 #      compressed image gives back its bytes;
 #   4. CLOAD? verifies the loaded program against the same image;
-#   5. a typed replacement, DELETE and NAME drop the escrow (the image is
+#   5. a typed replacement, DELETE and renum drop the escrow (the image is
 #      re-crunched from text and no longer byte-identical), NEW clears it;
 #   6. a desync (an unterminated last line) is a ?FD line and LOADBAD.
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
@@ -181,7 +181,7 @@ EOF
 }
 check_changed '2 REM TYPED' changed          # a typed replacement of the payload line
 check_changed 'DELETE 2' changed             # DELETE
-check_changed 'NAME 100,259' changed         # renumber drops every escrow: line 1 GOTO 259 is rewritten too
+check_changed 'renum 100,259' changed        # renumber drops every escrow: line 1 GOTO 259 is rewritten too
 check_changed 'NEW' empty                    # NEW clears it
 
 # --- 6: a desync stops the walk with a ?FD line, LOADBAD makes batch exit 2

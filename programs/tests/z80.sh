@@ -58,6 +58,8 @@ cat > "$tmp" <<'EOF'
 224 RESUME 225
 225 ON ERROR GOTO 0
 226 IF PEEK(16559)<>3 THEN PRINT "FAIL 40AFH did not arrive in the write-set";PEEK(16559):F=1
+227 REM --- NAME through 418EH (proto 4's stmt=): INC HL / RET at 30500 steps over the argument, and USR's entry stores are not made
+228 POKE 30500,35:POKE 30501,201:POKE 16783,36:POKE 16784,119:NAME 1:IF PEEK(16559)<>3 THEN PRINT "FAIL a NAME made USR's stores";PEEK(16559):F=1
 300 IF F THEN PRINT "Z80 FIXTURE FAILED":Z(9)=0
 310 PRINT "Z80 FIXTURE OK"
 EOF
@@ -117,7 +119,7 @@ cat > "$tmp.core" <<'EOF'
 trap '' TERM
 while read l; do
   case "$l" in
-    HELLO*) echo "Z80 proto=3";;
+    HELLO*) echo "Z80 proto=4";;
     GO) echo "RET hl=0 result=0 writes=0";;
   esac
 done
@@ -135,7 +137,7 @@ t1=$(date +%s)
 cat > "$tmp.core" <<'EOF'
 while read l; do
   case "$l" in
-    HELLO*) echo "Z80 proto=3";;
+    HELLO*) echo "Z80 proto=4";;
     GO) echo "RET hl=0 result=0 cycles=0 break=0 writes=1"; echo "W 30000:7,256,9";;
   esac
 done
@@ -147,7 +149,7 @@ rm -f "$tmp.core"
 
 # --- a core that stops reading: a frame larger than a pipe used to block
 # gawk in write() until the core died, TRS80_Z80_TIMEOUT ignored
-printf 'read l; echo "Z80 proto=3"; exec sleep 20\n' > "$tmp.core"
+printf 'read l; echo "Z80 proto=4"; exec sleep 20\n' > "$tmp.core"
 printf '10 FOR I=0 TO 30000:POKE -30000+I,I AND 255:NEXT\n20 DEFUSR=&H7003:X=USR(4):PRINT "OK"\n' > "$tmp"
 t0=$(date +%s)
 out=$(TRS80_Z80="sh $tmp.core" TRS80_Z80_TIMEOUT=500 perl "$bound" 40 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
@@ -164,7 +166,7 @@ want='USR CORE: the frame was not read within 500 ms; the core is dead for this 
 cat > "$tmp.core" <<'EOF'
 while read l; do
   case "$l" in
-    HELLO*) echo "Z80 proto=3";;
+    HELLO*) echo "Z80 proto=4";;
     GO) printf 'RET hl=0'; exec sleep 20;;
   esac
 done
@@ -177,7 +179,7 @@ want='USR CORE: no reply within 500 ms; the core is dead for this session, USR i
 cat > "$tmp.core" <<'EOF'
 while read l; do
   case "$l" in
-    HELLO*) echo "Z80 proto=3";;
+    HELLO*) echo "Z80 proto=4";;
     GO) echo "RET hl=0 result=0 writes=0";;
     BYE) printf 'bye'; exec sleep 20;;
   esac
@@ -195,7 +197,7 @@ rm -f "$tmp.core"
 # argument, value and type (the evaluator's own stores, made before the
 # call)
 for r in "hl=42 result=1: 42  42 " "hl=0 result=0: 2.5  7 "; do
-  printf 'while read l; do case "$l" in HELLO*) echo "Z80 proto=3";; GO) echo "RET %s writes=0";; esac; done\n' "${r%%:*}" > "$tmp.core"
+  printf 'while read l; do case "$l" in HELLO*) echo "Z80 proto=4";; GO) echo "RET %s writes=0";; esac; done\n' "${r%%:*}" > "$tmp.core"
   printf '10 DEFUSR=&H7003:PRINT USR(2.5);USR(7)\n' > "$tmp"
   out=$(TRS80_Z80="sh $tmp.core" perl "$bound" 40 "$here/basic" "$tmp" 2>&1 </dev/null); rc=$?
   [ "$rc" = "0" ] && [ "$out" = "${r#*:}" ] || fail "no write-set, RET ${r%%:*}: rc=$rc" "$out"
@@ -209,7 +211,7 @@ sleep 60 </dev/null >/dev/null 2>&1 & victim=$!
 cat > "$tmp.core" <<EOF
 while read l; do
   case "\$l" in
-    HELLO*) echo "Z80 proto=3 pid=$victim";;
+    HELLO*) echo "Z80 proto=4 pid=$victim";;
     GO) exec sleep 20;;
   esac
 done
@@ -335,8 +337,8 @@ want="USR CORE: cannot start '/nonexistent/z80core'; USR is the stub for this se
  4 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead"
 [ "$out" = "$want" ] || fail "cannot-start fallback" "$out"
-out=$(TRS80_Z80="$core" Z80_STUB_PROTO=4 perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null)
-want="USR CORE: '$core' speaks protocol 4, this interpreter speaks 3; USR is the stub for this session
+out=$(TRS80_Z80="$core" Z80_STUB_PROTO=5 perl "$bound" 30 "$here/basic" "$tmp" 2>&1 </dev/null)
+want="USR CORE: '$core' speaks protocol 5, this interpreter speaks 4; USR is the stub for this session
  4 
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead"
 [ "$out" = "$want" ] || fail "protocol mismatch fallback" "$out"

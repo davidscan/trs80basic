@@ -30,6 +30,11 @@ Entries (hex):
   7010  HL = the two bytes at 4121H (WRA1), result=1
   anything else: an immediate RET (hl=0, result=0, no writes)
 
+A CALL with `stmt=hl,a,f` (proto 4, NAME through 418EH) makes none of the
+entry-time stores below, and entry 418EH (16782) under it RETurns with HL
+one past the `hl` it was given: a routine that steps over a one-byte
+argument (NAME 1).
+
 Every call first makes the ROM dispatch's own stores -- the type flag at
 40AFH (16559) and the argument's WRA1 image at 411DH (16669), from the
 CALL header's argtype= and mbf= -- and sends them back in the write-set
@@ -75,7 +80,7 @@ def csng(x):
     r = math.floor(ax / q + 0.5) * q
     return -r if x < 0 else r
 
-PROTO = os.environ.get("Z80_STUB_PROTO", "3")
+PROTO = os.environ.get("Z80_STUB_PROTO", "4")
 DIE_AFTER = int(os.environ.get("Z80_STUB_DIE_AFTER", "0"))
 DIE_ON_CALL = int(os.environ.get("Z80_STUB_DIE_ON_CALL", "0"))
 ALWAYS_NEED = os.environ.get("Z80_STUB_ALWAYS_NEED", "") not in ("", "0")
@@ -210,6 +215,12 @@ def main():
             argtype = int(h.get("argtype", "4"))
             mbf = h.get("mbf", "0,0,0,0,0,0,0,0")
             [int(b) for b in mbf.split(",")]
+            stmt = None
+            if "stmt" in h:
+                stmt = [int(v) for v in h["stmt"].split(",")]
+                if len(stmt) != 3 or not (0 <= stmt[0] <= 65535 and 0 <= stmt[1] <= 255
+                                          and 0 <= stmt[2] <= 255):
+                    raise ValueError("stmt=%s is not hl,a,f" % h["stmt"])
         except (KeyError, ValueError) as e:
             send("ERR bad CALL header: %s" % e)
             continue
@@ -222,9 +233,12 @@ def main():
         # this side's RAM now, and back to the interpreter with the RET (or
         # ahead of an ERR), like the 0A9AH trap's own stores.
         global seed
-        seed = ["16559:%d" % argtype, "16669:" + mbf]
+        seed = ["16559:%d" % argtype, "16669:" + mbf] if stmt is None else []
         for w in seed:
             apply_run(w)
+        if stmt is not None:                     # a statement's vector: no USR argument
+            ret(hl=(stmt[0] + 1) & 0xFFFF if entry == 16782 else 0)
+            continue
         # the entries that take the argument through 0A7FH (7002, 7003,
         # 7005): a string is ?TM (0A7FH is the ROM's CINT; sent as `ERR tm`),
         # outside -32768..32767 is ?OV, sent as `ERR ov`; on success 0A7FH
