@@ -339,10 +339,50 @@ function init_tables(   i, c, m, n) {
     # table: 418E NAME).  A program POKEs 418FH/4190H to point NAME at its own
     # machine code (st_name, p77); 255s here made that JP a jump to FFFFH.
     MEM[16782] = 195; MEM[16783] = 45; MEM[16784] = 1
+    boot_ram()
     MEM[16445] = 0      # 403DH, the ROM's image of the port-FF bits: bit 3 is its 32-column print flag (s_putc, p20)
     dv_update()
     init_man()
 }
+
+# The communications region as the cassette Level II boot leaves it, for
+# the bytes that are DATA: what a listing PEEKs and finds there instead of
+# 255 (absent RAM).  Every value is from Farvour, Microsoft BASIC Decoded &
+# Other Mysteries (1981):
+#   4000-4035H  the 54-byte table the boot moves there (his listing of
+#               06D2H-0707H, p. 95-96): the RST 08H-38H vectors (JP 1C96H,
+#               JP 1D78H, JP 1C90H, JP 25D9H, RET, RET, EI/RET), then the
+#               keyboard, video and printer DCBs (type, driver address,
+#               "KI", "DO", "PR"), then the JP 5000H / RST 0 / LD A,0 / RET
+#               tail.  4015H-401CH is the keyboard DCB: 4016/4017H, its
+#               driver address 03E3H, is what most listings PEEK.
+#   403D-4062H  zeroed by the boot (0685H-0689H).  4036-403CH, zeroed
+#               too, is NOT seeded: it is the keyboard driver's row
+#               image (03E3H), rewritten at every scan, and the ROM scans
+#               between statements -- a listing that waits on
+#               PEEK(16444) AND 1 (ENTER, row 6) would wait forever on a
+#               constant 0.  It reads 255 until it is modelled live.
+#   40A9H       0, cassette input (his communications-region table)
+#   4152-41A5H  JP 012DH, the ?L3 Disk BASIC exits (008EH-009DH)
+#   41A6-41E4H  RET, NOP, NOP: the DOS exits (009FH-00A6H)
+#   42E8H       0, the byte before the program text (00A8H-00ABH)
+# Seeded into MEM, so a POKE replaces a byte and reads back as before.  A
+# cell a live rule answers (the system variable window, SVW: the cursor,
+# printer and clock cells) is left alone.  NOT seeded: 4080-40A6H, which
+# the boot copies from ROM code (the division routine and its
+# neighbours), and the cells BASIC keeps changing as it runs.
+function boot_ram(   t, n, i, a) {
+    n = split("195 150 28 195 120 29 195 144 28 195 217 37 201 0 0 201 0 0 " \
+              "251 201 0 1 227 3 0 0 0 75 73 7 88 4 0 60 0 68 79 6 141 5 " \
+              "67 0 0 80 82 195 0 80 199 0 0 62 0 201", t, " ")
+    for (i = 1; i <= n; i++) boot_set(16383 + i, t[i])
+    for (a = 16445; a <= 16482; a++) boot_set(a, 0)
+    boot_set(16553, 0)
+    for (a = 16722; a <= 16805; a += 3) { boot_set(a, 195); boot_set(a + 1, 45); boot_set(a + 2, 1) }
+    for (a = 16806; a <= 16866; a += 3) { boot_set(a, 201); boot_set(a + 1, 0); boot_set(a + 2, 0) }
+    boot_set(17128, 0)
+}
+function boot_set(a, b) { if (!(a in SVW)) MEM[a] = b }
 
 # recompute the per-statement throttle delay from a target clock in MHz
 function set_speed(mhz) {

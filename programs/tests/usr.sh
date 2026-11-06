@@ -92,12 +92,22 @@ dump=$(printf '\n10 POKE 30000,7:A$="HEL"+"LO":V=VARPTR(A$)\n20 X=USR(1)\n30 POK
       | awk '/^USR FRAME/ { g = $3; print; next } /^  / && g != "" { print g " " $1 }')
 chk() { if ! printf '%s\n' "$dump" | grep -q -- "$1"; then echo "USR FRAME FIXTURE FAILED (image): missing $1"; printf '%s\n' "$dump" | head -40; exit 1; fi; }
 nochk() { if printf '%s\n' "$dump" | grep -q -- "$1"; then echo "USR FRAME FIXTURE FAILED (image): unexpected $1"; exit 1; fi; }
-chk '^USR FRAME gen=1 full=1 slot=0 entry=-1 arg=1 sp=65527 himem=65535 ramtop=65535 bytes=1218 runs=20$'   # +3 NAME's seeded vector 418EH-4190H (16782), 2026-11-04; +9 the argument image 40AFH and 411D-4124H the evaluator stores before the jump, 2026-10-23; +20 window bytes and +4 seeded driver-vector bytes, 2026-09-11; +1 seeded 403DH print-flag byte (16445), 2026-09-13; +6 image bytes for the two joins, 2026-09-23; +26 the DEF-type table 4101-411AH, 2026-09-23; +1 the 40A6H cursor column (16550), 2026-09-27
-chk '^gen=1 16445:0$'                       # the seeded ROM print-flag byte, 403DH
+chk '^USR FRAME gen=1 full=1 slot=0 entry=-1 arg=1 sp=65527 himem=65535 ramtop=65535 bytes=1439 runs=16$'   # +221 the boot's communications region (boot_ram, p10: 4000-4035H, 403E-4062H, 40A9H, 4152-41E4H, 42E8H), joining runs 20 -> 16, 2026-11-05; +3 NAME's seeded vector 418EH-4190H (16782), 2026-11-04; +9 the argument image 40AFH and 411D-4124H the evaluator stores before the jump, 2026-10-23; +20 window bytes and +4 seeded driver-vector bytes, 2026-09-11; +1 seeded 403DH print-flag byte (16445), 2026-09-13; +6 image bytes for the two joins, 2026-09-23; +26 the DEF-type table 4101-411AH, 2026-09-23; +1 the 40A6H cursor column (16550), 2026-09-27
+# byte(G, A): the value frame G carries for address A, whichever run holds it
+# (seeded neighbours join runs, so a seeded byte need not start one)
+byte() { printf '%s\n' "$dump" | awk -v g="gen=$1" -v want="$2" '$1 == g { split($2, p, ":"); n = split(p[2], v, ","); if (want >= p[1] && want < p[1] + n) { print v[want - p[1] + 1]; exit } }'; }
+chkb() { got=$(byte "$1" "$2"); if [ "$got" != "$3" ]; then echo "USR FRAME FIXTURE FAILED (image): gen=$1 byte $2 is '$got', want $3"; exit 1; fi; }
+chkb 1 16445 0                              # the seeded ROM print-flag byte, 403DH
 chk '^gen=1 30000:7$'                       # the POKE
-chk '^gen=1 16396:201$'                     # the seeded DOS probe byte
-chk '^gen=1 16782:195,45,1$'                # NAME's vector as booted: JP 012DH
-chk '^gen=1 17129:13,67,10,0,'              # the image: next pointer 430DH, line 10
+chkb 1 16396 201                            # the seeded DOS probe byte
+chkb 1 16782 195; chkb 1 16783 45; chkb 1 16784 1   # NAME's vector as booted: JP 012DH
+chkb 1 16384 195; chkb 1 16385 150; chkb 1 16386 28 # the RST 08H vector as booted: JP 1C96H (Farvour 06D2H)
+chkb 1 16406 227; chkb 1 16407 3            # the keyboard DCB's driver, 03E3H
+chkb 1 16409 0                              # 4019H
+chkb 1 16553 0                              # 40A9H
+chkb 1 16806 201                            # the first DOS exit, RET
+chk '^gen=1 17128:0,13,67,'                 # 42E8H = 0, then the image
+chkb 1 17129 13; chkb 1 17130 67; chkb 1 17131 10; chkb 1 17132 0   # the image: next pointer 430DH, line 10
 chk '^gen=1 65528:72,69,76,76,79,5,248,255$'   # HELLO, then its descriptor
 chk '^USR FRAME gen=2 full=0 '
 chk '^gen=2 30001:8$'; nochk '^gen=2 30000:'; nochk '^gen=2 17129:'   # delta: only the new POKE

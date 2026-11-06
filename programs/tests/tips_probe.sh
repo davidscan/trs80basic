@@ -56,7 +56,7 @@ probe 12 W "lowercase mod: POKE 15360,1 reads 1" "" " 1 " '10 PRINT@128,"";:POKE
 probe 13 D "extended error messages flag (PEEK(124) AND &H40)" "" "-1 " '10 PRINT (PEEK(124) AND &H40)<>0'
 probe 14 D "full file access flag (PEEK(119) AND 128)" "" "-1 " '10 PRINT (PEEK(119) AND 128)<>0'
 probe 15 D "special character mode PEEK(&HB94)<>0" "" "-1 " '10 PRINT PEEK(&HB94)<>0'
-probe 16 D "keyboard case lock PEEK(16409)"    "" " 255 " '10 PRINT PEEK(16409)'
+probe 16 D "keyboard case lock PEEK(16409)"    "" " 0 " '10 PRINT PEEK(16409)'
 # ---- Reset button pokes ------------------------------------------------------
 probe 17 D "RESET = NEW"       "" "OK" '10 POKE 16830,195:POKE 16831,73:POKE 16832,27:PRINT "OK"'
 probe 18 D "RESET = RUN"       "" "OK" '10 POKE 16830,195:POKE 16831,163:POKE 16832,30:PRINT "OK"'

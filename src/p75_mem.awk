@@ -131,6 +131,10 @@
 # 255 IS LIVE BEHAVIOUR, and it is reached by rule 6's fallthrough rather than
 # by the RAMTOP test.  Unwritten RAM reads 255 -- what a machine with no chip
 # at that address returns -- and the core models unwritten RAM the same way.
+# "Written" includes init's seeds: the communications-region bytes the
+# cassette boot leaves as DATA (boot_ram, p10: the RST vectors and DCBs at
+# 4000-4035H, the zeros, the Disk BASIC and DOS exits) are MEM[] from the
+# start, so rule 6 answers them and a frame carries them like any POKE.
 
 # ---- THE ADDRESS-RESOLUTION CONTRACT, WRITE SIDE --------------------------
 # poke_byte() (p80) is dopeek's twin and its order is CONTRACT for the same

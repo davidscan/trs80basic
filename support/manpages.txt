@@ -1280,6 +1280,13 @@ PEEK(addr)   read a memory byte (unset = 255)
   16445 (403DH) is the ROM's image of the port-255 bits: bit 3 is its
   32-column print flag, set by CHR$(23), cleared by CLS, and POKEable, as
   Barden's OUT 255,8 with POKE 16445,8 recipe does (see OUT).
+  The rest of the communications region holds what the cassette boot
+  leaves there, where that is data: 16384-16437 the RST vectors and the
+  keyboard, video and printer DCBs (16406/16407 the keyboard driver,
+  227,3), zeros at 16445-16482, 16553 and 17128, the Disk BASIC exits
+  16722-16805 (JP 012DH, ?L3) and the DOS exits 16806-16868 (RET).  The
+  division routine the boot copies to 16512, and the keyboard driver's
+  row image at 16438-16444, are not there: 255.
   Display memory 15360-16383 reads the screen.  14336-14591 reads the
   live KEYBOARD MATRIX (row r at 14336+2^r; 14400 = arrows/space/ENTER
   row; 14464 = SHIFT; composite addresses OR rows; 14592-15359 repeat
