@@ -347,5 +347,13 @@ want=' 4
 USR STUB: 1 CALL NOT EXECUTED (7003H x1): no Z80 core, each returned its argument; TRS80_USR=strict raises ?FC instead'
 [ "$out" = "$want" ] || fail "no TRS80_Z80: byte-identical stub" "$out"
 
+# --- the stub itself, on a closed stream (it died with a traceback)
+stub="$here/programs/tests/z80_stub.py"
+out=$(printf 'HELLO proto=4\n' | python3 "$stub" 2>&1 >&-; echo "rc=$?")
+[ "$out" = "z80_stub.py: stdin or stdout is closed
+rc=2" ] || fail "stub with stdout closed" "$out"
+out=$( { printf 'HELLO proto=4\n'; sleep 1; } | python3 "$stub" 2>"$tmp.err" | true; cat "$tmp.err")
+[ -z "$out" ] || fail "stub whose reader left: a quiet exit" "$out"
+
 rm -f "$tmp" "$tmp.err"
 echo "Z80 FIXTURE OK"

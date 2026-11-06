@@ -92,8 +92,17 @@ gen = 0
 
 
 def send(s):
-    sys.stdout.write(s + "\n")
-    sys.stdout.flush()
+    try:
+        sys.stdout.write(s + "\n")
+        sys.stdout.flush()
+    except (BrokenPipeError, ConnectionResetError):
+        # the interpreter left: exit as on EOF, with stdout on /dev/null
+        # so the shutdown flush does not report the pipe again
+        try:
+            os.dup2(os.open(os.devnull, os.O_WRONLY), sys.stdout.fileno())
+        except (OSError, ValueError):
+            pass
+        sys.exit(0)
 
 
 def recv():
@@ -333,4 +342,9 @@ def main():
 
 
 if __name__ == "__main__":
+    if sys.stdin is None or sys.stdout is None:
+        # started with a stream closed: one line, not a traceback
+        if sys.stderr is not None:
+            sys.stderr.write("z80_stub.py: stdin or stdout is closed\n")
+        sys.exit(2)
     main()
