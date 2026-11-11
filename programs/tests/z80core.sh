@@ -191,5 +191,22 @@ EOF2
 out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null)
 [ "$out" = " 2 -3  2  7  1234  308.5  9.50118  1234  144  8  255  2 
  2.95 -5 " ] || fail "the USR value is WRA1 by its type flag; the entry and 0A7FH registers" "$out"
+# RST 18H in a routine is the ROM's compare of HL with DE (1C90H: Z if they
+# are equal, C if HL < DE), reached through the vector the boot leaves at
+# 4006H (JP 1C90H: Farvour's listing of the boot table, 06D2H-0707H,
+# p. 95-96).  The frame carries that vector, and it is not a routine the
+# program stored: the compare is served.  A jump the program POKEs there
+# itself is followed.  LD HL,5 / LD DE,n / RST 18H / LD HL,0 / JR NC,+1 /
+# INC HL / JP 0A9AH, then the same with JR NZ; 7D10H is SCF / RET.
+cat > "$tmp" <<'EOF2'
+10 FOR I=0 TO 17:READ B:POKE 32000+I,B:NEXT
+20 DATA 33,5,0,17,7,0,223,33,0,0,48,1,35,195,154,10,55,201
+30 POKE 16526,0:POKE 16527,125
+40 FOR K=1 TO 2:FOR D=7 TO 3 STEP -2:POKE 32004,D:PRINT USR(0);:NEXT:POKE 32010,32:NEXT:PRINT
+50 POKE 32010,48:POKE 16391,16:POKE 16392,125:PRINT USR(0)
+EOF2
+out=$(TRS80_Z80="$core" "$here/basic" "$tmp" 2>&1 </dev/null)
+[ "$out" = " 1  0  0  0  1  0 
+ 1 " ] || fail "RST 18H compares HL with DE through the boot's vector; a POKEd vector is followed" "$out"
 rm -f "$tmp" "$tmp.err"
 echo "Z80 CORE FIXTURE OK"
