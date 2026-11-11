@@ -1477,7 +1477,10 @@ INKEY$   the key being pressed right now, or "" if none
   NEEDS THE INTERACTIVE MODE.  Batch mode (./basic prog.bas piped, or
   ./basic --batch prog.bas) turns the raw keyboard off, so INKEY$ there
   reads whole lines from stdin instead of single keypresses -- your keys
-  echo and the program never sees them.  To play a program whose menu is
+  echo and the program never sees them.  Fed from a file, each line is
+  one answer: INKEY$ takes its characters one per call, then 13 for
+  ENTER; an INPUT reads the next line whole and drops what INKEY$ left
+  of the line it began.  To play a program whose menu is
   an INKEY$ loop, run ./basic prog.bas at a terminal without --batch, or
   start ./basic with no file, then CLOAD "prog.bas" and RUN.
   Example: K$=INKEY$:IF K$="Q" THEN END

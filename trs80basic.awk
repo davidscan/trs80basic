@@ -1645,6 +1645,12 @@ function rl_read(repl,   c, r, s, oldl, oldp, swap) {
     RLWAIT = 1                              # a waiting read shows the cursor
     sync_cursor()
     if (!TTYIN) {
+        # A piped line is one answer.  INKEY$ (and the matrix) take a line
+        # into the key queue a byte at a time, ENTER as 13; INPUT reads the
+        # next line whole, so what INKEY$ left of its line is dropped here.
+        # Kept, it reached the NEXT INKEY$ after this INPUT: the leftover
+        # 13 of a one-key line read as a stray ENTER (a menu loop took it).
+        KH = KT
         r = (getline s < "/dev/stdin")
         if (r <= 0) { EOFQUIT = 1; RLWAIT = 0; return "" }
         sub(/\r$/, "", s)

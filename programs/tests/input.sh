@@ -130,6 +130,36 @@ X= 7
 L 5: TEXT
 C\$=TEXT"
 [ "$out" = "$want" ] || fail "ext on takes a prompt expression" "$out"
+
+# piped input: a line is one answer.  INKEY$ takes its line a byte at a
+# time (ENTER as 13); an INPUT reads the next line whole and drops what
+# INKEY$ left of its line, so the leftover never reaches a later INKEY$
+# (it did: the 13 of the one-key line "N" came back at line 60, found by
+# a file of answers fed to a game).  "NX": X is dropped at line 40.  "YY" then shows a
+# line's own ENTER still reaching a second INKEY$ in a row.
+cat > "$tmp" <<'BAS'
+10 INPUT X
+20 A$=INKEY$: IF A$="" THEN 20
+30 PRINT "K";ASC(A$)
+40 INPUT B$: PRINT "B=";B$
+50 INPUT Y
+60 A$=INKEY$: IF A$="" THEN 60
+70 PRINT "K";ASC(A$)
+80 A$=INKEY$: IF A$="" THEN 80
+90 PRINT "K";ASC(A$)
+100 A$=INKEY$: IF A$="" THEN 100
+110 PRINT "K";ASC(A$)
+BAS
+out=$(printf '5\nNX\nY\n6\nYY\n' | TRS80_Z80= "$here/basic" "$tmp" 2>&1)
+want="? 5
+K 78 
+? Y
+B=Y
+? 6
+K 89 
+K 89 
+K 13 "
+[ "$out" = "$want" ] || fail "INPUT drops the rest of a line INKEY\$ began" "$out"
 rm -f "$tmp"
 
 echo "INPUT OK"

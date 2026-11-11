@@ -266,6 +266,10 @@ which is why a game can greet you by name and then stall on its first
 keypress menu. To play one, start `./basic` with no file, then
 `CLOAD "game.bas"` and `RUN`.
 
+A file of answers works line by line, each line one answer: `INKEY$` takes
+a line's characters one per call, then 13 for ENTER, and an `INPUT` reads
+the next line whole, dropping whatever `INKEY$` left of the line it began.
+
 The seven programs in `programs/examples/` are a guided tour — each
 demonstrates one area of this guide and doubles as a regression fixture
 (`run_examples.sh` checks them against committed transcripts):
@@ -2764,7 +2768,10 @@ INKEY$   the key being pressed right now, or "" if none
   NEEDS THE INTERACTIVE MODE.  Batch mode (./basic prog.bas piped, or
   ./basic --batch prog.bas) turns the raw keyboard off, so INKEY$ there
   reads whole lines from stdin instead of single keypresses -- your keys
-  echo and the program never sees them.  To play a program whose menu is
+  echo and the program never sees them.  Fed from a file, each line is
+  one answer: INKEY$ takes its characters one per call, then 13 for
+  ENTER; an INPUT reads the next line whole and drops what INKEY$ left
+  of the line it began.  To play a program whose menu is
   an INKEY$ loop, run ./basic prog.bas at a terminal without --batch, or
   start ./basic with no file, then CLOAD "prog.bas" and RUN.
   Example: K$=INKEY$:IF K$="Q" THEN END
