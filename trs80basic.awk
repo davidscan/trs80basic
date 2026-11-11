@@ -11429,7 +11429,7 @@ function dmul(p, q,   ea, eb, sa, sb, e, i, j, c) {
 #   the dividend is never tested for zero, so 0/Y is worked on a mantissa of
 #   one half and an exponent byte of 0: for Y below .25 the quotient is a
 #   small number, not 0 (the ROM bug list's "0/Y#").
-function ddiv(p, q,   ea, eb, sa, sb, t, big, i, n, bit, c, acc) {
+function ddiv(p, q,   ea, eb, sa, sb, t, big, i) {
     eb = dl(q, D5B); sb = D5S
     ea = dl(p, D5A); sa = D5S
     if (eb == 255) return "0"
@@ -11445,20 +11445,42 @@ function ddiv(p, q,   ea, eb, sa, sb, t, big, i, n, bit, c, acc) {
     }
     if (big) t++
     else { D5A[2] = D5A[2] * 2 + int(D5A[1] / 8388608); D5A[1] = (D5A[1] % 8388608) * 2 + int(D5A[0] / 8388608); D5A[0] = (D5A[0] % 8388608) * 2 }
-    for (n = 0; n < 64; n++) {
-        for (i = 2; i > 0 && D5A[i] == D5B[i]; i--) ;
-        bit = (D5A[i] >= D5B[i])
-        if (bit) {
-            c = 0
-            for (i = 0; i < 3; i++) { D5A[i] -= D5B[i] + c; c = 0; if (D5A[i] < 0) { D5A[i] += 16777216; c = 1 } }
-        }
-        acc = acc * 2 + bit
-        if (n == 15) { D5T[2] = acc; acc = 0 }
-        else if (n == 39) { D5T[1] = acc; acc = 0 }
-        D5A[2] = D5A[2] * 2 + int(D5A[1] / 8388608); D5A[1] = (D5A[1] % 8388608) * 2 + int(D5A[0] / 8388608); D5A[0] = (D5A[0] % 8388608) * 2
-    }
-    D5T[0] = acc
+    D5T[2] = ddigit(32768)
+    D5T[1] = ddigit(16777216)
+    D5T[0] = ddigit(16777216)
     return d_norm(sa != sb, D5T, t)
+}
+
+# One digit of the quotient: int(D5A * m / D5B), D5A being left as the
+# remainder.  The routine at 0DE5H takes the quotient a bit at a time, compare
+# and subtract, 64 times; its 64 bits are the whole part of the dividend's
+# mantissa times 2^63 over the divisor's, and the same 64 bits come out as
+# digits of 16, 24 and 24 (m = 2^15, the dividend being below twice the
+# divisor, then 2^24 twice).  The host's quotient is within one of the digit,
+# and the exact remainder says which way.
+function ddigit(m,   q, t0, t1, t2, c) {
+    q = int(((D5A[2] * 16777216 + D5A[1]) * 16777216 + D5A[0]) * m / ((D5B[2] * 16777216 + D5B[1]) * 16777216 + D5B[0]))
+    t0 = D5A[0] * m - q * D5B[0]
+    t1 = D5A[1] * m - q * D5B[1]
+    t2 = D5A[2] * m - q * D5B[2]
+    c = int(t0 / 16777216); t0 -= c * 16777216; if (t0 < 0) { t0 += 16777216; c-- }
+    t1 += c
+    c = int(t1 / 16777216); t1 -= c * 16777216; if (t1 < 0) { t1 += 16777216; c-- }
+    t2 += c
+    while (t2 < 0) {                           # the guess was one high
+        q--
+        t0 += D5B[0]; if (t0 >= 16777216) { t0 -= 16777216; t1++ }
+        t1 += D5B[1]; if (t1 >= 16777216) { t1 -= 16777216; t2++ }
+        t2 += D5B[2]
+    }
+    while (t2 > D5B[2] || (t2 == D5B[2] && (t1 > D5B[1] || (t1 == D5B[1] && t0 >= D5B[0])))) {   # one low
+        q++
+        t0 -= D5B[0]; if (t0 < 0) { t0 += 16777216; t1-- }
+        t1 -= D5B[1]; if (t1 < 0) { t1 += 16777216; t2-- }
+        t2 -= D5B[2]
+    }
+    D5A[0] = t0; D5A[1] = t1; D5A[2] = t2
+    return q
 }
 
 # times ten (0E4DH): the value with its exponent up two, plus the value, then

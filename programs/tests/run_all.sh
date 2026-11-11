@@ -98,7 +98,7 @@ fixture() {
         bad "$b.bas (exited 0 without its OK line)"; show "$b.bas"
     fi
 }
-fixtures="varptr intvarptr rawbytes alias literal inp out255 ifcomma intconv defint forstack pokerange mbfpoke round errcode cursor dataitem power using apostrophe controlflow functions types sngl trig intround bytearg bytedbl litexp nextelse rdscale prscale dblscale dbl56 romfn srange dataerr suffixblank suffixid cmdtr"
+fixtures="varptr intvarptr rawbytes alias literal inp out255 ifcomma intconv defint forstack pokerange mbfpoke round errcode cursor dataitem power using apostrophe controlflow functions types sngl trig intround bytearg bytedbl litexp nextelse rdscale prscale dblscale dbl56 dbldiv romfn srange dataerr suffixblank suffixid cmdtr"
 for b in $fixtures; do
     fixture env TRS80_Z80= ./basic "programs/tests/$b.bas"
 done
