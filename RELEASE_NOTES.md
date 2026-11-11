@@ -9,8 +9,8 @@ that displays UTF-8 (iTerm2 is fine). Always run gawk with `-b`: BASIC strings
 are byte strings, and without `-b` a UTF-8 locale turns `CHR$(200)` into a
 two-byte character and corrupts raw bytes above 127 read from a program
 file (graphics, packed machine code). The launcher passes it; run directly
-without it in a UTF-8 locale, the script does not start (gawk rejects a
-byte-range pattern in it). The script uses `stty`, `dd` and `od` for raw
+without it in a UTF-8 locale, the script starts but warns on stderr that
+bytes above 127 are corrupted. The script uses `stty`, `dd` and `od` for raw
 keyboard input. Exit with `BYE` (restores your terminal). The launcher
 restores the terminal when gawk dies abnormally; running gawk directly,
 type `stty sane` to recover the tty.
@@ -52,7 +52,8 @@ editor handles full lines (240 characters, the ROM's keyboard limit).
 which runs to the end of the line with case, `/`, and `.` preserved
 (`CLOAD programs/demo.bas`). A `:`-statement cannot follow an unquoted
 name; quote it instead. Metacommand output (`dir`, `cat`, `speed`,
-`history`, `help`, `man`, `ext`, `memory`, `sound`, `version`, `@dump`;
+`history`, `help`, `man`, `ext`, `memory`, `fullscreen`, `renum`, `spaced`,
+`sound`, `version`, `exit`, `@dump`;
 `help meta` lists them) renders below the 64x16 grid, not on the
 simulated screen; long output pages with PgUp/PgDn.
 
@@ -88,11 +89,11 @@ re-prompts `?REDO` (ROM 1.3's text) on bad numeric input, `??` for missing
 items, `?EXTRA IGNORED` for extras; PRINT comma zones are 16 columns with
 a newline from the 4th zone; numbers print with leading sign space,
 trailing space, no leading zero on fractions (`.5`), ~6 significant
-digits, E-notation for extremes; errors are `?XX ERROR IN nnnn` with the
+digits, E notation below .01 and past the digits' reach; errors are `?XX ERROR IN nnnn` with the
 full 23-code table (NF SN RG OD FC OV OM UL BS DD /0 ID TM OS LS ST CN NR
 RW UE MO FD L3); `ERR/2+1` gives the error code; unPOKEd RAM that is
 not a live cell (see the memory map under *Omissions and deviations*)
-PEEKs as 255; a POKE value outside 0-255 is ?FC; an address is the ROM's
+PEEKs as 255, except the communications region; a POKE value outside 0-255 is ?FC; an address is the ROM's
 signed integer, so the top 32K is reached by its negative number
 (`POKE -1,0` is 65535; 40000 is ?OV); line numbers 0-65529; a bare line
 number deletes the line (silently if absent); keyboard lines cap at 240
@@ -150,10 +151,10 @@ survive. `LOAD`, `MERGE` and batch mode accept it too. Every line's
 original body bytes are kept and imaged at 42E9H exactly as the file holds
 them, relinked, so a machine-language payload stored as fake BASIC lines
 (CR bytes and all) is what `PEEK` and a `USR` routine see; `LIST` shows
-the detokenized text, with the same keyword spacing `detok.py -s` inserts.
+each line as stored (`spaced on` shows the keywords spaced apart).
 The loader is one-way: `CSAVE` and `SAVE` write text. A line that is
 retyped, `DELETE`d, overwritten by a text `MERGE`, or renumbered with
-`NAME` (which touches every line) becomes text again and is re-crunched
+`renum` (which touches every line) becomes text again and is re-crunched
 from its listing. A malformed image stops at the first desync — truncated
 header, unterminated line, line number above 65529, duplicate line number
 — with a `?FD ERROR - FILE LINE n (reason)` line; lines before it stay
@@ -179,7 +180,8 @@ line without a line number rather than guessing. That boundary is deliberate.
 ## Disk BASIC file I/O
 
 File access is simulated the same way as CLOAD/CSAVE: the BASIC filename is a
-literal host file path (created in the current directory), and files are plain
+host file path (created in the current directory), except that a Disk BASIC
+name `NAME/EXT[.PASSWORD][:d]` is the file `NAME.EXT`; and files are plain
 text. Channels are 1..15.
 
 Statements: `OPEN mode$, [#]n, name$ [, reclen]` with modes `"I"` (sequential
@@ -194,7 +196,8 @@ unfinished line carries over to the next INPUT#); `LINE INPUT ["prompt";] v$` an
 the next one); `LSET`/`RSET v$ = expr$`.
 
 Functions: `EOF(n)` (-1 at end, 0 otherwise; true look-ahead, so
-`IF EOF(1)`-guarded read loops work), `LOF(n)` (records in a random file),
+`IF EOF(1)`-guarded read loops work), `LOF(n)` (records: of a random file, or a sequential file's length in
+256-byte records),
 `LOC(n)` (lines read/written, or last record), `MKI$/MKS$/MKD$` and
 `CVI/CVS/CVD` (Microsoft Binary Format: 2-byte int, 4-byte single, 8-byte
 double — real FIELD widths from published listings work unchanged).
@@ -203,8 +206,8 @@ The file errors have Disk BASIC's own numbers, and the table is sparse:
 51 `FO` field overflow, 53 `BN` bad file number (an unopened channel too),
 54 `FF` file not found (`ERR=106`), 55 `BM` bad file mode, 63 `IE` input
 past end, 64 `BR` bad record number, 70 `AO` file already open (also: same
-host file on two channels, or KILL of an open file). `ERROR n` past 23 is
-?UE. `ERR`/`ERL` and `ON ERROR GOTO` work with all of them.
+host file on two channels, or KILL or SAVE of an open file). `ERROR n` of
+24-128 or 152-255 is ?UE (129-151 wrap to 1-23, as on the ROM). `ERR`/`ERL` and `ON ERROR GOTO` work with all of them.
 
 Simulation notes and deviations:
 
@@ -214,14 +217,16 @@ Simulation notes and deviations:
   backslash and non-printable bytes (e.g. inside MK*$ values) are escaped
   as `\\` / `\xNN` on disk and restored on OPEN "R". Record data lives in
   memory between OPEN "R" and CLOSE; CLOSE rewrites the whole file.
-  RUN/NEW/CLEAR/CLOAD/END/BYE close (and flush) all channels — STOP does
+  RUN/NEW/CLEAR/CLOAD/END/BYE close (and flush) all channels, and so does
+  entering or deleting a program line — STOP does
   not, so BREAK + CONT keeps files open.
 - `,` in PRINT# writes PRINT's zone blanks into the file, counted in the
   file's own line, as the Disk manual describes (2026-09-20; before, it
   wrote none). Between strings print an explicit `","`, as the manuals
   themselves recommend. A trailing `;`/`,` holds the partial line until
   the next PRINT# or CLOSE.
-- The cassette form `PRINT#-1` is not supported (channels are 1..15).
+- The cassette form `PRINT#-1` / `INPUT#-1` is not supported: it is ?BN
+  (channels are 1..15).
 - Fielded string variables are refreshed on GET/LSET/RSET; a plain
   `A$="X"` assignment detaches the variable from its buffer until the next
   FIELD — the same footgun as on real hardware.
@@ -323,9 +328,10 @@ maintained outside this repository.
   in a running program (Farvour 1A2BH-1A30H) is absent too: the error
   returns to READY.
 - SYSTEM loads a SYSTEM tape or /CMD module and runs it through the
-  companion core (`man SYSTEM`). OUT is an
-  accepted no-op (2026-08-12: both expressions evaluate, the port write
-  does nothing). INP(p) is implemented (2026-09-11): port 255, the
+  companion core (`man SYSTEM`). `OUT 255,v` sets the
+  32/64-column latch (bit 3), as on the hardware; a write to any other
+  port, and bits 0-2 of port 255, does nothing (both expressions are
+  evaluated). INP(p) is implemented (2026-09-11): port 255, the
   cassette/video-mode port, is live (127 in 64-character mode, 63 after
   CHR$(23)); every other port reads 255, the open bus, so RS-232, floppy
   and joystick probes take their "not present" branch.
@@ -338,10 +344,14 @@ maintained outside this repository.
   memory image to the core and the routine RUNS (the wire format is
   `PROTOCOL.md`; `TRS80_Z80_TIMEOUT` is the per-reply guard in
   milliseconds, default 5000) — a full Z80 validated against 1.6 million
-  single-step vectors, serving 01C9H (CLS), 0A7FH (argument to HL),
-  0A9AH (HL to result), 1A19H (READY: the program ends, no error) and
-  002BH (the keyboard scan, core 2026-10-12) as the only ROM entry points, the USR return pushed as the
-  sentinel 2FFDH, port FFH reading 127 and every OUT discarded; any other
+  single-step vectors, serving fifteen ROM entry points and no others: 01C9H (CLS), 0A7FH
+  (argument to HL), 0A9AH (HL to result), 1A19H (READY: the program ends,
+  no error), 002BH (the keyboard scan), 0049H (wait for a key), 0060H
+  (delay), 01D3H (RANDOM), 14C9H (RND), 05D9H (line input), 0033H and
+  033AH (a character on the screen), 2B05H (WRA1 to an integer in DE),
+  and RST 08H and RST 18H; the USR return is pushed as the
+  sentinel 2FFDH, port FFH reads 127, and an OUT to FFH sets the
+  32/64-column latch and the sound (any other OUT is discarded); any other
   jump into ROM space is ?FC with the address on stderr. Without a core the
   call is a stub that returns its argument — and is no longer silent: a
   run that called USR ends with one stderr line naming the entries and
@@ -379,9 +389,11 @@ maintained outside this repository.
   at/after line n, ?UL if the line is missing), DEF FN (2026-08-13:
   real user functions, all three spellings), MERGE (2026-08-14: no
   implicit NEW; file lines overwrite/interleave, variables clear,
-  returns to command level), and NAME (2026-08-14: renumber with full
+  returns to command level), and the `renum` metacommand (renumber with full
   reference rewrite — GOTO/GOSUB/ON.. lists/THEN/ELSE/RESTORE/RESUME/
-  RUN; ERL comparisons cannot be fixed). CMD"T" and CMD"R", Disk
+  RUN; ERL comparisons cannot be fixed; the statement NAME did this
+  until 2026-11-04). `NAME` itself is the machine's vector at 418EH: ?L3
+  until a program POKEs the address of its own routine there. CMD"T" and CMD"R", Disk
   BASIC's clock-interrupt switches, are accepted and do nothing
   (2026-10-12); every other CMD is still absent (raises ?SN).
 - CLEAR takes any numeric expression (2026-08-12 conformance fix —
@@ -395,8 +407,8 @@ maintained outside this repository.
 - REM META: directives (2026-09-07, same gate): a remark beginning
   `META:` carries a metacommand that fires when execution reaches the
   line — `10 REM META:fullscreen on`, `500 REM META:speed 1.77` — so a
-  program can state its own display and pacing. `speed`, `fullscreen` and
-  `memory` are the entire whitelist; anything else after META: is ignored in
+  program can state its own display and pacing. `speed`, `fullscreen`,
+  `memory` and `spaced` are the entire whitelist; anything else after META: is ignored in
   silence, and `dir`/`cat` are deliberately unreachable from a file.
   With the gate off the line is an ordinary remark, so such a listing
   stays valid Level II everywhere else.
@@ -489,7 +501,7 @@ maintained outside this repository.
   makes the whole sequence repeatable.
 - The memory map (`man PEEK` has the full list). Live cells, each read
   from the state it names: the keyboard matrix at 14336-14591 (INKEY$'s
-  key, row by row); printer status 14312/3; the display at 15360-16383;
+  key, row by row; 14592-15359 repeat it); printer status 14312/3; the display at 15360-16383;
   the BREAK vector 16396; the video and printer driver vectors 16414/5
   and 16422/3; the system variable window (2026-09-11) — cursor position
   and character 16416-16418, printer lines-per-page, line counter and
@@ -498,9 +510,11 @@ maintained outside this repository.
   (`POKE 16609,1` starts AUTO), the TRON flag 16667; the USR vector
   16526/7; the program base 16548/9, start of variables 16633/4, and top
   of memory 16561/2; the RND seed 16554-16556. Everything else is RAM
-  that reads 255 until POKEd.
+  that reads 255 until POKEd, except the communications region
+  16384-17128 (4000H-42E8H), which holds what the cassette boot leaves
+  there (`man PEEK`).
 - The stored program is PEEKable in the authentic tokenized format from
-  17129 (42E9H); a numeric answer to MEMORY SIZE? becomes HIMEM, the
+  17129 (42E9H); a numeric answer to `MEM SIZE?`, less 2, becomes HIMEM, the
   ceiling string space allocates below. Memory above HIMEM is reserved,
   not absent — still readable and writable, which is what makes the
   classic reserve-then-load idiom work (corrected 2026-09-08; it used to
@@ -521,21 +535,30 @@ maintained outside this repository.
   returns to 64).
 - INPUT is not allowed in immediate mode (?ID ERROR), like the ROM.
 - AUTO shows `*` for existing lines; ENTER alone deletes that line and
-  goes on; only BREAK exits.
+  goes on; BREAK exits, and so do the end of piped input and the 65529
+  limit.
 - Scrolling uses the terminal's scroll region (one line per scroll, not a
   repaint of the window); heavy graphics loops are redrawn cell-by-cell.
-- STEP 0 loops forever (positive-step test), as on the ROM.
+- A STEP 0 loop never advances its variable and ends only when the
+  variable equals the limit (`FOR I=5 TO 5 STEP 0` runs once, `FOR I=1 TO 3
+  STEP 0` forever), as on the ROM.
 
 ## Testing / automation aids (not LEVEL II features)
 
-Batch mode: `./basic prog.bas` LOADs and RUNs the program non-interactively
+Batch mode: `./basic prog.bas` LOADs and RUNs the program,
+non-interactively when stdin or stdout is not a terminal or with `--batch`
+(at a terminal it is played on the screen with the live keyboard),
 and exits 0 on a clean run, 1 on an uncaught BASIC error (also printed to
 stderr as `?SN ERROR IN 40`), 2 on a bad invocation or unreadable file.
 stdin feeds the program's INPUT statements; `--seed N` makes RND
 repeatable; `--screen` keeps the 64x16 screen control codes in the output
-(plain text is the default without a tty); `--` ends the options and
-`-h`/`--help` prints the usage. Batch mode has no raw keyboard, so INKEY$
-reads whole lines from stdin.
+(plain text is the default without a tty); `--memsize N` answers `MEM SIZE?`, `--clear N` types `CLEAR N` before RUN,
+`--memory host` lifts the machine's capacity limits, `--version` prints
+the release; `--` ends the options and
+`-h`/`--help` prints the usage (the README and the user guide have the
+full option and environment-variable tables). Batch mode has no raw
+keyboard, so INKEY$ reads lines from stdin, one character per call and
+then 13 for ENTER; a run whose input ends inside an INKEY$ loop exits 0.
 
 Piped stdin (no tty) is read line-by-line; INKEY$ then consumes input
 characters. `TRS80_DUMB=1` disables ANSI positioning for readable
@@ -613,8 +636,11 @@ terminal, clear of the below-grid text.
 - `gfxtest.bas` — the graphics bit-layout self-test: prints CHR$(128) to
   CHR$(191), then SET/POINT/PEEK cross-check (expects six -1s and 191).
 
-Load any of them with e.g. `CLOAD "programs/demos/demo_graphics.bas"` then `RUN`
-(paths as of 2026-09-15: the interactive demos live in `programs/demos/`,
-`demo_showcase` moved to `programs/examples/` with a transcript, and
-`gfxtest.bas` was removed)
-(paths resolve against the directory you started in).
+- `tictactoe.bas` — a game against the machine.
+
+Load one with e.g. `CLOAD "programs/demos/demo_graphics.bas"` then `RUN`
+(paths resolve against the directory you started in). The interactive
+demos (`demo_graphics`, `tictactoe`) live in `programs/demos/`;
+`demo_showcase` lives in `programs/examples/` with the other examples and
+their transcripts (the user guide has the table); `gfxtest.bas` was
+removed.

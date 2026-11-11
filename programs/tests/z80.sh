@@ -3,7 +3,8 @@
 # its reference stub, programs/tests/z80_stub.py.  Self-checking: exits 1 on
 # any mismatch.  Run from the repo root:  sh programs/tests/z80.sh
 # A real core is conformant when this passes with TRS80_Z80 pointing at it:
-#   TRS80_Z80="python3 ../trs80_z80_core/core.py --fixture" sh programs/tests/z80.sh
+#   TRS80_Z80="python3 $PWD/../trs80_z80_core/core.py --fixture" sh programs/tests/z80.sh
+# (the path in full: one case runs the command after cd /)
 here=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd) || exit 2
 core="python3 $here/programs/tests/z80_stub.py"
 [ -n "$TRS80_Z80" ] && core="$TRS80_Z80"

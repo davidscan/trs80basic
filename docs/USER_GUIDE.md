@@ -49,13 +49,13 @@ A statement typed without a line number executes at once — that is
 stored into the program instead. The guide uses the term throughout.
 
 Requirements: GNU awk 5.x, run with `-b` so strings are bytes (the
-`basic` launcher does this; without it a UTF-8 locale corrupts every byte
-above 127 read from a file, and in a UTF-8 locale gawk refuses to start
-the script at all), and a
+`basic` launcher does this; run directly without it in a UTF-8 locale,
+the script starts but warns on stderr, and every byte above 127 read from
+a file is corrupted), and a
 VT100/ANSI terminal at least 64x20. No particular locale is needed.
 
 Environment variables the interpreter reads (the OLLAMA ones are in Part
-II):
+III):
 
 | variable | default | what it does |
 |---|---|---|
@@ -68,6 +68,10 @@ II):
 | `TRS80_SPACED` | unset | `1` (or `on`) makes `LIST` and `LLIST` show keywords spaced apart (`man spaced`); display only |
 | `TRS80_MANFILE` | `support/manpages.txt` | where `man` reads its text |
 | `TRS80_KMHOLD` | `100` ms at a terminal, `4` polls in batch | how long one keypress holds its key on the keyboard matrix |
+| `TRS80_KBPROTO` | on at a terminal | `0` turns off the kitty key-release protocol (described under the key table below); `1` keeps it on under `TRS80_DUMB` |
+| `TRS80_KPSTUCK` | `2` s | under the key-release protocol, how long with no keyboard event at all before every held key is let go |
+| `TRS80_REACH_DIAG` | unset | `1` adds a stderr note when a batch run ends at a key poll on exhausted stdin (a test hook) |
+| `TRS80_WINNATIVE` | probed | `0`/`1` overrides the native-Windows detection (a test hook) |
 | `TRS80_USR` | unset | `strict` makes a `USR` call raise `?FC` instead of returning its argument |
 | `TRS80_USR_TRACE` | unset | `1` prints one stderr line per `USR` call (slot, entry, argument); `2` adds the memory frame sent to the core |
 | `TRS80_Z80` | a core beside the checkout, else none | command that runs the companion Z80 core; `USR` routines then execute (`PROTOCOL.md`). Unset, the launcher uses `../trs80_z80_core/core.py` when it exists; empty means no core |
@@ -91,7 +95,7 @@ or unshifted.
 
 | key | does |
 |---|---|
-| Ctrl-C | **BREAK**: stops a running program (`BREAK IN nnnn`; a line typed at READY, such as a `FOR` loop, stops with a bare `BREAK`), cancels the input line, stops LIST, exits AUTO. `CONT` resumes after BREAK/STOP/END, and after an error (re-running the statement that failed). A program can disable it with `POKE 16396,23` (Part III); three presses in a row break anyway |
+| Ctrl-C | **BREAK**: stops a running program (`BREAK IN nnnn`; a line typed at READY, such as a `FOR` loop, stops with a bare `BREAK`), cancels the input line, stops LIST, exits AUTO. `CONT` resumes after BREAK/STOP/END, and after an error (re-running the statement that failed). A program can disable it with `POKE 16396,23` (Part V, `BREAK`); three presses in a row break anyway |
 | Ctrl-S | pause a running program or LIST (the real SHIFT-@); any key resumes, Ctrl-C breaks |
 | Ctrl-L | CLEAR: wipe the screen at the `>` prompt |
 | Ctrl-U | erase the input line (SHIFT-left-arrow) |
@@ -186,7 +190,8 @@ exit status. `./basic game.bas` is played the same way.
 `RUN "file"` loads and
 runs.
 Filenames may be unquoted (`CLOAD programs/demo.bas`), with case, `/` and
-`.` preserved; a `:`-statement cannot follow an unquoted name.
+`.` preserved; a `:`-statement cannot follow an unquoted name. (Not for
+`RUN`, where a bare word is read as a line number.)
 
 Invalid lines in a loaded file are reported and skipped, never fatal at
 the prompt: `?FD ERROR - FILE LINE n (reason)`, where `n` is the physical
@@ -203,8 +208,9 @@ which is how most archived commercial software survives — load directly
 (since 2026-09-12): `CLOAD "IMAGE.BAS"`, `LOAD`, `MERGE` or `./basic
 IMAGE.BAS`. Every line's original bytes are kept for the program image
 (Part III), so a machine-language payload stored as fake BASIC lines is
-`PEEK`ed and run exactly as the file holds it, while `LIST` shows the
-detokenized text with keywords spaced. The loader is one-way — `CSAVE`
+`PEEK`ed and run exactly as the file holds it, and `LIST` shows each line
+as the machine stored it (`FORX=1TO3`; `spaced on` shows the keywords
+spaced apart). The loader is one-way — `CSAVE`
 and `SAVE` write text — and a line you retype, `DELETE`, renumber with
 `renum` or overwrite with a text `MERGE` becomes text again. To read or
 edit an image as text, convert a copy:
@@ -213,11 +219,11 @@ edit an image as text, convert a copy:
 python3 tools/detok.py -s -o listings/ IMAGE.BAS
 ```
 
-The `-s` matters for a text copy. Level II stored what you typed, so a
-faithful listing reads `FORX=1TOR` — and this interpreter lexes that as
-the single identifier `FORX` (see Part IV). `-s` re-separates keywords
-using the exact boundaries in the token stream, which is also what the
-loader does for the text it shows. `tools/tok.py` is the inverse;
+The `-s` is for the readability of a text copy. Level II stored what you
+typed, so a faithful listing reads `FORX=1TOR`, and this interpreter reads
+that form as the machine's cruncher does, with or without `-s`. `-s` puts
+a blank around each keyword, using the exact boundaries in the token
+stream. `tools/tok.py` is the inverse;
 `tools/DETOK.md` documents the format.
 
 ### Batch mode (EXT)
@@ -242,8 +248,12 @@ Exit status: **0** clean, **1** uncaught BASIC error (also on stderr in the
 classic `?SN ERROR IN 40` form), **2** bad invocation, or a load that
 reported an invalid line. Output is a plain
 text transcript (`--screen` keeps the cursor codes; graphics are not
-rendered in batch). Running out of stdin at an `INPUT` is an error, so a
-test can never hang on a prompt — but there is no loop guard, so wrap a
+rendered in batch). Running out of stdin at an `INPUT` stops the run with
+`?BATCH: END OF INPUT AT LINE n` and exit 1 (it is not a BASIC error:
+`ON ERROR` does not see it), so a test can never hang on a prompt. An
+`INKEY$` loop that runs out of input ends the run silently with exit 0,
+which a test can mistake for a clean finish; `TRS80_REACH_DIAG=1` adds a
+stderr note saying so. There is no loop guard, so wrap a
 possibly-non-halting program in `timeout`. Two advisory lines can also
 reach stderr on an exit-0 run: `USR STUB: n CALLS NOT EXECUTED ...` when
 `USR` was called with no Z80 core attached, and `PROGRAM IMAGE TRUNCATED:
@@ -257,32 +267,31 @@ see `man OS`) and `?OV` at `CLEAR MEM-n` on the 64K map (`--memsize
 past 32767, `?LS`) it names that option. The message, the output and the
 exit status stay the machine's.
 
-**Batch mode has no keyboard.** It turns the raw keyboard off, so `INKEY$`
-reads whole lines from stdin rather than single keypresses. A program whose
-menu is an `INKEY$` loop therefore cannot be played with `./basic game.bas`
-— at a terminal your keys echo but the program never sees them, and it sits
-in the loop. `INPUT` is unaffected, since it is line-oriented to begin with,
-which is why a game can greet you by name and then stall on its first
-keypress menu. To play one, start `./basic` with no file, then
-`CLOAD "game.bas"` and `RUN`.
+**Batch mode has no keyboard.** A piped or `--batch` run turns the raw
+keyboard off, so `INKEY$` reads lines from stdin rather than single
+keypresses (next paragraph). At a terminal, `./basic game.bas` is not a
+batch run: the program is played on the screen with the live keyboard, so
+a menu that is an `INKEY$` loop works there.
 
 A file of answers works line by line, each line one answer: `INKEY$` takes
 a line's characters one per call, then 13 for ENTER, and an `INPUT` reads
 the next line whole, dropping whatever `INKEY$` left of the line it began.
 
-The seven programs in `programs/examples/` are a guided tour — each
+The nine programs in `programs/examples/` are a guided tour — each
 demonstrates one area of this guide and doubles as a regression fixture
 (`run_examples.sh` checks them against committed transcripts):
 
 | example | demonstrates |
 |---|---|
-| `hilo.bas` | stdin-fed INPUT, `--seed`, deliberate non-zero exit |
+| `hilo.bas` | stdin-fed INPUT, `--seed`; a contradictory answer ends it with `ERROR 1`, exit 1 |
 | `logbook.bas` | sequential files, `ON ERROR` for a missing file |
 | `starfile.bas` | random-access files, `FIELD`/`MKI$`/`CVI` |
 | `life.bas` | `SET`/`RESET`/`POINT` |
 | `palette.bas` | color semigraphics (EXT) |
 | `oracle.bas` | the OLLAMA channel, `@TOKENS` |
 | `trapper.bas` | `ON ERROR GOTO`, `ERR`/`ERL`, `RESUME`, `ERROR n` |
+| `demo_showcase.bas` | a tour of the math, string and PRINT functions |
+| `tiny_if.bas` | a small text adventure: DATA tables, string parsing, a command loop fed from `tiny_if.in` |
 
 ---
 
@@ -307,7 +316,9 @@ Things worth knowing even if you know Level II:
   22 FD, 23 L3, and (EXT, for file I/O, at Disk BASIC's own numbers)
   51 FO, 53 BN, 54 FF, 55 BM, 63 IE, 64 BR, 70 AO — so `ERR=106` is "file
   not found" as on the machine. `ERROR n` raises one of the first 23 on
-  purpose; past 23 it is `?UE` (disk errors cannot be simulated).
+  purpose (129–151 wrap to 1–23, as on the ROM); 24–128 and 152–255 are
+  `?UE` (disk errors cannot be simulated), and a number outside 0–255 is
+  `?FC`.
 - `INPUT` is not allowed in immediate mode (`?ID`), like the ROM.
 - `AUTO` shows `*` for existing lines; ENTER alone deletes that line and goes on. BREAK exits, and so do the end of piped input and the 65529 limit.
 - `EDIT` does not exist here (by design — you have a real editor and
@@ -355,7 +366,7 @@ programs untouched:
 **Model III character modes.** Printing `CHR$(21)` toggles codes 192–255
 between space compression and character display; `CHR$(22)` picks the
 alternate set (card suits/Greek/math vs halfwidth Katakana); `CHR$(23)`
-switches to the Level II 32-column double-width mode (CLS returns to 64).
+switches to the Level II 32-column double-width mode (CLS and `CHR$(28)` return to 64).
 
 **Beware: printing scrolls the pixels.** The screen is one buffer; a PRINT
 that reaches the bottom line scrolls graphics too. Read `POINT` before you
@@ -364,17 +375,19 @@ print, or place text with `PRINT@`.
 ### Disk BASIC file I/O
 
 The full Disk BASIC statement set, appropriated onto host files: the BASIC
-filename is a literal host path (relative paths resolve against *your
-current directory* — the interpreter never changes directory), and the
+filename is a host path (relative paths resolve against *your
+current directory* — the interpreter never changes directory), except
+that a Disk BASIC name `NAME/EXT[.PASSWORD][:d]` (capitals and digits, 8
+then 3) is the file `NAME.EXT`; and the
 files are plain text you can read in an editor.
 
 Sequential: `OPEN "I"/"O"/"E"` (input / truncate / append) on channels
-1–15, `PRINT #n` (USING honoured), `INPUT #n` (items end at a comma, a number at a
+1–15, `PRINT #n` (USING honored), `INPUT #n` (items end at a comma, a number at a
 blank too, so `PRINT #1,A;B;C` reads back; quotes respected), `LINE INPUT #n` (whole line), `EOF(n)` with true look-ahead so
 `IF EOF(1)`-guarded loops work, `LOC(n)` = lines read/written, `CLOSE`
 (no args = all), `KILL name$`.
 
-Random access: `OPEN "R", n, name$, reclen` (1–256, default 256),
+Random access: `OPEN "R", n, name$, reclen` (1–256, default 256; 0 means 256),
 `FIELD n, w AS v$...`, `LSET`/`RSET`, `GET`/`PUT [,record]` (default: the
 next one), `LOF(n)` = record count, and the `MKI$`/`MKS$`/`MKD$` /
 `CVI`/`CVS`/`CVD` pack functions in genuine Microsoft Binary Format —
@@ -386,14 +399,16 @@ Simulation notes, honestly labeled:
   length, with non-printable bytes escaped `\xNN` on disk; records live in
   memory between OPEN "R" and CLOSE, and CLOSE rewrites the file if a
   `PUT` changed it (a file that was only read is left untouched).
-- `RUN`/`NEW`/`CLEAR`/`CLOAD`/`END`/`BYE` close and flush all channels —
+- `RUN`/`NEW`/`CLEAR`/`CLOAD`/`END`/`BYE` close and flush all channels, and
+  so does entering or deleting a program line —
   `STOP` does not, so BREAK + `CONT` keeps files open.
 - `,` in PRINT# writes PRINT's zone blanks into the file, as the Disk
   manual says it does ("causes 10 extra spaces in the disk file"); the
   16-column zones are counted in the file's own line, and no last zone is
   assumed, so a comma never ends the line. Between strings print an
   explicit `","`, as the manuals themselves recommend.
-- The cassette form `PRINT#-1` is not supported; channels are 1..15.
+- The cassette form `PRINT#-1` / `INPUT#-1` is not supported: it is `?BN`
+  (channels are 1..15).
 - A fielded variable detaches from its buffer if you plainly assign to it —
   the same footgun as real hardware; the next GET re-attaches it.
 - The file errors (51-70, the Disk BASIC numbers in Part II's error
@@ -502,17 +517,19 @@ because period programs poke at it:
   POKEing the address cells repoints the string, so
   `POKE VARPTR(A$)+1,0:POKE VARPTR(A$)+2,60` makes `A$` read and write
   video RAM (`LSET`/`RSET`/`MID$=` paint through; an assignment ends the
-  alias). For a numeric, the address of its 4 Microsoft-single bytes,
-  also live.
+  alias). For a numeric, the address of its bytes as the machine
+  holds them (2 for an integer, 4 for a single, 8 for a double), also live.
+  VARPTR is the ROM's signed integer: an address above 32767 prints
+  negative (65533 is -3).
 - **RND is the authentic ROM 24-bit LCG**: `RND(0)` a float in [0,1),
   `RND(n)` an integer 1..n, `RND(1)` always 1, as on hardware. The seed is
   PEEK/POKEable at 16554–16556; `RANDOM` (and boot) rewrite only the middle
   byte, like the ROM's R-register read. `--seed N` (EXT) makes the whole
   sequence repeatable.
 - **`MEM SIZE?`** really works, and it *reserves* memory rather than
-  removing it — exactly as on hardware. The answer becomes HIMEM, the
-  ceiling string space allocates below (and what
-  `PEEK(16561)+256*PEEK(16562)` reports). Memory **above** HIMEM stays
+  removing it — exactly as on hardware. The answer, less 2, becomes HIMEM, the
+  ceiling string space allocates below (an answer of 32767 reads back as
+  32765 through `PEEK(16561)+256*PEEK(16562)`, as on the ROM). Memory **above** HIMEM stays
   present, readable and writable: that is the whole point of answering the
   prompt, since it is where a listing loads a machine-language routine
   before calling it. Only above the machine's physical top (65535 here, a
@@ -524,8 +541,8 @@ because period programs poke at it:
   the string space `CLEAR n` sets (50 bytes at power-on): 15568 at
   `MEM SIZE` 32767 with no program. Program size itself is not limited.
 - **LPRINT/LLIST** print to a host stream: set `TRS80_PRINTER=path` to
-  append there; unset, output is discarded — the hardware analogue of no
-  printer attached. The ROM driver vectors are honoured: `POKE 16414,141:
+  append there; unset, output is discarded — the hardware analog of no
+  printer attached. The ROM driver vectors are honored: `POKE 16414,141:
   POKE 16415,5` sends `PRINT` to the printer, `POKE 16422,88:POKE 16423,4`
   sends `LPRINT` to the screen, `POKE 16422,103:POKE 16423,0` silences it.
 - **`OUT 255,v` sets the 32/64-column latch** (bit 3; `OUT 255,8` is 32
@@ -549,8 +566,7 @@ because period programs poke at it:
   `sound wav <path>`;
   without it, `USRn(x)` returns its argument and the run
   ends with one stderr line naming the entry addresses not executed;
-  `TRS80_USR=strict` raises `?FC` on the call instead. `SYSTEM` does not
-  exist and `CMD` is `?SN`, except Disk BASIC's clock switches `CMD"T"` and
+  `TRS80_USR=strict` raises `?FC` on the call instead. `CMD` is `?SN`, except Disk BASIC's clock switches `CMD"T"` and
   `CMD"R"`, which do nothing and go on.
 - **`speed` / `TRS80_MHZ`** charge each statement a delay derived from the
   target clock — games become playable at their intended pace.
@@ -709,7 +725,7 @@ PRINT [items]   display values on the screen
   the line above a PRINT@ status line wipes it unless it ends in ;
   ? is shorthand for PRINT.  See also: man USING, man PRINT#
   Example: PRINT "SUM=";A+B          -> SUM= 12
-  Example: PRINT "X","Y"             -> X at col 1, Y at col 17
+  Example: PRINT "X","Y"             -> X at column 0, Y at column 16
   Example: PRINT "WAIT";  : PRINT "ING"   -> WAITING
 ```
 
@@ -748,8 +764,8 @@ PRINT [#n,] USING f$; items   format items through picture f$
 ?   shorthand for PRINT
   Typing ? saves keystrokes and is accepted anywhere PRINT is, with all
   the same separators (see: man PRINT).
-  In this interpreter it is kept as typed, so a line entered with ? also
-  lists back with ?.
+  The machine stores ? as the PRINT token, so a line entered with ?
+  lists back as PRINT (see: man LIST).
   Example: ?X*2
   Example: ?"TOTAL=";T
 ```
@@ -817,7 +833,7 @@ ELSE   introduces the false branch of an IF
   Example: IF A>0 THEN PRINT "POS" ELSE PRINT "NEG"
 ```
 
-#### GOTO
+#### GOTO GO
 
 ```text
 GOTO n   jump to line n and continue from there
@@ -829,7 +845,7 @@ GOTO n   jump to line n and continue from there
   use GOSUB when the code should come back.
   IF cond GOTO n is a shorthand for IF cond THEN n.
   GO TO, written with a space, is the same keyword: the machine skips
-  blanks between the letters while it is recognising this one word, so
+  blanks between the letters while it is recognizing this one word, so
   G O T O is GOTO as well.  GO SUB is not -- that skip belongs to GOTO
   alone, and GO SUB is ?SN.
   Example: GOTO 100
@@ -1027,10 +1043,12 @@ RESTORE [n]   move the DATA pointer back so items can be re-read
   Example: RESTORE 540         (re-read from the table at line 540)
 ```
 
-#### REM
+#### REM '
 
 ```text
 REM text   a remark; the rest of the line is ignored
+  ' (the apostrophe) is shorthand for :REM, so 10 A=1 'COUNTER and
+  NEXT 'X work; inside DATA or a string it is an ordinary character.
   Everything after REM is commentary, including colons -- so a statement
   cannot follow a REM on the same line, and putting one there is a
   common way to disable code by accident.
@@ -1107,7 +1125,7 @@ CLS   clear the screen and home the cursor
   so a following PRINT starts at the upper-left corner.
   Clears only the display -- variables, arrays and the DATA pointer are
   untouched.
-  Example: CLS:PRINT@ 540,"CENTRED"
+  Example: CLS:PRINT@ 540,"CENTERED"
 ```
 
 #### CLEAR
@@ -1157,7 +1175,7 @@ ON e GOSUB n1[,n2...]   call the e-th line in the list
   If e is 0, or larger than the number of lines listed, nothing happens
   and execution falls through to the next statement -- this is not an
   error, and it is the normal way to handle "none of the above".
-  A negative e is ?FC ERROR.
+  A negative e, or one of 256 or more, is ?FC ERROR.
   ON ERROR GOTO n installs an error handler (see: man ERROR, man RESUME).
   Line n must already exist: it is looked up as the statement runs, so
   a handler line that is not there is ?UL ERROR there, not later when
@@ -1270,10 +1288,10 @@ INP(p)   read Z80 port p (0-255, else ?FC)
   7 the cassette input, which never has a signal here).  Every other
   port reads 255, the open bus, so RS-232, floppy and joystick probes see
   "not present" and take their fallback branch.
-  Example: IF INP(255)=255 THEN PRINT "SOUND"
+  Example: IF INP(1)=255 THEN PRINT "NO DEVICE"
 ```
 
-#### TAB
+#### TAB TAB(
 
 ```text
 TAB(n)   inside PRINT, pad with spaces out to column n
@@ -1299,7 +1317,9 @@ TAB(n)   inside PRINT, pad with spaces out to column n
 
 ```text
 RUN [n]   clear the variables and start the program
-RUN "name"   load that file and run it (Disk BASIC)
+RUN "name"[,R]   load that file and run it (Disk BASIC)
+  With ,R the files the program has open stay open; without it they
+  are closed.
   Always clears variables, arrays and the DATA pointer first, so a value
   set from the keyboard before RUN does not survive into the program.
   Use CONT, not RUN, to carry on after a STOP.
@@ -1317,8 +1337,9 @@ RUN "name"   load that file and run it (Disk BASIC)
 ```text
 LIST [n][-[m]]   display program lines on the screen
   LIST ends at READY, as on the machine: inside a program it lists and
-  then STOPS the program (so do LLIST, DELETE, AUTO, CLOAD and LOAD
-  without ,R -- a program that CLOADs its next part must be RUN again).
+  then STOPS the program (so do LLIST, DELETE, AUTO, CLOAD, MERGE and
+  LOAD without ,R -- a program that CLOADs its next part must be RUN
+  again).
   With no argument, lists the whole program.  A single number lists that
   one line; a range lists the span, and either end may be left off:
     LIST 100        just line 100
@@ -1501,9 +1522,11 @@ CSAVE "name"   write the program out as a plain-text listing
 #### LOAD
 
 ```text
-LOAD "name"   replace the program in memory with one from a file
+LOAD "name"[,R]   replace the program in memory with one from a file
   Clears the current program and variables first, so anything unsaved is
   lost -- LOAD is not a merge (see: man MERGE).
+  With ,R the loaded program is RUN at once and the open files stay
+  open, as RUN "name",R does: the way one program chains to the next.
   Reads the plain-text form written by SAVE.  The lines of a text
   listing may end in LF, in CR LF, or in CR alone -- the form a TRS-80
   itself wrote with SAVE "name",A.  In a CR file a line feed belongs to
@@ -1528,6 +1551,9 @@ MERGE "name"   read a file's lines INTO the current program
   Unlike LOAD, what is already in memory stays.  Incoming lines are
   added to it, and a line whose number already exists REPLACES the one
   in memory rather than being rejected.
+  Like LOAD, MERGE clears every variable and ends at READY: inside a
+  program the lines after it do not run, so a program that MERGEs a
+  library must be RUN again.
   That makes it the way to keep a library of routines in a separate
   file and pull it into whatever program needs it -- provided the two
   do not share line numbers.
@@ -1559,9 +1585,10 @@ NAME   run the machine code a program hung on NAME's vector (Disk BASIC verb)
 #### SAVE
 
 ```text
-SAVE "name"   write the program to a file as readable text
+SAVE "name"[,V]   write the program to a file as readable text
   Stores the listing in plain ASCII, so the file can be read and edited
   outside the interpreter and reloaded with LOAD or combined with MERGE.
+  ,V is accepted and ignored: the file is always the readable text.
   An existing file of that name is overwritten without warning.
   Example: SAVE "GAME.BAS"
 ```
@@ -1588,7 +1615,7 @@ BYE   leave the interpreter and return to the shell
 TRON   turn on line-number tracing
   From then on, each line number is shown in angle brackets as that line
   is reached, interleaved with the program's own output:
-    <10>A  <20>B  <30>C
+    <10>A<20>B<30>C
   The quickest way to see where a program actually goes when the control
   flow is not what you expected.  TROFF turns it off.
   Example: TRON
@@ -1611,11 +1638,11 @@ TROFF   turn line-number tracing off again
 
 ```text
 RANDOM   reseed the random number generator
-  Without it a program produces the SAME sequence from RND on every run,
-  which is ideal while testing and wrong for a game.  Put RANDOM once
-  near the start to vary the sequence.
-  Conversely, leave it out (or re-seed deliberately) when you want a
-  repeatable run.
+  Each start of the interpreter seeds the generator differently, as
+  the machine's power-on does, so a program that never calls RANDOM
+  still varies from one run to the next.  RANDOM re-seeds on demand:
+  put it once near the start of a game.
+  For a repeatable run, start with ./basic --seed N.
   See: man RND for the generator and its seed location.
   Example: RANDOM: PRINT RND(6)
 ```
@@ -1814,7 +1841,7 @@ DEFSNG / DEFDBL / DEFSTR      integer / single / double / string
   rounded down).  A value outside -32768 to 32767 is ?OV and nothing is
   stored -- at INPUT too, never ?REDO -- and an integer FOR index is ?OV
   at the NEXT that would step it past the range, so FOR I%=1 TO 32767
-  stops at its last NEXT, as on the machine.  Arithmetic is no error:
+  ends in ?OV at its last NEXT, as on the machine.  Arithmetic is no error:
   I%+1 past 32767 is silently a single, until it is stored.  A ! or
   # suffix names the single or double variable instead.
   DEFSNG and DEFDBL clear DEFINT and DEFSTR for their range.  A single
@@ -1874,9 +1901,9 @@ USR(x) / USRn(x)   machine-language call.  With TRS80_Z80 naming the
   when it touches neither (PROTOCOL.md).
   x may be ANY type, as on the machine (ROM 27FE-2818): the routine
   enters with A = the type, the value in WRA1 (4121H), and DE = 0890H
-  for a number or the descriptor address for a string, so X$=USR(Z$)
-  print-driver routines that rewrite the string's bytes rewrite Z$ in
-  place.  A routine that takes
+  for a number or the descriptor address for a string, so a
+  print-driver routine called as X$=USR(Z$) can rewrite the bytes of Z$
+  in place.  A routine that takes
   a numeric x through the ROM's 0A7FH gets it floored to an integer (a
   double rounded to single precision first, so 2.9999999# is 3);
   outside -32768..32767 that is ?OV, and a string there is ?TM, as on
@@ -1949,7 +1976,11 @@ OPEN mode$, [#]n, name$ [,reclen]   open a file on channel n (1-15)
   in: for "O", "E" and "R", SAVE, CSAVE and KILL, an absolute path (a
   leading /) or a .. path component is ?FD.  Reading is not confined:
   "I", LOAD, RUN "f", MERGE, CLOAD and SYSTEM take any path.  A relative
-  path with a slash (SUB/FILE, or the TRSDOS form NAME/EXT:0) is fine.
+  path with a slash (sub/file) is fine.  A TRSDOS name in capitals and
+  digits -- NAME/EXT, NAME up to 8 characters starting with a letter,
+  EXT up to 3, with an optional .PASSWORD and :d -- is the host file
+  NAME.EXT (NAME/EXT:0 is NAME.EXT; the password and drive are
+  dropped), unless NAME is a directory here, when it is that path.
   The rule follows where a name leads, not only how it is spelled: a
   symbolic link in the directory that points outside it, to a file, a
   directory or a name not there yet, is ?FD for a write or KILL too.
@@ -2192,8 +2223,11 @@ OPEN m$,n,"OLLAMA[:model[:thread]]"   chat with a local LLM
   A new PRINT #n drops whatever is left unread of the last reply: the
   next read always sends the new prompt and starts the new answer.
   Named threads persist to <thread>.ollama and reload as context;
-  KILL that file to reset.  LOC(n)=messages.  Env: TRS80_OLLAMA_MODEL.
-  Directive lines (PRINT #n "@...") steer the channel, never the model:
+  KILL that file to reset.  LOC(n)=messages.
+  Env: TRS80_OLLAMA_MODEL, TRS80_OLLAMA_HOST (default localhost:11434),
+  TRS80_OLLAMA_TIMEOUT (seconds, default 300), and TRS80_OLLAMA_THINK
+  and TRS80_OLLAMA_KEEPALIVE, the defaults for @THINK and @KEEPALIVE.
+  Directive lines (PRINT #n,"@...") steer the channel, never the model:
     @TOKENS A,B     next send: reply line 1 is one of A,B (enforced by
                     Ollama structured output), the rest is the prose
     @THINK 0        sticky: no hidden reasoning (thinking models)
@@ -2232,6 +2266,9 @@ a AND b   a OR b   NOT a   bitwise logic on 16-bit integers
   These are input notations only -- PRINT always shows decimal, so
   PRINT &HFF gives 255.  There is no built-in hex output; build it
   yourself if you need it.
+  The value is a 16-bit integer: &H8000 to &HFFFF are -32768 to -1
+  (&HFFFF is -1, the way PEEK and POKE take the top 32K), and &H10000
+  is ?OV.
   Example: PRINT &H1F;&HFF;&O17        ->  31  255  15
 ```
 
@@ -2376,9 +2413,8 @@ EXP(x)   e raised to the power x -- the inverse of LOG
   The range is the ROM's, and it is narrower than the number format:
   x above 87.3365 is ?OV, though the answer there is only 8.5E+37,
   half of what a number can hold -- the routine scales its result by a
-  power of two and runs out of exponent first.  x of -88.7228 or less
+  power of two and runs out of exponent first.  x of -88.7229 or less
   gives 0: the ROM tests the sign before it reports the overflow.
-  Example: PRINT EXP(0)         ->  1
   Example: PRINT EXP(0)         ->  1
   Example: PRINT EXP(1)         ->  2.71828
 ```
@@ -2393,8 +2429,8 @@ RND(n)   a random number: n>0 gives an integer 1..n, RND(0) gives a
   when RND(1) was meant to be the fractional form.  The argument is
   taken as an integer (rounded down; past 32767 is ?OV), and a negative
   one is ?FC.
-  The sequence repeats identically on every run unless RANDOM is called
-  first, which is ideal for testing and wrong for a game.
+  Each run starts from a different seed unless it was started with
+  ./basic --seed N, which makes the sequence repeat; RANDOM re-seeds.
   This is the authentic ROM 24-bit generator; its seed sits at
   16554-16556 and can be PEEKed and POKEd.
   Example: PRINT RND(6)
@@ -2617,7 +2653,8 @@ MID$(a$,p[,n])   the substring of a$ starting at position p
 MID$(v$,p[,n])=e$   statement form: overwrite part of v$ in place
   As a function, positions count from 1 and n is how many characters to
   take; leave n off to take everything to the end of the string.
-  Asking past the end returns "" rather than raising an error.
+  Asking past the end returns "" rather than raising an error; a
+  position of 0 is ?FC.
   As a statement it REPLACES characters inside v$ without changing the
   string's length: the replacement is cut to n and to whatever fits, and
   the rest of v$ is left alone.  A p past the end is ?FC.
@@ -2633,7 +2670,7 @@ MID$(v$,p[,n])=e$   statement form: overwrite part of v$ in place
 ```text
 TIME$   the current date and time as one 17-character string
   Formatted "MM/DD/YY HH:MM:SS" and taken from the host clock.  It is
-  read-only here -- assigning to it does not set the clock (Disk BASIC).
+  read-only: assigning to it is ?SN ERROR.
   Because the layout is fixed, the parts can be pulled out by position
   with MID$ rather than parsed.
   Example: PRINT TIME$
@@ -2765,15 +2802,16 @@ INKEY$   the key being pressed right now, or "" if none
   so typing q at a terminal gives "Q" and period programs that test
   IF K$="Q" answer to the plain key.  (INPUT reads the same way; a line
   typed at the READY prompt keeps its case.)
-  NEEDS THE INTERACTIVE MODE.  Batch mode (./basic prog.bas piped, or
+  LIVE KEYS NEED A TERMINAL.  Batch mode (./basic prog.bas piped, or
   ./basic --batch prog.bas) turns the raw keyboard off, so INKEY$ there
-  reads whole lines from stdin instead of single keypresses -- your keys
-  echo and the program never sees them.  Fed from a file, each line is
+  reads lines from stdin instead of single keypresses.  Each line is
   one answer: INKEY$ takes its characters one per call, then 13 for
   ENTER; an INPUT reads the next line whole and drops what INKEY$ left
-  of the line it began.  To play a program whose menu is
-  an INKEY$ loop, run ./basic prog.bas at a terminal without --batch, or
-  start ./basic with no file, then CLOAD "prog.bas" and RUN.
+  of the line it began.  When the input runs out inside an INKEY$ loop
+  the run ends silently with exit status 0, as if the program had
+  finished (an INPUT at the end of input exits 1).  To play a program
+  whose menu is an INKEY$ loop, run ./basic prog.bas at a terminal
+  without --batch.
   Example: K$=INKEY$:IF K$="Q" THEN END
 ```
 
@@ -2804,7 +2842,8 @@ help <text>  search the manual for text
   `help keys` print fixed lists; anything else is treated as a search.
   The search looks through the whole of each manual entry, not just its
   name, and shows the first line of every entry that matches -- so
-  `help INKEY` finds INKEY$ and also ASC, whose entry mentions it.
+  `help INKEY` finds INKEY$ and also every entry whose text mentions
+  it, ASC among them.
   That makes it the way in when you know what you want to do but not
   what the keyword is called.
   Metacommand: lowercase only.
@@ -2819,7 +2858,7 @@ dir [args]   list files in the current directory
   Passes through to the host shell's `ls -al` (or `dir` on native
   Windows) and shows the result below the grid.  Any arguments are
   handed straight to that command.  Bytes that are not printable text
-  are shown as a full stop, as cat shows them, so a file name cannot
+  are shown as a period, as cat shows them, so a file name cannot
   disturb the terminal.
   Provided because a program's data files live on the host filesystem,
   not on a simulated disk, so this is how you see what is actually
@@ -2834,7 +2873,7 @@ dir [args]   list files in the current directory
 ```text
 cat <file...>   show the contents of one or more files
   Displays the files below the grid.  Bytes that are not printable text
-  are shown as a full stop, so a tokenized or binary file can be
+  are shown as a period, so a tokenized or binary file can be
   inspected without disturbing the terminal.  The whole typed line runs
   in the shell and all of its output and errors are shown this way;
   past 1 MB the output is cut.
@@ -2856,7 +2895,11 @@ ext            report the current state
   have, kept behind this switch so that default behavior stays
   faithful.  Currently gated: text typed at an INPUT with no variable
   (discarded, not ?SN), INPUT "prompt",var (a comma behind the prompt),
-  and REM META: directives (see: man REM).
+  a prompt that is a string expression (INPUT "AGE"+STR$(N);A), and
+  REM META: directives (see: man REM).
+  Extensions that no valid Level II program can reach are always on,
+  whatever this switch says: RESTORE n, SET(x,y,c), a file name without
+  quotes (LOAD game.bas), the EXIT statement, CMD"T" and CMD"R".
   Off by default.  The environment variable TRS80_EXT=1 turns them on
   at startup instead.
   Metacommand: lowercase only.
@@ -3066,8 +3109,7 @@ h         the same thing, abbreviated
   buffer rather than repainting the screen, it shows precisely where
   PRINT@, TAB and the graphics statements actually put things -- and it
   works when output is piped, where the live grid is not drawn.
-  Not part of Level II; lowercase only, and the only metacommand that
-  takes no arguments at all.
+  Not part of Level II; lowercase only.
   Example: @dump
 ```
 

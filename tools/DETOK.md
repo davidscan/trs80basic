@@ -18,8 +18,10 @@ outside the interpreter, for producing an editable text copy, and for the
 corpus measurements below; `tok.py` is its inverse. (Until then `CLOAD`
 accepted only plain-ASCII listings and this converter was the only route.)
 
-It is a standalone utility. It imports nothing from the interpreter, and the
-interpreter does not know it exists.
+It is a standalone utility: it imports nothing from the interpreter. The
+interpreter keeps its own copy of the token table and a port of the
+expansion (`src/p75_mem.awk`), and `programs/tests/tokens.sh` holds that
+copy equal to `level2_tokens.tsv`.
 
 ## Use
 
@@ -27,6 +29,9 @@ interpreter does not know it exists.
     python3 tools/detok.py -o DIR FILE...        # DIR/<name>.bas per input
     python3 tools/detok.py --check FILE...       # parse only; report problems
     python3 tools/detok.py -s FILE               # separate run-together keywords
+    python3 tools/detok.py --table TSV FILE      # another token table
+    python3 tools/tok.py -o DIR FILE...          # the inverse: listing to image
+    python3 tools/tok.py --round-trip FILE...    # image -> listing -> image, compared (-v: every mismatch)
 
 Exit status is 0 if every input converted, 1 if any failed, 2 on bad usage.
 Output is **bytes, not text** --- Level II listings legitimately contain raw
@@ -42,8 +47,8 @@ keywords, listed in `level2_tokens.tsv`.
 
 The table lives in its own TSV rather than inside the script because it is not
 detokenizer-specific: the interpreter's program-memory mapping (`src/p75_mem.awk`) wants the same
-table in the write direction, and one hand-typed copy of ~124 keywords is
-enough.
+table in the write direction, so it is kept once as data here and the
+interpreter's copy is checked against it.
 
 Twenty-odd entries were confirmed by hand-decoding bytes out of the corpus
 (`0x84` CLS, `0x93` REM, `0x99` DEFINT, `0xB2` PRINT, `0xCE` `-`, `0xD5` `=`,
@@ -63,13 +68,18 @@ early.
 
 ## Deviations from the stored bytes
 
-Two, both needed to make the output loadable, both counted and reported:
+Three. The first two are needed to make the output loadable, and both are
+counted and reported:
 
 **Embedded newlines (37,759 rewrites).** A stored line may contain a literal
 CR or LF --- inside a string, in REM prose, or in statement position. Written
 straight out, the tail becomes a line with no number and the file will not
 load. Inside a string the byte is real data, so it is spliced out as
-`"a"+CHR$(13)+"b"`, which is exactly equivalent --- *except* when the string
+`"a"+CHR$(13)+"b"`, in parentheses where it starts an expression
+(`PRINT("a"+CHR$(13)+"b")`), so that it stays one operand. That is
+equivalent, with two exceptions: after `INPUT` the prompt must be a
+literal, which neither form is, so keep such a program as its tokenized
+image; and when the string
 is a `DATA` item (fixed 2026-08-12): `READ` takes the text literally, never
 evaluating it, so a splice there lands as visible characters and breaks the
 item parse (`?OD`). There, and everywhere else, the byte becomes a space
@@ -86,7 +96,7 @@ the interpreter rejects one, but these images contain them. Each becomes a bare
 The cruncher stores every `ELSE` behind a colon it adds (Farvour 1C42-1C49),
 so a typed `:ELSE` is stored `::ELSE`; LIST takes one colon back (2BA0), and
 detok does the same, so the listing reads as typed and `tok.py`, which adds
-the colon again, gives back the image. Without `-s`, `B=C:ELSE` lists as
+the colon again, gives back the image. Without `-s`, a stored `B=C:ELSE` lists as
 `B=CELSE`, as on the machine: Level II's cruncher reads that as `C` then
 `ELSE`. `-s` adds no blank there either: the cruncher would store it ahead of
 the colon it adds back, one byte the image does not have. Until 2026-10-13 detok kept the stored
@@ -101,7 +111,7 @@ desync signals: the record walk has run off the program into padding or an
 appended binary. Failing is deliberate --- a listing built from garbage is worse
 than no listing.
 
-**Glued keywords --- use `-s`.** Level II stores what you typed and `LIST`
+**Glued keywords --- `-s` makes them readable.** Level II stores what you typed and `LIST`
 expands tokens tight, so listings come back as `FORX=1TOR`. The interpreter
 re-lexed text and read `FORX` as one identifier until 2026-09-23. Then,
 without `-s`, **62% of the corpus hit `?SN ERROR` on the first line or two.**
@@ -118,17 +128,20 @@ This is the entire ambiguity a text de-compressor has to guess at (`FORN=1TOR`
 | without `-s` | 139 (24%) | 369 | 70 |
 | **with `-s`** | **435 (74%)** | **88** | **3** |
 
+(Measured before 2026-09-23, when the interpreter still re-lexed text;
+today both rows run as the machine crunches them.)
+
 `?TM` rises 7 -> 54, but that is progress, not damage: 22 of 26 sampled had
 previously died earlier on `?SN` and now reach genuine unsupported features
 like `VARPTR`.
 
 Spacing is provably confined to code. Comparing `-s` output against plain
-output under a whitespace-normalising comparison --- which holds whitespace
+output under a whitespace-normalizing comparison --- which holds whitespace
 inside strings and REM payloads significant --- 4,643 of 4,721 files are
 identical. The 78 that differ are the two places a space is *required*:
 `DATALLLLL` -> `DATA LLLLL` (verified equivalent; BASIC strips the leading
 space back off, and the unspaced form does not parse at all) and `REMBRANDT`
--> `REM BRANDT` (needed for REM to be recognised). Nothing is inserted where
+-> `REM BRANDT` (needed for REM to be recognized). Nothing is inserted where
 nothing can glue: `REM.` stays `REM.`, and a REM holding machine code is left
 byte-for-byte alone.
 
@@ -190,7 +203,7 @@ image.
     python3 tools/test_detok.py        # stdlib only
     python3 tools/test_tok.py          # stdlib only
 
-These pin the decisions a corpus sweep cannot localise --- literal-region
+These pin the decisions a corpus sweep cannot localize --- literal-region
 handling, the two rewrites, the `ELSE` colon, the `-s` spacing rules, framing
 of malformed input, and the inverse-of-detok invariants. To re-measure the
 corpus, detokenize it to a scratch directory and run each result through

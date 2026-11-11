@@ -67,7 +67,7 @@ tested with.
     the ROM's register state (HL, A, DE); the dispatch's own stores
     (40AFH, WRA1) and 0A7FH's exit stores (4121/4122H, 40AFH = 2, A = 2)
     arrive in the write-set; 0A7FH on a string is `ERR tm`; the CLS trap
-    zeroes 40A6H; 40A6H joins the always-sent window cells (21 now).
+    zeroes 40A6H; 40A6H joins the always-sent window cells.
     A v2 core would misread a string's `arg` as a number: the bump.
     Corrected within 3 (2026-10-23, no message changed meaning): the
     value of `USR` is WRA1 by 40AFH after the write-set (The return);
@@ -80,6 +80,7 @@ tested with.
     off USR's argument stores; `RET`'s `hl` is where the routine left the
     text pointer.  A v3 core would ignore the field and enter with HL =
     `entry`, running the routine on the wrong text silently: the bump.
+    First shipped by interpreter v2.3.0 and core v2.2.0.
 
 ## Session
 
@@ -353,7 +354,7 @@ the same line counts it (as entry 418EH).
 mismatch and the fallback paths, and asserts on BASIC-visible effects.  A
 core is conformant when `TRS80_Z80="python3 /path/to/core" sh
 programs/tests/z80.sh` passes with the stub's canned entry addresses
-implemented as real machine code (the routines are trivial: paint two
-bytes, read the keyboard, store three bytes, double HL, return a byte,
-push a word, call 01C9H, store a byte and call 0000H, read a string
-descriptor and rewrite its first byte, read WRA1).
+implemented as real machine code (the entries and what each must do are
+listed in the header of `programs/tests/z80_stub.py`; the routines are
+trivial).  Give the core's path in full: one case runs the command after
+`cd /`.

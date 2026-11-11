@@ -4,9 +4,9 @@
 
 *Semigraphics drawn with `SET` on the 128x48 grid — `programs/demos/demo_graphics.bas`.*
 
-![An interactive session: the MEMORY SIZE? prompt, the LEVEL II banner, a two-line program entered with AUTO that prints graphics characters around a name, and its output](docs/images/virtual-terminal.png)
+![An interactive session: the memory-size prompt, the startup banner, a two-line program entered with AUTO that prints graphics characters around a name, and its output](docs/images/virtual-terminal.png)
 
-*The simulated 64x16 screen: answer MEMORY SIZE?, type a program, RUN it.*
+*The simulated 64x16 screen: answer `MEM SIZE?`, type a program, RUN it.*
 
 ## What it is
 
@@ -29,7 +29,7 @@ B. I wanted to see if Claude could deal with such a ridiculous request.  Its fir
 Yes, including the embedded machine language and sound.
 
 - What platforms are supported?\
-Developed and tested on MacOS (iTerm2), untested but probably works fine under Linux.  No Windows support right now, but that'll be added at some point.
+Developed on macOS (iTerm2); the test suite also runs on Linux in CI on every push.  No Windows support right now, but that'll be added at some point.
 
 
 ## Features
@@ -113,7 +113,7 @@ Everything else is optional, needed only for the feature named:
 gawk --version | head -1                        # needs GNU awk >= 5.0 (and python3 for the optional Z80 core)
 ./basic --seed 1 programs/examples/hilo.bas < programs/examples/hilo.in   # <1s — runs a program, prints its screen text
 ./basic                                         # interactive READY prompt; type exit (or BYE, EXIT) to leave
-programs/examples/run_examples.sh               # ~5s — every example against its checked-in transcript, all "ok"
+programs/examples/run_examples.sh               # ~15s — every example against its checked-in transcript, all "ok"
 ```
 
 Inside the interpreter, `man <keyword>` documents any BASIC word (e.g.
@@ -130,16 +130,17 @@ Runs the interpreter. With a file, LOADs and RUNs it and exits: at a
 terminal (stdin and stdout both) it is played on the screen with the live
 keyboard and no `MEM SIZE?`, and when the program ends its last screen
 stays up until you press a key; piped, or with `--batch`, it runs
-non-interactively. Without a file, starts the interactive prompt. **Writes:** nothing on its
-own. Whatever the BASIC program `OPEN`s, `CSAVE`s or `SAVE`s lands relative to
+non-interactively. Without a file, starts the interactive prompt. An option that takes a
+value also accepts `--option=value`. **Writes:** nothing of its
+own, only what the program or your settings name (see Undo / recovery). Whatever the BASIC program `OPEN`s, `CSAVE`s or `SAVE`s lands relative to
 *your current directory*, not the repo.
 
 | argument | default | what it does | when you'd use it |
 |---|---|---|---|
 | `program.bas` | none (interactive) | LOAD + RUN it, then exit 0/1/2. At a terminal it is played on the screen (EXT): the grid, the live keyboard, no `MEM SIZE?`; at the end the last screen stays up until a key, and any error is said again on the terminal once the screen is gone; piped, or with `--batch`, it is a batch run | playing a listing straight from the shell; scripting, tests, piping `INPUT` answers from stdin |
 | `game.cmd` | | EXT: a /CMD load module is `SYSTEM`, its name, `/`: loaded and run at its entry address (machine code needs the Z80 core). At a terminal it is played on the screen with the live keyboard and no `MEM SIZE?`, and the last screen stays up until a key; piped, or with `--batch`, it is a batch run. Either way it exits 0/1/2 when the code ends (`READY`, or an error such as `?FC` at a ROM call the core does not serve) | starting a machine-code game straight from the shell |
-| `--seed N` | time-based | seeds the random generator, so `RND` and every `RANDOM` repeat run to run (each `RANDOM` draws a fresh 0-127 seed byte from it, as the machine's 7-bit R register does) | repeatable runs, transcripts you can diff |
-| `--memsize N` | 65535 | answers `MEM SIZE?` with N (17280-65535), in batch and at the prompt | a program that only ran on a 16K machine: it POKEs an address byte it made signed (`IF H>127 THEN H=H-256`), which is `?FC` above 32767 on the hardware too; `--memsize 32767` is that machine |
+| `--seed N` | time-based | N is an integer (negative allowed); seeds the random generator, so `RND` and every `RANDOM` repeat run to run (each `RANDOM` draws a fresh 0-127 seed byte from it, as the machine's 7-bit R register does) | repeatable runs, transcripts you can diff |
+| `--memsize N` | 65535 | answers `MEM SIZE?` with N (17280-65535), in batch and at the prompt; cannot be combined with `--memory host` | a program that only ran on a 16K machine: it POKEs an address byte it made signed (`IF H>127 THEN H=H-256`), which is `?FC` above 32767 on the hardware too; `--memsize 32767` is that machine |
 | `--clear N` | none (string space stays 50 bytes) | types `CLEAR N` before `RUN` (after LOAD in batch, at the first `READY` at the prompt); N is 0-32767, or any count with `--memory host` | a listing that stops with `?OS ERROR`: it was written for a machine where `CLEAR 1000` had been typed before `RUN`, outside the listing. The program's own `CLEAR n` still wins, and `FRE("")` reports the space |
 | `--memory host` | `rom` (the machine) | EXT: lifts the machine's capacity limits at once: the 64K behind `MEM`/`?OM`, `CLEAR n` string space (`?OS`), the 255-character string and its counts (`?LS`), subscripts, `DIM` bounds and `CLEAR` counts past 32767, the 255-byte `INPUT#` cut and the 240-byte piped line; and every character of a variable name counts (`SUM` and `SU` are two variables, where the machine folds them into one). `PEEK`, `POKE`, `VARPTR` and `USR` keep the 64K machine. Also `TRS80_MEMORY=host`, the `memory` metacommand, or `REM META: memory host` under `ext on` | new code written for this interpreter rather than for the machine: a program whose tables or prose would never fit a TRS-80 |
 | `--batch` | off | run the file as a batch run even at a terminal | a test or a transcript taken at a terminal |
@@ -159,12 +160,16 @@ that `--memory host` lifts (`?OM`, a subscript or `DIM` past 32767, `?LS`,
 a string count past 255) the note names that option. The message, the
 output and the exit status are the machine's; the prompt shows the
 message alone.
-Running out of stdin while a program is at `INPUT` is a BASIC error
-(`?BATCH: END OF INPUT`). Batch mode also has **no raw keyboard**: `INKEY$`
-reads whole lines from stdin instead of single keypresses, so a program
-whose menu is an `INKEY$` loop cannot be played with `./basic --batch
-game.bas` — your keys echo and it never leaves the loop. Play it at a
-terminal without `--batch` instead.
+Running out of stdin while a program is at `INPUT` stops the run
+(`?BATCH: END OF INPUT`, exit 1). Batch mode also has **no raw keyboard**:
+`INKEY$` takes one line of stdin at a time and hands it out one character
+per call, then `CHR$(13)` for the ENTER; an `INPUT` reads the next line
+whole and drops what `INKEY$` left of its line. A menu that is an `INKEY$`
+loop can therefore be scripted (`printf 'AB\nC\n' | ./basic game.bas`),
+but when stdin runs out inside such a loop the run ends silently with
+exit 0, which a test can mistake for a clean finish (`TRS80_REACH_DIAG=1`
+adds a stderr note). To play such a program with live keys, run it at a
+terminal without `--batch`.
 
 Note: `--screen` and the `fullscreen` metacommand are near-opposites despite
 the similar names — `--screen` *keeps* the 64x16 grid's control codes in
@@ -179,6 +184,7 @@ Environment variables the interpreter reads:
 | `TRS80_MHZ` | full speed | throttle execution to a period-correct feel (also `speed` metacommand) | games that are unplayable at modern speed |
 | `TRS80_PRINTER` | unset (discard) | file that `LPRINT`/`LLIST` append to; a path that cannot be written is `?FD` at the first one | you want the printer output |
 | `TRS80_EXT` | `0` | `1` (or any value but `0`, as for `TRS80_DUMB`) accepts a few forms real Level II rejects (`INPUT "prompt",var`, a prompt expression such as `INPUT "A"+B$;X`, text typed at a no-variable `INPUT`) and lets a program's `REM META:` remarks fire (`speed`, `fullscreen`, `memory`, `spaced`); also `ext on` | running listings that use those idioms; leave off to keep strict `?SN` behavior |
+| `TRS80_MEMORY` | unset (`rom`) | `host` lifts the machine's capacity limits, as `--memory host` does (EXT); `--memory` overrides it, and the `memory` metacommand switches it at the prompt | new code written for this interpreter rather than for the machine |
 | `TRS80_SPACED` | unset | `1` (or `on`) makes `LIST` and `LLIST` show a blank around each keyword, `FOR I=1 TO 3` where the machine lists the stored `FORI=1TO3`; display only, also the `spaced` metacommand | reading a compressed listing loaded from a tokenized image |
 | `TRS80_MANFILE` | `support/manpages.txt` next to `basic` | where `man` reads its text | only if you relocate the file |
 | `TRS80_OLLAMA_MODEL` | none | default model for `OPEN "OLLAMA"` when the name gives none | every OLLAMA program without a hard-coded model |
@@ -199,7 +205,7 @@ Environment variables the interpreter reads:
 | `TRS80_WINNATIVE` | probed (`COMSPEC` set and `SHELL` not) | `0`/`1` overrides the native-Windows detection that routes `system()` calls to `cmd.exe` (test hook) | exercising the other platform's branches |
 | `TRS80_REACH_DIAG` | unset | `1` adds a batch stderr note when a run ends at a key poll on exhausted stdin — a clean exit whose `END` was never reached (test hook for reachability sweeps) | telling those runs apart in a sweep |
 
-(A couple of development-only variables are deliberately undocumented here.)
+(One internal variable, which the interpreter sets for the core, is deliberately undocumented here.)
 
 ### `programs/examples/run_examples.sh [--update]`
 
@@ -309,13 +315,15 @@ area and runs as a fixture:
 
 | program | shows |
 |---|---|
-| `hilo.bas` | `INPUT` from stdin, `--seed`, a deliberate non-zero exit |
+| `hilo.bas` | `INPUT` from stdin and `--seed` (a contradictory answer ends it with `ERROR 1`, exit 1) |
 | `logbook.bas` | sequential files: `OPEN "O"/"E"/"I"`, `PRINT#`, `LINE INPUT#`, `EOF`, `KILL`; `ON ERROR` for a missing file |
 | `starfile.bas` | random-access files: `FIELD`, `LSET`, `PUT`/`GET`, `MKI$`/`CVI`, `LOF` |
 | `life.bas` | `SET`/`RESET`/`POINT` on the 128x48 grid (run it interactively to watch) |
 | `palette.bas` | color semigraphics, `SET(x,y,c)` — an extension; color shows only in the interactive grid |
 | `oracle.bas` | the `OLLAMA` channel with `@TOKENS` steering the reply |
 | `trapper.bas` | `ON ERROR GOTO`, `ERR`, `ERL`, `RESUME`, `ERROR n` |
+| `demo_showcase.bas` | a tour of the math, string and PRINT functions |
+| `tiny_if.bas` | a small text adventure: DATA tables, string parsing, a command loop |
 
 `run_examples.sh` prints `ok` per program. If one prints `FAIL` and a diff,
 either the interpreter's behavior changed or the example did; decide which
@@ -423,9 +431,10 @@ before `--update`.
 
 ### Undo / recovery
 
-There is no undo. The interpreter only writes what a program tells it to
-(`OPEN "O"`/`"E"`/`"R"`, `CSAVE`, `SAVE`, `KILL`, OLLAMA thread files), always
-under your current directory. `KILL` deletes without confirmation. Run
+There is no undo. The interpreter only writes what you or a program tell
+it to: `OPEN "O"`/`"E"`/`"R"`, `CSAVE`, `SAVE`, `KILL` and OLLAMA thread
+files, always under your current directory; and the `TRS80_PRINTER` file
+and the `sound wav` file, wherever you point them. `KILL` deletes without confirmation. Run
 unfamiliar programs from a scratch directory. `run_examples.sh --update`
 overwrites `.out` files; `git diff` shows exactly what changed.
 
@@ -505,18 +514,20 @@ Three things here are generated and should never be hand-edited:
 `trs80basic.awk` (rebuild with `cat src/p*.awk > trs80basic.awk`), Part V of
 `docs/USER_GUIDE.md` (`python3 tools/make_userguide.py`) and the `.out`
 transcripts under `programs/examples/` (`run_examples.sh --update`). The rest
-is source. The only file the interpreter writes into your working directory
-while it runs is an `.ollama` thread.
+is source. While it runs the interpreter writes only what you or your program ask
+for: the files a BASIC program opens, saves or KILLs and an `.ollama`
+thread (in the working directory), the file named by `TRS80_PRINTER`, and
+the WAV named by `sound wav` or `TRS80_SOUND_WAV`.
 
 | path | what it holds |
 |---|---|
 | `trs80basic.awk` | the whole interpreter, one file — generated from `src/`, never edited directly |
 | `src/p*.awk` | the interpreter's source modules, concatenated in name order; edit these |
-| `basic` | launcher: finds gawk and the manpages, runs it with `-b` (strings are bytes), passes flags through |
+| `basic` | launcher: finds gawk, the manpages and a Z80 core checked out beside it, loads gawk's time extension when it has one, runs gawk with `-b` (strings are bytes), passes flags and the build id through, and at a terminal restores the tty if gawk dies |
 | `support/manpages.txt` | text behind `man` and `help`; plain format, edit freely |
 | `programs/demos/` | interactive demos (`tictactoe`, `demo_graphics`) — INKEY$-driven, so run them at the READY prompt, not in batch |
 | `programs/examples/` | feature examples with `.in` inputs and `.out` transcripts (`tiny_if` the text adventure, `demo_showcase`, `hilo`, `life`, …); the transcripts regenerate with `run_examples.sh --update` |
-| `programs/tests/t*.txt`, `prog1.bas` | interactive-mode input scripts for regression checks (t1–t33) |
+| `programs/tests/t*.txt` | interactive-mode input scripts for regression checks (t1–t33) |
 | `programs/tests/*.bas`, `programs/tests/*.sh` | self-checking fixtures and shell suites: VARPTR, string aliasing, INP, the system variable window, the BREAK and driver vectors, USR, image truncation, the Z80 protocol (`z80.sh`), POKEd and string-packed routines through the real core (`z80core.sh`, skips without it), CLOAD of a tokenized image (`tokload.sh`), the trs-80.com tips tally |
 | `programs/tests/ollama_stub.sh` | canned Ollama replies; `oracle`, `t13` and `t29` run against it |
 | `programs/tests/z80_stub.py` | the reference Z80 core stand-in that `z80.sh` and `t32` run against |
@@ -524,7 +535,7 @@ while it runs is an `.ollama` thread.
 | `.github/workflows/tests.yml` | runs `run_all.sh` on GitHub on every push and pull request |
 | `PROTOCOL.md` | the USR coprocess protocol between the interpreter and the Z80 core; mirrored into the core repo |
 | `tools/detok.py`, `tools/tok.py`, `tools/level2_tokens.tsv` | image ↔ listing converters and the Level II token table |
-| `tools/test_*.py` | their tests (`python3 -m unittest`) |
+| `tools/test_*.py` | their tests (`python3 -m unittest discover -s tools`) |
 | `tools/DETOK.md` | the token format and conversion notes |
 | `docs/USER_GUIDE.md` | the full user manual; Part V is generated by `tools/make_userguide.py` |
 | `*.ollama` in your working directory | an OLLAMA conversation thread, written by a program that names one; `KILL` or `rm` forgets the conversation |

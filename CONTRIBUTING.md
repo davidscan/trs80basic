@@ -31,7 +31,7 @@ and without it a UTF-8 locale corrupts every byte above 127.
 
 ## What a change must keep
 
-**Behaviour follows the machine.** A change in what a BASIC program sees
+**Behavior follows the machine.** A change in what a BASIC program sees
 moves toward what Level II BASIC on the TRS-80 does, and the pull request
 says where that is documented (the manuals, or a published book about the
 Level II ROM). Every fix comes with a test in `programs/tests/` that fails
@@ -68,8 +68,8 @@ address resolves for `PEEK` and `POKE`. The companion core relies on it to
 execute the right bytes, so a change to `dopeek` or `poke_byte` updates
 that contract and [PROTOCOL.md](PROTOCOL.md) in the same pull request.
 
-## Licence
+## License
 
 The project is GPL-3.0 ([LICENSE](LICENSE)); a contribution is offered
-under the same licence. Do not add third-party listings, book text or
+under the same license. Do not add third-party listings, book text or
 ROM bytes to the repository.

@@ -4,7 +4,7 @@ trs80basic runs old BASIC listings, and many of the listings people run are
 ones they found online. This page says what such a program can and cannot
 do on your computer, what the interpreter promises, and what it does not.
 
-It describes the current `main` branch (v2.1.2 and the fixes since) on
+It describes the current `main` branch (v2.3.0 and the fixes since) on
 macOS and Linux. Native Windows (cmd or PowerShell)
 is not supported yet; under WSL it behaves as on Linux.
 
@@ -42,7 +42,7 @@ column.
   emulated 64K machine. It has no way to make a system call; the core
   answers only a small fixed set of trapped entry points.
 - **Change a few interpreter settings** with `REM META:` remarks, and only
-  when you have turned `ext on`: `speed`, `fullscreen` and `memory`. No
+  when you have turned `ext on`: `speed`, `fullscreen`, `memory` and `spaced`. No
   `REM META:` remark runs a shell command or touches a file.
 
 ## What a program cannot do
