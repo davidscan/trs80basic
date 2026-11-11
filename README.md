@@ -461,8 +461,8 @@ overwrites `.out` files; `git diff` shows exactly what changed.
   (`TRS80_USR=strict` turns the calls into `?FC`).
 - Native Windows (cmd/PowerShell) — not yet: the no-install Windows package
   returns once it can be tested on a local Windows machine. Meanwhile run it
-  under WSL + Windows Terminal, which is fully compatible, semigraphics
-  included.
+  under WSL + Windows Terminal, where it should behave as on Linux (not
+  tested here).
 - Reading OCR-damaged listings — that is a different problem (repair, not
   conversion) and lives in a separate project.
 
