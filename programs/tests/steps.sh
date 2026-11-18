@@ -46,7 +46,7 @@ for a in "--steps 0" "--steps x" "--steps" "--steps=-1"; do
         || fail "$a is a usage error (rc=$rc)" "$out"
 done
 out=$(TRS80_Z80= "$here/basic" --steps 5 2>&1 </dev/null); rc=$?
-[ "$rc" = "2" ] && case $out in "basic: --steps and --steps-report need a program file"*) true ;; *) false ;; esac \
+[ "$rc" = "2" ] && case $out in "basic: --steps, --steps-report and --clock steps need a program file"*) true ;; *) false ;; esac \
     || fail "--steps without a program file (rc=$rc)" "$out"
 out=$(TRS80_Z80= "$here/basic" -h 2>&1 </dev/null)
 case $out in *"--steps N"*"3 the --steps limit stopped it"*) ;; *) fail "--help names --steps and exit 3" "$out" ;; esac
@@ -76,11 +76,33 @@ out=$(TRS80_Z80= "$here/basic" --steps-report 2>&1 </dev/null); rc=$?
 [ "$rc" = "2" ] && case $out in "basic: --steps-report needs a file name"*) true ;; *) false ;; esac \
     || fail "--steps-report with no name (rc=$rc)" "$out"
 out=$(TRS80_Z80= "$here/basic" --steps-report "$t/r5" 2>&1 </dev/null); rc=$?
-[ "$rc" = "2" ] && case $out in "basic: --steps and --steps-report need a program file"*) true ;; *) false ;; esac \
+[ "$rc" = "2" ] && case $out in "basic: --steps, --steps-report and --clock steps need a program file"*) true ;; *) false ;; esac \
     || fail "--steps-report without a program file (rc=$rc)" "$out"
 : > "$t/game.cmd"
 out=$(TRS80_Z80= "$here/basic" --steps 9 "$t/game.cmd" 2>&1 </dev/null); rc=$?
 [ "$rc" = "2" ] && case $out in *"a /CMD file has none"*) true ;; *) false ;; esac \
     || fail "--steps with a /CMD file (rc=$rc)" "$out"
+
+# --clock steps: TIME$ and the clock bytes 4041H-4046H (16449-54, SS MN HH
+# YY DD MM) are the machine's time from the statement count, 01/01/80
+# 00:00:00 at the RUN, a second per 1,774.08 statements
+printf '10 PRINT TIME$\n20 PRINT PEEK(16449);PEEK(16450);PEEK(16451);PEEK(16452);PEEK(16453);PEEK(16454)\n' > "$t/clk.bas"
+run --clock steps "$t/clk.bas"; rc=$?
+[ "$rc" = "0" ] && [ "$(cat "$t/out")" = "01/01/80 00:00:00
+ 0  0  0  80  1  1 " ] || fail "the steps clock starts at 01/01/80 00:00:00 (rc=$rc)" "$(cat "$t/out" "$t/err")"
+# RUN, FOR, 1,775 NEXTs and the PRINT are 1,778 statements: one second on
+printf '10 FOR I=1 TO 1775:NEXT\n20 PRINT TIME$\n' > "$t/sec.bas"
+run --clock steps "$t/sec.bas"
+[ "$(cat "$t/out")" = "01/01/80 00:00:01" ] || fail "the steps clock goes on with the count" "$(cat "$t/out")"
+# the same on every run, at any speed
+a=$(TRS80_Z80= TRS80_DUMB=1 "$here/basic" --clock steps "$t/sec.bas" </dev/null 2>&1)
+b=$(TRS80_Z80= TRS80_DUMB=1 TRS80_MHZ=1.77 "$here/basic" --clock=steps "$t/sec.bas" </dev/null 2>&1)
+[ "$a" = "$b" ] || fail "the steps clock does not depend on the speed" "$a / $b"
+# host, the default: the host's clock (today's year, not 80)
+run --clock host "$t/clk.bas"
+y=$(date +%y)
+case $(cat "$t/out") in *"/$y "*) true ;; *) false ;; esac || fail "--clock host is the host's clock" "$(cat "$t/out")"
+out=$(TRS80_Z80= "$here/basic" --clock rom "$t/clk.bas" 2>&1 </dev/null); rc=$?
+[ "$rc" = "2" ] && case $out in "basic: --clock takes host or steps"*) true ;; *) false ;; esac || fail "--clock rom is a usage error (rc=$rc)" "$out"
 
 echo "OK -- --steps"

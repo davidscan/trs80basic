@@ -1000,7 +1000,7 @@ function sv_peek(a,   v) {
     if (a == 16539) return LPCOL % 256
     if (a >= 16449 && a <= 16454) {
         if (a in SVWRIT) return MEM[a]
-        v = strftime("%S %M %H %y %d %m")
+        v = clock_fmt("%S %M %H %y %d %m")   # as TIME$ reads it (p90)
         return substr(v, 3 * (a - 16449) + 1, 2) + 0
     }
     if (a == 16546) return CLN % 256

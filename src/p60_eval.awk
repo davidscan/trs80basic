@@ -353,7 +353,7 @@ function e_prim0(   t, s, v, key, sx, c0) {
         if (s == "ERR")    { CP++; return "NI" ERRV }
         if (s == "ERL")    { CP++; return "NS" ERLV }     # 24DFH-24E2H: the line number through 0C66H, a SINGLE (it can be 65535)
         if (s == "MEM")    { CP++; return "NS" mem_free() }           # 27C9H -> 27F2H: through 0C66H, a SINGLE (p75)
-        if (s == "TIME$")  { CP++; return "S" strftime("%m/%d/%y %H:%M:%S") }
+        if (s == "TIME$")  { CP++; return "S" clock_fmt("%m/%d/%y %H:%M:%S") }   # host clock, or --clock steps (p90)
         if (s == "INKEY$") { CP++; v = fn_inkey(); if (v != "S" && !st_alloc(1, 0)) return "NI0"; return v }   # a key is a 1-byte string (01B1H)
         # USR: ML stub, never a variable.  When the spelling carries no
         # slot digit, one may follow as its own token -- real Level II

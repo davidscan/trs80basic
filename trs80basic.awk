@@ -3282,7 +3282,7 @@ function prog_load_tok(data, verify, keepfiles, merge,   n, pos, nxt, ln, z, bod
 # interpreter lives in BEGIN and exits there.
 function parse_args(   i, a, nofl, host) {
     BATCH = 0; BATCHFILE = ""; OPT_BATCH = 0; OPT_SCREEN = 0; OPT_HELP = 0; OPT_VERSION = 0
-    SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; OPT_MEMORY = ""; OPT_STEPS = 0; OPT_STEPREP = ""; nofl = 0
+    SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; OPT_MEMORY = ""; OPT_STEPS = 0; OPT_STEPREP = ""; OPT_CLOCK = ""; nofl = 0
     for (i = 1; i < ARGC; i++) {
         a = ARGV[i]
         if (!nofl && a == "--") { nofl = 1; continue }
@@ -3376,6 +3376,22 @@ function parse_args(   i, a, nofl, host) {
             OPT_STEPREP = a
             continue
         }
+        # --clock host|steps (EXT): what TIME$ and the clock bytes 4041H-4046H
+        # read.  host (the default) is the host's clock.  steps is the
+        # machine's own time, from the statement count: it starts at
+        # 01/01/80 00:00:00 and goes on at 1,000 cycles a statement at
+        # 1.77408 MHz (CYCPERSTMT, p10: about 1,774 statements a second), so
+        # a program that times itself, or waits for the clock, does the same
+        # on every run (the corpus A/B; clock_fmt, p90).  Why it cannot
+        # break a period program: it is off unless given, and the time it
+        # gives is a time the machine could have shown.
+        if (!nofl && (a == "--clock" || a ~ /^--clock=/)) {
+            if (a == "--clock") a = (++i < ARGC) ? ARGV[i] : ""
+            else a = substr(a, 9)
+            if (a != "host" && a != "steps") { ARGMSG = "--clock takes host or steps"; return 0 }
+            OPT_CLOCK = (a == "steps") ? "steps" : ""
+            continue
+        }
         if (!nofl && a == "--screen") { OPT_SCREEN = 1; continue }
         if (!nofl && a == "--batch") { OPT_BATCH = 1; continue }
         # -h and --version are taken where they stand but the parse goes on:
@@ -3394,10 +3410,10 @@ function parse_args(   i, a, nofl, host) {
     # environment's host was let past both checks below)
     host = (OPT_MEMORY != "") ? (OPT_MEMORY == "host") : ("TRS80_MEMORY" in ENVIRON && ENVIRON["TRS80_MEMORY"] == "host")
     if (host && OPT_MEMSIZE) { ARGMSG = "--memory host and --memsize cannot be combined"; return 0 }
-    if ((OPT_STEPS || OPT_STEPREP != "") && !BATCH) { ARGMSG = "--steps and --steps-report need a program file"; return 0 }
-    if ((OPT_STEPS || OPT_STEPREP != "") && batch_is_cmd()) { ARGMSG = "--steps and --steps-report count BASIC statements: a /CMD file has none"; return 0 }
+    if ((OPT_STEPS || OPT_STEPREP != "" || OPT_CLOCK != "") && !BATCH) { ARGMSG = "--steps, --steps-report and --clock steps need a program file"; return 0 }
+    if ((OPT_STEPS || OPT_STEPREP != "" || OPT_CLOCK != "") && batch_is_cmd()) { ARGMSG = "--steps, --steps-report and --clock steps count BASIC statements: a /CMD file has none"; return 0 }
     if (!host && OPT_CLEAR > 32767) { ARGMSG = "--clear needs a byte count from 0 to 32767 (any count with --memory host)"; return 0 }
-    STEPCOUNT = (OPT_STEPS || OPT_STEPREP != "")   # the run loop counts statements (p70)
+    STEPCOUNT = (OPT_STEPS || OPT_STEPREP != "" || OPT_CLOCK != "")   # the run loop counts statements (p70)
     return 1
 }
 
@@ -3426,6 +3442,8 @@ function usage(dest,   t) {
         "  --steps N    stop the program after N statements (exit 3), so a\n" \
         "               run that never halts ends at the same place each time\n" \
         "  --steps-report FILE  write the number of statements run to FILE\n" \
+        "  --clock steps  TIME$ is the machine's time from the statement count,\n" \
+        "               from 01/01/80 00:00:00 (host, the default: the host's)\n" \
         "  --memory M   host: lift the machine's capacity limits for new code\n" \
         "               (64K, string space, 255-byte strings, subscripts to\n" \
         "               32767); rom (the default) keeps them\n" \
@@ -4301,7 +4319,7 @@ function e_prim0(   t, s, v, key, sx, c0) {
         if (s == "ERR")    { CP++; return "NI" ERRV }
         if (s == "ERL")    { CP++; return "NS" ERLV }     # 24DFH-24E2H: the line number through 0C66H, a SINGLE (it can be 65535)
         if (s == "MEM")    { CP++; return "NS" mem_free() }           # 27C9H -> 27F2H: through 0C66H, a SINGLE (p75)
-        if (s == "TIME$")  { CP++; return "S" strftime("%m/%d/%y %H:%M:%S") }
+        if (s == "TIME$")  { CP++; return "S" clock_fmt("%m/%d/%y %H:%M:%S") }   # host clock, or --clock steps (p90)
         if (s == "INKEY$") { CP++; v = fn_inkey(); if (v != "S" && !st_alloc(1, 0)) return "NI0"; return v }   # a key is a 1-byte string (01B1H)
         # USR: ML stub, never a variable.  When the spelling carries no
         # slot digit, one may follow as its own token -- real Level II
@@ -7019,7 +7037,7 @@ function sv_peek(a,   v) {
     if (a == 16539) return LPCOL % 256
     if (a >= 16449 && a <= 16454) {
         if (a in SVWRIT) return MEM[a]
-        v = strftime("%S %M %H %y %d %m")
+        v = clock_fmt("%S %M %H %y %d %m")   # as TIME$ reads it (p90)
         return substr(v, 3 * (a - 16449) + 1, 2) + 0
     }
     if (a == 16546) return CLN % 256
@@ -9192,7 +9210,7 @@ function gpoint(x, y,   p, b) {
 # BASIC"; TRS-80 Assembly Language (Prentice Hall, 1981) p.126: "DI ;SAME
 # AS CMD"T""; the Model III Disk System manual's CMD"T" and CMD"R").
 # There is no interrupt to switch here, so both do nothing and the program
-# goes on; TIME$ keeps reading the host clock either way.  352 corpus
+# goes on; TIME$ keeps reading its clock (the host's, or --clock steps) either way.  352 corpus
 # listings use CMD"T", most of them otherwise Level II, and in 294 T and R
 # are the only CMD forms (measured 2026-10-12).  Safe always on: on a
 # cassette machine CMD only ever errored, so the one program this changes is
@@ -11135,6 +11153,15 @@ function host_special(f) {
 # absolute path and closed by a program's END lost its PUT records to ?FD
 # (the 2026-09-30 audit).
 function host_typed() { return CK == "" || CK == "I" }
+# The clock TIME$ and the 4041H-4046H bytes read (EXT --clock, p45): the
+# host's, or under --clock steps the machine's own time, 01/01/80 00:00:00
+# (315532800, UTC) plus the statements run so far at CYCPERSTMT cycles each
+# and 1.77408 MHz.  STEPN counts from the batch RUN (p70, p45 batch_main).
+function clock_fmt(fmt) {
+    if (OPT_CLOCK == "steps") return strftime(fmt, 315532800 + int(STEPN * CYCPERSTMT / 1774080), 1)
+    return strftime(fmt)
+}
+
 function host_escape(f) {
     if (HOSTFREE || host_typed()) return 0
     if (f ~ /^[\/\\]/ || f ~ /^[A-Za-z]:[\/\\]/) return 1

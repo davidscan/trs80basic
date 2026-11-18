@@ -835,6 +835,15 @@ function host_special(f) {
 # absolute path and closed by a program's END lost its PUT records to ?FD
 # (the 2026-09-30 audit).
 function host_typed() { return CK == "" || CK == "I" }
+# The clock TIME$ and the 4041H-4046H bytes read (EXT --clock, p45): the
+# host's, or under --clock steps the machine's own time, 01/01/80 00:00:00
+# (315532800, UTC) plus the statements run so far at CYCPERSTMT cycles each
+# and 1.77408 MHz.  STEPN counts from the batch RUN (p70, p45 batch_main).
+function clock_fmt(fmt) {
+    if (OPT_CLOCK == "steps") return strftime(fmt, 315532800 + int(STEPN * CYCPERSTMT / 1774080), 1)
+    return strftime(fmt)
+}
+
 function host_escape(f) {
     if (HOSTFREE || host_typed()) return 0
     if (f ~ /^[\/\\]/ || f ~ /^[A-Za-z]:[\/\\]/) return 1

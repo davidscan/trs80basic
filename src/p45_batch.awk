@@ -19,7 +19,7 @@
 # interpreter lives in BEGIN and exits there.
 function parse_args(   i, a, nofl, host) {
     BATCH = 0; BATCHFILE = ""; OPT_BATCH = 0; OPT_SCREEN = 0; OPT_HELP = 0; OPT_VERSION = 0
-    SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; OPT_MEMORY = ""; OPT_STEPS = 0; OPT_STEPREP = ""; nofl = 0
+    SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; OPT_MEMORY = ""; OPT_STEPS = 0; OPT_STEPREP = ""; OPT_CLOCK = ""; nofl = 0
     for (i = 1; i < ARGC; i++) {
         a = ARGV[i]
         if (!nofl && a == "--") { nofl = 1; continue }
@@ -113,6 +113,22 @@ function parse_args(   i, a, nofl, host) {
             OPT_STEPREP = a
             continue
         }
+        # --clock host|steps (EXT): what TIME$ and the clock bytes 4041H-4046H
+        # read.  host (the default) is the host's clock.  steps is the
+        # machine's own time, from the statement count: it starts at
+        # 01/01/80 00:00:00 and goes on at 1,000 cycles a statement at
+        # 1.77408 MHz (CYCPERSTMT, p10: about 1,774 statements a second), so
+        # a program that times itself, or waits for the clock, does the same
+        # on every run (the corpus A/B; clock_fmt, p90).  Why it cannot
+        # break a period program: it is off unless given, and the time it
+        # gives is a time the machine could have shown.
+        if (!nofl && (a == "--clock" || a ~ /^--clock=/)) {
+            if (a == "--clock") a = (++i < ARGC) ? ARGV[i] : ""
+            else a = substr(a, 9)
+            if (a != "host" && a != "steps") { ARGMSG = "--clock takes host or steps"; return 0 }
+            OPT_CLOCK = (a == "steps") ? "steps" : ""
+            continue
+        }
         if (!nofl && a == "--screen") { OPT_SCREEN = 1; continue }
         if (!nofl && a == "--batch") { OPT_BATCH = 1; continue }
         # -h and --version are taken where they stand but the parse goes on:
@@ -131,10 +147,10 @@ function parse_args(   i, a, nofl, host) {
     # environment's host was let past both checks below)
     host = (OPT_MEMORY != "") ? (OPT_MEMORY == "host") : ("TRS80_MEMORY" in ENVIRON && ENVIRON["TRS80_MEMORY"] == "host")
     if (host && OPT_MEMSIZE) { ARGMSG = "--memory host and --memsize cannot be combined"; return 0 }
-    if ((OPT_STEPS || OPT_STEPREP != "") && !BATCH) { ARGMSG = "--steps and --steps-report need a program file"; return 0 }
-    if ((OPT_STEPS || OPT_STEPREP != "") && batch_is_cmd()) { ARGMSG = "--steps and --steps-report count BASIC statements: a /CMD file has none"; return 0 }
+    if ((OPT_STEPS || OPT_STEPREP != "" || OPT_CLOCK != "") && !BATCH) { ARGMSG = "--steps, --steps-report and --clock steps need a program file"; return 0 }
+    if ((OPT_STEPS || OPT_STEPREP != "" || OPT_CLOCK != "") && batch_is_cmd()) { ARGMSG = "--steps, --steps-report and --clock steps count BASIC statements: a /CMD file has none"; return 0 }
     if (!host && OPT_CLEAR > 32767) { ARGMSG = "--clear needs a byte count from 0 to 32767 (any count with --memory host)"; return 0 }
-    STEPCOUNT = (OPT_STEPS || OPT_STEPREP != "")   # the run loop counts statements (p70)
+    STEPCOUNT = (OPT_STEPS || OPT_STEPREP != "" || OPT_CLOCK != "")   # the run loop counts statements (p70)
     return 1
 }
 
@@ -163,6 +179,8 @@ function usage(dest,   t) {
         "  --steps N    stop the program after N statements (exit 3), so a\n" \
         "               run that never halts ends at the same place each time\n" \
         "  --steps-report FILE  write the number of statements run to FILE\n" \
+        "  --clock steps  TIME$ is the machine's time from the statement count,\n" \
+        "               from 01/01/80 00:00:00 (host, the default: the host's)\n" \
         "  --memory M   host: lift the machine's capacity limits for new code\n" \
         "               (64K, string space, 255-byte strings, subscripts to\n" \
         "               32767); rom (the default) keeps them\n" \

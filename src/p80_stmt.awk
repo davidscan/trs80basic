@@ -1180,7 +1180,7 @@ function gpoint(x, y,   p, b) {
 # BASIC"; TRS-80 Assembly Language (Prentice Hall, 1981) p.126: "DI ;SAME
 # AS CMD"T""; the Model III Disk System manual's CMD"T" and CMD"R").
 # There is no interrupt to switch here, so both do nothing and the program
-# goes on; TIME$ keeps reading the host clock either way.  352 corpus
+# goes on; TIME$ keeps reading its clock (the host's, or --clock steps) either way.  352 corpus
 # listings use CMD"T", most of them otherwise Level II, and in 294 T and R
 # are the only CMD forms (measured 2026-10-12).  Safe always on: on a
 # cassette machine CMD only ever errored, so the one program this changes is

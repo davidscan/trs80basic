@@ -243,6 +243,7 @@ printf '5\n10\n' | ./basic prog.bas   # stdin answers the INPUTs
 ./basic --memory host prog.bas     # new code: no 64K, string space, 255-byte or 32767 limits (man memory)
 ./basic --steps 200000 prog.bas    # stop after 200,000 statements (exit 3): an endless run ends at the same place each time
 ./basic --steps-report n.txt prog.bas   # write how many statements the run took to n.txt
+./basic --clock steps prog.bas     # TIME$ from the statement count, from 01/01/80 00:00:00: the same every run
 ./basic --version              # the release (e.g. v2.3.0) and, in a checkout, the exact build
 ```
 
