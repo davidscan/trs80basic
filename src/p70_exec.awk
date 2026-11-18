@@ -76,6 +76,7 @@ function execloop(   ty, tx) {
             DACC += THROTTLE_D
             if (DACC >= THR_SLICE) thr_wait()
         }
+        if (STEPCOUNT && ++STEPN > OPT_STEPS && OPT_STEPS) { step_limit(); return }   # EXT --steps (p45)
         PLACED = 0
         # the statement IF dispatches behind THEN or ELSE (2053H -> 1D5FH)
         # skips the driver's 1D25H, so 40E6H still names the IF statement:
@@ -148,6 +149,29 @@ function dobreak() {
     }
     STOPPED = 1
     kb_flush()
+}
+
+# EXT --steps N (p45): the statement about to run is the first past the
+# limit.  The run stops as BREAK stops it -- the message on stderr, CONT
+# set to this statement -- and batch exits 3 (STEPHIT).  The count covers
+# every statement dispatched (behind THEN and ELSE too), the typed RUN
+# among them, so a limit names a fixed point in any run.
+# The count STEPN runs while STEPCOUNT (either option) is on, and a stopped
+# run's count is N: the statement that was not run is taken back.
+function step_limit() {
+    SK = CK; SLI = CLI
+    SCP = CP
+    diag("STEP LIMIT" inln(CLN))
+    if (CK != "I") { CONT_K = SK; CONT_LI = SLI; CONT_P = SCP; CONTOK = 1 }
+    STOPPED = 1; STEPHIT = 1; STEPN--
+}
+
+# EXT --steps-report FILE (p45): the run's statement count, one line, fresh.
+# The name was probed with host_canwrite before the run (batch_main).
+function step_report() {
+    if (OPT_STEPREP == "") return
+    printf "%d\n", STEPN > OPT_STEPREP
+    close(OPT_STEPREP)
 }
 
 # ---- statement dispatch ----------------------------------------------------

@@ -241,12 +241,14 @@ printf '5\n10\n' | ./basic prog.bas   # stdin answers the INPUTs
 ./basic --clear 1000 prog.bas  # CLEAR 1000 typed before RUN, as on the machine
 ./basic --memsize 32767 prog.bas   # a 16K machine, for a listing that needs one
 ./basic --memory host prog.bas     # new code: no 64K, string space, 255-byte or 32767 limits (man memory)
+./basic --steps 200000 prog.bas    # stop after 200,000 statements (exit 3): an endless run ends at the same place each time
+./basic --steps-report n.txt prog.bas   # write how many statements the run took to n.txt
 ./basic --version              # the release (e.g. v2.3.0) and, in a checkout, the exact build
 ```
 
 Exit status: **0** clean, **1** uncaught BASIC error (also on stderr in the
 classic `?SN ERROR IN 40` form), **2** bad invocation, or a load that
-reported an invalid line. Output is a plain
+reported an invalid line, **3** the `--steps` limit stopped the run. Output is a plain
 text transcript (`--screen` keeps the cursor codes; graphics are not
 rendered in batch). Running out of stdin at an `INPUT` stops the run with
 `?BATCH: END OF INPUT AT LINE n` and exit 1 (it is not a BASIC error:

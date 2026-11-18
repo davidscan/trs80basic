@@ -3265,20 +3265,24 @@ function prog_load_tok(data, verify, keepfiles, merge,   n, pos, nxt, ln, z, bod
 # With a filename argument the interpreter LOADs and RUNs the program, then
 # exits.  stdin belongs entirely to the running program (INPUT/LINE INPUT/
 # INKEY$ consume it in order); interpreter messages go to stderr so stdout
-# carries only what the program PRINTs.  No timeout guard is built in --
-# wrap the invocation in the shell's `timeout` if a program may not halt.
+# carries only what the program PRINTs.  No wall-clock guard is built in:
+# bound a program that may not halt with --steps N (a statement count, the
+# same stop on every run) or the shell's `timeout`.
 #
 # Exit status:  0 clean halt (END, STOP, BYE/EXIT, or falling off the end)
 #               1 uncaught BASIC error, or stdin exhausted at an INPUT
 #               2 bad arguments, unreadable file, or a source line the
 #                 loader skipped (?FD ERROR - FILE LINE n): it does not run
+#               3 the --steps limit stopped the run (STEP LIMIT IN n)
+# --steps-report FILE writes the run's statement count there, whatever
+# the exit (p70 step_report).
 
 # parse ARGV; returns 0 on a usage error.  Sets BATCH/BATCHFILE, OPT_BATCH, OPT_SCREEN,
 # SEEDED/OPT_SEED, OPT_MEMSIZE, OPT_CLEAR, OPT_MEMORY, OPT_HELP, OPT_VERSION.  gawk never reads the operands itself: the whole
 # interpreter lives in BEGIN and exits there.
 function parse_args(   i, a, nofl, host) {
     BATCH = 0; BATCHFILE = ""; OPT_BATCH = 0; OPT_SCREEN = 0; OPT_HELP = 0; OPT_VERSION = 0
-    SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; OPT_MEMORY = ""; nofl = 0
+    SEEDED = 0; OPT_SEED = 0; OPT_MEMSIZE = 0; OPT_CLEAR = -1; OPT_MEMORY = ""; OPT_STEPS = 0; OPT_STEPREP = ""; nofl = 0
     for (i = 1; i < ARGC; i++) {
         a = ARGV[i]
         if (!nofl && a == "--") { nofl = 1; continue }
@@ -3343,6 +3347,35 @@ function parse_args(   i, a, nofl, host) {
             OPT_MEMORY = a
             continue
         }
+        # --steps N (EXT): stop a program file's run after N BASIC
+        # statements, with STEP LIMIT IN n on stderr and exit 3 (p70
+        # step_limit).  A run that never halts then ends at the same
+        # statement every time, whatever the machine's speed, load or
+        # clock, so its output can be compared run to run (the corpus A/B);
+        # a wall-clock timeout cuts it at a different place each time.
+        # Why it cannot break a period program: it is off unless given, it
+        # only counts, and no program can read the count or the option.
+        if (!nofl && (a == "--steps" || a ~ /^--steps=/)) {
+            if (a == "--steps") a = (++i < ARGC) ? ARGV[i] : ""
+            else a = substr(a, 9)
+            if (a !~ /^[0-9]+$/ || a + 0 < 1) { ARGMSG = "--steps needs a statement count of 1 or more"; return 0 }
+            OPT_STEPS = a + 0
+            continue
+        }
+        # --steps-report FILE (EXT): the number of statements the run took,
+        # one line, written fresh to FILE when the run ends (any exit:
+        # clean, error, end of input, the --steps limit).  It is the corpus
+        # A/B's measure of a run's PATH: a change that sends a program
+        # another way and prints the same text moves the count.  The
+        # program's own output is not touched; FILE is the typist's name,
+        # probed before the run (host_canwrite), never one a program chose.
+        if (!nofl && (a == "--steps-report" || a ~ /^--steps-report=/)) {
+            if (a == "--steps-report") a = (++i < ARGC) ? ARGV[i] : ""
+            else a = substr(a, 16)
+            if (a == "") { ARGMSG = "--steps-report needs a file name"; return 0 }
+            OPT_STEPREP = a
+            continue
+        }
         if (!nofl && a == "--screen") { OPT_SCREEN = 1; continue }
         if (!nofl && a == "--batch") { OPT_BATCH = 1; continue }
         # -h and --version are taken where they stand but the parse goes on:
@@ -3361,7 +3394,10 @@ function parse_args(   i, a, nofl, host) {
     # environment's host was let past both checks below)
     host = (OPT_MEMORY != "") ? (OPT_MEMORY == "host") : ("TRS80_MEMORY" in ENVIRON && ENVIRON["TRS80_MEMORY"] == "host")
     if (host && OPT_MEMSIZE) { ARGMSG = "--memory host and --memsize cannot be combined"; return 0 }
+    if ((OPT_STEPS || OPT_STEPREP != "") && !BATCH) { ARGMSG = "--steps and --steps-report need a program file"; return 0 }
+    if ((OPT_STEPS || OPT_STEPREP != "") && batch_is_cmd()) { ARGMSG = "--steps and --steps-report count BASIC statements: a /CMD file has none"; return 0 }
     if (!host && OPT_CLEAR > 32767) { ARGMSG = "--clear needs a byte count from 0 to 32767 (any count with --memory host)"; return 0 }
+    STEPCOUNT = (OPT_STEPS || OPT_STEPREP != "")   # the run loop counts statements (p70)
     return 1
 }
 
@@ -3387,6 +3423,9 @@ function usage(dest,   t) {
         "               16K machine, for programs that only ran on one\n" \
         "  --clear N    type CLEAR N before RUN: string space is 50 bytes\n" \
         "               until then, and a listing that assumed it stops ?OS\n" \
+        "  --steps N    stop the program after N statements (exit 3), so a\n" \
+        "               run that never halts ends at the same place each time\n" \
+        "  --steps-report FILE  write the number of statements run to FILE\n" \
         "  --memory M   host: lift the machine's capacity limits for new code\n" \
         "               (64K, string space, 255-byte strings, subscripts to\n" \
         "               32767); rom (the default) keeps them\n" \
@@ -3398,10 +3437,11 @@ function usage(dest,   t) {
         "  --           end of options\n" \
         "\n" \
         "Exit status: 0 clean run, 1 BASIC runtime error, 2 bad invocation,\n" \
-        "an unreadable file, or a source line the loader skipped (?FD).\n" \
+        "an unreadable file, or a source line the loader skipped (?FD),\n" \
+        "3 the --steps limit stopped it.\n" \
         "stdin feeds the program's own INPUT statements; BASIC errors go to\n" \
-        "stderr as \"?SN ERROR IN 40\".  Use the shell's `timeout` to bound a\n" \
-        "program that may not halt."
+        "stderr as \"?SN ERROR IN 40\".  Use --steps N, or the shell's\n" \
+        "`timeout`, to bound a program that may not halt."
     if (dest == "") { printf "%s\n", t; return }
     if (ARGMSG != "") printf "basic: %s\n", ARGMSG > "/dev/stderr"
     printf "%s\n", t > "/dev/stderr"
@@ -3432,8 +3472,16 @@ function batch_main() {
             return 2
         }
     }
+    # host_canwrite, not host_writable: the probe must not create the file,
+    # or a program that looks at its directory would see it appear
+    if (OPT_STEPREP != "" && !host_canwrite(OPT_STEPREP)) {
+        diag_err("basic: --steps-report: cannot write '" OPT_STEPREP "'")
+        return 2
+    }
+    STEPN = 0                               # the run's own statements, from its RUN
     exec_immediate("RUN")                   # the same path as typing RUN
-    return (BATCHERR ? 1 : 0)
+    step_report()
+    return (STEPHIT ? 3 : BATCHERR ? 1 : 0)
 }
 
 # EXT: `basic game.cmd` is SYSTEM, the file's name, then `/`: the load
@@ -4991,6 +5039,7 @@ function execloop(   ty, tx) {
             DACC += THROTTLE_D
             if (DACC >= THR_SLICE) thr_wait()
         }
+        if (STEPCOUNT && ++STEPN > OPT_STEPS && OPT_STEPS) { step_limit(); return }   # EXT --steps (p45)
         PLACED = 0
         # the statement IF dispatches behind THEN or ELSE (2053H -> 1D5FH)
         # skips the driver's 1D25H, so 40E6H still names the IF statement:
@@ -5063,6 +5112,29 @@ function dobreak() {
     }
     STOPPED = 1
     kb_flush()
+}
+
+# EXT --steps N (p45): the statement about to run is the first past the
+# limit.  The run stops as BREAK stops it -- the message on stderr, CONT
+# set to this statement -- and batch exits 3 (STEPHIT).  The count covers
+# every statement dispatched (behind THEN and ELSE too), the typed RUN
+# among them, so a limit names a fixed point in any run.
+# The count STEPN runs while STEPCOUNT (either option) is on, and a stopped
+# run's count is N: the statement that was not run is taken back.
+function step_limit() {
+    SK = CK; SLI = CLI
+    SCP = CP
+    diag("STEP LIMIT" inln(CLN))
+    if (CK != "I") { CONT_K = SK; CONT_LI = SLI; CONT_P = SCP; CONTOK = 1 }
+    STOPPED = 1; STEPHIT = 1; STEPN--
+}
+
+# EXT --steps-report FILE (p45): the run's statement count, one line, fresh.
+# The name was probed with host_canwrite before the run (batch_main).
+function step_report() {
+    if (OPT_STEPREP == "") return
+    printf "%d\n", STEPN > OPT_STEPREP
+    close(OPT_STEPREP)
 }
 
 # ---- statement dispatch ----------------------------------------------------

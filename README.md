@@ -143,6 +143,8 @@ own, only what the program or your settings name (see Undo / recovery). Whatever
 | `--memsize N` | 65535 | answers `MEM SIZE?` with N (17280-65535), in batch and at the prompt; cannot be combined with `--memory host` | a program that only ran on a 16K machine: it POKEs an address byte it made signed (`IF H>127 THEN H=H-256`), which is `?FC` above 32767 on the hardware too; `--memsize 32767` is that machine |
 | `--clear N` | none (string space stays 50 bytes) | types `CLEAR N` before `RUN` (after LOAD in batch, at the first `READY` at the prompt); N is 0-32767, or any count with `--memory host` | a listing that stops with `?OS ERROR`: it was written for a machine where `CLEAR 1000` had been typed before `RUN`, outside the listing. The program's own `CLEAR n` still wins, and `FRE("")` reports the space |
 | `--memory host` | `rom` (the machine) | EXT: lifts the machine's capacity limits at once: the 64K behind `MEM`/`?OM`, `CLEAR n` string space (`?OS`), the 255-character string and its counts (`?LS`), subscripts, `DIM` bounds and `CLEAR` counts past 32767, the 255-byte `INPUT#` cut and the 240-byte piped line; and every character of a variable name counts (`SUM` and `SU` are two variables, where the machine folds them into one). `PEEK`, `POKE`, `VARPTR` and `USR` keep the 64K machine. Also `TRS80_MEMORY=host`, the `memory` metacommand, or `REM META: memory host` under `ext on` | new code written for this interpreter rather than for the machine: a program whose tables or prose would never fit a TRS-80 |
+| `--steps N` | none (no limit) | EXT: stops the program file's run after N BASIC statements (every one dispatched, the typed `RUN` and a statement behind `THEN` or `ELSE` included), with `STEP LIMIT IN n` on stderr and exit 3. The run ends at the same statement every time, whatever the machine's speed or load; no program can see the count | comparing the output of a program that never halts (a demo, an attract loop) from run to run, where a wall-clock `timeout` cuts it at a different place each time |
+| `--steps-report FILE` | none | EXT: when the run ends (any exit), writes the number of statements it ran to FILE, one line, written fresh; with `--steps` the count stops at N. The program's output is untouched; FILE is checked before the run, and one that cannot be written is exit 2 | measuring a run's path: a change that sends a program another way and prints the same text moves the count |
 | `--batch` | off | run the file as a batch run even at a terminal | a test or a transcript taken at a terminal |
 | `--screen` | off | keep the TRS-80 cursor/screen control codes in batch output | capturing what the 64x16 screen looked like rather than a text transcript |
 | `--` | | end of options | a program file whose name starts with `-` |
@@ -152,7 +154,7 @@ own, only what the program or your settings name (see Undo / recovery). Whatever
 Exit status: **0** clean run, **1** uncaught BASIC error (also printed to
 stderr as `?SN ERROR IN 40`), **2** bad invocation, an unreadable file, or
 a source line the loader skipped (`?FD ERROR - FILE LINE n`): the program
-does not run.
+does not run, **3** the `--steps` limit stopped the run.
 Behind two of those errors batch mode adds one `basic:` line on stderr:
 `?OS` with string space never `CLEAR`ed names `--clear`, and `?OV` at a
 `CLEAR MEM-n` on the 64K map names `--memsize 32767`; and behind a limit
