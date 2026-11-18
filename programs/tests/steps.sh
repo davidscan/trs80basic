@@ -105,4 +105,34 @@ case $(cat "$t/out") in *"/$y "*) true ;; *) false ;; esac || fail "--clock host
 out=$(TRS80_Z80= "$here/basic" --clock rom "$t/clk.bas" 2>&1 </dev/null); rc=$?
 [ "$rc" = "2" ] && case $out in "basic: --clock takes host or steps"*) true ;; *) false ;; esac || fail "--clock rom is a usage error (rc=$rc)" "$out"
 
+# a USR routine's time counts (p77 z80_steps): the core's T-states at
+# 1,000 a statement.  Needs the real core; without it this part is skipped.
+core="python3 $here/../trs80_z80_core/core.py"
+if [ -f "$here/../trs80_z80_core/core.py" ]; then
+    crun() { TRS80_Z80="$core" TRS80_DUMB=1 "$here/basic" "$@" </dev/null 2>"$t/err" >"$t/out"; }
+    # JR $ never returns: the limit stops it inside the call, at the USR's line
+    printf '10 POKE 32100,24:POKE 32101,254
+20 DEFUSR=32100
+30 X=USR(0)
+40 PRINT "AFTER"
+' > "$t/spin.bas"
+    crun --steps 2000 --steps-report "$t/rs" "$t/spin.bas"; rc=$?
+    [ "$rc" = "3" ] && [ "$(cat "$t/err")" = "STEP LIMIT IN 30" ] && [ "$(cat "$t/rs")" = "2000" ] && [ ! -s "$t/out" ] \
+        || fail "a USR routine that never returns stops at the limit (rc=$rc)" "$(cat "$t/out" "$t/err" "$t/rs")"
+    a=$(cat "$t/err" "$t/rs"); crun --steps 2000 --steps-report "$t/rs" "$t/spin.bas"
+    [ "$a" = "$(cat "$t/err" "$t/rs")" ] || fail "the USR stop is the same every run" "$a"
+    # a delay loop of about 857,000 T-states, called three times: about
+    # 2,570 statements of the core's, so TIME$ has gone on a second
+    printf '10 FOR I=0 TO 9:READ B:POKE 32000+I,B:NEXT:DEFUSR=32000
+20 DATA 14,0,6,0,16,254,13,32,249,201
+30 X=USR(0):X=USR(0):X=USR(0)
+40 PRINT TIME$
+' > "$t/delay.bas"
+    crun --clock steps --steps-report "$t/rd" "$t/delay.bas"; rc=$?
+    [ "$rc" = "0" ] && [ "$(cat "$t/out")" = "01/01/80 00:00:01" ] && [ "$(cat "$t/rd")" -gt 2500 ] \
+        || fail "a USR routine's cycles move the steps clock and the count (rc=$rc)" "$(cat "$t/out" "$t/err" "$t/rd")"
+else
+    echo "STEPS: core part SKIPPED: no core at $here/../trs80_z80_core/core.py"
+fi
+
 echo "OK -- --steps"

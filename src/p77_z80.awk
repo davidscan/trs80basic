@@ -398,9 +398,21 @@ function z80_sendframe(   i, nb, wd) {
     if (wd != "") { print "" | wd; if (close(wd) != 0) Z80WTO = 1 }
 }
 
+# EXT --steps / --steps-report / --clock steps (p45): `n` more T-states of
+# the core's, as statements at CYCPERSTMT cycles each (the rate --clock
+# steps turns into time, p90), the remainder carried in ZCYC.  ZTICKED is
+# what this call's ticks have counted, so the RET's `cycles` adds only the
+# rest.  1 when the run is now past the --steps limit.
+function z80_steps(n) {
+    if (n <= 0) return 0
+    ZTICKED += n; ZCYC += n
+    STEPN += int(ZCYC / CYCPERSTMT); ZCYC %= CYCPERSTMT
+    return OPT_STEPS && STEPN > OPT_STEPS
+}
+
 # the message loop for one call
 function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
-    vid = 0; early = 0
+    vid = 0; early = 0; ZTICKED = 0; ZSTEPBRK = 0
     for (;;) {
         if (!z80_recv()) {
             # a core that exited between calls is met on the write or on
@@ -413,6 +425,11 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
         if (Z80LINE ~ /^V /) { z80_apply(substr(Z80LINE, 3), 1); vid = 1; continue }
         if (Z80LINE ~ /^K /) { z80_send("K " kb_matrix(substr(Z80LINE, 3) + 0)); continue }
         if (Z80LINE ~ /^T /) {                # BREAK poll; the tty itself on every tick (p30 kb_fill_tty)
+            # EXT --steps (p45): the core's T-states are statements too,
+            # so a routine that never returns stops at the same count on
+            # every run, whatever the host's load; the limit is a BREAK
+            # the core already knows how to take
+            if (STEPCOUNT && z80_steps(substr(Z80LINE, 3) + 0)) { ZSTEPBRK = 1; z80_send("BREAK"); continue }
             z80_send(pollbrk() ? "BREAK" : "OK"); continue
         }
         if (Z80LINE ~ /^MODE /) { s_setwide(substr(Z80LINE, 6) + 0); continue }
@@ -427,6 +444,7 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
             hl = z80_field("hl") + 0; res = z80_field("result") + 0
             brk = z80_field("break") + 0; k = z80_field("writes") + 0
             rdy = z80_field("ready") + 0         # read now: the W lines replace Z80LINE
+            if (STEPCOUNT) z80_steps(z80_field("cycles") - ZTICKED)   # the call's last partial tick
             hl = ((hl % 65536) + 65536) % 65536  # a reply outside 16 bits is garbage: wrapped, as the register would
             Z80HL = hl                           # HL at the return, unsigned: where a NAME routine left the text pointer (st_name)
             # result=1: the routine went through 0A9AH, whose stores are HL
@@ -443,7 +461,8 @@ function z80_run(x,   hl, res, k, brk, i, vid, early, rdy) {
                 z80_apply(substr(Z80LINE, 3), 0)
             }
             if (vid) sync_cursor()
-            if (brk) dobreak()                    # BREAK IN n; CONT resumes the statement
+            if (brk && ZSTEPBRK) step_limit_usr() # STEP LIMIT IN n, exit 3 (p70)
+            else if (brk) dobreak()               # BREAK IN n; CONT resumes the statement
             # ready=1: the routine left through the ROM's READY entry
             # (JP 1A19H), so the program is over -- the machine is at the
             # prompt.  It used to carry on with the next statement, as

@@ -276,7 +276,11 @@ would) and `stmt=<hl>,<a>,<f>`:
     write-set, so the value does not depend on the peer sending them.
     `result=0` means the routine never went through 0A9AH; `hl` is then
     HL at the sentinel.
-*   `cycles` is the total T-states for the call (diagnostic).
+*   `cycles` is the total T-states for the call.  The interpreter's
+    `--steps`, `--steps-report` and `--clock steps` count it (and the
+    ticks' T-states while the call runs) at 1,000 a statement, and send
+    `BREAK` at a tick past the `--steps` limit; an interpreter without
+    those options ignores it.
 *   `break=1` means the call was cut short by BREAK; the interpreter
     reports `BREAK` at the current line after applying the write-set.
     `CONT` then resumes that statement, so the `USR` call is issued

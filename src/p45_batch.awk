@@ -178,6 +178,7 @@ function usage(dest,   t) {
         "               until then, and a listing that assumed it stops ?OS\n" \
         "  --steps N    stop the program after N statements (exit 3), so a\n" \
         "               run that never halts ends at the same place each time\n" \
+        "               (a USR routine counts 1 statement per 1,000 cycles)\n" \
         "  --steps-report FILE  write the number of statements run to FILE\n" \
         "  --clock steps  TIME$ is the machine's time from the statement count,\n" \
         "               from 01/01/80 00:00:00 (host, the default: the host's)\n" \
@@ -233,7 +234,7 @@ function batch_main() {
         diag_err("basic: --steps-report: cannot write '" OPT_STEPREP "'")
         return 2
     }
-    STEPN = 0                               # the run's own statements, from its RUN
+    STEPN = 0; ZCYC = 0                     # the run's own statements, from its RUN (and USR's cycles, p77)
     exec_immediate("RUN")                   # the same path as typing RUN
     step_report()
     return (STEPHIT ? 3 : BATCHERR ? 1 : 0)

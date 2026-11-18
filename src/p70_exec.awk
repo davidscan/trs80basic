@@ -166,6 +166,17 @@ function step_limit() {
     STOPPED = 1; STEPHIT = 1; STEPN--
 }
 
+# ... and the same stop when the limit falls inside a USR routine: the
+# core's T-states count too (z80_steps, p77), and the limit is sent to it
+# as BREAK.  CONT resumes the statement, so the call is issued again, as
+# after BREAK (PROTOCOL.md); the count is N.
+function step_limit_usr() {
+    diag("STEP LIMIT" inln(CLN))
+    if (CK != "I") { CONT_K = SK; CONT_LI = SLI; CONT_P = SCP; CONTOK = 1 }
+    STOPPED = 1; STEPHIT = 1; STEPN = OPT_STEPS
+    kb_flush()
+}
+
 # EXT --steps-report FILE (p45): the run's statement count, one line, fresh.
 # The name was probed with host_canwrite before the run (batch_main).
 function step_report() {
