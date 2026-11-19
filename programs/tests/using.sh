@@ -39,5 +39,23 @@ ERR 5 IN 40
 END"
 [ "$out" = "$want" ] || fail "PRINT USING" "$out"
 
+# string fields: "%  %" is as wide as its two % and the spaces between,
+# cutting or padding the string, and is reused for each item; "!" takes
+# the first character; text around a field prints as it stands; "%%" is
+# a two-character field; a field left over once the items run out ends
+# the line before it, and "!" is reused for every item (the 2026-11-18 coverage measurement found the
+# % field run only by the corpus)
+cat > "$tmp" <<'BAS'
+10 PRINT USING "%  %";"ABCDEF";"XY"
+20 PRINT USING "!";"ZEBRA"
+30 PRINT USING "A%  %B";"PQRS"
+40 PRINT USING "%%";"HI"
+50 PRINT USING "##  %  %";5
+60 PRINT USING "!";"A";"B"
+BAS
+out=$(run)
+want=$(printf 'ABCDXY  \nZ\nAPQRSB\nHI\n 5  \nAB')
+[ "$out" = "$want" ] || fail "PRINT USING string fields" "$out"
+
 rm -f "$tmp"
 echo "USING OK"
