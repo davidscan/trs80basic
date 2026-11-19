@@ -10,7 +10,9 @@
 #   END, STOP and RETURN refuse a byte of their own (1DAEH, 1DA9H and
 #     1EDEH each open with RET NZ, back to the driver's test);
 #   RETURN skips the rest of the GOSUB statement (1F03H-1F05H: the DATA
-#     scan to ":" or 00), so GOSUB 100 X is fine and X never runs;
+#     scan to ":" or 00), so GOSUB 100 X is fine and X never runs; under
+#     THEN GOSUB 100 ELSE the scan stops at the ":" the cruncher puts
+#     before ELSE, and the ELSE skips the rest of the line;
 #   GOTO, THEN n, ELSE n and ON n GOTO leave the line (1ED8H), so a byte
 #     behind the line number is never seen;
 #   THEN's statement is dispatched straight from IF (2053H -> 1D5FH);
@@ -87,6 +89,9 @@ check "GOSUB 100 RETURN: the RETURN is skipped, not run" \
 check "ON n GOSUB list X: RETURN skips to the statement's end" \
     "$(run '10 ON 2 GOSUB 100,200 X=5:PRINT X\n20 END\n100 PRINT "ONE":RETURN\n200 PRINT "TWO":RETURN\n')" \
     'TWO  0  '
+check "THEN GOSUB 100 ELSE: RETURN stops at the ELSE, which skips the rest of the line" \
+    "$(run '10 IF 1 THEN GOSUB 100 ELSE PRINT "N":PRINT "M"\n20 PRINT "DONE":END\n100 PRINT "SUB":RETURN\n')" \
+    'SUB DONE '
 check "GOTO 100 X leaves the line" \
     "$(run '10 GOTO 100 X\n20 PRINT "NO"\n100 PRINT "OK"\n')" \
     'OK '
@@ -119,6 +124,10 @@ check "NEXT J,I, DEF FN with a body, ON ERROR GOTO 0, STEP" \
 check "FIELD ... AS, PRINT#, INPUT#, CLOSE, KILL keep their tails" \
     "$(run '10 F$="'"${tmp##*/}"'.dat"\n20 OPEN "O",1,F$:PRINT#1,"HELLO":CLOSE 1\n30 OPEN "I",1,F$:INPUT#1,A$:CLOSE 1:PRINT A$;\n40 OPEN "R",1,F$:FIELD 1,4 AS B$:LSET B$="XY":PUT 1,1:GET 1,1:PRINT B$;:CLOSE 1\n50 KILL F$\n')" \
     'HELLOXY  '
+rm -f "$tmp.dat"
+check "PRINT#'s list ends at ELSE, as PRINT's does" \
+    "$(run '10 F$="'"${tmp##*/}"'.dat":OPEN "O",1,F$:IF 1 THEN PRINT#1,"A" ELSE PRINT "N":PRINT "M"\n20 CLOSE 1:OPEN "I",1,F$:LINE INPUT#1,A$:CLOSE 1:KILL F$:PRINT A$\n')" \
+    'A '
 rm -f "$tmp.dat"
 check "REM, the apostrophe and DATA own their lines" \
     "$(run '10 REM X=1END\n20 DATA 1 2 3:READ A$:PRINT A$;\n30 PRINT "OK" '"'"' Z=1END\n')" \

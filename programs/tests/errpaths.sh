@@ -27,6 +27,7 @@ check 'a function name without ('      'PRINT LEN "A"'               2  SN
 # expressions
 check 'a string compared with a number' 'A$="X":IF A$=1 THEN PRINT "Y"' 13 TM
 check 'a ; between subscripts'         'DIM A(5):PRINT A(1;2)'        2  SN
+check 'an error inside a subscript'    'DIM A(5):PRINT A(1/0)'        11 /0
 # statements
 check 'CLEAR of a string'              'CLEAR "A"'                   13 TM
 check 'DIM of a number'                'DIM 5'                        2  SN
@@ -40,5 +41,11 @@ out=$( (cd "${tmp%/*}" && TRS80_Z80= "$here/basic" "$tmp") 2>/dev/null </dev/nul
 [ "$out" = "rc=1" ] || fail 'CLEAR 10 then a 20-byte string: ?OS, untrapped (CLEAR resets ON ERROR)' "$out"
 err=$( (cd "${tmp%/*}" && TRS80_Z80= "$here/basic" "$tmp") 2>&1 >/dev/null </dev/null | head -1)
 [ "$err" = "?OS ERROR IN 20" ] || fail 'the ?OS names line 20' "$err"
+
+# an error inside a subscript stops the array access before the array is
+# made: B(1/0) leaves no auto-DIMmed B behind, so DIM B(5) is not ?DD
+printf '10 ON ERROR GOTO 900\n20 PRINT B(1/0)\n30 DIM B(5):PRINT "DIM OK"\n40 END\n900 PRINT "E";ERR/2+1;ERL:IF ERL=20 THEN RESUME 30 ELSE END\n' > "$tmp"
+out=$( (cd "${tmp%/*}" && TRS80_Z80= "$here/basic" "$tmp") 2>&1 </dev/null | tr '\n' '|')
+[ "$out" = "E 11  20 |DIM OK|" ] || fail 'B(1/0) is ?/0 and creates no array' "$out"
 
 echo "ERRPATHS OK"
