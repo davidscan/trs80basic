@@ -244,7 +244,7 @@ printf '5\n10\n' | ./basic prog.bas   # stdin answers the INPUTs
 ./basic --steps 200000 prog.bas    # stop after 200,000 statements (exit 3): an endless run ends at the same place each time
 ./basic --steps-report n.txt prog.bas   # write how many statements the run took to n.txt
 ./basic --clock steps prog.bas     # TIME$ from the statement count, from 01/01/80 00:00:00: the same every run
-./basic --version              # the release (e.g. v2.3.0) and, in a checkout, the exact build
+./basic --version              # the release (e.g. v2.4.0) and, in a checkout, the exact build
 ```
 
 Exit status: **0** clean, **1** uncaught BASIC error (also on stderr in the
@@ -2914,14 +2914,14 @@ ext            report the current state
 
 ```text
 version   the interpreter's release, and the exact build in a checkout
-  Prints "trs80basic v2.3.0", and behind it "(build v2.3.0-3-gabcdef0)" when
+  Prints "trs80basic v2.4.0", and behind it "(build v2.4.0-3-gabcdef0)" when
   the launcher found a git checkout more than the tag: the number of
   commits past it and the hash, "-dirty" with uncommitted edits.
   `./basic --version` prints the same line from the shell.  A release
   is an annotated tag on the public repository; the number is bumped in
   the commit that carries the tag.
   Metacommand: lowercase only.
-  Example: version            -> trs80basic v2.3.0
+  Example: version            -> trs80basic v2.4.0
 ```
 
 #### memory
